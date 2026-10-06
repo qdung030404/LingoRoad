@@ -127,6 +127,7 @@ LingoRoad/
 │   ├── Development Conventions.md    # Quy chuẩn coding & tiêu chuẩn chất lượng
 │   └── README.md                     # Mục lục tài liệu tổng quan
 ├── run_mobile.ps1            # Script tự động quét LAN IP, config & khởi chạy Mobile
+├── package.json              # Cấu hình Monorepo Workspaces & Root Custom Scripts
 └── README.md                 # Tài liệu giới thiệu dự án (File này)
 ```
 
@@ -170,59 +171,66 @@ LingoRoad/
 
 ---
 
-### 1. Khởi chạy Hạ tầng Cơ sở Dữ liệu (Database & Redis)
+### 🚀 Khởi chạy Nhanh từ Root (Root Monorepo Scripts - Khuyến nghị)
+
+Sau khi clone repo, chỉ cần cài đặt dependency tại thư mục gốc:
+
+```powershell
+# Cài đặt toàn bộ dependencies cho Monorepo
+npm install
+```
+
+Sau đó sử dụng các script tiện ích trực tiếp từ thư mục gốc:
+
+| Thành phần | Lệnh phát triển (Dev) | Lệnh đóng gói (Build) |
+|---|---|---|
+| **Backend API (NestJS)** | `npm run backend:dev` | `npm run backend:build` |
+| **Web Admin (Next.js)** | `npm run frontend:dev` | `npm run frontend:build` |
+| **Mobile App (Flutter)** | `.\run_mobile.ps1 -emu` | `cd apps/mobile && flutter build apk` |
+
+---
+
+### 🛠️ Chi tiết từng bước Khởi chạy Cục bộ
+
+#### 1. Khởi chạy Hạ tầng Cơ sở Dữ liệu (Database & Redis)
 
 Sử dụng Docker Compose để khởi chạy nhanh PostgreSQL và Redis:
 
 ```powershell
-# Chạy container database và redis
 docker compose up -d
 ```
 
-### 2. Cấu hình & Chạy Backend API (NestJS)
+#### 2. Cấu hình & Chạy Backend API (NestJS)
 
 ```powershell
+# Cấu hình biến môi trường và Prisma DB
 cd apps/backend
-
-# 1. Cài đặt dependencies
-npm install
-
-# 2. Cấu hình biến môi trường (.env)
 cp .env.example .env
-
-# 3. Đồng bộ hóa Prisma Database Schema
 npx prisma generate
 npx prisma db push
 
-# 4. Khởi chạy backend ở chế độ phát triển
+# Khởi chạy từ root hoặc trong thư mục backend:
 npm run start:dev
 ```
-> Backend API mặc định chạy tại: `http://localhost:3000/api`
+> Backend API chạy tại: `http://localhost:3000/api` (Swagger docs: `http://localhost:3000/api/docs`)
 
-### 3. Cấu hình & Chạy Web Admin Portal (Next.js)
+#### 3. Cấu hình & Chạy Web Admin Portal (Next.js)
 
 ```powershell
 cd apps/frontend-web
-
-# 1. Cài đặt dependencies
 npm install
-
-# 2. Khởi chạy dev server
 npm run dev
 ```
-> Web Admin Portal mặc định chạy tại: `http://localhost:3001`
+> Web Admin Portal chạy tại: `http://localhost:3001`
 
-### 4. Khởi chạy Ứng dụng Mobile (Flutter)
+#### 4. Khởi chạy Ứng dụng Mobile (Flutter)
 
 ```powershell
-# Cách 1: Chạy tự động với launcher script (Khuyến nghị - tự động quét IP LAN & cấu hình)
+# Cách 1: Chạy tự động với launcher script (Khuyến nghị - tự động quét IP LAN & config)
 .\run_mobile.ps1
 
-# Hoặc mở trực tiếp kèm giả lập Android Emulator
+# Mở kèm giả lập Android Emulator
 .\run_mobile.ps1 -emu
-
-# Hoặc dọn dẹp cache trước khi chạy
-.\run_mobile.ps1 -clean
 
 # Cách 2: Chạy thủ công truyền thống
 cd apps/mobile

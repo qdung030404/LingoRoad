@@ -1,0 +1,20 @@
+{
+  "name": "lingoroad",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  },
+  "scripts": {
+    "backend:dev": "npm run start:dev --workspace=apps/backend",
+    "backend:build": "npm run build --workspace=apps/backend",
+    "backend:start": "node apps/backend/dist/main",
+    "frontend:dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 npm run dev --workspace=apps/frontend-web",
+    "frontend:build": "npm run build --workspace=apps/frontend-web",
+    "frontend:start": "npm run start --workspace=apps/frontend-web"
+  }
+}
