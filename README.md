@@ -126,6 +126,7 @@ LingoRoad/
 │   ├── system-architecture.md        # Kiến trúc hạ tầng & luồng dữ liệu
 │   ├── Development Conventions.md    # Quy chuẩn coding & tiêu chuẩn chất lượng
 │   └── README.md                     # Mục lục tài liệu tổng quan
+├── run_mobile.ps1            # Script tự động quét LAN IP, config & khởi chạy Mobile
 └── README.md                 # Tài liệu giới thiệu dự án (File này)
 ```
 
@@ -214,12 +215,18 @@ npm run dev
 ### 4. Khởi chạy Ứng dụng Mobile (Flutter)
 
 ```powershell
+# Cách 1: Chạy tự động với launcher script (Khuyến nghị - tự động quét IP LAN & cấu hình)
+.\run_mobile.ps1
+
+# Hoặc mở trực tiếp kèm giả lập Android Emulator
+.\run_mobile.ps1 -emu
+
+# Hoặc dọn dẹp cache trước khi chạy
+.\run_mobile.ps1 -clean
+
+# Cách 2: Chạy thủ công truyền thống
 cd apps/mobile
-
-# 1. Lấy các package dependencies
 flutter pub get
-
-# 2. Chạy ứng dụng trên Emulator hoặc Thiết bị thật
 flutter run
 ```
 
