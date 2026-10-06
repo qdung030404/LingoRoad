@@ -262,4 +262,3 @@ Mọi chi tiết kiến trúc, nghiên cứu lý thuyết và đặc tả kỹ t
 
 - **Đề tài:** Hệ thống Học tiếng Anh Thích ứng Cá nhân hóa - LingoRoad
 - **Loại hình:** Đồ án Tốt nghiệp Đại học (DATN)
-- **Bản quyền:** © 2026 LingoRoad Team. All rights reserved.
