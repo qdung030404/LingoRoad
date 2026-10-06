@@ -1,0 +1,313 @@
+{
+  "schemaVersion": 2,
+  "fileKey": "Vd24yzXHCW2dujlZPLq1sg",
+  "exportedAt": "2026-08-11",
+  "visualAuditStatus": "complete",
+  "notes": "All 35 Page 1 PNGs were visually audited. Routable entries name states constructible in the current app; future or alternate-only frames use a null route and reference-only status. HTML Body 2085:1545 is intentionally excluded. Task 3 states are linked to approved Linux light/dark rasters in progress-profile.",
+  "pendingGoldenBaselines": [],
+  "references": [
+    {
+      "nodeId": "2030:392",
+      "name": "Section 1: Color Palette",
+      "file": "system-color-palette-2030-392.png",
+      "routes": ["/splash", "/login", "/register", "/placement", "/profile-setup", "/home"],
+      "golden": "foundation_light"
+    },
+    {
+      "nodeId": "2030:473",
+      "name": "Section 2: Typography",
+      "file": "system-typography-2030-473.png",
+      "routes": ["/splash", "/login", "/register", "/placement", "/profile-setup", "/home"],
+      "golden": "foundation_typography"
+    },
+    {
+      "nodeId": "2030:592",
+      "name": "Section 5: UI Component Preview",
+      "file": "system-components-2030-592.png",
+      "routes": ["/profile-setup", "/placement/status-error", "/profile-setup/status-error"],
+      "golden": "foundation_components"
+    }
+  ],
+  "page1Frames": {
+    "2030:716": {
+      "file": "page-1/2030-716.png",
+      "screen": "Authentication welcome landing",
+      "state": "welcome-actions",
+      "route": null,
+      "status": "reference-only",
+      "golden": null
+    },
+    "2030:717": {
+      "file": "page-1/2030-717.png",
+      "screen": "Mandatory profile personalization",
+      "state": "personalization-form",
+      "route": "/profile-setup",
+      "status": "routable",
+      "golden": "profile_setup_light"
+    },
+    "2030:718": {
+      "file": "page-1/2030-718.png",
+      "screen": "Placement result and skill summary",
+      "state": "completed-summary",
+      "route": "/placement/result",
+      "status": "routable",
+      "golden": "placement_result_light"
+    },
+    "2030:719": {
+      "file": "page-1/2030-719.png",
+      "screen": "Home dashboard",
+      "state": "dashboard-loaded",
+      "route": "/home",
+      "status": "routable",
+      "golden": "home_loaded_light"
+    },
+    "2030:724": {
+      "file": "page-1/2030-724.png",
+      "screen": "Login form",
+      "state": "form",
+      "route": "/login",
+      "status": "routable",
+      "golden": "login_light"
+    },
+    "2030:725": {
+      "file": "page-1/2030-725.png",
+      "screen": "Learning path map",
+      "state": "learning-path-loaded",
+      "route": "/home",
+      "status": "routable",
+      "golden": "learning_path_loaded_light"
+    },
+    "2030:726": {
+      "file": "page-1/2030-726.png",
+      "screen": "Lesson overview",
+      "state": "lesson-overview",
+      "route": null,
+      "status": "reference-only",
+      "golden": null
+    },
+    "2030:727": {
+      "file": "page-1/2030-727.png",
+      "screen": "Lesson multiple-choice exercise",
+      "state": "exercise-mcq-unanswered",
+      "route": "/lesson/:id",
+      "status": "routable",
+      "golden": "lesson_exercise_light"
+    },
+    "2030:728": {
+      "file": "page-1/2030-728.png",
+      "screen": "Question review mistake explanation",
+      "state": "feedback-incorrect-explanation",
+      "route": "/question-review",
+      "status": "routable",
+      "golden": "question_review_feedback_incorrect_light"
+    },
+    "2030:729": {
+      "file": "page-1/2030-729.png",
+      "screen": "Vocabulary review answer card",
+      "state": "card-back-rating",
+      "route": "/vocabulary-review",
+      "status": "routable",
+      "golden": "vocabulary_review_back_light"
+    },
+    "2030:730": {
+      "file": "page-1/2030-730.png",
+      "screen": "Progress overview",
+      "state": "progress-overview",
+      "route": "/home",
+      "status": "routable",
+      "golden": "progress_overview_light"
+    },
+    "2030:731": {
+      "file": "page-1/2030-731.png",
+      "screen": "Profile and settings",
+      "state": "profile-settings",
+      "route": "/home",
+      "status": "routable",
+      "golden": "profile_loaded_light"
+    },
+    "2030:732": {
+      "file": "page-1/2030-732.png",
+      "screen": "Placement multiple-choice question",
+      "state": "mcq-unanswered",
+      "route": "/placement/question",
+      "status": "routable",
+      "golden": "placement_question_light"
+    },
+    "2045:756": {
+      "file": "page-1/2045-756.png",
+      "screen": "Lesson completion celebration",
+      "state": "completed-celebration",
+      "route": "/lesson/:id",
+      "status": "routable",
+      "golden": "lesson_complete_light"
+    },
+    "2069:99": {
+      "file": "page-1/2069-99.png",
+      "screen": "Vocabulary review prompt card",
+      "state": "card-front",
+      "route": "/vocabulary-review",
+      "status": "routable",
+      "golden": "vocabulary_review_ready_light"
+    },
+    "2070:136": {
+      "file": "page-1/2070-136.png",
+      "screen": "Lesson incorrect-answer feedback",
+      "state": "feedback-incorrect",
+      "route": "/lesson/:id",
+      "status": "routable",
+      "golden": "lesson_feedback_incorrect_light"
+    },
+    "2070:99": {
+      "file": "page-1/2070-99.png",
+      "screen": "Lesson correct-answer feedback",
+      "state": "feedback-correct",
+      "route": "/lesson/:id",
+      "status": "routable",
+      "golden": "lesson_feedback_correct_light"
+    },
+    "2071:99": {
+      "file": "page-1/2071-99.png",
+      "screen": "Lesson completion rewards summary",
+      "state": "completed-rewards-summary",
+      "route": "/lesson/:id",
+      "status": "routable",
+      "golden": "lesson_complete_light"
+    },
+    "2079:1015": {
+      "file": "page-1/2079-1015.png",
+      "screen": "Streak details",
+      "state": "loaded",
+      "route": "/streak-details",
+      "status": "routable",
+      "golden": "streak_loaded_light"
+    },
+    "2079:1172": {
+      "file": "page-1/2079-1172.png",
+      "screen": "XP details",
+      "state": "xp-details",
+      "route": null,
+      "status": "reference-only",
+      "golden": null
+    },
+    "2079:792": {
+      "file": "page-1/2079-792.png",
+      "screen": "Daily missions details",
+      "state": "daily-missions",
+      "route": null,
+      "status": "reference-only",
+      "golden": null
+    },
+    "2079:915": {
+      "file": "page-1/2079-915.png",
+      "screen": "Badge collection",
+      "state": "badge-collection",
+      "route": null,
+      "status": "reference-only",
+      "golden": null
+    },
+    "2085:1685": {
+      "file": "page-1/2085-1685.png",
+      "screen": "Progress skill analysis",
+      "state": "progress-skills",
+      "route": "/home",
+      "status": "routable",
+      "golden": "progress_skills_light"
+    },
+    "2145:132": {
+      "file": "page-1/2145-132.png",
+      "screen": "Forgot password form",
+      "state": "forgot-password-form",
+      "route": null,
+      "status": "reference-only",
+      "golden": null
+    },
+    "2145:166": {
+      "file": "page-1/2145-166.png",
+      "screen": "Placement introduction",
+      "state": "intro",
+      "route": "/placement",
+      "status": "routable",
+      "golden": "placement_intro_light"
+    },
+    "2145:98": {
+      "file": "page-1/2145-98.png",
+      "screen": "Registration form",
+      "state": "form",
+      "route": "/register",
+      "status": "routable",
+      "golden": "register_light"
+    },
+    "2146:145": {
+      "file": "page-1/2146-145.png",
+      "screen": "Home daily plan",
+      "state": "daily-plan",
+      "route": "/home",
+      "status": "routable",
+      "golden": "home_loaded_light"
+    },
+    "2146:146": {
+      "file": "page-1/2146-146.png",
+      "screen": "Learning path empty state",
+      "state": "learning-path-empty",
+      "route": "/home",
+      "status": "routable",
+      "golden": "learning_path_empty_light"
+    },
+    "2146:246": {
+      "file": "page-1/2146-246.png",
+      "screen": "Learning path error state",
+      "state": "learning-path-error",
+      "route": "/home",
+      "status": "routable",
+      "golden": "learning_path_error_light"
+    },
+    "2146:346": {
+      "file": "page-1/2146-346.png",
+      "screen": "Progress achievements tab",
+      "state": "progress-achievements",
+      "route": "/home",
+      "status": "routable",
+      "golden": "progress_achievements_light"
+    },
+    "2146:446": {
+      "file": "page-1/2146-446.png",
+      "screen": "Vocabulary review empty state",
+      "state": "empty",
+      "route": "/vocabulary-review",
+      "status": "routable",
+      "golden": "vocabulary_review_empty_light"
+    },
+    "2146:531": {
+      "file": "page-1/2146-531.png",
+      "screen": "Vocabulary review completion",
+      "state": "completed",
+      "route": "/vocabulary-review",
+      "status": "routable",
+      "golden": "vocabulary_review_complete_light"
+    },
+    "2146:96": {
+      "file": "page-1/2146-96.png",
+      "screen": "Progress check error",
+      "state": "progress-check-error",
+      "route": null,
+      "status": "reference-only",
+      "golden": null
+    },
+    "2146:97": {
+      "file": "page-1/2146-97.png",
+      "screen": "Placement listening question",
+      "state": "listening-mcq-unanswered",
+      "route": "/placement/question",
+      "status": "routable",
+      "golden": null
+    },
+    "2153:96": {
+      "file": "page-1/2153-96.png",
+      "screen": "Vocabulary review rating card",
+      "state": "card-back-rating",
+      "route": "/vocabulary-review",
+      "status": "routable",
+      "golden": "vocabulary_review_back_light"
+    }
+  }
+}
