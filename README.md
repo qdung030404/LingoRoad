@@ -192,27 +192,36 @@ Sau đó sử dụng các script tiện ích trực tiếp từ thư mục gốc
 
 ### 🛠️ Chi tiết từng bước Khởi chạy Cục bộ
 
-#### 1. Khởi chạy Hạ tầng Cơ sở Dữ liệu (Database & Redis)
-
-Sử dụng Docker Compose để khởi chạy nhanh PostgreSQL và Redis:
+#### 1. Khởi chạy Cơ sở dữ liệu & Cache với Docker Compose (Khuyến nghị)
 
 ```powershell
-docker compose up -d
+# Khởi chạy PostgreSQL & Redis ở chế độ ngầm:
+docker compose up -d postgres redis
 ```
+> 💡 **Thông số kết nối:**
+> - **PostgreSQL:** `localhost:5432` (User: `postgres`, Password: `postgrespassword`, Database: `lingoroad`)
+> - **Redis:** `localhost:6380` (Port host `6380` -> container `6379`)
 
 #### 2. Cấu hình & Chạy Backend API (NestJS)
 
 ```powershell
-# Cấu hình biến môi trường và Prisma DB
+# Bước 1: Tạo file .env từ template (trong apps/backend)
 cd apps/backend
-cp .env.example .env
+cp .env.example .env   # (hoặc: Copy-Item .env.example .env trên PowerShell)
+
+# Bước 2: Đồng bộ cấu trúc Database qua Prisma
 npx prisma generate
 npx prisma db push
 
-# Khởi chạy từ root hoặc trong thư mục backend:
+# Bước 3: Khởi chạy ứng dụng Backend:
+# Cách A - Từ thư mục apps/backend:
 npm run start:dev
+
+# Cách B - Từ thư mục gốc Monorepo:
+npm run backend:dev
 ```
-> Backend API chạy tại: `http://localhost:3000/api` (Swagger docs: `http://localhost:3000/api/docs`)
+> 🚀 Backend API hoạt động tại: `http://localhost:3000`  
+> 🧪 **Kiểm thử API:** Nhập file `LingoRoad_Auth_API.postman_collection.json` (tại thư mục gốc) vào **Postman** để test ngay các luồng `Register`, `Login`, `Refresh Token`, `Logout`, `Change Password`.
 
 #### 3. Cấu hình & Chạy Web Admin Portal (Next.js)
 

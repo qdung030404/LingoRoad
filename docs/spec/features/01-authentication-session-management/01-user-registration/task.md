@@ -72,12 +72,12 @@ Triển khai API Đăng ký tài khoản người dùng (`POST /auth/register`) 
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
-- [ ] Gửi payload hợp lệ đến `POST /auth/register` nhận được HTTP 201 với `accessToken`, `refreshToken` và `user` object.
-- [ ] Gửi email đã tồn tại nhận được HTTP 409 Conflict.
-- [ ] Gửi password yếu (< 8 ký tự hoặc thiếu số/chữ hoa) nhận được HTTP 400 Bad Request.
-- [ ] Mật khẩu trong database được băm Argon2id an toàn.
-- [ ] Tạo đồng thời bản ghi trong cả 3 bảng `users`, `user_profiles`, `refresh_sessions`.
-- [ ] Unit test cho `RegisterUseCase` pass 100%.
+- [x] Gửi payload hợp lệ đến `POST /auth/register` nhận được HTTP 201 với `accessToken`, `refreshToken` và `user` object.
+- [x] Gửi email đã tồn tại nhận được HTTP 409 Conflict.
+- [x] Gửi password yếu (< 8 ký tự hoặc thiếu số/chữ hoa) nhận được HTTP 400 Bad Request.
+- [x] Mật khẩu trong database được băm Argon2id an toàn.
+- [x] Tạo đồng thời bản ghi trong cả 3 bảng `users`, `user_profiles`, `refresh_sessions`.
+- [x] Unit test cho `RegisterUseCase` pass 100%.
 
 ---
 
@@ -99,6 +99,6 @@ Triển khai API Đăng ký tài khoản người dùng (`POST /auth/register`) 
 
 # 10. Status (Trạng thái)
 
-- **TODO**
+- **DONE**
 
 # End

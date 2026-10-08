@@ -72,11 +72,11 @@ Triển khai API Làm mới Token (`POST /auth/refresh`) với cơ chế Token R
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
-- [ ] Gửi Refresh Token hợp lệ trả về HTTP 200 kèm Access Token và Refresh Token mới.
-- [ ] Gửi lại Refresh Token vừa dùng trả về HTTP 401 (`AUTH_TOKEN_COMPROMISED`).
-- [ ] Tất cả các phiên còn lại của user bị thu hồi khi có Replay Attack.
-- [ ] Database thực hiện thu hồi và tạo mới nguyên tử qua Prisma `$transaction`.
-- [ ] Unit Test cho `RefreshTokenUseCase` pass 100%.
+- [x] Gửi Refresh Token hợp lệ trả về HTTP 200 kèm Access Token và Refresh Token mới.
+- [x] Gửi lại Refresh Token vừa dùng trả về HTTP 401 (`AUTH_TOKEN_COMPROMISED`).
+- [x] Tất cả các phiên còn lại của user bị thu hồi khi có Replay Attack.
+- [x] Database thực hiện thu hồi và tạo mới nguyên tử qua Prisma `$transaction`.
+- [x] Unit Test cho `RefreshTokenUseCase` pass 100%.
 
 ---
 
@@ -98,6 +98,6 @@ Triển khai API Làm mới Token (`POST /auth/refresh`) với cơ chế Token R
 
 # 10. Status (Trạng thái)
 
-- **TODO**
+- **DONE**
 
 # End
