@@ -16,5 +16,9 @@
     "frontend:dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 npm run dev --workspace=apps/frontend-web",
     "frontend:build": "npm run build --workspace=apps/frontend-web",
     "frontend:start": "npm run start --workspace=apps/frontend-web"
+  },
+  "dependencies": {
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1"
   }
 }
