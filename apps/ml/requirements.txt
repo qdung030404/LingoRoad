@@ -1,0 +1,26 @@
+# Direct dependencies are pinned. `requirements.freeze-2026-08-02.txt` records
+# the complete Python 3.12 CPU environment that passed the full suite.
+numpy==2.5.1
+scipy==1.18.0
+pytest==9.1.1
+openai==2.44.0
+httpx==0.28.1
+edge-tts==7.2.8
+fastapi==0.140.0
+uvicorn==0.51.0
+httpx2==2.5.0
+matplotlib==3.11.0
+pandas==3.0.3
+pyarrow==24.0.0
+scikit-learn==1.9.0
+nltk==3.10.0
+python-multipart==0.0.32
+faster-whisper==1.2.1
+python-dotenv>=1.0.0
+kagglehub>=1.0.0
+
+# CPU verification environment:
+#   pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+# GPU training must pin a CUDA-compatible torch wheel in the build image.
+# NLTK corpus required by distractor tests/runtime:
+#   python -m nltk.downloader wordnet

@@ -20,7 +20,7 @@ Phân hệ Knowledge Tracing & Mastery chịu trách nhiệm mô hình hóa và 
   - **Framework**: NestJS (TypeScript) với Clean Architecture / DDD.
   - **Database & ORM**: PostgreSQL qua Prisma ORM.
   - **In-Memory Cache**: Redis (lưu trữ vector Mastery của người dùng để truy vấn tốc độ cao).
-  - **Computation Engine**: Pure TypeScript Domain Service triển khai công thức Bayesian Knowledge Tracing.
+  - **Computation Engine**: Pure TypeScript Domain Service triển khai công thức Bayesian Knowledge Tracing (BKT) / EMA Mastery phục vụ tính toán tức thời; kết nối mô hình Transformer SAINT+ tại Python ML Service (`POST /kt/predict`) qua `MlClientService`.
   - **Event Listener**: `@nestjs/event-emitter` lắng nghe `ExerciseSubmittedEvent` và `PlacementCompletedEvent`.
 
 ---

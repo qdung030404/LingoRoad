@@ -18,9 +18,10 @@ Phân hệ AI Practice & Intelligent Tutoring cung cấp môi trường luyện 
   - Cơ chế Graceful Degradation: Mặc định bảo vệ hệ thống khi AI Service quá tải, đảm bảo các tính năng làm bài tập cốt lõi vẫn vận hành bình thường.
 - **Stack Công nghệ & Tích hợp (Technology Stack & Integrations)**:
   - **Framework**: NestJS (TypeScript) với Clean Architecture / DDD.
-  - **External ML & AI Services**: FastAPI Python ML Service (Wav2Vec2 / Whisper / Azure Speech) và LLM API (OpenAI / Claude / Gemini).
+  - **External ML & AI Services**: FastAPI Python ML Service (`:8001`) tích hợp Faster-Whisper (ASR Speaking Scoring), Vector RAG, và Google Gemini Flash API (`/speech/score`, `/llm/advisor`, `/llm/exercises`, `/llm/awe`).
+  - **ML Client**: `MlClientService` (`@nestjs/axios`) với xác thực `x-internal-token`, Circuit Breaker và Timeout 15s-30s.
   - **Storage & Temp Stream**: S3 / Local Temp Storage (với cơ chế tự động xóa file ghi âm sau khi chấm điểm để bảo vệ quyền riêng tư).
-  - **Validation**: `@nestjs/platform-express` Multer với MIME signature validation (audio/wav, audio/m4a, audio/mp3).
+  - **Validation**: `@nestjs/platform-express` Multer với MIME signature validation (audio/wav, audio/m4a, audio/mp3, audio/webm).
 
 ---
 

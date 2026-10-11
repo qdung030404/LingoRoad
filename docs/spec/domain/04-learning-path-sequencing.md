@@ -20,6 +20,7 @@ Phân hệ Learning Path & Adaptive Sequencing đóng vai trò là "người hoa
   - **Framework**: NestJS (TypeScript) với Clean Architecture / DDD.
   - **Database & ORM**: PostgreSQL qua Prisma ORM.
   - **In-Memory Cache**: Redis (lưu cached Daily Plan để truy vấn cực nhanh khi mở ứng dụng).
+  - **Sequencing Engine**: Topological DAG Sort kết hợp cân bằng độ khó; tham chiếu mô hình Reinforcement Learning (DQN) và mốc chuẩn Dynamic Programming (DP Anchor) được nghiên cứu tại `apps/ml`.
   - **Event Dispatcher**: `@nestjs/event-emitter` (`LessonCompletedEvent`, `ExerciseSubmittedEvent`).
 
 ---

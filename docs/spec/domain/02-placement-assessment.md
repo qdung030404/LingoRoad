@@ -20,7 +20,8 @@ Phân hệ Placement & Assessment chịu trách nhiệm khảo sát và xác đ�
   - **Framework**: NestJS (TypeScript) với Clean Architecture / DDD.
   - **Database & ORM**: PostgreSQL qua Prisma ORM.
   - **Caching / Session Buffer**: Redis (lưu session state tạm thời để phản hồi nhanh chóng).
-  - **Assessment Engine**: Custom IRT / Cutoff Scoring Logic trong NestJS Domain Service.
+  - **Assessment Engine**: Python FastAPI ML Microservice (`POST /cat/select`) với thuật toán 3PL EAP IRT và Fisher Information; tích hợp cơ chế `InProcessCatFallback` trong NestJS Domain Service khi ML service offline.
+  - **ML Client**: `MlClientService` (`@nestjs/axios`) với xác thực `x-internal-token`.
   - **Event Dispatcher**: `@nestjs/event-emitter` (phát sự kiện `PlacementCompletedEvent` để kích hoạt khởi tạo Learning Path và Gamification Bonus).
 
 ---

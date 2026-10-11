@@ -45,14 +45,15 @@ Triển khai API Trợ lý Học tập AI (`POST /path/advisor`) và Tổng hợ
 
 - **Files dự kiến tạo/chỉnh sửa**:
   - `src/modules/ai-tutoring/controllers/path-advisor.controller.ts`
-  - `src/modules/ai-tutoring/use-cases/get-ai-advisor-insight.use-case.ts`
+  - `src/modules/ai-tutoring/use-cases/get-ai-advisor-insight.use-case.ts` (gọi `MlClientService.askAdvisor`)
   - `src/modules/ai-tutoring/services/weakness-synthesizer.service.ts`
+  - `src/modules/ml/ml-client.service.ts` (đã có sẵn `askAdvisor`)
 
 ---
 
 # 6. Dependencies (Sự phụ thuộc)
 
-- `PrismaModule`, `JwtAuthGuard`, LLM Client.
+- `PrismaModule`, `MlModule` (`MlClientService`), `JwtAuthGuard`.
 
 ---
 

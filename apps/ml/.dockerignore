@@ -1,0 +1,13 @@
+.venv
+__pycache__
+**/*.pyc
+.pytest_cache
+temp
+tests
+research
+reports
+checkpoints
+data
+*.pt
+*.npz
+.env*

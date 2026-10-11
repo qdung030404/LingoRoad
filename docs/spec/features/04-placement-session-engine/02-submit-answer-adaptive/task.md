@@ -47,7 +47,7 @@ Triển khai API Nộp câu trả lời (`POST /placement/:sessionId/answer`) v�
 - **Files dự kiến tạo/chỉnh sửa**:
   - `src/modules/placement/dto/submit-answer.dto.ts`
   - `src/modules/placement/use-cases/submit-answer.use-case.ts`
-  - `src/modules/placement/services/adaptive-sequencing.service.ts`
+  - `src/modules/placement/services/adaptive-sequencing.service.ts` (tích hợp `MlClientService.selectNextCatItem`)
   - `src/modules/placement/repositories/assessment-response.repository.ts`
   - `src/modules/placement/placement.controller.ts`
 
@@ -55,7 +55,7 @@ Triển khai API Nộp câu trả lời (`POST /placement/:sessionId/answer`) v�
 
 # 6. Dependencies (Sự phụ thuộc)
 
-- `PrismaModule`, `JwtAuthGuard`.
+- `PrismaModule`, `MlModule` (`MlClientService`), `JwtAuthGuard`.
 
 ---
 

@@ -47,14 +47,14 @@ Triển khai API Chấm điểm Phát âm Luyện nói (`POST /speaking/attempts
 - **Files dự kiến tạo/chỉnh sửa**:
   - `src/modules/ai-tutoring/controllers/speaking.controller.ts`
   - `src/modules/ai-tutoring/use-cases/evaluate-speaking.use-case.ts`
-  - `src/modules/ai-tutoring/gateways/ml-service.gateway.ts`
+  - `src/modules/ml/ml-client.service.ts` (đã có sẵn `scoreSpeaking`)
   - `src/modules/ai-tutoring/repositories/speaking-attempt.repository.ts`
 
 ---
 
 # 6. Dependencies (Sự phụ thuộc)
 
-- `@nestjs/platform-express`, `multer`, `axios`, `PrismaModule`, `JwtAuthGuard`.
+- `@nestjs/platform-express`, `multer`, `MlModule` (`MlClientService`), `PrismaModule`, `JwtAuthGuard`.
 
 ---
 
