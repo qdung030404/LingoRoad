@@ -12,7 +12,12 @@ INDEX = Path(os.environ.get("QG_RAG_INDEX", "data/corpus_index.npz"))
 @lru_cache
 def _client():
     from openai import OpenAI
-    return OpenAI(api_key=os.environ["GEMINI_API_KEY"],
+    if os.environ.get("OPENAI_BASE_URL"):
+        return OpenAI(
+            api_key=os.environ.get("OPENAI_API_KEY", ""),
+            base_url=os.environ["OPENAI_BASE_URL"],
+        )
+    return OpenAI(api_key=os.environ.get("GEMINI_API_KEY", ""),
                   base_url="https://generativelanguage.googleapis.com/v1beta/openai/")
 
 class PathEntry(BaseModel):

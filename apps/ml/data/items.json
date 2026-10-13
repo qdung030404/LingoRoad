@@ -3,5304 +3,1260 @@
     "skillCode": "grammar.articles",
     "cefrLevel": "A1",
     "type": "mcq",
-    "stem": "Which option is correct for Articles (___) - Question 1?",
+    "stem": "I have ___ apple.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "a",
+      "an",
+      "the",
+      "one"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
+    "correctAnswer": "an",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0319317748920913,
+    "b": -2.1841706289889036,
     "c": 0.25
   },
   {
     "skillCode": "grammar.articles",
     "cefrLevel": "A1",
     "type": "mcq",
-    "stem": "Which option is correct for Articles (___) - Question 2?",
+    "stem": "She is ___ teacher.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "an",
+      "a",
+      "the",
+      "one"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
+    "correctAnswer": "a",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1736348737653786,
+    "b": -2.386777891577177,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.articles",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "___ sun is bright today.",
+    "options": [
+      "The",
+      "A",
+      "An",
+      "Sun"
+    ],
+    "correctAnswer": "The",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8746623583281695,
+    "b": -1.6697955381778224,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.articles",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "I saw ___ elephant at the zoo.",
+    "options": [
+      "a",
+      "an",
+      "the",
+      "one"
+    ],
+    "correctAnswer": "an",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.385415384503781,
+    "b": -1.8164027512128014,
     "c": 0.25
   },
   {
     "skillCode": "grammar.prepositions",
     "cefrLevel": "A2",
     "type": "mcq",
-    "stem": "Which option is correct for Prepositions (___) - Question 1?",
+    "stem": "I will arrive ___ the airport at 9 AM.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "in",
+      "on",
+      "at",
+      "to"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
+    "correctAnswer": "at",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.838673494177614,
+    "b": -0.8519420609697853,
     "c": 0.25
   },
   {
     "skillCode": "grammar.prepositions",
     "cefrLevel": "A2",
     "type": "mcq",
-    "stem": "Which option is correct for Prepositions (___) - Question 2?",
+    "stem": "She is afraid ___ spiders.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "of",
+      "to",
+      "for",
+      "with"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
+    "correctAnswer": "of",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8557143895069731,
+    "b": -1.5978091998638815,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.prepositions",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "My birthday is ___ June.",
+    "options": [
+      "in",
+      "on",
+      "at",
+      "by"
+    ],
+    "correctAnswer": "in",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.6,
+    "b": -1.5731315397556285,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.prepositions",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "We sat ___ the table and ate.",
+    "options": [
+      "at",
+      "on",
+      "in",
+      "by"
+    ],
+    "correctAnswer": "at",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7323639150784712,
+    "b": -1.4594755035179527,
     "c": 0.25
   },
   {
     "skillCode": "grammar.modals",
     "cefrLevel": "A2",
     "type": "mcq",
-    "stem": "Which option is correct for Modal Verbs (___) - Question 1?",
+    "stem": "___ you help me with my homework?",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "Can",
+      "May",
+      "Will",
+      "Should"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
+    "correctAnswer": "Can",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8727861214984254,
+    "b": -1.1668310238007265,
     "c": 0.25
   },
   {
     "skillCode": "grammar.modals",
     "cefrLevel": "A2",
     "type": "mcq",
-    "stem": "Which option is correct for Modal Verbs (___) - Question 2?",
+    "stem": "She ___ speak three languages.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "can",
+      "must",
+      "should",
+      "may"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
+    "correctAnswer": "can",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1083890269905772,
+    "b": -1.2618502230418733,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.modals",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "You ___ park here.",
+    "options": [
+      "mustn't",
+      "can't",
+      "don't have to",
+      "should"
+    ],
+    "correctAnswer": "mustn't",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9683771345856148,
+    "b": -1.5005733788003488,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.modals",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "___ we go to the cinema tonight?",
+    "options": [
+      "Should",
+      "Can",
+      "Must",
+      "May"
+    ],
+    "correctAnswer": "Should",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8467932860456046,
+    "b": -1.0822483907405998,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.present_simple",
     "cefrLevel": "A1",
     "type": "mcq",
-    "stem": "Which option is correct for Present Simple (___) - Question 1?",
+    "stem": "He ___ (go) to school every day.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "goes",
+      "go",
+      "going",
+      "goed"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
+    "correctAnswer": "goes",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.253409634427126,
+    "b": -2.0930579565904934,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.present_simple",
     "cefrLevel": "A1",
     "type": "mcq",
-    "stem": "Which option is correct for Present Simple (___) - Question 2?",
+    "stem": "She ___ not like coffee.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "does",
+      "do",
+      "did",
+      "is"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
+    "correctAnswer": "does",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8303775414980084,
+    "b": -1.615331728979016,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_simple",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "___ you play football on weekends?",
+    "options": [
+      "Do",
+      "Does",
+      "Did",
+      "Are"
+    ],
+    "correctAnswer": "Do",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8918730684989074,
+    "b": -1.8796325789857469,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_simple",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "They ___ often watch movies.",
+    "options": [
+      "very",
+      "always",
+      "alwaysly",
+      "rarely"
+    ],
+    "correctAnswer": "always",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7769303705011084,
+    "b": -2.088862860816717,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.present_continuous",
     "cefrLevel": "A1",
     "type": "mcq",
-    "stem": "Which option is correct for Present Continuous (___) - Question 1?",
+    "stem": "She ___ (watch) TV now.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "is watching",
+      "watch",
+      "watched",
+      "are watching"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
+    "correctAnswer": "is watching",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9609756077589983,
+    "b": -1.8228093278447346,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.present_continuous",
     "cefrLevel": "A1",
     "type": "mcq",
-    "stem": "Which option is correct for Present Continuous (___) - Question 2?",
+    "stem": "We ___ (play) football at the moment.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "are playing",
+      "is playing",
+      "play",
+      "playing"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
+    "correctAnswer": "are playing",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0551308425649435,
+    "b": -2.1518064995528356,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_continuous",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "What ___ you ___ right now?",
+    "options": [
+      "are doing",
+      "is doing",
+      "do doing",
+      "does doing"
+    ],
+    "correctAnswer": "are doing",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8492028845661439,
+    "b": -1.6884097325207996,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_continuous",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "They ___ (study) English this week.",
+    "options": [
+      "are studying",
+      "is studying",
+      "studying",
+      "study"
+    ],
+    "correctAnswer": "are studying",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.2165194450245966,
+    "b": -2.1137638426327436,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.past_simple",
     "cefrLevel": "A2",
     "type": "mcq",
-    "stem": "Which option is correct for Past Simple (___) - Question 1?",
+    "stem": "She ___ (go) to the market yesterday.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "goes",
+      "went",
+      "gone",
+      "goed"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
+    "correctAnswer": "went",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7299593852538552,
+    "b": -1.3425044871392462,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.past_simple",
     "cefrLevel": "A2",
     "type": "mcq",
-    "stem": "Which option is correct for Past Simple (___) - Question 2?",
+    "stem": "What ___ you do last weekend?",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "did",
+      "do",
+      "does",
+      "done"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
+    "correctAnswer": "did",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.3999952670621088,
+    "b": -1.3296710195942933,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_simple",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "They ___ (watch) a movie on Friday night.",
+    "options": [
+      "watched",
+      "watch",
+      "watches",
+      "watching"
+    ],
+    "correctAnswer": "watched",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.068348403219072,
+    "b": -0.8877805183961661,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_simple",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "I ___ (be) happy because I passed the exam.",
+    "options": [
+      "was",
+      "were",
+      "am",
+      "been"
+    ],
+    "correctAnswer": "was",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.4398013762063824,
+    "b": -1.101450284251166,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.future_forms",
     "cefrLevel": "A2",
     "type": "mcq",
-    "stem": "Which option is correct for Future Forms (___) - Question 1?",
+    "stem": "I ___ (call) you tomorrow.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "will call",
+      "call",
+      "am calling",
+      "calling"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
+    "correctAnswer": "will call",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.5689533130844504,
+    "b": -0.9338846818772817,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.future_forms",
     "cefrLevel": "A2",
     "type": "mcq",
-    "stem": "Which option is correct for Future Forms (___) - Question 2?",
+    "stem": "She ___ (study) medicine next year.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "is going to study",
+      "will study",
+      "studies",
+      "study"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
+    "correctAnswer": "is going to study",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.093457946471776,
+    "b": -1.4085044456056384,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.future_forms",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "At 8 pm, we ___ (watch) the movie.",
+    "options": [
+      "will be watching",
+      "watch",
+      "are watching",
+      "watched"
+    ],
+    "correctAnswer": "will be watching",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.998887086468104,
+    "b": -1.5531455721558445,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.future_forms",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "They ___ (arrive) soon.",
+    "options": [
+      "will arrive",
+      "shall arrive",
+      "arrive",
+      "are arriving"
+    ],
+    "correctAnswer": "will arrive",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7246327052574645,
+    "b": -1.4797764264841287,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.present_perfect",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for Present Perfect (___) - Question 1?",
+    "stem": "She ___ (live) in Hanoi for three years.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "has lived",
+      "lived",
+      "have lived",
+      "has been living"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "has lived",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1134529177505883,
+    "b": -0.16294058377016463,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.present_perfect",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for Present Perfect (___) - Question 2?",
+    "stem": "I ___ (just/finish) my homework.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "have just finished",
+      "just have finished",
+      "have finished just",
+      "finished just"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "have just finished",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7437654927959042,
+    "b": -0.7583829591484723,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_perfect",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "They ___ (never/see) such a beautiful sunset before.",
+    "options": [
+      "have never seen",
+      "never have seen",
+      "has never seen",
+      "did never see"
+    ],
+    "correctAnswer": "have never seen",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8966328479685752,
+    "b": -0.6411895643925958,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_perfect",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "How long ___ (you/know) each other?",
+    "options": [
+      "have you known",
+      "did you know",
+      "do you know",
+      "are you knowing"
+    ],
+    "correctAnswer": "have you known",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.5447189266213848,
+    "b": -0.3357340912105195,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.past_perfect",
     "cefrLevel": "B2",
     "type": "mcq",
-    "stem": "Which option is correct for Past Perfect (___) - Question 1?",
+    "stem": "By the time the train arrived, we ___ our tickets.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "had finished",
+      "finished",
+      "have finished",
+      "was finished"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
+    "correctAnswer": "had finished",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0857189642062794,
+    "b": 0.6375959023650875,
     "c": 0.25
   },
   {
     "skillCode": "grammar.tenses.past_perfect",
     "cefrLevel": "B2",
     "type": "mcq",
-    "stem": "Which option is correct for Past Perfect (___) - Question 2?",
+    "stem": "She didn't recognize him because he ___ so much.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "had changed",
+      "changed",
+      "has changed",
+      "was changed"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
+    "correctAnswer": "had changed",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.485673522149022,
+    "b": 0.8536904884051982,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_perfect",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "After they ___ dinner, they went for a walk.",
+    "options": [
+      "had eaten",
+      "ate",
+      "have eaten",
+      "was eaten"
+    ],
+    "correctAnswer": "had eaten",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.171562298207907,
+    "b": 0.18439622365618358,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_perfect",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "I couldn't believe that he ___ before I got there.",
+    "options": [
+      "had already left",
+      "already left",
+      "has already left",
+      "was already left"
+    ],
+    "correctAnswer": "had already left",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0130922057324456,
+    "b": 0.841723642454294,
     "c": 0.25
   },
   {
     "skillCode": "grammar.conditionals.first",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for First Conditional (___) - Question 1?",
+    "stem": "If she ___ the train, she will be late.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "misses",
+      "missed",
+      "will miss",
+      "missing"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "misses",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.2852977376511114,
+    "b": -0.03632760504741017,
     "c": 0.25
   },
   {
     "skillCode": "grammar.conditionals.first",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for First Conditional (___) - Question 2?",
+    "stem": "If it ___ hard, the plants will die.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "doesn't water",
+      "don't water",
+      "didn't water",
+      "won't water"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "doesn't water",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.5769661466696785,
+    "b": -0.003922795811740709,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.first",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If they ___ enough money, they will travel abroad next year.",
+    "options": [
+      "have",
+      "has",
+      "had",
+      "will have"
+    ],
+    "correctAnswer": "have",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8475698659266175,
+    "b": -0.43196388855272316,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.first",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If you ___ the instructions, you will finish the project on time.",
+    "options": [
+      "follow",
+      "follows",
+      "followed",
+      "will follow"
+    ],
+    "correctAnswer": "follow",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0123391604023466,
+    "b": -0.4020618436099048,
     "c": 0.25
   },
   {
     "skillCode": "grammar.conditionals.second",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for Second Conditional (___) - Question 1?",
+    "stem": "If I ___ more money, I would travel around the world.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "had",
+      "have",
+      "will have",
+      "has"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "had",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0482580621839999,
+    "b": -0.17137143942895405,
     "c": 0.25
   },
   {
     "skillCode": "grammar.conditionals.second",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for Second Conditional (___) - Question 2?",
+    "stem": "If she ___ the exam, she would be very happy.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "passed",
+      "passes",
+      "will pass",
+      "pass"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "passed",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9099270238046349,
+    "b": -0.21241314256901656,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.second",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "According to Tom, what would they do if it rained tomorrow?",
+    "options": [
+      "stay at home and watch movies",
+      "go out for a walk",
+      "call their friends",
+      "cancel the movie night"
+    ],
+    "correctAnswer": "stay at home and watch movies",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7265702954541862,
+    "b": -0.05435225070929739,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.second",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If we ___ earlier, we would have more time to explore the city.",
+    "options": [
+      "arrived",
+      "arrive",
+      "will arrive",
+      "arrives"
+    ],
+    "correctAnswer": "arrived",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1563765506928096,
+    "b": -0.2167879063389525,
     "c": 0.25
   },
   {
     "skillCode": "grammar.conditionals.third",
     "cefrLevel": "B2",
     "type": "mcq",
-    "stem": "Which option is correct for Third Conditional (___) - Question 1?",
+    "stem": "If she ___ (study) harder, she would have passed the exam.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "had studied",
+      "studied",
+      "has studied",
+      "would study"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
+    "correctAnswer": "had studied",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.828075083779535,
+    "b": 0.8743409519397172,
     "c": 0.25
   },
   {
     "skillCode": "grammar.conditionals.third",
     "cefrLevel": "B2",
     "type": "mcq",
-    "stem": "Which option is correct for Third Conditional (___) - Question 2?",
+    "stem": "If they ___ (not miss) the train, they would have arrived on time.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "had not missed",
+      "didn't miss",
+      "haven't missed",
+      "would not miss"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
+    "correctAnswer": "had not missed",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9306733459138883,
+    "b": 0.7909120721964606,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.third",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "If I ___ (know) about the meeting, I would have prepared a report.",
+    "options": [
+      "had known",
+      "knew",
+      "have known",
+      "would know"
+    ],
+    "correctAnswer": "had known",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8974512642228542,
+    "b": 0.8657681436887709,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.third",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "If the weather ___ (be) better, we would have gone hiking.",
+    "options": [
+      "had been",
+      "was",
+      "has been",
+      "would be"
+    ],
+    "correctAnswer": "had been",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.064437342753586,
+    "b": 0.878103051058364,
     "c": 0.25
   },
   {
     "skillCode": "grammar.passive_voice",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for Passive Voice (___) - Question 1?",
+    "stem": "The cake ___ (bake) by my mother yesterday.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "was baked",
+      "is baked",
+      "baked",
+      "were baked"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "was baked",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.041073501927145,
+    "b": -0.14210093796554368,
     "c": 0.25
   },
   {
     "skillCode": "grammar.passive_voice",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for Passive Voice (___) - Question 2?",
+    "stem": "A new bridge ___ (build) in the city next year.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "will be built",
+      "is built",
+      "was built",
+      "be built"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "will be built",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7151199926223735,
+    "b": -0.614101664288557,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.passive_voice",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "These letters ___ (write) by the students every week.",
+    "options": [
+      "are written",
+      "were written",
+      "is written",
+      "written"
+    ],
+    "correctAnswer": "are written",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1339087247965682,
+    "b": -0.0611758721732244,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.passive_voice",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "The movie ___ (watch) by many people last night.",
+    "options": [
+      "was watched",
+      "were watched",
+      "is watched",
+      "watched"
+    ],
+    "correctAnswer": "was watched",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9597584429050106,
+    "b": -0.3688524739022505,
     "c": 0.25
   },
   {
     "skillCode": "grammar.reported_speech",
     "cefrLevel": "B2",
     "type": "mcq",
-    "stem": "Which option is correct for Reported Speech (___) - Question 1?",
+    "stem": "She says, \"I am going to the market tomorrow.\" In reported speech, she says ___",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "that she is going to the market tomorrow",
+      "that she will go to the market tomorrow",
+      "that she was going to the market tomorrow",
+      "that she goes to the market tomorrow"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
+    "correctAnswer": "that she is going to the market tomorrow",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.2439111117108639,
+    "b": 0.844813852784924,
     "c": 0.25
   },
   {
     "skillCode": "grammar.reported_speech",
     "cefrLevel": "B2",
     "type": "mcq",
-    "stem": "Which option is correct for Reported Speech (___) - Question 2?",
+    "stem": "Tom asked, \"Did you finish the report?\" In reported speech, Tom asked ___",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "if I had finished the report",
+      "whether I finished the report",
+      "if I finished the report",
+      "whether I had finished the report"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
+    "correctAnswer": "if I had finished the report",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8367189698069616,
+    "b": 0.6856049565252487,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.reported_speech",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "Maria will call you when she arrives. In reported speech, Maria said ___",
+    "options": [
+      "she will call me when she arrived",
+      "she would call me when she arrived",
+      "she would call me when she arrives",
+      "she will call me when she arrives"
+    ],
+    "correctAnswer": "she would call me when she arrived",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.6,
+    "b": 0.12269229209081683,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.reported_speech",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "The teacher said, \"Read the chapter twice.\" In reported speech, the teacher told us ___",
+    "options": [
+      "to read the chapter twice",
+      "that we read the chapter twice",
+      "that we should read the chapter twice",
+      "to reading the chapter twice"
+    ],
+    "correctAnswer": "to read the chapter twice",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8646675258617015,
+    "b": 0.11279338361885755,
     "c": 0.25
   },
   {
     "skillCode": "grammar.relative_clauses",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for Relative Clauses (___) - Question 1?",
+    "stem": "The woman ___ lives next door is a doctor.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "who",
+      "which",
+      "where",
+      "when"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "who",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9812525790525091,
+    "b": -0.38979302139033756,
     "c": 0.25
   },
   {
     "skillCode": "grammar.relative_clauses",
     "cefrLevel": "B1",
     "type": "mcq",
-    "stem": "Which option is correct for Relative Clauses (___) - Question 2?",
+    "stem": "The book ___ I was talking about is on the table.",
     "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
+      "that",
+      "which",
+      "where",
+      "who"
     ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
+    "correctAnswer": "that",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1895118158568712,
+    "b": -0.7471340026207403,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.relative_clauses",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "Students ___ study hard will pass the exam.",
+    "options": [
+      "who",
+      "which",
+      "that",
+      "where"
+    ],
+    "correctAnswer": "who",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.4265308325709147,
+    "b": -0.7466479929863189,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.relative_clauses",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "According to the speaker, what is the man's profession?",
+    "options": [
+      "chef",
+      "teacher",
+      "doctor",
+      "engineer"
+    ],
+    "correctAnswer": "chef",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.234829823163244,
+    "b": -0.4557610144417334,
     "c": 0.25
   },
   {
     "skillCode": "vocabulary.everyday",
     "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Everyday Vocabulary (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "I ___ coffee every morning.",
+    "options": [],
+    "correctAnswer": "drink",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.2176186870173178,
+    "b": -1.9502145262172343,
+    "c": 0.0
   },
   {
     "skillCode": "vocabulary.everyday",
     "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Everyday Vocabulary (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "She ___ to school by bus.",
+    "options": [],
+    "correctAnswer": "go",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.019078107758972,
+    "b": -2.206659428724524,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.everyday",
+    "cefrLevel": "A1",
+    "type": "cloze",
+    "stem": "We ___ dinner at 6 pm.",
+    "options": [],
+    "correctAnswer": "have",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9668022769554708,
+    "b": -2.2193044572661407,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.everyday",
+    "cefrLevel": "A1",
+    "type": "cloze",
+    "stem": "They ___ pizza for lunch.",
+    "options": [],
+    "correctAnswer": "like",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7006929940698151,
+    "b": -1.9311015481498137,
+    "c": 0.0
   },
   {
     "skillCode": "vocabulary.travel",
     "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Travel Vocabulary (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "I need to ___ a ticket for the train to Da Nang.",
+    "options": [],
+    "correctAnswer": "buy",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.86750208514651,
+    "b": -0.9522313792697777,
+    "c": 0.0
   },
   {
     "skillCode": "vocabulary.travel",
     "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Travel Vocabulary (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "The ___ is very friendly and will help you with directions.",
+    "options": [],
+    "correctAnswer": "information desk",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7704733058766622,
+    "b": -1.3692630284550316,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.travel",
+    "cefrLevel": "A2",
+    "type": "cloze",
+    "stem": "When we arrive at the airport, we should go to the ___ to collect our luggage.",
+    "options": [],
+    "correctAnswer": "baggage claim",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0938110642389705,
+    "b": -0.9455032232232716,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.travel",
+    "cefrLevel": "A2",
+    "type": "cloze",
+    "stem": "Please ___ your passport at the security checkpoint.",
+    "options": [],
+    "correctAnswer": "show",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9965273764216138,
+    "b": -0.8327378858420461,
+    "c": 0.0
   },
   {
     "skillCode": "vocabulary.work_business",
     "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Work & Business (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "The manager asked the employees to submit their ___ by Friday.",
+    "options": [],
+    "correctAnswer": "reports",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.4198712616496592,
+    "b": -0.35791079158297023,
+    "c": 0.0
   },
   {
     "skillCode": "vocabulary.work_business",
     "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Work & Business (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "Our company will ___ a new product line next month.",
+    "options": [],
+    "correctAnswer": "launch",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.6,
+    "b": -0.12136703337995203,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.work_business",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "She received a promotion after she ___ the project ahead of schedule.",
+    "options": [],
+    "correctAnswer": "completed",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0886136457346387,
+    "b": -0.4747917306014987,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.work_business",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "During the meeting, we discussed the ___ of the marketing campaign.",
+    "options": [],
+    "correctAnswer": "budget",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0972497858693335,
+    "b": -0.7655464891454367,
+    "c": 0.0
   },
   {
     "skillCode": "vocabulary.phrasal_verbs",
     "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Phrasal Verbs (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "She decided to ___ the meeting after hearing the news.",
+    "options": [],
+    "correctAnswer": "call off",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.083128437384268,
+    "b": -0.4676927701030203,
+    "c": 0.0
   },
   {
     "skillCode": "vocabulary.phrasal_verbs",
     "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Phrasal Verbs (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "When you ___ the lights, the room becomes brighter.",
+    "options": [],
+    "correctAnswer": "turn on",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.6216308665223874,
+    "b": -0.7920363513541665,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.phrasal_verbs",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "He couldn't ___ the problem and asked for help.",
+    "options": [],
+    "correctAnswer": "figure out",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8179672644989003,
+    "b": -0.7370959702674882,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.phrasal_verbs",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "They will ___ the project next month.",
+    "options": [],
+    "correctAnswer": "carry out",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9303525985173636,
+    "b": -0.5809207211203543,
+    "c": 0.0
   },
   {
     "skillCode": "vocabulary.collocations",
     "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Collocations (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "She made a ___ to improve her English skills.",
+    "options": [],
+    "correctAnswer": "concerted effort",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8086399724090192,
+    "b": 0.8550411415536726,
+    "c": 0.0
   },
   {
     "skillCode": "vocabulary.collocations",
     "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Collocations (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "The company is facing a ___ of problems after the merger.",
+    "options": [],
+    "correctAnswer": "range",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9971208871961074,
+    "b": 0.7918226363206193,
+    "c": 0.0
   },
   {
-    "skillCode": "vocabulary.academic",
+    "skillCode": "vocabulary.collocations",
     "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Academic Vocabulary (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "He finally broke the ___ and confessed to the crime.",
+    "options": [],
+    "correctAnswer": "silence",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0780687851560524,
+    "b": 0.40461640664871157,
+    "c": 0.0
   },
   {
-    "skillCode": "vocabulary.academic",
+    "skillCode": "vocabulary.collocations",
     "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Academic Vocabulary (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.idioms",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Idioms (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.idioms",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Idioms (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.skimming",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Skimming (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.skimming",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Skimming (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.main_idea",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Main Idea (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.main_idea",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Main Idea (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.inference",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Inference (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.inference",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Inference (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.basic_dialogues",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Basic Dialogues (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.basic_dialogues",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Basic Dialogues (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.gist",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Listening for Gist (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.gist",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Listening for Gist (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.detail",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Listening for Detail (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.detail",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Listening for Detail (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.simple_sentences",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Simple Sentences (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.simple_sentences",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Simple Sentences (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.paragraphs",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Paragraphs (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.paragraphs",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Paragraphs (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.emails",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Emails (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.emails",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Emails (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.essays",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Essays (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.essays",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Essays (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.nouns",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Nouns (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.nouns",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Nouns (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.pronouns",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Pronouns (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.pronouns",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Pronouns (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.conjunctions",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Conjunctions (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.conjunctions",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Conjunctions (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.gerunds",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Gerunds (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.gerunds",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Gerunds (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.infinitives",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Infinitives (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.infinitives",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Infinitives (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.verbs_gerund",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Verbs followed by Gerunds (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.verbs_gerund",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Verbs followed by Gerunds (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.verbs_infinitive",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Verbs followed by Infinitives (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.verbs_infinitive",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Verbs followed by Infinitives (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.verbs_both",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Verbs followed by both Gerunds & Infinitives (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.verbs_both",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Verbs followed by both Gerunds & Infinitives (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.participles",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Participles (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.verb_forms.participles",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Participles (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.comparative_adjectives",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Comparative Adjectives (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.comparative_adjectives",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Comparative Adjectives (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.superlative_adjectives",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Superlative Adjectives (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.superlative_adjectives",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Superlative Adjectives (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.comparative_adverbs",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Comparative Adverbs (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.comparative_adverbs",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Comparative Adverbs (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.superlative_adverbs",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Superlative Adverbs (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.superlative_adverbs",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Superlative Adverbs (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.as_as",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for As...as (Comparison) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.comparatives_superlatives.as_as",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for As...as (Comparison) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.yes_no",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Yes/No Questions (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.yes_no",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Yes/No Questions (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.wh",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Wh- Questions (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.wh",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Wh- Questions (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.tag",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Tag Questions (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.tag",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Tag Questions (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.indirect",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Indirect Questions (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.indirect",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Indirect Questions (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.subject_object",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Subject/Object Questions (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.questions.subject_object",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Subject/Object Questions (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.countable_uncountable",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Countable/Uncountable Nouns (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.countable_uncountable",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Countable/Uncountable Nouns (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.some_any",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Some/Any (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.some_any",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Some/Any (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.much_many_alotof",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Much/Many/A lot of (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.much_many_alotof",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Much/Many/A lot of (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.few_little",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Few/Little (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.few_little",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Few/Little (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.all_most_some",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for All/Most/Some (Quantifiers) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.quantifiers.all_most_some",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for All/Most/Some (Quantifiers) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.present_perfect_continuous",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Present Perfect Continuous (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.present_perfect_continuous",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Present Perfect Continuous (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.past_continuous",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Past Continuous (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.past_continuous",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Past Continuous (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.past_perfect_continuous",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Past Perfect Continuous (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.past_perfect_continuous",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Past Perfect Continuous (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.future_continuous",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Future Continuous (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.future_continuous",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Future Continuous (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.future_perfect",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Future Perfect (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.future_perfect",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Future Perfect (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.future_perfect_continuous",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Future Perfect Continuous (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.future_perfect_continuous",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Future Perfect Continuous (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.used_to_would",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Used to / Would (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.tenses.used_to_would",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Used to / Would (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.conditionals.zero",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Zero Conditional (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.conditionals.zero",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Zero Conditional (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.conditionals.mixed",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Mixed Conditionals (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.conditionals.mixed",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Mixed Conditionals (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.wish_clauses",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Wish Clauses (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.wish_clauses",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Wish Clauses (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.causative_verbs",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Causative Verbs (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.causative_verbs",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Causative Verbs (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.inversion",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Inversion (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.inversion",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Inversion (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.subjunctive",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Subjunctive (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "grammar.subjunctive",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Subjunctive (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.family",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Family (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.family",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Family (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.food",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Food (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.food",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Food (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.hobbies",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Hobbies (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.hobbies",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Hobbies (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.numbers_colors",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Numbers & Colors (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.numbers_colors",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Numbers & Colors (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.countries_nationalities",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Countries & Nationalities (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.countries_nationalities",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Countries & Nationalities (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.daily_routines",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Daily Routines (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.daily_routines",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Daily Routines (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.places_in_town",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Places in Town (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.places_in_town",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Places in Town (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.clothes",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Clothes (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.clothes",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Clothes (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.weather",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Weather (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.weather",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Weather (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.health",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Health (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.health",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Health (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.shopping",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Shopping (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.shopping",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Shopping (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.transport",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Transport (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.transport",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Transport (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.jobs",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Jobs (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.jobs",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Jobs (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.technology_basic",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Basic Technology (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.technology_basic",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Basic Technology (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.feelings",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Feelings (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.feelings",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Feelings (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.environment",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Environment (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.environment",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Environment (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.education",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Education (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.education",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Education (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.crime",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Crime (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.crime",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Crime (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.media",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Media (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.media",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Media (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.sports",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Sports (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.sports",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Sports (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.culture",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Culture (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.culture",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Culture (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.social_issues",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Social Issues (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.social_issues",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Social Issues (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.business_economics",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Business & Economics (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.business_economics",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Business & Economics (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.science_research",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Science & Research (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.science_research",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Science & Research (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.politics",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Politics (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.politics",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Politics (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.global_issues",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Global Issues (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.global_issues",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Global Issues (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.arts_literature",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Arts & Literature (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.arts_literature",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Arts & Literature (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.health_medicine_advanced",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Advanced Health & Medicine (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.health_medicine_advanced",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Advanced Health & Medicine (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.abstract_nouns",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Abstract Nouns (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.abstract_nouns",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Abstract Nouns (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.academic_collocations",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Academic Collocations (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.academic_collocations",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Academic Collocations (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.formal_vocabulary",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Formal Vocabulary (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.formal_vocabulary",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Formal Vocabulary (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.specialized_vocabulary",
-    "cefrLevel": "C2",
-    "type": "mcq",
-    "stem": "Which option is correct for Specialized Vocabulary (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 2.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.specialized_vocabulary",
-    "cefrLevel": "C2",
-    "type": "mcq",
-    "stem": "Which option is correct for Specialized Vocabulary (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 2.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.nuances_of_meaning",
-    "cefrLevel": "C2",
-    "type": "mcq",
-    "stem": "Which option is correct for Nuances of Meaning (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 2.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.nuances_of_meaning",
-    "cefrLevel": "C2",
-    "type": "mcq",
-    "stem": "Which option is correct for Nuances of Meaning (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 2.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.figurative_language",
-    "cefrLevel": "C2",
-    "type": "mcq",
-    "stem": "Which option is correct for Figurative Language (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 2.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.figurative_language",
-    "cefrLevel": "C2",
-    "type": "mcq",
-    "stem": "Which option is correct for Figurative Language (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 2.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.word_formation.prefixes",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Prefixes (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.word_formation.prefixes",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Prefixes (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.word_formation.suffixes",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Suffixes (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.word_formation.suffixes",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Suffixes (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.word_formation.compounding",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Compounding (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.word_formation.compounding",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Compounding (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.word_formation.derivation",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Derivation (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.word_formation.derivation",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Derivation (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.synonyms_antonyms",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Synonyms & Antonyms (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.synonyms_antonyms",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Synonyms & Antonyms (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.homophones_homographs",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Homophones & Homographs (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "vocabulary.homophones_homographs",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Homophones & Homographs (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.scanning",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Scanning (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.scanning",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Scanning (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.context_clues",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Context Clues (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.context_clues",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Context Clues (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_structure",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Identifying Text Structure (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_structure",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Identifying Text Structure (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.fact_opinion",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Distinguishing Fact from Opinion (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.fact_opinion",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Distinguishing Fact from Opinion (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.author_purpose",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Author's Purpose (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.author_purpose",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Author's Purpose (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.critical_reading",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Critical Reading (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.critical_reading",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Critical Reading (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.short_stories",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Short Stories (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.short_stories",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Short Stories (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.news_articles",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for News Articles (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.news_articles",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for News Articles (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.informal_letters",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Informal Letters/Emails (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.informal_letters",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Informal Letters/Emails (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.formal_letters",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Formal Letters/Emails (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.formal_letters",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Formal Letters/Emails (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.reports",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Reports (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.reports",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Reports (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.academic_texts",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Academic Texts (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.academic_texts",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Academic Texts (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.literary_texts",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Literary Texts (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "reading.text_types.literary_texts",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Literary Texts (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.numbers_dates_times",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Numbers, Dates, Times (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.numbers_dates_times",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Numbers, Dates, Times (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.directions",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Following Directions (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.directions",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Following Directions (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.specific_information",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Listening for Specific Information (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.specific_information",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Listening for Specific Information (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.speaker_attitude",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Identifying Speaker's Attitude (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.speaker_attitude",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Identifying Speaker's Attitude (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.note_taking",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Note-taking (Listening) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.note_taking",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Note-taking (Listening) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.implied_meaning",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Implied Meaning (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.implied_meaning",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Implied Meaning (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.accents",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Different Accents (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.accents",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Different Accents (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.discussions",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Participating in Discussions (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.discussions",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Participating in Discussions (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.lectures",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Lectures (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "listening.lectures",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Understanding Lectures (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.postcards_messages",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Postcards & Short Messages (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.postcards_messages",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Postcards & Short Messages (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.descriptions",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Descriptions (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.descriptions",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Descriptions (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.narratives_stories",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Narratives & Stories (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.narratives_stories",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Narratives & Stories (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.reviews",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Reviews (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.reviews",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Reviews (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.reports",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Reports (Writing) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.reports",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Reports (Writing) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.formal_letters",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Formal Letters (Writing) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.formal_letters",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Formal Letters (Writing) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.proposals",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Proposals (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.proposals",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Proposals (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.academic_papers",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Academic Papers (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.genres.academic_papers",
-    "cefrLevel": "C1",
-    "type": "mcq",
-    "stem": "Which option is correct for Academic Papers (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 1.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.capitalization",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Capitalization (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.capitalization",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Capitalization (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.full_stops",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Full Stops/Periods (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.full_stops",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Full Stops/Periods (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.question_exclamation",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Question/Exclamation Marks (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.question_exclamation",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Question/Exclamation Marks (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.commas",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Commas (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.commas",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Commas (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.apostrophes",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Apostrophes (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.apostrophes",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Apostrophes (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.quotation_marks",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Quotation Marks (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.quotation_marks",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Quotation Marks (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.semicolons_colons",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Semicolons & Colons (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.mechanics.semicolons_colons",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Semicolons & Colons (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.basic_connectors",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Basic Connectors (And, But, Or) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.basic_connectors",
-    "cefrLevel": "A1",
-    "type": "mcq",
-    "stem": "Which option is correct for Basic Connectors (And, But, Or) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -2.0,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.sequence_words",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Sequence Words (First, Then, Next) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.sequence_words",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Sequence Words (First, Then, Next) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.cause_effect",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Cause and Effect (Because, So) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.cause_effect",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Cause and Effect (Because, So) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.contrast",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Contrast (However, Although) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.contrast",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Contrast (However, Although) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.addition",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Addition (Moreover, Furthermore) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.addition",
-    "cefrLevel": "B2",
-    "type": "mcq",
-    "stem": "Which option is correct for Addition (Moreover, Furthermore) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": 0.5,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.summary",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Summary (In conclusion) (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.cohesion.summary",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Summary (In conclusion) (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.sentence_structure.compound",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Compound Sentences (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.sentence_structure.compound",
-    "cefrLevel": "A2",
-    "type": "mcq",
-    "stem": "Which option is correct for Compound Sentences (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -1.2,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.sentence_structure.complex",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Complex Sentences (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.sentence_structure.complex",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Complex Sentences (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.paragraph_structure.topic_sentences",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Topic Sentences (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.paragraph_structure.topic_sentences",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Topic Sentences (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.paragraph_structure.supporting_details",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Supporting Details (___) - Question 1?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
-  },
-  {
-    "skillCode": "writing.paragraph_structure.supporting_details",
-    "cefrLevel": "B1",
-    "type": "mcq",
-    "stem": "Which option is correct for Supporting Details (___) - Question 2?",
-    "options": [
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D"
-    ],
-    "correctAnswer": "Option A",
-    "source": "local-smoke-mock",
-    "a": 1.0,
-    "b": -0.4,
-    "c": 0.25
+    "type": "cloze",
+    "stem": "The new policy aims to cut down on ___ emissions.",
+    "options": [],
+    "correctAnswer": "greenhouse",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7434677044225005,
+    "b": 0.4910796374667714,
+    "c": 0.0
   }
 ]
