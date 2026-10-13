@@ -47,7 +47,7 @@ Triển khai API Nộp câu trả lời (`POST /placement/:sessionId/answer`) v�
 - **Files dự kiến tạo/chỉnh sửa**:
   - `src/modules/placement/dto/submit-answer.dto.ts`
   - `src/modules/placement/use-cases/submit-answer.use-case.ts`
-  - `src/modules/placement/services/adaptive-sequencing.service.ts`
+  - `src/modules/placement/services/adaptive-sequencing.service.ts` (tích hợp `MlClientService.selectNextCatItem`)
   - `src/modules/placement/repositories/assessment-response.repository.ts`
   - `src/modules/placement/placement.controller.ts`
 
@@ -55,16 +55,16 @@ Triển khai API Nộp câu trả lời (`POST /placement/:sessionId/answer`) v�
 
 # 6. Dependencies (Sự phụ thuộc)
 
-- `PrismaModule`, `JwtAuthGuard`.
+- `PrismaModule`, `MlModule` (`MlClientService`), `JwtAuthGuard`.
 
 ---
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
-- [ ] Gửi đáp án hợp lệ trả về câu hỏi tiếp theo (HTTP 200).
-- [ ] Gửi đáp án câu thứ 15 trả về `{ isFinished: true }`.
-- [ ] Xử lý an toàn khi gửi trùng câu trả lời.
-- [ ] Unit Test cho UseCase và Service pass 100%.
+- [x] Gửi đáp án hợp lệ trả về câu hỏi tiếp theo (HTTP 200).
+- [x] Gửi đáp án câu thứ 15 trả về `{ isFinished: true }`.
+- [x] Xử lý an toàn khi gửi trùng câu trả lời.
+- [x] Unit Test cho UseCase và Service pass 100%.
 
 ---
 
@@ -85,6 +85,6 @@ Triển khai API Nộp câu trả lời (`POST /placement/:sessionId/answer`) v�
 
 # 10. Status (Trạng thái)
 
-- **TODO**
+- **DONE**
 
 # End

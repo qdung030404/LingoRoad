@@ -72,11 +72,11 @@ Triển khai API Đăng nhập (`POST /auth/login`) và UseCase xác thực phi�
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
-- [ ] Gửi email & password chính xác nhận được HTTP 200 kèm Access Token, Refresh Token, và thông tin User Profile.
-- [ ] Gửi sai email hoặc sai password nhận được HTTP 401 Unauthorized (`AUTH_INVALID_CREDENTIALS`).
-- [ ] Tài khoản bị `SUSPENDED` nhận được HTTP 403 Forbidden (`AUTH_USER_SUSPENDED`).
-- [ ] Bảng `refresh_sessions` ghi nhận đúng một session mới với `tokenHash` được băm SHA-256.
-- [ ] Unit Test cho `LoginUseCase` pass 100%.
+- [x] Gửi email & password chính xác nhận được HTTP 200 kèm Access Token, Refresh Token, và thông tin User Profile.
+- [x] Gửi sai email hoặc sai password nhận được HTTP 401 Unauthorized (`AUTH_INVALID_CREDENTIALS`).
+- [x] Tài khoản bị `SUSPENDED` nhận được HTTP 403 Forbidden (`AUTH_USER_SUSPENDED`).
+- [x] Bảng `refresh_sessions` ghi nhận đúng một session mới với `tokenHash` được băm SHA-256.
+- [x] Unit Test cho `LoginUseCase` pass 100%.
 
 ---
 
@@ -98,6 +98,6 @@ Triển khai API Đăng nhập (`POST /auth/login`) và UseCase xác thực phi�
 
 # 10. Status (Trạng thái)
 
-- **TODO**
+- **DONE**
 
 # End

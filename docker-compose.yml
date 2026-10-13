@@ -1,0 +1,80 @@
+services:
+  # -------------------------------------------------------------
+  # PostgreSQL Database (v16)
+  # -------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: lingoroad-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: lingoroad
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d lingoroad']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lingoroad-network
+
+  # -------------------------------------------------------------
+  # Redis Cache & Session Store
+  # -------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: lingoroad-redis
+    restart: unless-stopped
+    ports:
+      - '6380:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lingoroad-network
+
+  # -------------------------------------------------------------
+  # LingoRoad Backend API (NestJS + Prisma)
+  # -------------------------------------------------------------
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: lingoroad-backend
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/lingoroad?schema=public
+      JWT_SECRET: lingoroad-super-secret-jwt-key-for-development-change-in-production
+      JWT_EXPIRES_IN: 15m
+      REFRESH_TOKEN_EXPIRES_DAYS: 30
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - lingoroad-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  lingoroad-network:
+    driver: bridge

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": "2026.08.02-v1",
+  "components": [
+    {
+      "id": "cat-eap-3pl",
+      "version": "1.0.0",
+      "stage": "production-baseline",
+      "license": "project-internal",
+      "artifacts": [
+        {
+          "path": "lingoroad_ml/irt.py",
+          "sha256": "30f795fbf173bd6ad48fe2a318312a1b400394d771f5e0659c81dbec3055c0e9"
+        },
+        {
+          "path": "lingoroad_ml/cat.py",
+          "sha256": "f14edc95c82039067d74da153e1cca8b89c6aa560e7ed1f9aa8fce51d487f3fe"
+        }
+      ]
+    },
+    {
+      "id": "saint-plus-ednet",
+      "version": "research-2026.07",
+      "stage": "shadow-blocked",
+      "license": "code-project-internal; dataset-license-review-required",
+      "artifacts": [
+        {
+          "path": "lingoroad_ml/kt/saint_plus.py",
+          "sha256": "3bccc8bd841276f08b2dfc43a1ac3c61de6dd867f76f11f3705972e1a7b2618b"
+        },
+        {
+          "path": "reports/kt_results.md",
+          "sha256": "0a8b35d121f986a9b0981f6862ec58bfd38f14b08e07c996974f9a2babc395ee"
+        }
+      ],
+      "externalArtifact": {
+        "environmentPath": "QG_KT_CHECKPOINT",
+        "requiredForStages": ["shadow", "production"],
+        "sha256Environment": "LINGOROAD_KT_CHECKPOINT_SHA256"
+      }
+    },
+    {
+      "id": "faster-whisper-small",
+      "version": "unlocked-upstream",
+      "stage": "evaluation-only",
+      "license": "MIT upstream; consent dataset required for evaluation",
+      "artifacts": [
+        {
+          "path": "lingoroad_ml/speech/scoring.py",
+          "sha256": "6e47fe44bf310f790eec57199ab7a1ceeae65ba231e603aff24ad9a54f3f57f9"
+        }
+      ],
+      "blockers": [
+        "Pin upstream model revision and weight checksum",
+        "Vietnamese-accent consent evaluation must meet the WER and agreement gates"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1262 @@
+[
+  {
+    "skillCode": "grammar.articles",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "I have ___ apple.",
+    "options": [
+      "a",
+      "an",
+      "the",
+      "one"
+    ],
+    "correctAnswer": "an",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0319317748920913,
+    "b": -2.1841706289889036,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.articles",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "She is ___ teacher.",
+    "options": [
+      "an",
+      "a",
+      "the",
+      "one"
+    ],
+    "correctAnswer": "a",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1736348737653786,
+    "b": -2.386777891577177,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.articles",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "___ sun is bright today.",
+    "options": [
+      "The",
+      "A",
+      "An",
+      "Sun"
+    ],
+    "correctAnswer": "The",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8746623583281695,
+    "b": -1.6697955381778224,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.articles",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "I saw ___ elephant at the zoo.",
+    "options": [
+      "a",
+      "an",
+      "the",
+      "one"
+    ],
+    "correctAnswer": "an",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.385415384503781,
+    "b": -1.8164027512128014,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.prepositions",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "I will arrive ___ the airport at 9 AM.",
+    "options": [
+      "in",
+      "on",
+      "at",
+      "to"
+    ],
+    "correctAnswer": "at",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.838673494177614,
+    "b": -0.8519420609697853,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.prepositions",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "She is afraid ___ spiders.",
+    "options": [
+      "of",
+      "to",
+      "for",
+      "with"
+    ],
+    "correctAnswer": "of",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8557143895069731,
+    "b": -1.5978091998638815,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.prepositions",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "My birthday is ___ June.",
+    "options": [
+      "in",
+      "on",
+      "at",
+      "by"
+    ],
+    "correctAnswer": "in",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.6,
+    "b": -1.5731315397556285,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.prepositions",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "We sat ___ the table and ate.",
+    "options": [
+      "at",
+      "on",
+      "in",
+      "by"
+    ],
+    "correctAnswer": "at",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7323639150784712,
+    "b": -1.4594755035179527,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.modals",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "___ you help me with my homework?",
+    "options": [
+      "Can",
+      "May",
+      "Will",
+      "Should"
+    ],
+    "correctAnswer": "Can",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8727861214984254,
+    "b": -1.1668310238007265,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.modals",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "She ___ speak three languages.",
+    "options": [
+      "can",
+      "must",
+      "should",
+      "may"
+    ],
+    "correctAnswer": "can",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1083890269905772,
+    "b": -1.2618502230418733,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.modals",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "You ___ park here.",
+    "options": [
+      "mustn't",
+      "can't",
+      "don't have to",
+      "should"
+    ],
+    "correctAnswer": "mustn't",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9683771345856148,
+    "b": -1.5005733788003488,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.modals",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "___ we go to the cinema tonight?",
+    "options": [
+      "Should",
+      "Can",
+      "Must",
+      "May"
+    ],
+    "correctAnswer": "Should",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8467932860456046,
+    "b": -1.0822483907405998,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_simple",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "He ___ (go) to school every day.",
+    "options": [
+      "goes",
+      "go",
+      "going",
+      "goed"
+    ],
+    "correctAnswer": "goes",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.253409634427126,
+    "b": -2.0930579565904934,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_simple",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "She ___ not like coffee.",
+    "options": [
+      "does",
+      "do",
+      "did",
+      "is"
+    ],
+    "correctAnswer": "does",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8303775414980084,
+    "b": -1.615331728979016,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_simple",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "___ you play football on weekends?",
+    "options": [
+      "Do",
+      "Does",
+      "Did",
+      "Are"
+    ],
+    "correctAnswer": "Do",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8918730684989074,
+    "b": -1.8796325789857469,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_simple",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "They ___ often watch movies.",
+    "options": [
+      "very",
+      "always",
+      "alwaysly",
+      "rarely"
+    ],
+    "correctAnswer": "always",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7769303705011084,
+    "b": -2.088862860816717,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_continuous",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "She ___ (watch) TV now.",
+    "options": [
+      "is watching",
+      "watch",
+      "watched",
+      "are watching"
+    ],
+    "correctAnswer": "is watching",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9609756077589983,
+    "b": -1.8228093278447346,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_continuous",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "We ___ (play) football at the moment.",
+    "options": [
+      "are playing",
+      "is playing",
+      "play",
+      "playing"
+    ],
+    "correctAnswer": "are playing",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0551308425649435,
+    "b": -2.1518064995528356,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_continuous",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "What ___ you ___ right now?",
+    "options": [
+      "are doing",
+      "is doing",
+      "do doing",
+      "does doing"
+    ],
+    "correctAnswer": "are doing",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8492028845661439,
+    "b": -1.6884097325207996,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_continuous",
+    "cefrLevel": "A1",
+    "type": "mcq",
+    "stem": "They ___ (study) English this week.",
+    "options": [
+      "are studying",
+      "is studying",
+      "studying",
+      "study"
+    ],
+    "correctAnswer": "are studying",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.2165194450245966,
+    "b": -2.1137638426327436,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_simple",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "She ___ (go) to the market yesterday.",
+    "options": [
+      "goes",
+      "went",
+      "gone",
+      "goed"
+    ],
+    "correctAnswer": "went",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7299593852538552,
+    "b": -1.3425044871392462,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_simple",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "What ___ you do last weekend?",
+    "options": [
+      "did",
+      "do",
+      "does",
+      "done"
+    ],
+    "correctAnswer": "did",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.3999952670621088,
+    "b": -1.3296710195942933,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_simple",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "They ___ (watch) a movie on Friday night.",
+    "options": [
+      "watched",
+      "watch",
+      "watches",
+      "watching"
+    ],
+    "correctAnswer": "watched",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.068348403219072,
+    "b": -0.8877805183961661,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_simple",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "I ___ (be) happy because I passed the exam.",
+    "options": [
+      "was",
+      "were",
+      "am",
+      "been"
+    ],
+    "correctAnswer": "was",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.4398013762063824,
+    "b": -1.101450284251166,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.future_forms",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "I ___ (call) you tomorrow.",
+    "options": [
+      "will call",
+      "call",
+      "am calling",
+      "calling"
+    ],
+    "correctAnswer": "will call",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.5689533130844504,
+    "b": -0.9338846818772817,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.future_forms",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "She ___ (study) medicine next year.",
+    "options": [
+      "is going to study",
+      "will study",
+      "studies",
+      "study"
+    ],
+    "correctAnswer": "is going to study",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.093457946471776,
+    "b": -1.4085044456056384,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.future_forms",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "At 8 pm, we ___ (watch) the movie.",
+    "options": [
+      "will be watching",
+      "watch",
+      "are watching",
+      "watched"
+    ],
+    "correctAnswer": "will be watching",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.998887086468104,
+    "b": -1.5531455721558445,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.future_forms",
+    "cefrLevel": "A2",
+    "type": "mcq",
+    "stem": "They ___ (arrive) soon.",
+    "options": [
+      "will arrive",
+      "shall arrive",
+      "arrive",
+      "are arriving"
+    ],
+    "correctAnswer": "will arrive",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7246327052574645,
+    "b": -1.4797764264841287,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_perfect",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "She ___ (live) in Hanoi for three years.",
+    "options": [
+      "has lived",
+      "lived",
+      "have lived",
+      "has been living"
+    ],
+    "correctAnswer": "has lived",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1134529177505883,
+    "b": -0.16294058377016463,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_perfect",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "I ___ (just/finish) my homework.",
+    "options": [
+      "have just finished",
+      "just have finished",
+      "have finished just",
+      "finished just"
+    ],
+    "correctAnswer": "have just finished",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7437654927959042,
+    "b": -0.7583829591484723,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_perfect",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "They ___ (never/see) such a beautiful sunset before.",
+    "options": [
+      "have never seen",
+      "never have seen",
+      "has never seen",
+      "did never see"
+    ],
+    "correctAnswer": "have never seen",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8966328479685752,
+    "b": -0.6411895643925958,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.present_perfect",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "How long ___ (you/know) each other?",
+    "options": [
+      "have you known",
+      "did you know",
+      "do you know",
+      "are you knowing"
+    ],
+    "correctAnswer": "have you known",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.5447189266213848,
+    "b": -0.3357340912105195,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_perfect",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "By the time the train arrived, we ___ our tickets.",
+    "options": [
+      "had finished",
+      "finished",
+      "have finished",
+      "was finished"
+    ],
+    "correctAnswer": "had finished",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0857189642062794,
+    "b": 0.6375959023650875,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_perfect",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "She didn't recognize him because he ___ so much.",
+    "options": [
+      "had changed",
+      "changed",
+      "has changed",
+      "was changed"
+    ],
+    "correctAnswer": "had changed",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.485673522149022,
+    "b": 0.8536904884051982,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_perfect",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "After they ___ dinner, they went for a walk.",
+    "options": [
+      "had eaten",
+      "ate",
+      "have eaten",
+      "was eaten"
+    ],
+    "correctAnswer": "had eaten",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.171562298207907,
+    "b": 0.18439622365618358,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.tenses.past_perfect",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "I couldn't believe that he ___ before I got there.",
+    "options": [
+      "had already left",
+      "already left",
+      "has already left",
+      "was already left"
+    ],
+    "correctAnswer": "had already left",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0130922057324456,
+    "b": 0.841723642454294,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.first",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If she ___ the train, she will be late.",
+    "options": [
+      "misses",
+      "missed",
+      "will miss",
+      "missing"
+    ],
+    "correctAnswer": "misses",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.2852977376511114,
+    "b": -0.03632760504741017,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.first",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If it ___ hard, the plants will die.",
+    "options": [
+      "doesn't water",
+      "don't water",
+      "didn't water",
+      "won't water"
+    ],
+    "correctAnswer": "doesn't water",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.5769661466696785,
+    "b": -0.003922795811740709,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.first",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If they ___ enough money, they will travel abroad next year.",
+    "options": [
+      "have",
+      "has",
+      "had",
+      "will have"
+    ],
+    "correctAnswer": "have",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8475698659266175,
+    "b": -0.43196388855272316,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.first",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If you ___ the instructions, you will finish the project on time.",
+    "options": [
+      "follow",
+      "follows",
+      "followed",
+      "will follow"
+    ],
+    "correctAnswer": "follow",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0123391604023466,
+    "b": -0.4020618436099048,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.second",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If I ___ more money, I would travel around the world.",
+    "options": [
+      "had",
+      "have",
+      "will have",
+      "has"
+    ],
+    "correctAnswer": "had",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0482580621839999,
+    "b": -0.17137143942895405,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.second",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If she ___ the exam, she would be very happy.",
+    "options": [
+      "passed",
+      "passes",
+      "will pass",
+      "pass"
+    ],
+    "correctAnswer": "passed",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9099270238046349,
+    "b": -0.21241314256901656,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.second",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "According to Tom, what would they do if it rained tomorrow?",
+    "options": [
+      "stay at home and watch movies",
+      "go out for a walk",
+      "call their friends",
+      "cancel the movie night"
+    ],
+    "correctAnswer": "stay at home and watch movies",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7265702954541862,
+    "b": -0.05435225070929739,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.second",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "If we ___ earlier, we would have more time to explore the city.",
+    "options": [
+      "arrived",
+      "arrive",
+      "will arrive",
+      "arrives"
+    ],
+    "correctAnswer": "arrived",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1563765506928096,
+    "b": -0.2167879063389525,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.third",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "If she ___ (study) harder, she would have passed the exam.",
+    "options": [
+      "had studied",
+      "studied",
+      "has studied",
+      "would study"
+    ],
+    "correctAnswer": "had studied",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.828075083779535,
+    "b": 0.8743409519397172,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.third",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "If they ___ (not miss) the train, they would have arrived on time.",
+    "options": [
+      "had not missed",
+      "didn't miss",
+      "haven't missed",
+      "would not miss"
+    ],
+    "correctAnswer": "had not missed",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9306733459138883,
+    "b": 0.7909120721964606,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.third",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "If I ___ (know) about the meeting, I would have prepared a report.",
+    "options": [
+      "had known",
+      "knew",
+      "have known",
+      "would know"
+    ],
+    "correctAnswer": "had known",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8974512642228542,
+    "b": 0.8657681436887709,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.conditionals.third",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "If the weather ___ (be) better, we would have gone hiking.",
+    "options": [
+      "had been",
+      "was",
+      "has been",
+      "would be"
+    ],
+    "correctAnswer": "had been",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.064437342753586,
+    "b": 0.878103051058364,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.passive_voice",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "The cake ___ (bake) by my mother yesterday.",
+    "options": [
+      "was baked",
+      "is baked",
+      "baked",
+      "were baked"
+    ],
+    "correctAnswer": "was baked",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.041073501927145,
+    "b": -0.14210093796554368,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.passive_voice",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "A new bridge ___ (build) in the city next year.",
+    "options": [
+      "will be built",
+      "is built",
+      "was built",
+      "be built"
+    ],
+    "correctAnswer": "will be built",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7151199926223735,
+    "b": -0.614101664288557,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.passive_voice",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "These letters ___ (write) by the students every week.",
+    "options": [
+      "are written",
+      "were written",
+      "is written",
+      "written"
+    ],
+    "correctAnswer": "are written",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1339087247965682,
+    "b": -0.0611758721732244,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.passive_voice",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "The movie ___ (watch) by many people last night.",
+    "options": [
+      "was watched",
+      "were watched",
+      "is watched",
+      "watched"
+    ],
+    "correctAnswer": "was watched",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9597584429050106,
+    "b": -0.3688524739022505,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.reported_speech",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "She says, \"I am going to the market tomorrow.\" In reported speech, she says ___",
+    "options": [
+      "that she is going to the market tomorrow",
+      "that she will go to the market tomorrow",
+      "that she was going to the market tomorrow",
+      "that she goes to the market tomorrow"
+    ],
+    "correctAnswer": "that she is going to the market tomorrow",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.2439111117108639,
+    "b": 0.844813852784924,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.reported_speech",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "Tom asked, \"Did you finish the report?\" In reported speech, Tom asked ___",
+    "options": [
+      "if I had finished the report",
+      "whether I finished the report",
+      "if I finished the report",
+      "whether I had finished the report"
+    ],
+    "correctAnswer": "if I had finished the report",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8367189698069616,
+    "b": 0.6856049565252487,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.reported_speech",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "Maria will call you when she arrives. In reported speech, Maria said ___",
+    "options": [
+      "she will call me when she arrived",
+      "she would call me when she arrived",
+      "she would call me when she arrives",
+      "she will call me when she arrives"
+    ],
+    "correctAnswer": "she would call me when she arrived",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.6,
+    "b": 0.12269229209081683,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.reported_speech",
+    "cefrLevel": "B2",
+    "type": "mcq",
+    "stem": "The teacher said, \"Read the chapter twice.\" In reported speech, the teacher told us ___",
+    "options": [
+      "to read the chapter twice",
+      "that we read the chapter twice",
+      "that we should read the chapter twice",
+      "to reading the chapter twice"
+    ],
+    "correctAnswer": "to read the chapter twice",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8646675258617015,
+    "b": 0.11279338361885755,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.relative_clauses",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "The woman ___ lives next door is a doctor.",
+    "options": [
+      "who",
+      "which",
+      "where",
+      "when"
+    ],
+    "correctAnswer": "who",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9812525790525091,
+    "b": -0.38979302139033756,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.relative_clauses",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "The book ___ I was talking about is on the table.",
+    "options": [
+      "that",
+      "which",
+      "where",
+      "who"
+    ],
+    "correctAnswer": "that",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.1895118158568712,
+    "b": -0.7471340026207403,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.relative_clauses",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "Students ___ study hard will pass the exam.",
+    "options": [
+      "who",
+      "which",
+      "that",
+      "where"
+    ],
+    "correctAnswer": "who",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.4265308325709147,
+    "b": -0.7466479929863189,
+    "c": 0.25
+  },
+  {
+    "skillCode": "grammar.relative_clauses",
+    "cefrLevel": "B1",
+    "type": "mcq",
+    "stem": "According to the speaker, what is the man's profession?",
+    "options": [
+      "chef",
+      "teacher",
+      "doctor",
+      "engineer"
+    ],
+    "correctAnswer": "chef",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.234829823163244,
+    "b": -0.4557610144417334,
+    "c": 0.25
+  },
+  {
+    "skillCode": "vocabulary.everyday",
+    "cefrLevel": "A1",
+    "type": "cloze",
+    "stem": "I ___ coffee every morning.",
+    "options": [],
+    "correctAnswer": "drink",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.2176186870173178,
+    "b": -1.9502145262172343,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.everyday",
+    "cefrLevel": "A1",
+    "type": "cloze",
+    "stem": "She ___ to school by bus.",
+    "options": [],
+    "correctAnswer": "go",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.019078107758972,
+    "b": -2.206659428724524,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.everyday",
+    "cefrLevel": "A1",
+    "type": "cloze",
+    "stem": "We ___ dinner at 6 pm.",
+    "options": [],
+    "correctAnswer": "have",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9668022769554708,
+    "b": -2.2193044572661407,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.everyday",
+    "cefrLevel": "A1",
+    "type": "cloze",
+    "stem": "They ___ pizza for lunch.",
+    "options": [],
+    "correctAnswer": "like",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7006929940698151,
+    "b": -1.9311015481498137,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.travel",
+    "cefrLevel": "A2",
+    "type": "cloze",
+    "stem": "I need to ___ a ticket for the train to Da Nang.",
+    "options": [],
+    "correctAnswer": "buy",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.86750208514651,
+    "b": -0.9522313792697777,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.travel",
+    "cefrLevel": "A2",
+    "type": "cloze",
+    "stem": "The ___ is very friendly and will help you with directions.",
+    "options": [],
+    "correctAnswer": "information desk",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7704733058766622,
+    "b": -1.3692630284550316,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.travel",
+    "cefrLevel": "A2",
+    "type": "cloze",
+    "stem": "When we arrive at the airport, we should go to the ___ to collect our luggage.",
+    "options": [],
+    "correctAnswer": "baggage claim",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0938110642389705,
+    "b": -0.9455032232232716,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.travel",
+    "cefrLevel": "A2",
+    "type": "cloze",
+    "stem": "Please ___ your passport at the security checkpoint.",
+    "options": [],
+    "correctAnswer": "show",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9965273764216138,
+    "b": -0.8327378858420461,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.work_business",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "The manager asked the employees to submit their ___ by Friday.",
+    "options": [],
+    "correctAnswer": "reports",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.4198712616496592,
+    "b": -0.35791079158297023,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.work_business",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "Our company will ___ a new product line next month.",
+    "options": [],
+    "correctAnswer": "launch",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.6,
+    "b": -0.12136703337995203,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.work_business",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "She received a promotion after she ___ the project ahead of schedule.",
+    "options": [],
+    "correctAnswer": "completed",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0886136457346387,
+    "b": -0.4747917306014987,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.work_business",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "During the meeting, we discussed the ___ of the marketing campaign.",
+    "options": [],
+    "correctAnswer": "budget",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0972497858693335,
+    "b": -0.7655464891454367,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.phrasal_verbs",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "She decided to ___ the meeting after hearing the news.",
+    "options": [],
+    "correctAnswer": "call off",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.083128437384268,
+    "b": -0.4676927701030203,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.phrasal_verbs",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "When you ___ the lights, the room becomes brighter.",
+    "options": [],
+    "correctAnswer": "turn on",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.6216308665223874,
+    "b": -0.7920363513541665,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.phrasal_verbs",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "He couldn't ___ the problem and asked for help.",
+    "options": [],
+    "correctAnswer": "figure out",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8179672644989003,
+    "b": -0.7370959702674882,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.phrasal_verbs",
+    "cefrLevel": "B1",
+    "type": "cloze",
+    "stem": "They will ___ the project next month.",
+    "options": [],
+    "correctAnswer": "carry out",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9303525985173636,
+    "b": -0.5809207211203543,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.collocations",
+    "cefrLevel": "B2",
+    "type": "cloze",
+    "stem": "She made a ___ to improve her English skills.",
+    "options": [],
+    "correctAnswer": "concerted effort",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.8086399724090192,
+    "b": 0.8550411415536726,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.collocations",
+    "cefrLevel": "B2",
+    "type": "cloze",
+    "stem": "The company is facing a ___ of problems after the merger.",
+    "options": [],
+    "correctAnswer": "range",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.9971208871961074,
+    "b": 0.7918226363206193,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.collocations",
+    "cefrLevel": "B2",
+    "type": "cloze",
+    "stem": "He finally broke the ___ and confessed to the crime.",
+    "options": [],
+    "correctAnswer": "silence",
+    "source": "openai/gpt-oss-120b",
+    "a": 1.0780687851560524,
+    "b": 0.40461640664871157,
+    "c": 0.0
+  },
+  {
+    "skillCode": "vocabulary.collocations",
+    "cefrLevel": "B2",
+    "type": "cloze",
+    "stem": "The new policy aims to cut down on ___ emissions.",
+    "options": [],
+    "correctAnswer": "greenhouse",
+    "source": "openai/gpt-oss-120b",
+    "a": 0.7434677044225005,
+    "b": 0.4910796374667714,
+    "c": 0.0
+  }
+]

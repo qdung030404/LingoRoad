@@ -71,11 +71,11 @@ Triển khai API Đăng xuất (`/auth/logout`, `/auth/logout-all`) và Đổi m
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
-- [ ] `POST /auth/logout` đánh dấu phiên chỉ định thành `isRevoked = true`.
-- [ ] `POST /auth/logout-all` đánh dấu tất cả phiên của user thành `isRevoked = true`.
-- [ ] `POST /auth/change-password` từ chối nếu mật khẩu cũ sai (HTTP 400).
-- [ ] `POST /auth/change-password` thành công cập nhật mật khẩu mới và revoke mọi session (HTTP 200).
-- [ ] Unit Test cho các UseCases pass 100%.
+- [x] `POST /auth/logout` đánh dấu phiên chỉ định thành `isRevoked = true`.
+- [x] `POST /auth/logout-all` đánh dấu tất cả phiên của user thành `isRevoked = true`.
+- [x] `POST /auth/change-password` từ chối nếu mật khẩu cũ sai (HTTP 400).
+- [x] `POST /auth/change-password` thành công cập nhật mật khẩu mới và revoke mọi session (HTTP 200).
+- [x] Unit Test cho các UseCases pass 100%.
 
 ---
 
@@ -97,6 +97,6 @@ Triển khai API Đăng xuất (`/auth/logout`, `/auth/logout-all`) và Đổi m
 
 # 10. Status (Trạng thái)
 
-- **TODO**
+- **DONE**
 
 # End

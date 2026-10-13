@@ -1,0 +1,1397 @@
+{
+  "skills": [
+    {
+      "code": "grammar.articles",
+      "name": "Articles",
+      "name_vi": "Articles",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.prepositions",
+      "name": "Prepositions",
+      "name_vi": "Prepositions",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.modals",
+      "name": "Modals",
+      "name_vi": "Modals",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.tenses.present_simple",
+      "name": "Present simple",
+      "name_vi": "Present simple",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.present_continuous",
+      "name": "Present continuous",
+      "name_vi": "Present continuous",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.past_simple",
+      "name": "Past simple",
+      "name_vi": "Past simple",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.future_forms",
+      "name": "Future forms",
+      "name_vi": "Future forms",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.present_perfect",
+      "name": "Present perfect",
+      "name_vi": "Present perfect",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.past_perfect",
+      "name": "Past perfect",
+      "name_vi": "Past perfect",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.conditionals.first",
+      "name": "First",
+      "name_vi": "First",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.conditionals"
+    },
+    {
+      "code": "grammar.conditionals.second",
+      "name": "Second",
+      "name_vi": "Second",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.conditionals"
+    },
+    {
+      "code": "grammar.conditionals.third",
+      "name": "Third",
+      "name_vi": "Third",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar.conditionals"
+    },
+    {
+      "code": "grammar.passive_voice",
+      "name": "Passive voice",
+      "name_vi": "Passive voice",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.reported_speech",
+      "name": "Reported speech",
+      "name_vi": "Reported speech",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.relative_clauses",
+      "name": "Relative clauses",
+      "name_vi": "Relative clauses",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar"
+    },
+    {
+      "code": "vocabulary.everyday",
+      "name": "Everyday",
+      "name_vi": "Everyday",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.travel",
+      "name": "Travel",
+      "name_vi": "Travel",
+      "category": "vocabulary",
+      "cefr": "A2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.work_business",
+      "name": "Work business",
+      "name_vi": "Work business",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.phrasal_verbs",
+      "name": "Phrasal verbs",
+      "name_vi": "Phrasal verbs",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.collocations",
+      "name": "Collocations",
+      "name_vi": "Collocations",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.academic",
+      "name": "Academic",
+      "name_vi": "Academic",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.idioms",
+      "name": "Idioms",
+      "name_vi": "Idioms",
+      "category": "vocabulary",
+      "cefr": "C1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "reading.skimming",
+      "name": "Skimming",
+      "name_vi": "Skimming",
+      "category": "reading",
+      "cefr": "A2",
+      "parent": "reading"
+    },
+    {
+      "code": "reading.main_idea",
+      "name": "Main idea",
+      "name_vi": "Main idea",
+      "category": "reading",
+      "cefr": "B1",
+      "parent": "reading"
+    },
+    {
+      "code": "reading.inference",
+      "name": "Inference",
+      "name_vi": "Inference",
+      "category": "reading",
+      "cefr": "B2",
+      "parent": "reading"
+    },
+    {
+      "code": "listening.basic_dialogues",
+      "name": "Basic dialogues",
+      "name_vi": "Basic dialogues",
+      "category": "listening",
+      "cefr": "A1",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.gist",
+      "name": "Gist",
+      "name_vi": "Gist",
+      "category": "listening",
+      "cefr": "A2",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.detail",
+      "name": "Detail",
+      "name_vi": "Detail",
+      "category": "listening",
+      "cefr": "B1",
+      "parent": "listening"
+    },
+    {
+      "code": "writing.simple_sentences",
+      "name": "Simple sentences",
+      "name_vi": "Simple sentences",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": "writing"
+    },
+    {
+      "code": "writing.paragraphs",
+      "name": "Paragraphs",
+      "name_vi": "Paragraphs",
+      "category": "writing",
+      "cefr": "A2",
+      "parent": "writing"
+    },
+    {
+      "code": "writing.emails",
+      "name": "Emails",
+      "name_vi": "Emails",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing"
+    },
+    {
+      "code": "writing.essays",
+      "name": "Essays",
+      "name_vi": "Essays",
+      "category": "writing",
+      "cefr": "B2",
+      "parent": "writing"
+    },
+    {
+      "code": "grammar.nouns",
+      "name": "Nouns",
+      "name_vi": "Nouns",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.pronouns",
+      "name": "Pronouns",
+      "name_vi": "Pronouns",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.conjunctions",
+      "name": "Conjunctions",
+      "name_vi": "Conjunctions",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.verb_forms.gerunds",
+      "name": "Gerunds",
+      "name_vi": "Gerunds",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.verb_forms"
+    },
+    {
+      "code": "grammar.verb_forms.infinitives",
+      "name": "Infinitives",
+      "name_vi": "Infinitives",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.verb_forms"
+    },
+    {
+      "code": "grammar.verb_forms.verbs_gerund",
+      "name": "Verbs gerund",
+      "name_vi": "Verbs gerund",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar.verb_forms"
+    },
+    {
+      "code": "grammar.verb_forms.verbs_infinitive",
+      "name": "Verbs infinitive",
+      "name_vi": "Verbs infinitive",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar.verb_forms"
+    },
+    {
+      "code": "grammar.verb_forms.verbs_both",
+      "name": "Verbs both",
+      "name_vi": "Verbs both",
+      "category": "grammar",
+      "cefr": "C1",
+      "parent": "grammar.verb_forms"
+    },
+    {
+      "code": "grammar.verb_forms.participles",
+      "name": "Participles",
+      "name_vi": "Participles",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar.verb_forms"
+    },
+    {
+      "code": "grammar.comparatives_superlatives.comparative_adjectives",
+      "name": "Comparative adjectives",
+      "name_vi": "Comparative adjectives",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar.comparatives_superlatives"
+    },
+    {
+      "code": "grammar.comparatives_superlatives.superlative_adjectives",
+      "name": "Superlative adjectives",
+      "name_vi": "Superlative adjectives",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar.comparatives_superlatives"
+    },
+    {
+      "code": "grammar.comparatives_superlatives.comparative_adverbs",
+      "name": "Comparative adverbs",
+      "name_vi": "Comparative adverbs",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.comparatives_superlatives"
+    },
+    {
+      "code": "grammar.comparatives_superlatives.superlative_adverbs",
+      "name": "Superlative adverbs",
+      "name_vi": "Superlative adverbs",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.comparatives_superlatives"
+    },
+    {
+      "code": "grammar.comparatives_superlatives.as_as",
+      "name": "As as",
+      "name_vi": "As as",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar.comparatives_superlatives"
+    },
+    {
+      "code": "grammar.questions.yes_no",
+      "name": "Yes no",
+      "name_vi": "Yes no",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar.questions"
+    },
+    {
+      "code": "grammar.questions.wh",
+      "name": "Wh",
+      "name_vi": "Wh",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar.questions"
+    },
+    {
+      "code": "grammar.questions.tag",
+      "name": "Tag",
+      "name_vi": "Tag",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar.questions"
+    },
+    {
+      "code": "grammar.questions.indirect",
+      "name": "Indirect",
+      "name_vi": "Indirect",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.questions"
+    },
+    {
+      "code": "grammar.questions.subject_object",
+      "name": "Subject object",
+      "name_vi": "Subject object",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.questions"
+    },
+    {
+      "code": "grammar.quantifiers.countable_uncountable",
+      "name": "Countable uncountable",
+      "name_vi": "Countable uncountable",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar.quantifiers"
+    },
+    {
+      "code": "grammar.quantifiers.some_any",
+      "name": "Some any",
+      "name_vi": "Some any",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar.quantifiers"
+    },
+    {
+      "code": "grammar.quantifiers.much_many_alotof",
+      "name": "Much many alotof",
+      "name_vi": "Much many alotof",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar.quantifiers"
+    },
+    {
+      "code": "grammar.quantifiers.few_little",
+      "name": "Few little",
+      "name_vi": "Few little",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.quantifiers"
+    },
+    {
+      "code": "grammar.quantifiers.all_most_some",
+      "name": "All most some",
+      "name_vi": "All most some",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.quantifiers"
+    },
+    {
+      "code": "grammar.tenses.present_perfect_continuous",
+      "name": "Present perfect continuous",
+      "name_vi": "Present perfect continuous",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.past_continuous",
+      "name": "Past continuous",
+      "name_vi": "Past continuous",
+      "category": "grammar",
+      "cefr": "A2",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.past_perfect_continuous",
+      "name": "Past perfect continuous",
+      "name_vi": "Past perfect continuous",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.future_continuous",
+      "name": "Future continuous",
+      "name_vi": "Future continuous",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.future_perfect",
+      "name": "Future perfect",
+      "name_vi": "Future perfect",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.future_perfect_continuous",
+      "name": "Future perfect continuous",
+      "name_vi": "Future perfect continuous",
+      "category": "grammar",
+      "cefr": "C1",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.tenses.used_to_would",
+      "name": "Used to would",
+      "name_vi": "Used to would",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.tenses"
+    },
+    {
+      "code": "grammar.conditionals.zero",
+      "name": "Zero",
+      "name_vi": "Zero",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar.conditionals"
+    },
+    {
+      "code": "grammar.conditionals.mixed",
+      "name": "Mixed",
+      "name_vi": "Mixed",
+      "category": "grammar",
+      "cefr": "C1",
+      "parent": "grammar.conditionals"
+    },
+    {
+      "code": "grammar.wish_clauses",
+      "name": "Wish clauses",
+      "name_vi": "Wish clauses",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.causative_verbs",
+      "name": "Causative verbs",
+      "name_vi": "Causative verbs",
+      "category": "grammar",
+      "cefr": "B2",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.inversion",
+      "name": "Inversion",
+      "name_vi": "Inversion",
+      "category": "grammar",
+      "cefr": "C1",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.subjunctive",
+      "name": "Subjunctive",
+      "name_vi": "Subjunctive",
+      "category": "grammar",
+      "cefr": "C1",
+      "parent": "grammar"
+    },
+    {
+      "code": "vocabulary.family",
+      "name": "Family",
+      "name_vi": "Family",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.food",
+      "name": "Food",
+      "name_vi": "Food",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.hobbies",
+      "name": "Hobbies",
+      "name_vi": "Hobbies",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.numbers_colors",
+      "name": "Numbers colors",
+      "name_vi": "Numbers colors",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.countries_nationalities",
+      "name": "Countries nationalities",
+      "name_vi": "Countries nationalities",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.daily_routines",
+      "name": "Daily routines",
+      "name_vi": "Daily routines",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.places_in_town",
+      "name": "Places in town",
+      "name_vi": "Places in town",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.clothes",
+      "name": "Clothes",
+      "name_vi": "Clothes",
+      "category": "vocabulary",
+      "cefr": "A2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.weather",
+      "name": "Weather",
+      "name_vi": "Weather",
+      "category": "vocabulary",
+      "cefr": "A2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.health",
+      "name": "Health",
+      "name_vi": "Health",
+      "category": "vocabulary",
+      "cefr": "A2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.shopping",
+      "name": "Shopping",
+      "name_vi": "Shopping",
+      "category": "vocabulary",
+      "cefr": "A2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.transport",
+      "name": "Transport",
+      "name_vi": "Transport",
+      "category": "vocabulary",
+      "cefr": "A2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.jobs",
+      "name": "Jobs",
+      "name_vi": "Jobs",
+      "category": "vocabulary",
+      "cefr": "A2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.technology_basic",
+      "name": "Technology basic",
+      "name_vi": "Technology basic",
+      "category": "vocabulary",
+      "cefr": "A2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.feelings",
+      "name": "Feelings",
+      "name_vi": "Feelings",
+      "category": "vocabulary",
+      "cefr": "A2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.environment",
+      "name": "Environment",
+      "name_vi": "Environment",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.education",
+      "name": "Education",
+      "name_vi": "Education",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.crime",
+      "name": "Crime",
+      "name_vi": "Crime",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.media",
+      "name": "Media",
+      "name_vi": "Media",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.sports",
+      "name": "Sports",
+      "name_vi": "Sports",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.culture",
+      "name": "Culture",
+      "name_vi": "Culture",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.social_issues",
+      "name": "Social issues",
+      "name_vi": "Social issues",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.business_economics",
+      "name": "Business economics",
+      "name_vi": "Business economics",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.science_research",
+      "name": "Science research",
+      "name_vi": "Science research",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.politics",
+      "name": "Politics",
+      "name_vi": "Politics",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.global_issues",
+      "name": "Global issues",
+      "name_vi": "Global issues",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.arts_literature",
+      "name": "Arts literature",
+      "name_vi": "Arts literature",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.health_medicine_advanced",
+      "name": "Health medicine advanced",
+      "name_vi": "Health medicine advanced",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.abstract_nouns",
+      "name": "Abstract nouns",
+      "name_vi": "Abstract nouns",
+      "category": "vocabulary",
+      "cefr": "C1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.academic_collocations",
+      "name": "Academic collocations",
+      "name_vi": "Academic collocations",
+      "category": "vocabulary",
+      "cefr": "C1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.formal_vocabulary",
+      "name": "Formal vocabulary",
+      "name_vi": "Formal vocabulary",
+      "category": "vocabulary",
+      "cefr": "C1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.specialized_vocabulary",
+      "name": "Specialized vocabulary",
+      "name_vi": "Specialized vocabulary",
+      "category": "vocabulary",
+      "cefr": "C2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.nuances_of_meaning",
+      "name": "Nuances of meaning",
+      "name_vi": "Nuances of meaning",
+      "category": "vocabulary",
+      "cefr": "C2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.figurative_language",
+      "name": "Figurative language",
+      "name_vi": "Figurative language",
+      "category": "vocabulary",
+      "cefr": "C2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.word_formation.prefixes",
+      "name": "Prefixes",
+      "name_vi": "Prefixes",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary.word_formation"
+    },
+    {
+      "code": "vocabulary.word_formation.suffixes",
+      "name": "Suffixes",
+      "name_vi": "Suffixes",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary.word_formation"
+    },
+    {
+      "code": "vocabulary.word_formation.compounding",
+      "name": "Compounding",
+      "name_vi": "Compounding",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary.word_formation"
+    },
+    {
+      "code": "vocabulary.word_formation.derivation",
+      "name": "Derivation",
+      "name_vi": "Derivation",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary.word_formation"
+    },
+    {
+      "code": "vocabulary.synonyms_antonyms",
+      "name": "Synonyms antonyms",
+      "name_vi": "Synonyms antonyms",
+      "category": "vocabulary",
+      "cefr": "B1",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "vocabulary.homophones_homographs",
+      "name": "Homophones homographs",
+      "name_vi": "Homophones homographs",
+      "category": "vocabulary",
+      "cefr": "B2",
+      "parent": "vocabulary"
+    },
+    {
+      "code": "reading.scanning",
+      "name": "Scanning",
+      "name_vi": "Scanning",
+      "category": "reading",
+      "cefr": "A2",
+      "parent": "reading"
+    },
+    {
+      "code": "reading.context_clues",
+      "name": "Context clues",
+      "name_vi": "Context clues",
+      "category": "reading",
+      "cefr": "B1",
+      "parent": "reading"
+    },
+    {
+      "code": "reading.text_structure",
+      "name": "Text structure",
+      "name_vi": "Text structure",
+      "category": "reading",
+      "cefr": "B2",
+      "parent": "reading"
+    },
+    {
+      "code": "reading.fact_opinion",
+      "name": "Fact opinion",
+      "name_vi": "Fact opinion",
+      "category": "reading",
+      "cefr": "B2",
+      "parent": "reading"
+    },
+    {
+      "code": "reading.author_purpose",
+      "name": "Author purpose",
+      "name_vi": "Author purpose",
+      "category": "reading",
+      "cefr": "C1",
+      "parent": "reading"
+    },
+    {
+      "code": "reading.critical_reading",
+      "name": "Critical reading",
+      "name_vi": "Critical reading",
+      "category": "reading",
+      "cefr": "C1",
+      "parent": "reading"
+    },
+    {
+      "code": "reading.text_types.short_stories",
+      "name": "Short stories",
+      "name_vi": "Short stories",
+      "category": "reading",
+      "cefr": "A1",
+      "parent": "reading.text_types"
+    },
+    {
+      "code": "reading.text_types.news_articles",
+      "name": "News articles",
+      "name_vi": "News articles",
+      "category": "reading",
+      "cefr": "A2",
+      "parent": "reading.text_types"
+    },
+    {
+      "code": "reading.text_types.informal_letters",
+      "name": "Informal letters",
+      "name_vi": "Informal letters",
+      "category": "reading",
+      "cefr": "A2",
+      "parent": "reading.text_types"
+    },
+    {
+      "code": "reading.text_types.formal_letters",
+      "name": "Formal letters",
+      "name_vi": "Formal letters",
+      "category": "reading",
+      "cefr": "B1",
+      "parent": "reading.text_types"
+    },
+    {
+      "code": "reading.text_types.reports",
+      "name": "Reports",
+      "name_vi": "Reports",
+      "category": "reading",
+      "cefr": "B2",
+      "parent": "reading.text_types"
+    },
+    {
+      "code": "reading.text_types.academic_texts",
+      "name": "Academic texts",
+      "name_vi": "Academic texts",
+      "category": "reading",
+      "cefr": "C1",
+      "parent": "reading.text_types"
+    },
+    {
+      "code": "reading.text_types.literary_texts",
+      "name": "Literary texts",
+      "name_vi": "Literary texts",
+      "category": "reading",
+      "cefr": "C1",
+      "parent": "reading.text_types"
+    },
+    {
+      "code": "listening.numbers_dates_times",
+      "name": "Numbers dates times",
+      "name_vi": "Numbers dates times",
+      "category": "listening",
+      "cefr": "A1",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.directions",
+      "name": "Directions",
+      "name_vi": "Directions",
+      "category": "listening",
+      "cefr": "A1",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.specific_information",
+      "name": "Specific information",
+      "name_vi": "Specific information",
+      "category": "listening",
+      "cefr": "A2",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.speaker_attitude",
+      "name": "Speaker attitude",
+      "name_vi": "Speaker attitude",
+      "category": "listening",
+      "cefr": "B1",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.note_taking",
+      "name": "Note taking",
+      "name_vi": "Note taking",
+      "category": "listening",
+      "cefr": "B1",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.implied_meaning",
+      "name": "Implied meaning",
+      "name_vi": "Implied meaning",
+      "category": "listening",
+      "cefr": "B2",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.accents",
+      "name": "Accents",
+      "name_vi": "Accents",
+      "category": "listening",
+      "cefr": "B2",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.discussions",
+      "name": "Discussions",
+      "name_vi": "Discussions",
+      "category": "listening",
+      "cefr": "B2",
+      "parent": "listening"
+    },
+    {
+      "code": "listening.lectures",
+      "name": "Lectures",
+      "name_vi": "Lectures",
+      "category": "listening",
+      "cefr": "C1",
+      "parent": "listening"
+    },
+    {
+      "code": "writing.genres.postcards_messages",
+      "name": "Postcards messages",
+      "name_vi": "Postcards messages",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": "writing.genres"
+    },
+    {
+      "code": "writing.genres.descriptions",
+      "name": "Descriptions",
+      "name_vi": "Descriptions",
+      "category": "writing",
+      "cefr": "A2",
+      "parent": "writing.genres"
+    },
+    {
+      "code": "writing.genres.narratives_stories",
+      "name": "Narratives stories",
+      "name_vi": "Narratives stories",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing.genres"
+    },
+    {
+      "code": "writing.genres.reviews",
+      "name": "Reviews",
+      "name_vi": "Reviews",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing.genres"
+    },
+    {
+      "code": "writing.genres.reports",
+      "name": "Reports",
+      "name_vi": "Reports",
+      "category": "writing",
+      "cefr": "B2",
+      "parent": "writing.genres"
+    },
+    {
+      "code": "writing.genres.formal_letters",
+      "name": "Formal letters",
+      "name_vi": "Formal letters",
+      "category": "writing",
+      "cefr": "B2",
+      "parent": "writing.genres"
+    },
+    {
+      "code": "writing.genres.proposals",
+      "name": "Proposals",
+      "name_vi": "Proposals",
+      "category": "writing",
+      "cefr": "C1",
+      "parent": "writing.genres"
+    },
+    {
+      "code": "writing.genres.academic_papers",
+      "name": "Academic papers",
+      "name_vi": "Academic papers",
+      "category": "writing",
+      "cefr": "C1",
+      "parent": "writing.genres"
+    },
+    {
+      "code": "writing.mechanics.capitalization",
+      "name": "Capitalization",
+      "name_vi": "Capitalization",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": "writing.mechanics"
+    },
+    {
+      "code": "writing.mechanics.full_stops",
+      "name": "Full stops",
+      "name_vi": "Full stops",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": "writing.mechanics"
+    },
+    {
+      "code": "writing.mechanics.question_exclamation",
+      "name": "Question exclamation",
+      "name_vi": "Question exclamation",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": "writing.mechanics"
+    },
+    {
+      "code": "writing.mechanics.commas",
+      "name": "Commas",
+      "name_vi": "Commas",
+      "category": "writing",
+      "cefr": "A2",
+      "parent": "writing.mechanics"
+    },
+    {
+      "code": "writing.mechanics.apostrophes",
+      "name": "Apostrophes",
+      "name_vi": "Apostrophes",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing.mechanics"
+    },
+    {
+      "code": "writing.mechanics.quotation_marks",
+      "name": "Quotation marks",
+      "name_vi": "Quotation marks",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing.mechanics"
+    },
+    {
+      "code": "writing.mechanics.semicolons_colons",
+      "name": "Semicolons colons",
+      "name_vi": "Semicolons colons",
+      "category": "writing",
+      "cefr": "B2",
+      "parent": "writing.mechanics"
+    },
+    {
+      "code": "writing.cohesion.basic_connectors",
+      "name": "Basic connectors",
+      "name_vi": "Basic connectors",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": "writing.cohesion"
+    },
+    {
+      "code": "writing.cohesion.sequence_words",
+      "name": "Sequence words",
+      "name_vi": "Sequence words",
+      "category": "writing",
+      "cefr": "A2",
+      "parent": "writing.cohesion"
+    },
+    {
+      "code": "writing.cohesion.cause_effect",
+      "name": "Cause effect",
+      "name_vi": "Cause effect",
+      "category": "writing",
+      "cefr": "A2",
+      "parent": "writing.cohesion"
+    },
+    {
+      "code": "writing.cohesion.contrast",
+      "name": "Contrast",
+      "name_vi": "Contrast",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing.cohesion"
+    },
+    {
+      "code": "writing.cohesion.addition",
+      "name": "Addition",
+      "name_vi": "Addition",
+      "category": "writing",
+      "cefr": "B2",
+      "parent": "writing.cohesion"
+    },
+    {
+      "code": "writing.cohesion.summary",
+      "name": "Summary",
+      "name_vi": "Summary",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing.cohesion"
+    },
+    {
+      "code": "writing.sentence_structure.compound",
+      "name": "Compound",
+      "name_vi": "Compound",
+      "category": "writing",
+      "cefr": "A2",
+      "parent": "writing.sentence_structure"
+    },
+    {
+      "code": "writing.sentence_structure.complex",
+      "name": "Complex",
+      "name_vi": "Complex",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing.sentence_structure"
+    },
+    {
+      "code": "writing.paragraph_structure.topic_sentences",
+      "name": "Topic sentences",
+      "name_vi": "Topic sentences",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing.paragraph_structure"
+    },
+    {
+      "code": "writing.paragraph_structure.supporting_details",
+      "name": "Supporting details",
+      "name_vi": "Supporting details",
+      "category": "writing",
+      "cefr": "B1",
+      "parent": "writing.paragraph_structure"
+    },
+    {
+      "code": "grammar.comparatives_superlatives",
+      "name": "Comparatives superlatives",
+      "name_vi": "Comparatives superlatives",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "reading.text_types",
+      "name": "Text types",
+      "name_vi": "Text types",
+      "category": "reading",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "listening",
+      "name": "Listening",
+      "name_vi": "Listening",
+      "category": "listening",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "writing",
+      "name": "Writing",
+      "name_vi": "Writing",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "grammar.questions",
+      "name": "Questions",
+      "name_vi": "Questions",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "writing.genres",
+      "name": "Genres",
+      "name_vi": "Genres",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "grammar.verb_forms",
+      "name": "Verb forms",
+      "name_vi": "Verb forms",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "writing.cohesion",
+      "name": "Cohesion",
+      "name_vi": "Cohesion",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "writing.sentence_structure",
+      "name": "Sentence structure",
+      "name_vi": "Sentence structure",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "grammar",
+      "name": "Grammar",
+      "name_vi": "Grammar",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "writing.paragraph_structure",
+      "name": "Paragraph structure",
+      "name_vi": "Paragraph structure",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "grammar.conditionals",
+      "name": "Conditionals",
+      "name_vi": "Conditionals",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "reading",
+      "name": "Reading",
+      "name_vi": "Reading",
+      "category": "reading",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "grammar.quantifiers",
+      "name": "Quantifiers",
+      "name_vi": "Quantifiers",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "writing.mechanics",
+      "name": "Mechanics",
+      "name_vi": "Mechanics",
+      "category": "writing",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "vocabulary.word_formation",
+      "name": "Word formation",
+      "name_vi": "Word formation",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "grammar.tenses",
+      "name": "Tenses",
+      "name_vi": "Tenses",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": null
+    },
+    {
+      "code": "vocabulary",
+      "name": "Vocabulary",
+      "name_vi": "Vocabulary",
+      "category": "vocabulary",
+      "cefr": "A1",
+      "parent": null
+    }
+  ],
+  "prerequisites": []
+}
