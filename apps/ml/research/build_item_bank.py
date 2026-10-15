@@ -27,7 +27,7 @@ SKILLS = ML_DIR / "data/skills.json"
 OUT = ML_DIR / "data/items.json"
 AUDIO_DIR = ML_DIR / "data/audio"
 
-GEN_MODEL = os.environ.get("GEN_MODEL", "gemini-2.5-flash")
+GEN_MODEL = os.environ.get("LINGOROAD_LLM_MODEL_VERSION") or os.environ.get("GEN_MODEL", "gemini-3.8-flash")
 TTS_PROVIDER = os.environ.get("TTS_PROVIDER", "edge")
 EDGE_VOICE = os.environ.get("EDGE_VOICE", "en-US-AriaNeural")
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -35,7 +35,10 @@ GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
 
 def llm_client() -> OpenAI:
     if os.environ.get("OPENAI_BASE_URL"):
-        return OpenAI()
+        return OpenAI(
+            api_key=os.environ.get("OPENAI_API_KEY", ""),
+            base_url=os.environ["OPENAI_BASE_URL"],
+        )
     return OpenAI(api_key=os.environ.get("GEMINI_API_KEY", ""), base_url=GEMINI_BASE_URL)
 
 GEN_PROMPT = """Create {n} English test questions for Vietnamese learners.
@@ -96,6 +99,8 @@ def synth_speech(script: str, path: Path):
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser()
     ap.add_argument("--per-skill", type=int, default=4)
     ap.add_argument("--limit", type=int, help="only first N skills (smoke run)")
@@ -106,6 +111,8 @@ def main():
     args = ap.parse_args()
 
     client = llm_client()
+    provider = "Groq" if "groq" in os.environ.get("OPENAI_BASE_URL", "").lower() else ("OpenAI/Custom" if os.environ.get("OPENAI_BASE_URL") else "Google Gemini")
+    print(f"-> Connecting Provider: {provider} | Model: {GEN_MODEL}\n", flush=True)
     rng = np.random.default_rng(0)
     skills = leaf_skills()[: args.limit]
     bank, failed, dropped = [], [], 0
@@ -127,6 +134,7 @@ def main():
             print(f"{s['code']}: FAILED ({type(e).__name__}: {e})", flush=True)
             failed.append(s["code"])
             continue
+        skill_items = []
         for it in items:
             n_opt = max(len(it.get("options") or []), 4)
             a, b, c = seed_irt_params(s["cefr"], n_opt, rng)
@@ -142,22 +150,38 @@ def main():
                     item["audioUrl"] = f"/audio/{fname}"
                 except Exception as e:
                     print(f"  TTS failed for {fname}: {e} (item kept without audio)", flush=True)
+            skill_items.append(item)
             bank.append(item)
         print(f"[{i + 1}/{len(skills)}] {s['code']}: {len(items)} items", flush=True)
         OUT.parent.mkdir(parents=True, exist_ok=True)  # checkpoint after every skill
         OUT.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
+        if args.post and skill_items:
+            try:
+                import_url = f"{args.post.rstrip('/')}/placement/items/import"
+                token = os.environ.get("ML_INTERNAL_TOKEN", "")
+                headers = {"x-internal-token": token} if token else {}
+                resp = httpx.post(import_url, json=skill_items, headers=headers, timeout=30)
+                if resp.status_code == 200:
+                    data = resp.json().get("data", {})
+                    imported = data.get("importedCount", len(skill_items))
+                    total_db = data.get("totalInDb", "?")
+                    print(f"  -> Da luu {imported} cau vao Database qua API! (Tong trong DB: {total_db})", flush=True)
+                else:
+                    print(f"  -> Luu API that bai ({resp.status_code}): {resp.text}", flush=True)
+            except Exception as pe:
+                print(f"  -> Loi ket noi API Backend: {pe}", flush=True)
+
         if args.sleep and i + 1 < len(skills):
             time.sleep(args.sleep)
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"wrote {len(bank)} items -> {OUT} ({dropped} invalid dropped)"
-          + (f" ({len(failed)} skills failed: {failed})" if failed else ""))
-
-    if args.post:
-        r = httpx.post(f"{args.post}/admin/items/import", json=bank, timeout=120)
-        r.raise_for_status()
-        print(r.json())
+    if bank:
+        OUT.parent.mkdir(parents=True, exist_ok=True)
+        OUT.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"wrote {len(bank)} items -> {OUT} ({dropped} invalid dropped)"
+              + (f" ({len(failed)} skills failed: {failed})" if failed else ""))
+    else:
+        print(f"No new items generated ({dropped} invalid dropped)"
+              + (f" ({len(failed)} skills failed: {failed})" if failed else ""))
 
 
 if __name__ == "__main__":

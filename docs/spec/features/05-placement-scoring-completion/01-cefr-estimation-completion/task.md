@@ -61,10 +61,10 @@ Triển khai Engine tính điểm CEFR và phát sự kiện hoàn tất bài ki
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
-- [ ] Tính toán đúng CEFR level cho các kịch bản điểm mẫu.
-- [ ] Session chuyển sang trạng thái `COMPLETED` với thời gian `completedAt`.
-- [ ] Sự kiện `PlacementCompletedEvent` được phát ra thành công.
-- [ ] Unit test pass 100%.
+- [x] Tính toán đúng CEFR level cho các kịch bản điểm mẫu.
+- [x] Session chuyển sang trạng thái `COMPLETED` với thời gian `completedAt`.
+- [x] Sự kiện `PlacementCompletedEvent` được phát ra thành công.
+- [x] Unit test pass 100%.
 
 ---
 
@@ -86,6 +86,6 @@ Triển khai Engine tính điểm CEFR và phát sự kiện hoàn tất bài ki
 
 # 10. Status (Trạng thái)
 
-- **TODO**
+- **DONE**
 
 # End
