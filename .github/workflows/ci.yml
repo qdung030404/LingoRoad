@@ -82,3 +82,55 @@ jobs:
         run: |
           cd apps/ml
           pytest tests/ -v
+
+  # ==========================================
+  # JOB 3: Mobile App CI (Flutter)
+  # ==========================================
+  mobile-ci:
+    name: Mobile (Flutter)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Mobile Dependencies
+        run: |
+          cd apps/mobile
+          flutter pub get
+
+      - name: Analyze Mobile Code (Lint & Conventions)
+        run: |
+          cd apps/mobile
+          flutter analyze
+
+      - name: Run Mobile Unit & Widget Tests
+        run: |
+          cd apps/mobile
+          flutter test
+
+      - name: Build Android APK (Test Build Verification)
+        run: |
+          cd apps/mobile
+          flutter build apk --debug
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 7
+
