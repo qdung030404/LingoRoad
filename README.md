@@ -221,9 +221,24 @@ npm run start:dev
 npm run backend:dev
 ```
 > 🚀 Backend API hoạt động tại: `http://localhost:3000`  
-> 🧪 **Kiểm thử API:** Nhập file `LingoRoad_Auth_API.postman_collection.json` (tại thư mục gốc) vào **Postman** để test ngay các luồng `Register`, `Login`, `Refresh Token`, `Logout`, `Change Password`.
+> 🧪 **Kiểm thử API với Postman:** 
+> - Xác thực & Quản lý phiên: Nhập file `LingoRoad_Auth_API.postman_collection.json` (tại thư mục gốc) để test `Register`, `Login`, `Refresh Token`, `Logout`, `Change Password`.
+> - Kiểm tra trình độ thích ứng (Placement Test): Nhập file `LingoRoad_Placement_API.postman_collection.json` để test `GET /placement/status`, `POST /placement/start`, `POST /placement/:sessionId/answer` (thuật toán CAT IRT), `GET /placement/:sessionId/result`.
 
-#### 3. Cấu hình & Chạy Web Admin Portal (Next.js)
+#### 3. Khởi chạy AI/ML Microservice (Python FastAPI)
+
+Bạn có thể chạy trực tiếp từ thư mục gốc của dự án bằng một trong 2 cách:
+
+```powershell
+# Cách A - Dùng NPM script từ thư mục gốc:
+npm run ml:dev
+
+# Cách B - Dùng PowerShell launcher script:
+.\run_ml.ps1
+```
+> 🧠 AI/ML Service hoạt động tại: `http://localhost:8001` (Tài liệu Swagger: `http://localhost:8001/docs`)
+
+#### 4. Cấu hình & Chạy Web Admin Portal (Next.js)
 
 ```powershell
 cd apps/frontend-web
@@ -232,7 +247,7 @@ npm run dev
 ```
 > Web Admin Portal chạy tại: `http://localhost:3001`
 
-#### 4. Khởi chạy Ứng dụng Mobile (Flutter)
+#### 5. Khởi chạy Ứng dụng Mobile (Flutter)
 
 ```powershell
 # Cách 1: Chạy tự động với launcher script (Khuyến nghị - tự động quét IP LAN & config)

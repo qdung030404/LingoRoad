@@ -37,8 +37,9 @@ model User {
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
-  profile         UserProfile?
-  refreshSessions RefreshSession[]
+  profile           UserProfile?
+  refreshSessions   RefreshSession[]
+  placementSessions PlacementSession[]
 
   @@map("users")
 }
@@ -71,4 +72,75 @@ model RefreshSession {
   @@index([userId, isRevoked])
   @@index([tokenHash])
   @@map("refresh_sessions")
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum ItemType {
+  MULTIPLE_CHOICE
+  CLOZE
+  SENTENCE_REORDER
+  MATCHING
+}
+
+model PlacementSession {
+  id               String        @id @default(uuid()) @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  status           SessionStatus @default(IN_PROGRESS)
+  currentItemIndex Int           @default(0) @map("current_item_index")
+  totalItems       Int           @default(15) @map("total_items")
+  correctCount     Int           @default(0) @map("correct_count")
+  estimatedCefr    CefrLevel?    @map("estimated_cefr")
+  confidenceScore  Float?        @map("confidence_score")
+  startedAt        DateTime      @default(now()) @map("started_at")
+  completedAt      DateTime?     @map("completed_at")
+
+  responses AssessmentResponse[]
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("placement_sessions")
+}
+
+model AssessmentItem {
+  id            String    @id @default(uuid()) @db.Uuid
+  skillCode     String    @map("skill_code") @db.VarChar(100)
+  cefrLevel     CefrLevel @map("cefr_level")
+  type          ItemType  @default(MULTIPLE_CHOICE)
+  prompt        String    @db.Text
+  options       Json      @db.JsonB
+  correctOption String    @map("correct_option") @db.Text
+  explanation   String?   @db.Text
+  audioUrl      String?   @map("audio_url") @db.VarChar(500)
+  irtA          Float     @default(1.0) @map("irt_a")
+  irtB          Float     @default(0.0) @map("irt_b")
+  irtC          Float     @default(0.25) @map("irt_c")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  responses AssessmentResponse[]
+
+  @@index([skillCode, cefrLevel])
+  @@index([cefrLevel])
+  @@map("assessment_items")
+}
+
+model AssessmentResponse {
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @map("session_id") @db.Uuid
+  itemId         String   @map("item_id") @db.Uuid
+  itemIndex      Int      @map("item_index")
+  selectedOption String   @map("selected_option") @db.VarChar(500)
+  isCorrect      Boolean  @map("is_correct")
+  responseTimeMs Int?     @map("response_time_ms")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  session PlacementSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  item    AssessmentItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, itemIndex])
+  @@map("assessment_responses")
 }

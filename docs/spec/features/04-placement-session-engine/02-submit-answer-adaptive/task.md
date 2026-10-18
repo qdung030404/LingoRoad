@@ -61,10 +61,10 @@ Triển khai API Nộp câu trả lời (`POST /placement/:sessionId/answer`) v�
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
-- [ ] Gửi đáp án hợp lệ trả về câu hỏi tiếp theo (HTTP 200).
-- [ ] Gửi đáp án câu thứ 15 trả về `{ isFinished: true }`.
-- [ ] Xử lý an toàn khi gửi trùng câu trả lời.
-- [ ] Unit Test cho UseCase và Service pass 100%.
+- [x] Gửi đáp án hợp lệ trả về câu hỏi tiếp theo (HTTP 200).
+- [x] Gửi đáp án câu thứ 15 trả về `{ isFinished: true }`.
+- [x] Xử lý an toàn khi gửi trùng câu trả lời (atomic transaction idempotency check trong `prisma.$transaction()`).
+- [x] Unit Test cho UseCase và Service pass 100%.
 
 ---
 
@@ -85,6 +85,6 @@ Triển khai API Nộp câu trả lời (`POST /placement/:sessionId/answer`) v�
 
 # 10. Status (Trạng thái)
 
-- **TODO**
+- **DONE**
 
 # End
