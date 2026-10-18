@@ -7,7 +7,7 @@ $MlDir = "$ProjectRoot\apps\ml"
 $VenvPython = "$MlDir\.venv\Scripts\python.exe"
 $VenvUvicorn = "$MlDir\.venv\Scripts\uvicorn.exe"
 
-if (-not (Test-Path $VenvUvicorn)) {
+if (-not (Test-Path $VenvPython) -or -not (Test-Path $VenvUvicorn)) {
     Write-Host "[!] Khong tim thay virtualenv tai: $MlDir\.venv" -ForegroundColor Red
     Write-Host "[*] Vui long khoi tao virtualenv truoc khi chay:" -ForegroundColor Yellow
     Write-Host "    cd apps/ml"
