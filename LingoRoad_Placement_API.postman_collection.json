@@ -1,0 +1,168 @@
+{
+  "info": {
+    "_postman_id": "b18e9322-5678-4c66-b123-lingoroadplacement",
+    "name": "LingoRoad - Placement Assessment API",
+    "description": "Postman Collection kiểm thử toàn bộ API Phân hệ Kiểm tra Đầu vào Thích ứng (Placement & Assessment) của LingoRoad (NestJS + Prisma + Python CAT IRT ML Microservice).\n\nTự động lưu và truyền `sessionId`, `itemId` và `itemIndex` qua các vòng lặp câu hỏi.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "currentItemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "currentItemIndex",
+      "value": "0",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Kiểm tra trạng thái làm bài (GET /placement/status)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/placement/status",
+          "host": ["{{baseUrl}}"],
+          "path": ["placement", "status"]
+        },
+        "description": "Tra cứu xem người học đã làm xong bài test chưa (hasCompleted) hoặc đang dở dang ở câu số mấy."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Bắt đầu bài kiểm tra mới (POST /placement/start)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 201\", function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "if (jsonData.success && jsonData.data) {",
+              "    pm.collectionVariables.set(\"sessionId\", jsonData.data.sessionId);",
+              "    if (jsonData.data.firstItem) {",
+              "        pm.collectionVariables.set(\"currentItemId\", jsonData.data.firstItem.id);",
+              "        pm.collectionVariables.set(\"currentItemIndex\", jsonData.data.firstItem.index.toString());",
+              "    }",
+              "    console.log(\"Saved sessionId:\", jsonData.data.sessionId);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/placement/start",
+          "host": ["{{baseUrl}}"],
+          "path": ["placement", "start"]
+        },
+        "description": "Khởi tạo phiên kiểm tra mới (hoặc trả về phiên đang làm dở). Tự động lưu `sessionId` và `currentItemId` vào biến môi trường Postman."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Nộp câu trả lời & Nhận câu tiếp theo (POST /placement/:sessionId/answer)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "var jsonData = pm.response.json();",
+              "if (jsonData.success && jsonData.data) {",
+              "    if (jsonData.data.nextItem) {",
+              "        pm.collectionVariables.set(\"currentItemId\", jsonData.data.nextItem.id);",
+              "        pm.collectionVariables.set(\"currentItemIndex\", jsonData.data.nextItem.index.toString());",
+              "        console.log(\"Next item loaded:\", jsonData.data.nextItem.id, \"index:\", jsonData.data.nextItem.index);",
+              "    } else if (jsonData.data.isFinished) {",
+              "        console.log(\"Assessment Finished! Estimated CEFR:\", jsonData.data.result.estimatedCefr);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"itemId\": \"{{currentItemId}}\",\n  \"itemIndex\": {{currentItemIndex}},\n  \"selectedOption\": \"went\",\n  \"responseTimeMs\": 3200\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/placement/{{sessionId}}/answer",
+          "host": ["{{baseUrl}}"],
+          "path": ["placement", "{{sessionId}}", "answer"]
+        },
+        "description": "Nộp câu trả lời và nhận câu hỏi thích ứng tiếp theo qua thuật toán CAT IRT. Tự động lưu câu hỏi tiếp theo vào biến để nộp liên tục."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Xem kết quả bài kiểm tra (GET /placement/:sessionId/result)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/placement/{{sessionId}}/result",
+          "host": ["{{baseUrl}}"],
+          "path": ["placement", "{{sessionId}}", "result"]
+        },
+        "description": "Lấy bảng điểm tổng kết (cấp độ CEFR, số câu đúng, confidence score) sau khi bài test đã hoàn tất."
+      },
+      "response": []
+    }
+  ]
+}

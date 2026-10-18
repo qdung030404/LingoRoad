@@ -166,6 +166,28 @@ model PlacementSession {
   @@map("placement_sessions")
 }
 
+model AssessmentItem {
+  id            String    @id @default(uuid()) @db.Uuid
+  skillCode     String    @map("skill_code") @db.VarChar(100)
+  cefrLevel     CefrLevel @map("cefr_level")
+  type          ItemType  @default(MULTIPLE_CHOICE)
+  prompt        String    @db.Text
+  options       Json      @db.JsonB
+  correctOption String    @map("correct_option") @db.Text
+  explanation   String?   @db.Text
+  audioUrl      String?   @map("audio_url") @db.VarChar(500)
+  irtA          Float     @default(1.0) @map("irt_a")
+  irtB          Float     @default(0.0) @map("irt_b")
+  irtC          Float     @default(0.25) @map("irt_c")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  responses     AssessmentResponse[]
+
+  @@index([skillCode, cefrLevel])
+  @@index([cefrLevel])
+  @@map("assessment_items")
+}
+
 model AssessmentResponse {
   id             String           @id @default(uuid()) @db.Uuid
   sessionId      String           @map("session_id") @db.Uuid
@@ -177,7 +199,7 @@ model AssessmentResponse {
   createdAt      DateTime         @default(now()) @map("created_at")
 
   session        PlacementSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  item           Item             @relation(fields: [itemId], references: [id])
+  item           AssessmentItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   @@unique([sessionId, itemIndex])
   @@map("assessment_responses")

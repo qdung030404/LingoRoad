@@ -58,9 +58,9 @@ Triển khai API Tra cứu Trạng thái (`GET /placement/status`) và Xem kết
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
-- [ ] `GET /placement/status` trả về đúng trạng thái phiên của user.
-- [ ] `GET /placement/:sessionId/result` trả về đúng kết quả cho session đã hoàn tất.
-- [ ] Unit Test pass 100%.
+- [x] `GET /placement/status` trả về đúng trạng thái phiên của user.
+- [x] `GET /placement/:sessionId/result` trả về đúng kết quả cho session đã hoàn tất.
+- [x] Unit Test pass 100%.
 
 ---
 
@@ -82,6 +82,6 @@ Triển khai API Tra cứu Trạng thái (`GET /placement/status`) và Xem kết
 
 # 10. Status (Trạng thái)
 
-- **TODO**
+- **DONE**
 
 # End

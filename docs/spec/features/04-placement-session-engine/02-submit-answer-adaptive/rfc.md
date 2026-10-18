@@ -85,7 +85,7 @@ model AssessmentResponse {
   createdAt      DateTime         @default(now()) @map("created_at")
 
   session        PlacementSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  item           Item             @relation(fields: [itemId], references: [id])
+  item           AssessmentItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   @@unique([sessionId, itemIndex])
   @@map("assessment_responses")
@@ -134,19 +134,24 @@ model AssessmentResponse {
 
 # 10. Failure Handling (Xử lý Sự cố)
 
-- Khi bắt lỗi Prisma Unique Constraint `P2002` trên `[sessionId, itemIndex]`: Trả về kết quả hiện tại thay vì báo lỗi 500.
+- **Atomic Idempotency Transaction**: Quá trình kiểm tra trùng lặp (`existsBySessionAndIndex`) + ghi nhận câu trả lời (`create`) + cập nhật tiến độ (`incrementProgress`) được bọc hoàn toàn bên trong một `prisma.$transaction()`.
+- Khi client gửi trùng lặp request do retry mạng yếu: Trả về HTTP `409 ConflictException('PLACEMENT_ANSWER_ALREADY_SUBMITTED')` an toàn, ngăn chặn triệt để lỗi vi phạm `P2002` (Unique Constraint Violation) và crash 500.
 
 ---
 
 # 11. Security Considerations (Cân nhắc về Bảo mật)
 
 - Kiểm tra `session.userId === req.user.id` để đảm bảo người dùng chỉ được nộp bài cho session của chính mình.
+- Bảo vệ các API nội bộ máy học (ML) bằng `InternalAuthGuard` sử dụng `crypto.timingSafeEqual` theo chuẩn constant-time comparison để chống tấn công phân tích thời gian (timing attacks).
+- Chuẩn hóa và làm sạch dữ liệu: `SubmitAnswerDto` sử dụng `class-validator` (@IsString, @IsInt, @Min(0), @MaxLength(500)), sanitize `responseTimeMs` (bỏ qua giá trị âm).
 
 ---
 
 # 12. Performance Considerations (Cân nhắc về Hiệu năng)
 
-- Câu hỏi được cache theo CEFR level trong Redis/Memory để truy vấn tức thì.
+- Ngân hàng câu hỏi được lưu bộ nhớ đệm In-Memory TTL Cache (10 phút) trong `AssessmentItemRepository.findAll()` kèm cơ chế `clearCache()`, loại bỏ hoàn toàn các truy vấn quét toàn bảng (full-table scans) lặp lại trên mỗi request nộp bài.
+- Tái sử dụng danh sách `responses` từ phiên đang nộp khi finalize session, loại bỏ double query `findBySessionId`.
+- Phát sự kiện hoàn tất bài thi bất đồng bộ qua `eventEmitter.emitAsync()` để không chặn luồng phản hồi HTTP về mobile client.
 
 ---
 

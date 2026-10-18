@@ -68,10 +68,10 @@ Triển khai API Bắt đầu bài kiểm tra đầu vào (`POST /placement/star
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
-- [ ] Gửi `POST /placement/start` với Bearer token trả về HTTP 201 kèm `sessionId` và `firstItem`.
-- [ ] `firstItem` không chứa trường `correctOption`.
-- [ ] Bảng `placement_sessions` có bản ghi mới.
-- [ ] Unit Test pass 100%.
+- [x] Gửi `POST /placement/start` với Bearer token trả về HTTP 201 kèm `sessionId` và `firstItem`.
+- [x] `firstItem` không chứa trường `correctOption`.
+- [x] Bảng `placement_sessions` có bản ghi mới.
+- [x] Unit Test pass 100%.
 
 ---
 
@@ -91,6 +91,6 @@ Triển khai API Bắt đầu bài kiểm tra đầu vào (`POST /placement/star
 
 # 10. Status (Trạng thái)
 
-- **TODO**
+- **DONE**
 
 # End
