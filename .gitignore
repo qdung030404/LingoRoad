@@ -5,6 +5,7 @@ node_modules/
 
 # Build Outputs
 dist/
+*.tsbuildinfo
 build/
 .next/
 out/
@@ -51,3 +52,10 @@ __pycache__/
 .venv/
 venv/
 ENV/
+
+# Local first-demo database, credentials, runtime logs and evidence
+.demo/
+.codex/config.toml
+opencode.json
+.claude/settings.local.json
+.mcp.json
