@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_radius.dart';
 import '../core/theme/app_typography.dart';
@@ -9,6 +10,8 @@ class CustomAppButton extends StatelessWidget {
   final bool isLoading;
   final bool isSecondary;
   final Widget? icon;
+  final BorderRadius? borderRadius;
+  final double fontSize;
 
   const CustomAppButton({
     super.key,
@@ -17,6 +20,8 @@ class CustomAppButton extends StatelessWidget {
     this.isLoading = false,
     this.isSecondary = false,
     this.icon,
+    this.borderRadius,
+    this.fontSize = 16,
   });
 
   @override
@@ -24,7 +29,7 @@ class CustomAppButton extends StatelessWidget {
     final isDisabled = onPressed == null || isLoading;
     final textColor = isDisabled
         ? AppColors.grey500
-        : (isSecondary ? AppColors.primary700 : Colors.white);
+        : (isSecondary ? AppColors.grey900 : Colors.white);
     final spinnerColor = isSecondary ? AppColors.primary700 : Colors.white;
 
     return SizedBox(
@@ -32,12 +37,18 @@ class CustomAppButton extends StatelessWidget {
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSecondary ? AppColors.primary50 : AppColors.primary,
-          foregroundColor: isSecondary ? AppColors.primary700 : Colors.white,
+          backgroundColor: isSecondary ? Colors.white : AppColors.grey900,
+          foregroundColor: isSecondary ? AppColors.grey900 : Colors.white,
           disabledBackgroundColor: AppColors.grey200,
           disabledForegroundColor: AppColors.grey500,
           elevation: 0,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.buttonRadius),
+          padding: EdgeInsets.symmetric(horizontal: text.isEmpty ? 0 : 12),
+          side: isSecondary
+              ? const BorderSide(color: AppColors.grey200)
+              : BorderSide.none,
+          shape: RoundedRectangleBorder(
+            borderRadius: borderRadius ?? AppRadius.buttonRadius,
+          ),
         ),
         onPressed: isDisabled ? null : onPressed,
         child: isLoading
@@ -55,14 +66,21 @@ class CustomAppButton extends StatelessWidget {
                 children: [
                   if (icon != null) ...[
                     icon!,
-                    const SizedBox(width: 8),
+                    if (text.isNotEmpty) const SizedBox(width: 8),
                   ],
-                  Text(
-                    text,
-                    style: AppTextStyles.button.copyWith(
-                      color: textColor,
+                  if (text.isNotEmpty)
+                    Flexible(
+                      child: Text(
+                        text,
+                        style: AppTextStyles.button.copyWith(
+                          color: textColor,
+                          fontSize: fontSize,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -fontSize * .03,
+                          fontVariations: const [ui.FontVariation('wght', 500)],
+                        ),
+                      ),
                     ),
-                  ),
                 ],
               ),
       ),

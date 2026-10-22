@@ -7,14 +7,14 @@ class AppColors {
   // ==========================================
   // 1. PRIMARY PALETTE
   // ==========================================
-  static const Color primary25 = Color(0xFFE7F4EB);
+  static const Color primary25 = Color(0xFFE7F6ED);
   static const Color primary50 = Color(0xFFDCF1E0);
-  static const Color primary100 = Color(0xFFCCECDC);
-  static const Color primary200 = Color(0xFF9DDEB1);
+  static const Color primary100 = Color(0xFFCCF4DC);
+  static const Color primary200 = Color(0xFF9DE8B8);
   static const Color primary300 = Color(0xFF72D391);
   static const Color primary400 = Color(0xFF52C87A);
-  static const Color primary500 = Color(0xFF35AC5F); // Main Brand Primary
-  static const Color primary600 = Color(0xFF278A4A);
+  static const Color primary500 = Color(0xFF59B070); // Figma Primary/500
+  static const Color primary600 = Color(0xFF418A54);
   static const Color primary700 = Color(0xFF1E713B);
   static const Color primary800 = Color(0xFF20623F);
   static const Color primary900 = Color(0xFF1F4524);
@@ -23,18 +23,18 @@ class AppColors {
   // 2. GREYSCALE PALETTE
   // ==========================================
   static const Color grey0 = Color(0xFFFFFFFF);
-  static const Color grey5 = Color(0xFFF9FCFE);
-  static const Color grey25 = Color(0xFFF1F7FC);
-  static const Color grey50 = Color(0xFFE4ECF4);
-  static const Color grey100 = Color(0xFFDEE7F0);
-  static const Color grey200 = Color(0xFFD8E2EB);
+  static const Color grey5 = Color(0xFFFBFCFE);
+  static const Color grey25 = Color(0xFFF4F7FB);
+  static const Color grey50 = Color(0xFFEDF1F6);
+  static const Color grey100 = Color(0xFFE4E9F0);
+  static const Color grey200 = Color(0xFFDBE2EB);
   static const Color grey300 = Color(0xFFCCD6E0);
-  static const Color grey400 = Color(0xFFBDCBD6);
-  static const Color grey500 = Color(0xFFA3B1BE);
-  static const Color grey600 = Color(0xFF8392A0);
+  static const Color grey400 = Color(0xFFC6D0DE);
+  static const Color grey500 = Color(0xFF7B8799);
+  static const Color grey600 = Color(0xFF828FA1);
   static const Color grey700 = Color(0xFF657482);
-  static const Color grey800 = Color(0xFF45515D);
-  static const Color grey900 = Color(0xFF14191F);
+  static const Color grey800 = Color(0xFF5B6574);
+  static const Color grey900 = Color(0xFF1A2029);
 
   // ==========================================
   // 3. ALERT / SUCCESS
@@ -69,7 +69,9 @@ class AppColors {
   // ==========================================
   // 6. ADDITIONAL / OVERLAY
   // ==========================================
-  static const Color overlayPopup = Color(0xCC14191F); // 80% opacity Greyscale 900
+  static const Color overlayPopup = Color(
+    0xCC14191F,
+  ); // 80% opacity Greyscale 900
   static const Color strokeButtonGlass = Color(0x1AFFFFFF); // 10% white stroke
 
   // ==========================================
@@ -80,14 +82,14 @@ class AppColors {
   static const Color primaryLight = primary50;
 
   // Background & Surface
-  static const Color backgroundLight = grey5;
+  static const Color backgroundLight = grey25;
   static const Color surfaceLight = grey0;
   static const Color backgroundDark = grey900;
   static const Color surfaceDark = Color(0xFF1E242B);
 
   // Text
   static const Color textPrimaryLight = grey900;
-  static const Color textSecondaryLight = grey700;
+  static const Color textSecondaryLight = grey800;
   static const Color textMutedLight = grey500;
 
   static const Color textPrimaryDark = grey0;

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' as ui;
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_radius.dart';
 import '../core/theme/app_typography.dart';
+import 'figma_widgets.dart';
 
 class CustomAppTextField extends StatefulWidget {
   final String? label;
@@ -62,8 +64,12 @@ class _CustomAppTextFieldState extends State<CustomAppTextField> {
           Text(
             widget.label!,
             style: AppTextStyles.bodyStrong.copyWith(
-              fontSize: 13,
-              color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              letterSpacing: -.42,
+              color: isDark
+                  ? AppColors.textPrimaryDark
+                  : AppColors.textPrimaryLight,
             ),
           ),
           const SizedBox(height: 6),
@@ -79,12 +85,22 @@ class _CustomAppTextFieldState extends State<CustomAppTextField> {
           validator: widget.validator,
           onTap: widget.onTap,
           style: AppTextStyles.body.copyWith(
-            color: isDark ? AppColors.textPrimaryDark : AppColors.textPrimaryLight,
+            height: 1.2,
+            letterSpacing: -.42,
+            fontVariations: const [ui.FontVariation('wght', 400)],
+            color: isDark
+                ? AppColors.textPrimaryDark
+                : AppColors.textPrimaryLight,
           ),
           decoration: InputDecoration(
+            isDense: true,
+            errorMaxLines: 3,
             hintText: widget.hintText,
             hintStyle: AppTextStyles.body.copyWith(
               color: AppColors.grey500,
+              height: 1.2,
+              letterSpacing: -.42,
+              fontVariations: const [ui.FontVariation('wght', 400)],
             ),
             errorText: widget.errorText,
             errorStyle: AppTextStyles.caption.copyWith(
@@ -92,14 +108,30 @@ class _CustomAppTextFieldState extends State<CustomAppTextField> {
             ),
             filled: true,
             fillColor: widget.enabled
-                ? (isDark ? AppColors.surfaceDark : AppColors.grey0)
+                ? (isDark ? AppColors.surfaceDark : AppColors.grey50)
                 : (isDark ? AppColors.grey800 : AppColors.grey50),
-            prefixIcon: widget.prefixIcon,
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(12),
+              child:
+                  widget.prefixIcon ??
+                  FigmaAsset(
+                    widget.isPassword
+                        ? 'login/imgVuesaxBulkLock'
+                        : widget.keyboardType == TextInputType.emailAddress
+                        ? 'login/imgVuesaxBulkSms'
+                        : 'register/imgVuesaxBulkUserSquare',
+                  ),
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 44,
+              maxWidth: 44,
+              minHeight: 48,
+            ),
             suffixIcon: widget.isPassword
                 ? IconButton(
-                    icon: Icon(
-                      _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                      color: AppColors.grey500,
+                    tooltip: _obscureText ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
+                    icon: const FigmaAsset(
+                      'login/imgVuesaxBulkFrame',
                       size: 20,
                     ),
                     onPressed: () {
@@ -109,39 +141,29 @@ class _CustomAppTextFieldState extends State<CustomAppTextField> {
                     },
                   )
                 : widget.suffixIcon,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 14,
+            ),
             border: OutlineInputBorder(
               borderRadius: AppRadius.inputRadius,
-              borderSide: BorderSide(
-                color: isDark ? AppColors.borderDark : AppColors.borderLight,
-              ),
+              borderSide: BorderSide(color: Colors.transparent),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: AppRadius.inputRadius,
-              borderSide: BorderSide(
-                color: isDark ? AppColors.borderDark : AppColors.borderLight,
-              ),
+              borderSide: BorderSide(color: Colors.transparent),
             ),
             focusedBorder: const OutlineInputBorder(
               borderRadius: AppRadius.inputRadius,
-              borderSide: BorderSide(
-                color: AppColors.primary,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppColors.primary, width: 1.5),
             ),
             errorBorder: const OutlineInputBorder(
               borderRadius: AppRadius.inputRadius,
-              borderSide: BorderSide(
-                color: AppColors.error100,
-                width: 1.0,
-              ),
+              borderSide: BorderSide(color: AppColors.error100, width: 1.0),
             ),
             focusedErrorBorder: const OutlineInputBorder(
               borderRadius: AppRadius.inputRadius,
-              borderSide: BorderSide(
-                color: AppColors.error100,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppColors.error100, width: 1.5),
             ),
           ),
         ),

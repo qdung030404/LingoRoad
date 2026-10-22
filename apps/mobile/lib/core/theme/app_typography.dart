@@ -4,7 +4,7 @@ import 'app_colors.dart';
 class AppTextStyles {
   AppTextStyles._();
 
-  static const String fontFamily = 'PlusJakartaSans';
+  static const String fontFamily = 'Inter';
 
   // Light Styles
   static const TextStyle heading1 = TextStyle(
@@ -106,7 +106,9 @@ class AppTextStyles {
       Theme.of(context).brightness == Brightness.dark ? bodyDark : body;
 
   static TextStyle bodyStrongOf(BuildContext context) =>
-      Theme.of(context).brightness == Brightness.dark ? bodyStrongDark : bodyStrong;
+      Theme.of(context).brightness == Brightness.dark
+      ? bodyStrongDark
+      : bodyStrong;
 
   static TextStyle captionOf(BuildContext context) =>
       Theme.of(context).brightness == Brightness.dark ? captionDark : caption;
