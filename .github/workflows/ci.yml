@@ -19,9 +19,24 @@ jobs:
     runs-on: ubuntu-latest
     env:
       NODE_ENV: test
-      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/lingoroad_test?schema=public"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/lingoroad_demo_test?schema=public"
       JWT_SECRET: "ci_jwt_secret_lingoroad_super_secure_key"
       INTERNAL_SERVICE_KEY: "ci_internal_service_key_lingoroad"
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lingoroad_demo_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
     steps:
       - name: Checkout Code
@@ -50,6 +65,13 @@ jobs:
         run: |
           cd apps/backend
           npm run test
+
+      - name: Validate Demo Content and HTTP E2E
+        run: |
+          cd apps/backend
+          npx ts-node prisma/demo-content/validate.spec.ts
+          npx prisma migrate deploy
+          npm run test:e2e -- --runInBand
 
   # ==========================================
   # JOB 2: AI / ML Service CI (FastAPI + PyTorch)
@@ -105,6 +127,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          flutter-version: '3.44.6'
           cache: true
 
       - name: Install Mobile Dependencies
