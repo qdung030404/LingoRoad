@@ -1,16 +1,17 @@
 class AppConfig {
   AppConfig({String? apiBaseUrl, String? environment})
-      : environment = (environment ??
-                const String.fromEnvironment('APP_ENV', defaultValue: 'dev'))
-            .trim()
-            .toLowerCase(),
-        apiBaseUrl = normalizeBaseUrl(
-          apiBaseUrl ??
-              const String.fromEnvironment(
-                'API_BASE_URL',
-                defaultValue: 'http://localhost:5000',
-              ),
-        ) {
+    : environment =
+          (environment ??
+                  const String.fromEnvironment('APP_ENV', defaultValue: 'dev'))
+              .trim()
+              .toLowerCase(),
+      apiBaseUrl = normalizeBaseUrl(
+        apiBaseUrl ??
+            const String.fromEnvironment(
+              'API_BASE_URL',
+              defaultValue: 'http://10.0.2.2:3000',
+            ),
+      ) {
     if (!{'dev', 'staging', 'prod'}.contains(this.environment)) {
       throw ArgumentError.value(
         this.environment,
