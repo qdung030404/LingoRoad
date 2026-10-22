@@ -10,6 +10,9 @@
     "cross-env": "^7.0.3"
   },
   "scripts": {
+    "demo:setup": "pwsh -NoProfile -File scripts/setup-demo.ps1",
+    "demo:start": "pwsh -NoProfile -File run_demo.ps1",
+    "demo:test": "pwsh -NoProfile -File run_demo.ps1 -Test",
     "backend:dev": "npm run start:dev --workspace=apps/backend",
     "backend:build": "npm run build --workspace=apps/backend",
     "backend:start": "node apps/backend/dist/main",
