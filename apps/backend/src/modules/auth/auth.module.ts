@@ -10,6 +10,7 @@ import { RefreshTokenUseCase } from './use-cases/refresh-token.use-case';
 import { LogoutUseCase } from './use-cases/logout.use-case';
 import { LogoutAllUseCase } from './use-cases/logout-all.use-case';
 import { ChangePasswordUseCase } from './use-cases/change-password.use-case';
+import { ProfileService } from './profile.service';
 
 @Module({
   imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
@@ -24,6 +25,7 @@ import { ChangePasswordUseCase } from './use-cases/change-password.use-case';
     LogoutUseCase,
     LogoutAllUseCase,
     ChangePasswordUseCase,
+    ProfileService,
   ],
   exports: [UserRepository, RefreshSessionRepository, JwtStrategy],
 })

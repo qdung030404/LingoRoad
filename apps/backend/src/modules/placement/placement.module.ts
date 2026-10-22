@@ -11,11 +11,13 @@ import { StartPlacementUseCase } from './use-cases/start-placement.use-case';
 import { GetPlacementStatusUseCase } from './use-cases/get-placement-status.use-case';
 import { GetPlacementResultUseCase } from './use-cases/get-placement-result.use-case';
 import { SubmitAnswerUseCase } from './use-cases/submit-answer.use-case';
+import { DemoPlacementService } from './services/demo-placement.service';
 
 @Module({
   imports: [PrismaModule],
   controllers: [PlacementController],
   providers: [
+    DemoPlacementService,
     // Repositories
     PlacementSessionRepository,
     AssessmentItemRepository,

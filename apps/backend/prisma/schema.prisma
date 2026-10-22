@@ -27,6 +27,18 @@ enum CefrLevel {
   C2
 }
 
+enum LearningPurpose {
+  EXAM
+  WORK
+  DAILY_COMMUNICATION
+  STUDY
+}
+
+enum AssessmentSkill {
+  READING
+  LISTENING
+}
+
 model User {
   id           String         @id @default(uuid()) @db.Uuid
   email        String         @unique @db.VarChar(255)
@@ -48,7 +60,10 @@ model UserProfile {
   id               String    @id @default(uuid()) @db.Uuid
   userId           String    @unique @map("user_id") @db.Uuid
   targetCefr       CefrLevel @default(B1) @map("target_cefr")
-  dailyGoalMinutes Int       @default(15) @map("daily_goal_minutes")
+  dailyGoalMinutes Int       @default(10) @map("daily_goal_minutes")
+  learningPurpose LearningPurpose? @map("learning_purpose")
+  selfAssessedCefr CefrLevel? @map("self_assessed_cefr")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at")
   reminderEnabled  Boolean   @default(true) @map("reminder_enabled")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
@@ -92,7 +107,12 @@ model PlacementSession {
   userId           String        @map("user_id") @db.Uuid
   status           SessionStatus @default(IN_PROGRESS)
   currentItemIndex Int           @default(0) @map("current_item_index")
-  totalItems       Int           @default(15) @map("total_items")
+  totalItems       Int           @default(10) @map("total_items")
+  testVersion      String        @default("READING_LISTENING_V1") @map("test_version")
+  bankVersion      String        @default("demo-v1") @map("bank_version")
+  currentItemId    String?       @map("current_item_id") @db.Uuid
+  version          Int           @default(0)
+  skillResults     Json?         @map("skill_results") @db.JsonB
   correctCount     Int           @default(0) @map("correct_count")
   estimatedCefr    CefrLevel?    @map("estimated_cefr")
   confidenceScore  Float?        @map("confidence_score")
@@ -101,6 +121,7 @@ model PlacementSession {
 
   responses AssessmentResponse[]
   user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentItem AssessmentItem? @relation(fields: [currentItemId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
   @@map("placement_sessions")
@@ -108,6 +129,10 @@ model PlacementSession {
 
 model AssessmentItem {
   id            String    @id @default(uuid()) @db.Uuid
+  externalId    String?   @unique @map("external_id") @db.VarChar(100)
+  bankVersion   String?   @map("bank_version") @db.VarChar(100)
+  skill         AssessmentSkill?
+  passage       String?  @db.Text
   skillCode     String    @map("skill_code") @db.VarChar(100)
   cefrLevel     CefrLevel @map("cefr_level")
   type          ItemType  @default(MULTIPLE_CHOICE)
@@ -122,9 +147,11 @@ model AssessmentItem {
   createdAt     DateTime  @default(now()) @map("created_at")
 
   responses AssessmentResponse[]
+  currentSessions PlacementSession[]
 
   @@index([skillCode, cefrLevel])
   @@index([cefrLevel])
+  @@index([bankVersion, skill])
   @@map("assessment_items")
 }
 
@@ -142,5 +169,6 @@ model AssessmentResponse {
   item    AssessmentItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   @@unique([sessionId, itemIndex])
+  @@unique([sessionId, itemId])
   @@map("assessment_responses")
 }

@@ -68,6 +68,9 @@ describe('LoginUseCase', () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       profile: {
+        learningPurpose: null,
+        selfAssessedCefr: null,
+        onboardingCompletedAt: null,
         id: 'uuid-profile-1',
         userId: 'uuid-user-1',
         targetCefr: CefrLevel.B1,

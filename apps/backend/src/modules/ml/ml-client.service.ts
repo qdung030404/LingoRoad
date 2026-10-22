@@ -97,7 +97,7 @@ export class MlClientService {
           { history, candidates },
           {
             headers: this.getHeaders({ 'Content-Type': 'application/json' }),
-            timeout: this.defaultTimeoutMs,
+            timeout: 3000,
           },
         ),
       );

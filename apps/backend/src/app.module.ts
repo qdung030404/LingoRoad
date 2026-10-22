@@ -7,8 +7,10 @@ import { SecurityModule } from './modules/security/security.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MlModule } from './modules/ml/ml.module';
 import { PlacementModule } from './modules/placement/placement.module';
+import { HealthController } from './health.controller';
 
 @Module({
+  controllers: [HealthController],
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,

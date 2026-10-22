@@ -49,7 +49,7 @@ export class UserRepository {
         data: {
           userId: user.id,
           targetCefr: data.targetCefr ?? CefrLevel.B1,
-          dailyGoalMinutes: data.dailyGoalMinutes ?? 15,
+          dailyGoalMinutes: data.dailyGoalMinutes ?? 10,
           reminderEnabled: data.reminderEnabled ?? true,
         },
       });

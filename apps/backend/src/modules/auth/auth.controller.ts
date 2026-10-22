@@ -7,6 +7,8 @@ import {
   UseGuards,
   Req,
   Headers,
+  Get,
+  Patch,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { RegisterDto } from './dto/register.dto';
@@ -24,6 +26,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
+import { ProfileService } from './profile.service';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Controller('auth')
 @UseGuards(JwtAuthGuard)
@@ -35,7 +39,18 @@ export class AuthController {
     private readonly logoutUseCase: LogoutUseCase,
     private readonly logoutAllUseCase: LogoutAllUseCase,
     private readonly changePasswordUseCase: ChangePasswordUseCase,
+    private readonly profileService: ProfileService,
   ) {}
+
+  @Get('me')
+  async me(@CurrentUser('sub') userId: string) {
+    return { success: true, data: await this.profileService.get(userId) };
+  }
+
+  @Patch('me')
+  async updateMe(@CurrentUser('sub') userId: string, @Body() dto: UpdateProfileDto) {
+    return { success: true, data: await this.profileService.update(userId, dto) };
+  }
 
   @Public()
   @Post('register')

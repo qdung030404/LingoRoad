@@ -9,7 +9,7 @@ export class PlacementCompletedEvent {
     public readonly userId: string,
     public readonly sessionId: string,
     public readonly estimatedCefr: CefrLevel,
-    public readonly confidenceScore: number,
+    public readonly confidenceScore: number | null,
     public readonly correctCount: number,
     public readonly totalItems: number,
   ) {}

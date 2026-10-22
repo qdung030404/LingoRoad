@@ -5,7 +5,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { PasswordService } from '../../security/password.service';
 import { TokenService } from '../../security/token.service';
 import { UserRegisteredEvent } from '../events/user-registered.event';
-import { CefrLevel, UserRole, UserStatus } from '@prisma/client';
+import { CefrLevel, Prisma, UserRole, UserStatus } from '@prisma/client';
 
 export interface AuthResult {
   accessToken: string;
@@ -60,6 +60,11 @@ export class RegisterUseCase {
       sessionExpiresAt,
       deviceIdentifier: context?.deviceIdentifier,
       ipAddress: context?.ipAddress,
+    }).catch((error: unknown) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException({ code: 'AUTH_EMAIL_ALREADY_EXISTS', message: 'Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác.' });
+      }
+      throw error;
     });
 
     const accessToken = await this.tokenService.generateAccessToken({

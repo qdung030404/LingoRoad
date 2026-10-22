@@ -75,6 +75,9 @@ describe('RegisterUseCase', () => {
       createdAt: new Date('2026-10-08T00:00:00Z'),
       updatedAt: new Date('2026-10-08T00:00:00Z'),
       profile: {
+        learningPurpose: null,
+        selfAssessedCefr: null,
+        onboardingCompletedAt: null,
         id: 'uuid-profile-1',
         userId: 'uuid-user-1',
         targetCefr: CefrLevel.B1,
