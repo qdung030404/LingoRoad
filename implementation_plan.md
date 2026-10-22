@@ -1,250 +1,206 @@
-# Kế hoạch Triển khai Backend: 01. Authentication & Session Management
+# Kế hoạch triển khai LingoRoad
 
-> **Tài liệu tham chiếu:** `docs/spec/features/01-authentication-session-management/`  
-> **Phân hệ:** Identity & Access Management (IAM)  
-> **Nền tảng:** NestJS (TypeScript), PostgreSQL (Prisma ORM), Redis  
-> **Mục tiêu:** Xây dựng hệ thống Xác thực và Quản lý phiên làm việc bảo mật cao với cơ chế xoay vòng Refresh Token (Token Rotation) và chống Replay Attack.
+## Cập nhật demo — 22/10/2026
 
----
+Đã hoàn thành demo tài khoản, onboarding, hồ sơ và placement10 câu (5 Đọc + 5 Nghe) trên ngân hàng40 câu; Flutter gọi API thật, giữ phiên và bài đang làm. Kiểm tra local:82 unit tests backend,5 HTTP E2E và28 Flutter tests đạt; analyze sạch và APK release build thành công. Chi tiết và lệnh chạy tại [hướng dẫn demo](docs/first-demo.md).
 
-## 1. Tóm tắt Yêu cầu Nghiệp vụ & Kỹ thuật (Requirements Summary)
+Home/Học/Luyện tập/Tiến độ và phản hồi Nói/Viết hiện là [bản xem trước dùng fixture](docs/figma-learning-preview.md). Công việc tiếp theo là nối bài học, kế hoạch, lịch sử tương tác và tiến độ theo tài khoản, sau đó tích hợp/đánh giá CAT–DKT theo yêu cầu. [Nghiên cứu backend ngày22/10](docs/backend-research-2026-10-22.md) phân biệt rõ API hiện có và đề xuất. Yêu cầu và lịch trong `ProgressReport.md` được giữ nguyên.
 
-Phân hệ bao gồm 4 tính năng con độc lập nhưng liên kết chặt chẽ theo vòng đời tài khoản và phiên làm việc:
+**Kế hoạch nền: 19/10/2026.** Các mục chi tiết bên dưới ghi lại snapshot nhánh `main`, commit `a05c456`, trước khi làm demo; không dùng các ô công việc cũ để phủ nhận phần đã hoàn thành nêu trên. Kế hoạch nền đối chiếu với [yêu cầu đồ án](ProgressReport.md).
 
-### 1.1. Đăng ký tài khoản (01-user-registration)
-- **Endpoint**: `POST /auth/register` (Public).
-- **Quy trình xử lý**:
-  1. Nhận thông tin: `email`, `password`, `name`.
-  2. Validate định dạng email (chuẩn RFC 5322, trim, chuyển về chữ thường) và độ mạnh mật khẩu (tối thiểu 8 ký tự, gồm ít nhất 1 chữ thường, 1 số).
-  3. Kiểm tra email trong cơ sở dữ liệu. Nếu đã tồn tại → Trả về `409 Conflict` (`AUTH_EMAIL_ALREADY_EXISTS`).
-  4. Băm mật khẩu bằng thuật toán an toàn `Argon2id` (với fallback sang `bcrypt`).
-  5. Mở giao dịch nguyên tử `prisma.$transaction`:
-     - Tạo bản ghi `User` (`role = LEARNER`, `status = ACTIVE`).
-     - Tạo bản ghi `UserProfile` mặc định (`targetCefr = B1`, `dailyGoalMinutes = 15`, `reminderEnabled = true`).
-     - Tạo bản ghi `RefreshSession` lưu SHA-256 hash của Refresh Token (hạn 30 ngày).
-  6. Kích hoạt sự kiện nội bộ `UserRegisteredEvent(userId, email, role, createdAt)` qua `@nestjs/event-emitter`.
-  7. Trả về mã phản hồi `201 Created` kèm cặp JWT Access Token (15 phút), Refresh Token thô (32 bytes hex) và thông tin Profile cơ bản.
+Trong snapshot19/10, các mục “đã có” xác nhận sự hiện diện và luồng xử lý trong mã nguồn; chưa chạy lại kiểm thử khi lập snapshot đó. Kết quả kiểm tra ngày22/10 được ghi riêng ở đầu tài liệu; các kiểm tra local không thay thế nghiệm thu hoặc đánh giá với người học.
 
-### 1.2. Đăng nhập người dùng (02-user-login)
-- **Endpoint**: `POST /auth/login` (Public, áp dụng Throttler Rate Limiting).
-- **Quy trình xử lý**:
-  1. Nhận thông tin: `email`, `password`.
-  2. Tìm kiếm `User` kèm `UserProfile` theo email đã chuẩn hóa.
-  3. **Chống tấn công đo thời gian (Timing Attack)**: Nếu không tìm thấy email, thực hiện phép xác thực băm giả lập (dummy verification) trước khi trả lỗi `401 Unauthorized` (`AUTH_INVALID_CREDENTIALS`).
-  4. So khớp mật khẩu đã băm trong database qua `PasswordService.verify()`. Nếu sai → Trả lỗi `401 Unauthorized`.
-  5. Kiểm tra trạng thái tài khoản: Nếu `status === SUSPENDED` hoặc `DELETED` → Trả lỗi `403 Forbidden` (`AUTH_USER_SUSPENDED`).
-  6. Sinh chuỗi Refresh Token ngẫu nhiên (32 bytes hex), tính mã băm SHA-256 và lưu bản ghi mới vào `RefreshSession`.
-  7. Sinh JWT Access Token (15 phút) chứa claims: `sub` (userId), `email`, `role`.
-  8. Trả về mã phản hồi `200 OK` kèm Tokens và thông tin Profile.
+## 1. Mục tiêu và phạm vi
 
-### 1.3. Xoay vòng Refresh Token & Chống Replay Attack (03-refresh-token-rotation)
-- **Endpoint**: `POST /auth/refresh` (Public).
-- **Quy trình xử lý**:
-  1. Nhận `refreshToken` từ request body.
-  2. Tính mã băm SHA-256 của chuỗi token nhận được.
-  3. Truy vấn bảng `refresh_sessions` theo `tokenHash` kèm liên kết `User`:
-     - **Trường hợp 1 (Không tồn tại hoặc hết hạn)**: Nếu không tìm thấy phiên hoặc `expiresAt < now` → Trả về `401 Unauthorized` (`AUTH_INVALID_REFRESH_TOKEN`).
-     - **Trường hợp 2 (Phát hiện Replay Attack)**: Nếu tìm thấy phiên nhưng `isRevoked === true` (dấu hiệu kẻ gian hoặc token cũ bị gửi lại):
-       - Ghi log cảnh báo an ninh nghiêm trọng.
-       - Thực thi lệnh: `UPDATE refresh_sessions SET is_revoked = true WHERE user_id = :userId` để thu hồi NGAY LẬP TỨC toàn bộ phiên hoạt động của tài khoản trên mọi thiết bị.
-       - Trả về `401 Unauthorized` (`AUTH_TOKEN_COMPROMISED`).
-     - **Trường hợp 3 (Phiên hợp lệ)**: Nếu phiên chưa bị thu hồi (`isRevoked === false`) và tài khoản `ACTIVE`:
-       - Sinh chuỗi Refresh Token mới và tính SHA-256 hash mới.
-       - Sinh JWT Access Token mới.
-       - Mở giao dịch `prisma.$transaction`:
-         - Cập nhật phiên cũ: `isRevoked = true`.
-         - Tạo bản ghi phiên mới: `tokenHash` mới, thời hạn 30 ngày.
-       - Trả về `200 OK` kèm cặp Access Token và Refresh Token mới.
+Ứng dụng cần có đăng ký/đăng nhập, quản lý hồ sơ, đánh giá đầu vào, nội dung học phù hợp trình độ, theo dõi bốn kỹ năng và biểu đồ tiến bộ. Lõi học thích ứng phải thể hiện được vai trò của CAT và DKT bằng dữ liệu và kết quả đánh giá.
 
-### 1.4. Đăng xuất, Thu hồi phiên & Đổi mật khẩu (04-session-revocation-logout)
-- **Endpoint `POST /auth/logout`**:
-  - Nhận `refreshToken` trong body, tính SHA-256 hash và đánh dấu `isRevoked = true` cho phiên đó (Idempotent, trả về `200 OK`).
-- **Endpoint `POST /auth/logout-all`** (Cần xác thực `JwtAuthGuard`):
-  - Trích xuất `userId` từ Bearer Token.
-  - Cập nhật `isRevoked = true` cho toàn bộ các phiên của `userId` trong `refresh_sessions`. Trả về `200 OK`.
-- **Endpoint `POST /auth/change-password`** (Cần xác thực `JwtAuthGuard`):
-  - Nhận `oldPassword`, `newPassword` (kiểm tra độ mạnh và không được trùng `oldPassword`).
-  - Xác thực `oldPassword` khớp với database. Nếu không khớp → Trả về `400 Bad Request` (`AUTH_PASSWORD_MISMATCH`).
-  - Băm `newPassword` bằng Argon2id.
-  - Mở giao dịch `prisma.$transaction`:
-    - Cập nhật `passwordHash` mới vào bảng `users`.
-    - Thu hồi toàn bộ các phiên hoạt động: `UPDATE refresh_sessions SET is_revoked = true WHERE user_id = :userId`.
-  - Kích hoạt sự kiện `PasswordChangedEvent(userId, changedAt)` qua `@nestjs/event-emitter`.
-  - Trả về `200 OK`.
+[Yêu cầu thầy giao](ProgressReport.md) đang mô tả DKT cho ước lượng đầu vào và CAT cho đề xuất nội dung. Mã nguồn hiện dùng CAT cho placement và SAINT+ cho endpoint Knowledge Tracing độc lập. Cần thống nhất cách diễn giải và thiết kế kết hợp CAT–DKT với giảng viên trước khi nghiệm thu; giữ nguyên nội dung yêu cầu gốc cho đến khi có thống nhất.
 
----
+FSRS, DQN/DP, trợ lý AI, gamification và Web Admin là các hạng mục mở rộng. Xếp sau luồng ứng dụng và yêu cầu CAT–DKT cốt lõi nếu nguồn lực có hạn.
 
-## 2. Kiến trúc & Mô hình Áp dụng (Architecture & Design Patterns)
+## 2. Hiện trạng và bằng chứng
 
-Dự án áp dụng kiến trúc **Domain-Driven Design (DDD)** kết hợp **Clean Architecture** phân tầng rõ ràng bên trong NestJS:
+| Hạng mục | Đã có | Cần hoàn thiện |
+| --- | --- | --- |
+| Backend nền tảng | NestJS, Prisma, cấu hình môi trường, validation, filter lỗi, JWT/roles guard, event emitter. | Kiểm tra việc áp dụng guard, tích hợp thực tế và cấu hình triển khai. |
+| Authentication | Sáu endpoint Auth, use case, repository và unit test cho đăng ký/đăng nhập/refresh/đổi mật khẩu. | Kiểm thử HTTP E2E; hoàn thiện rate limiting thực thi; tích hợp mobile. |
+| Hồ sơ | Model và hồ sơ mặc định được tạo khi đăng ký. | API xem/sửa hồ sơ, mục tiêu học tập và màn hình tương ứng. |
+| Placement | Controller, phiên thi, lưu đáp án, CAT qua ML hoặc fallback, chấm kết quả, sự kiện hoàn tất. | Bổ sung ngân hàng câu hỏi, kiểm tra quyền sở hữu khi nộp đáp án, tính hợp lệ câu được trả lời và chuẩn hóa cách chấm. |
+| AI/ML | CAT/IRT/EAP; mô hình KT; LLM/RAG, AWE, speech; DQN/DP trong môi trường mô phỏng. | Tích hợp theo vòng đời học tập và đánh giá trên dữ liệu ứng dụng. |
+| Mobile | Design system, shared widgets, showcase, lớp cấu hình và tiện ích ngôn ngữ. | Màn hình nghiệp vụ, navigation, API client, quản lý phiên và các trạng thái lỗi/tải. |
+| CI | Ba job backend, ML và mobile trong workflow. | Xác nhận kết quả chạy cụ thể; thêm bằng chứng cho luồng tích hợp khi triển khai. |
+| FSRS, gamification, Web Admin | Đặc tả và tài liệu thiết kế. | Hiện thực backend/UI; chưa có workspace `apps/frontend-web/`. |
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        HTTP / REST Boundary Layer                      │
-│        [AuthController] ── (Guards, Pipes, Interceptors, Filters)       │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                         Application Layer (UseCases)                   │
-│   • RegisterUseCase        • LoginUseCase       • RefreshTokenUseCase  │
-│   • LogoutUseCase          • LogoutAllUseCase   • ChangePasswordUseCase│
-└───────────────────┬───────────────────────────────┬────────────────────┘
-                    │                               │
-                    ▼                               ▼
-┌───────────────────────────────────────┐ ┌──────────────────────────────┐
-│             Domain Services           │ │        Domain Events         │
-│   • PasswordService (Argon2/Bcrypt)   │ │  • UserRegisteredEvent       │
-│   • TokenService (JWT / SHA-256)      │ │  • PasswordChangedEvent      │
-└───────────────────┬───────────────────┘ └──────────────────────────────┘
-                    │
-                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                        Infrastructure Layer                            │
-│   • UserRepository (Prisma Data Access)                                │
-│   • RefreshSessionRepository (Prisma Data Access)                      │
-│   • PostgreSQL Database (users, user_profiles, refresh_sessions)       │
-│   • Redis Cache / Throttler Store                                      │
-└────────────────────────────────────────────────────────────────────────┘
-```
+Nguồn đối chiếu chính:
 
-### Các nguyên tắc thiết kế quan trọng:
-1. **Single Responsibility (SRP) với UseCases**: Mỗi luồng nghiệp vụ được đóng gói thành 1 UseCase chuyên biệt (`RegisterUseCase`, `LoginUseCase`,...), giúp controller mỏng (< 300 dòng) và dễ viết Unit Test độc lập.
-2. **Repository Pattern**: Tách biệt logic truy cập dữ liệu ra khỏi UseCase thông qua các Repository (`UserRepository`, `RefreshSessionRepository`).
-3. **Event-Driven Integration**: Bắn sự kiện nội bộ (`UserRegisteredEvent`, `PasswordChangedEvent`) qua `@nestjs/event-emitter` để các phân hệ khác (Gamification, Analytics, Notifications) tự xử lý bất đồng bộ mà không làm chậm luồng xác thực chính.
-4. **Zero Plain-Text Policy**: Mật khẩu chỉ lưu dạng băm Argon2id; Refresh Token chỉ lưu dạng băm SHA-256; Access Token là stateless JWT có thời hạn ngắn (15 phút).
-5. **Database Transaction Safety**: Mọi thao tác ghi phụ thuộc lẫn nhau (User + Profile + Session, hoặc Đổi mật khẩu + Revoke All Sessions) bắt buộc chạy trong `prisma.$transaction`.
+- [Backend AppModule](apps/backend/src/app.module.ts), [schema Prisma](apps/backend/prisma/schema.prisma).
+- [AuthController](apps/backend/src/modules/auth/auth.controller.ts), [PlacementController](apps/backend/src/modules/placement/placement.controller.ts).
+- [ML client](apps/backend/src/modules/ml/ml-client.service.ts), [FastAPI entrypoint](apps/ml/lingoroad_ml/serving/app.py), [KT serving](apps/ml/lingoroad_ml/serving/kt_routes.py).
+- [Mobile entrypoint](apps/mobile/lib/main.dart), [pubspec](apps/mobile/pubspec.yaml), [workflow CI](.github/workflows/ci.yml).
 
----
+## 3. Phân hệ Authentication và quản lý phiên
 
-## 3. Danh sách Thư viện & Packages Cần sử dụng (Libraries & Dependencies)
+Tham chiếu đặc tả: [Authentication & Session Management](docs/spec/features/01-authentication-session-management/).
 
-### 3.1. Thư viện Lõi (Core Framework & NestJS)
-- `@nestjs/common`, `@nestjs/core`, `@nestjs/platform-express`: Framework cốt lõi NestJS.
-- `@nestjs/config`: Quản lý biến môi trường cấu hình tập trung.
-- `@nestjs/jwt`, `passport`, `passport-jwt`, `@types/passport-jwt`: Tạo, ký và xác thực JWT Bearer tokens.
-- `@nestjs/event-emitter`: Hệ thống phát và lắng nghe sự kiện nội bộ theo cơ chế Publisher/Subscriber.
-- `@nestjs/throttler`: Rate limiting bảo vệ các endpoint xác thực chống brute-force và DDoS.
+### 3.1. Các phần đã triển khai
 
-### 3.2. Cơ sở dữ liệu & ORM
-- `prisma`, `@prisma/client`: ORM Type-Safe cho PostgreSQL 16.
+- [x] Khởi tạo backend, cấu hình TypeScript/NestJS và Prisma.
+- [x] Định nghĩa `User`, `UserProfile`, `RefreshSession`.
+- [x] Băm mật khẩu bằng Argon2id; xác thực giả lập khi không tìm thấy email ở luồng đăng nhập.
+- [x] Sinh JWT access token và refresh token ngẫu nhiên 32 byte; lưu SHA-256 của refresh token.
+- [x] Đăng ký trong transaction: tạo user, hồ sơ mặc định và refresh session.
+- [x] Đăng nhập, xoay vòng refresh token, phát hiện dùng lại token đã thu hồi và thu hồi các refresh session của tài khoản.
+- [x] Logout, logout-all, đổi mật khẩu trong transaction và thu hồi refresh session.
+- [x] Phát sự kiện `user.registered`, `user.password_changed`.
+- [x] Unit test cho register, login, refresh và change-password.
 
-### 3.3. Bảo mật & Mã hóa
-- `argon2`: Thuật toán băm mật khẩu chuẩn chống tấn công phần cứng GPU/ASIC (Argon2id).
-- `crypto` (Built-in Node.js): Sinh chuỗi ngẫu nhiên an toàn (`randomBytes`) và băm SHA-256 cho Refresh Tokens.
+### 3.2. API và hành vi hiện tại
 
-### 3.4. Xác thực Dữ liệu (Validation & Transformation)
-- `class-validator`: Decorator kiểm tra tính hợp lệ của DTO đầu vào (`@IsEmail`, `@MinLength`, `@Matches`,...).
-- `class-transformer`: Chuyển đổi và chuẩn hóa kiểu dữ liệu đầu vào (`@Transform`, `@Type`).
+| API | Hành vi | Xác thực |
+| --- | --- | --- |
+| `POST /auth/register` | Chuẩn hóa email, kiểm tra mật khẩu, tạo tài khoản/hồ sơ/phiên; trả token và thông tin user. | Public |
+| `POST /auth/login` | Xác thực mật khẩu và trạng thái tài khoản, tạo refresh session mới. | Public |
+| `POST /auth/refresh` | Kiểm tra phiên, trạng thái thu hồi, hạn dùng và tài khoản; thay refresh token. | Public, nhận refresh token |
+| `POST /auth/logout` | Thu hồi phiên theo refresh token; thao tác idempotent. | Public, nhận refresh token |
+| `POST /auth/logout-all` | Thu hồi các refresh session của user. | Bearer JWT |
+| `POST /auth/change-password` | Kiểm tra mật khẩu cũ, cập nhật mật khẩu mới và thu hồi refresh session. | Bearer JWT |
 
-### 3.5. Kiểm thử & Tiện ích
-- `jest`, `ts-jest`, `@types/jest`, `supertest`, `@types/supertest`: Bộ công cụ viết Unit Test và E2E Integration Test.
-- `dotenv`: Đọc cấu hình môi trường `.env`.
+Access token có thời hạn mặc định 15 phút; refresh token mặc định 30 ngày, có thể cấu hình. Hồ sơ mặc định có mục tiêu B1, 15 phút/ngày và bật nhắc học. Đăng ký yêu cầu mật khẩu 8–64 ký tự, có ít nhất một chữ thường và một chữ số.
 
----
+Luồng refresh kiểm tra token bị thu hồi trước kiểm tra hết hạn. Token bị thu hồi được gửi lại dẫn đến mã `AUTH_TOKEN_COMPROMISED`; token không tồn tại hoặc phiên hết hạn dẫn đến `AUTH_INVALID_REFRESH_TOKEN`.
 
-## 4. Danh sách Chi tiết Các File Cần Tạo Mới (Files to be Created)
+### 3.3. Khoảng trống cần xử lý
 
-### 4.1. Cấu hình & Nền tảng Dự án (`apps/backend/`)
-| STT | Đường dẫn File | Vai trò / Mục đích |
-| :---: | :--- | :--- |
-| 1 | `apps/backend/package.json` | Khai báo dependencies, scripts chạy dev, build, migration, test. |
-| 2 | `apps/backend/tsconfig.json` | Cấu hình TypeScript compiler cho NestJS. |
-| 3 | `apps/backend/tsconfig.build.json` | Cấu hình build artifact loại trừ các file test. |
-| 4 | `apps/backend/nest-cli.json` | Cấu hình Nest CLI generator. |
-| 5 | `apps/backend/.env.example` | Mẫu biến môi trường (`DATABASE_URL`, `JWT_SECRET`, `REDIS_URL`,...). |
-| 6 | `apps/backend/src/main.ts` | Entry point của ứng dụng (Khởi tạo NestFactory, `ValidationPipe`, Global Filter, CORS). |
-| 7 | `apps/backend/src/app.module.ts` | Root Module cấu hình tập trung (ConfigModule, EventEmitterModule, ThrottlerModule, AuthModule). |
+- [ ] Có `ThrottlerModule` nhưng chưa có `ThrottlerGuard` được gắn vào route hoặc toàn cục. Cần triển khai và kiểm chứng phản hồi 429 trước khi coi rate limiting đã hoạt động.
+- [ ] Chưa có `apps/backend/test/auth.e2e-spec.ts` và `test/jest-e2e.json`; script `test:e2e` hiện tham chiếu cấu hình chưa tồn tại.
+- [ ] Chưa có API chỉnh sửa hồ sơ học viên và tích hợp Auth trên mobile.
+- [ ] Kiểm chứng trường hợp hai yêu cầu refresh đồng thời cùng dùng một token; transaction hiện có chưa phải bằng chứng đã xử lý an toàn tình huống này.
 
-### 4.2. Cấu hình Database & Prisma (`apps/backend/prisma/`)
-| STT | Đường dẫn File | Vai trò / Mục đích |
-| :---: | :--- | :--- |
-| 8 | `apps/backend/prisma/schema.prisma` | Định nghĩa schema cơ sở dữ liệu PostgreSQL cho các model `User`, `UserProfile`, `RefreshSession` cùng các Enum `UserRole`, `UserStatus`, `CefrLevel`. |
+`PasswordService` hiện chỉ dùng Argon2id. Redis chưa tham gia lưu phiên hoặc throttler store; không ghi nhận bcrypt fallback hay Redis session store là chức năng đã triển khai.
 
-### 4.3. Module Prisma & Dữ liệu Dùng chung (`apps/backend/src/modules/prisma/`)
-| STT | Đường dẫn File | Vai trò / Mục đích |
-| :---: | :--- | :--- |
-| 9 | `apps/backend/src/modules/prisma/prisma.service.ts` | Service quản lý kết nối PostgreSQL qua Prisma Client và lifecycle hooks. |
-| 10 | `apps/backend/src/modules/prisma/prisma.module.ts` | Module toàn cục (Global) export `PrismaService`. |
+## 4. Phân hệ Placement
 
-### 4.4. Module Security & Hashing (`apps/backend/src/modules/security/`)
-| STT | Đường dẫn File | Vai trò / Mục đích |
-| :---: | :--- | :--- |
-| 11 | `apps/backend/src/modules/security/password.service.ts` | Service băm và xác thực mật khẩu bằng `argon2` kèm cơ chế dummy verify chống timing attack. |
-| 12 | `apps/backend/src/modules/security/token.service.ts` | Service tạo chuỗi Refresh Token ngẫu nhiên, băm SHA-256 token hash và sinh JWT Access Token. |
-| 13 | `apps/backend/src/modules/security/security.module.ts` | Module đóng gói và export `PasswordService`, `TokenService`. |
+### 4.1. Các phần đã triển khai
 
-### 4.5. Common Helpers, Decorators, Guards, Filters (`apps/backend/src/common/`)
-| STT | Đường dẫn File | Vai trò / Mục đích |
-| :---: | :--- | :--- |
-| 14 | `apps/backend/src/common/decorators/current-user.decorator.ts` | Custom Decorator `@CurrentUser()` trích xuất user payload từ request. |
-| 15 | `apps/backend/src/common/decorators/public.decorator.ts` | Custom Decorator `@Public()` đánh dấu route không cần xác thực token. |
-| 16 | `apps/backend/src/common/decorators/roles.decorator.ts` | Custom Decorator `@Roles(UserRole.ADMIN)` phân quyền theo vai trò. |
-| 17 | `apps/backend/src/common/guards/jwt-auth.guard.ts` | Guard chặn và xác thực Bearer JWT trên các endpoint bảo vệ. |
-| 18 | `apps/backend/src/common/guards/roles.guard.ts` | Guard kiểm tra role của user sau khi đã vượt qua `JwtAuthGuard`. |
-| 19 | `apps/backend/src/common/filters/http-exception.filter.ts` | Filter chuẩn hóa toàn bộ lỗi HTTP trả về theo format JSON đồng nhất của hệ thống. |
-| 20 | `apps/backend/src/common/interfaces/jwt-payload.interface.ts` | Interface định nghĩa cấu trúc payload JWT (`sub`, `email`, `role`). |
-| 21 | `apps/backend/src/common/interfaces/api-response.interface.ts` | Interface chuẩn hóa cấu trúc phản hồi API (`success`, `data`, `error`, `message`). |
+- [x] Model `PlacementSession`, `AssessmentItem`, `AssessmentResponse` và các repository tương ứng.
+- [x] `POST /placement/start`: tiếp tục phiên đang làm hoặc tạo phiên 15 câu; câu đầu ưu tiên A2.
+- [x] `GET /placement/status`: trả trạng thái và tiến độ phiên.
+- [x] `POST /placement/:sessionId/answer`: nhận đáp án, ghi response và tăng tiến độ trong transaction.
+- [x] Chọn câu chưa trả lời qua CAT/EAP từ ML; có fallback CAT trong tiến trình backend và lựa chọn tuần tự nếu bước chọn thích ứng vẫn lỗi.
+- [x] Hoàn tất phiên, lưu kết quả và phát `placement.completed`.
+- [x] `GET /placement/:sessionId/result`: lấy kết quả có kiểm tra user sở hữu phiên.
+- [x] Unit test cho start, submit, status, result và ML client; collection Postman cho placement.
 
-### 4.6. Module Authentication (`apps/backend/src/modules/auth/`)
-| STT | Đường dẫn File | Vai trò / Mục đích |
-| :---: | :--- | :--- |
-| 22 | `apps/backend/src/modules/auth/auth.module.ts` | Module quản lý phân hệ xác thực, đăng ký controllers, use cases, repositories, JwtStrategy. |
-| 23 | `apps/backend/src/modules/auth/auth.controller.ts` | Controller tiếp nhận các HTTP requests: `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/logout-all`, `/auth/change-password`. |
-| 24 | `apps/backend/src/modules/auth/strategies/jwt.strategy.ts` | Passport Strategy xác thực và giải mã Access Token JWT. |
-| 25 | `apps/backend/src/modules/auth/dto/register.dto.ts` | DTO kiểm tra dữ liệu đăng ký (`email`, `password`, `name`). |
-| 26 | `apps/backend/src/modules/auth/dto/login.dto.ts` | DTO kiểm tra dữ liệu đăng nhập (`email`, `password`). |
-| 27 | `apps/backend/src/modules/auth/dto/refresh-token.dto.ts` | DTO kiểm tra dữ liệu xoay vòng token (`refreshToken`). |
-| 28 | `apps/backend/src/modules/auth/dto/logout.dto.ts` | DTO kiểm tra dữ liệu đăng xuất (`refreshToken`). |
-| 29 | `apps/backend/src/modules/auth/dto/change-password.dto.ts` | DTO kiểm tra dữ liệu đổi mật khẩu (`oldPassword`, `newPassword`). |
-| 30 | `apps/backend/src/modules/auth/repositories/user.repository.ts` | Repository truy vấn và thao tác trên bảng `users` và `user_profiles`. |
-| 31 | `apps/backend/src/modules/auth/repositories/refresh-session.repository.ts` | Repository quản lý bảng `refresh_sessions` (tạo session, tìm theo tokenHash, rotate, revoke). |
-| 32 | `apps/backend/src/modules/auth/use-cases/register.use-case.ts` | UseCase xử lý toàn bộ logic đăng ký, băm mật khẩu, transaction tạo profile và phát event. |
-| 33 | `apps/backend/src/modules/auth/use-cases/login.use-case.ts` | UseCase xử lý xác thực đăng nhập, kiểm tra mật khẩu, tạo session mới. |
-| 34 | `apps/backend/src/modules/auth/use-cases/refresh-token.use-case.ts` | UseCase xử lý Token Rotation, kiểm tra và kích hoạt cơ chế chống Replay Attack. |
-| 35 | `apps/backend/src/modules/auth/use-cases/logout.use-case.ts` | UseCase vô hiệu hóa phiên đơn lẻ theo tokenHash. |
-| 36 | `apps/backend/src/modules/auth/use-cases/logout-all.use-case.ts` | UseCase vô hiệu hóa toàn bộ phiên của người dùng. |
-| 37 | `apps/backend/src/modules/auth/use-cases/change-password.use-case.ts` | UseCase xác thực mật khẩu cũ, cập nhật mật khẩu mới và thu hồi toàn bộ session. |
-| 38 | `apps/backend/src/modules/auth/events/user-registered.event.ts` | Định nghĩa class sự kiện `UserRegisteredEvent`. |
-| 39 | `apps/backend/src/modules/auth/events/password-changed.event.ts` | Định nghĩa class sự kiện `PasswordChangedEvent`. |
+### 4.2. Giới hạn cần ghi nhận đúng
 
-### 4.7. Unit Tests & E2E Integration Tests (`apps/backend/test/` & `src/**`)
-| STT | Đường dẫn File | Vai trò / Mục đích |
-| :---: | :--- | :--- |
-| 40 | `apps/backend/src/modules/auth/use-cases/register.use-case.spec.ts` | Unit Test cho UseCase đăng ký tài khoản (Happy path, Duplicate email, Hash error). |
-| 41 | `apps/backend/src/modules/auth/use-cases/login.use-case.spec.ts` | Unit Test cho UseCase đăng nhập (Sai pass, Không tồn tại user, Suspended user). |
-| 42 | `apps/backend/src/modules/auth/use-cases/refresh-token.use-case.spec.ts` | Unit Test cho cơ chế Token Rotation và Replay Attack Invalidation. |
-| 43 | `apps/backend/src/modules/auth/use-cases/change-password.use-case.spec.ts` | Unit Test cho UseCase đổi mật khẩu và thu hồi session. |
-| 44 | `apps/backend/test/auth.e2e-spec.ts` | E2E Integration Test kiểm thử toàn bộ luồng Auth qua HTTP Server thực tế. |
+[Seed hiện tại](apps/backend/prisma/seed-placement.ts) có **12 câu**, mỗi mức A1, A2, B1, B2 có ba câu. Script dùng `create`, không có upsert; chạy lại thêm dữ liệu trùng nội dung. Đây chưa phải ngân hàng 100+ câu hoặc đủ cho 15 câu khác nhau trong một phiên.
 
----
+[CefrScoringService](apps/backend/src/modules/placement/services/cefr-scoring.service.ts) chốt kết quả theo tỷ lệ đúng: dưới 40% → A1, từ 40% → A2, từ 65% → B1, từ 85% → B2. `confidenceScore = min(1, số câu đã trả lời / tổng số câu)`. Theta và sai số chuẩn EAP được dùng khi chọn câu nhưng chưa dùng để chốt CEFR, chưa lưu trong schema phiên thi; chưa có điểm riêng bốn kỹ năng.
 
-## 5. Kế hoạch Thực hiện Từng Bước (Step-by-Step Execution Plan)
+`InternalAuthGuard` xác thực `x-internal-token` theo `ML_INTERNAL_TOKEN`, nhưng chưa có controller/route import được gắn guard này. Không ghi nhận API import nội bộ là đã hoàn thành.
 
-### Giai đoạn 1: Khởi tạo Project Backend & Cấu hình Hạ tầng Cơ bản
-1. Khởi tạo workspace `apps/backend` với cấu hình `package.json`, `tsconfig.json`, `nest-cli.json`.
-2. Cài đặt các dependencies cần thiết (`@nestjs/*`, `prisma`, `argon2`, `class-validator`,...).
-3. Viết file `prisma/schema.prisma` với 3 models: `User`, `UserProfile`, `RefreshSession` cùng các indexes tối ưu.
-4. Thiết lập `PrismaService` và `PrismaModule`.
+### 4.3. Việc cần làm trước khi demo tích hợp
 
-### Giai đoạn 2: Xây dựng Module Security & Common Infrastructure
-1. Triển khai `PasswordService` với thuật toán băm Argon2id và dummy verification chống Timing Attack.
-2. Triển khai `TokenService` sinh chuỗi SHA-256 hash và JWT token.
-3. Thiết lập `JwtStrategy`, `JwtAuthGuard`, `RolesGuard`, `HttpExceptionFilter`, và các Custom Decorators (`@CurrentUser`, `@Public`, `@Roles`).
+- [ ] Bổ sung tối thiểu 15 câu khác nhau để chạy được phiên hiện tại; mở rộng độ phủ kỹ năng, mức độ khó và chuẩn hóa nhãn theo mục tiêu đánh giá.
+- [ ] Đổi seed/import sang cơ chế có định danh ổn định, kiểm tra dữ liệu và tránh trùng nội dung khi chạy lại.
+- [ ] Khi nộp đáp án, truyền user hiện tại vào use case và kiểm tra quyền sở hữu phiên; controller hiện chỉ truyền `sessionId` và DTO.
+- [ ] Kiểm tra đáp án thuộc câu đang được giao, không cho trả lời lại cùng câu ở index khác; lưu/xác thực trạng thái câu hiện tại khi cần.
+- [ ] Xử lý rõ khi hết câu trước khi đủ 15 đáp án, thay vì để mobile nhận `nextItem = null` trong phiên chưa hoàn tất.
+- [ ] Thống nhất chấm theo tỷ lệ hay theta; nếu chuyển sang theta, lưu/ánh xạ kết quả và đánh giá ngưỡng CEFR bằng dữ liệu.
+- [ ] Nếu cần confidence thống kê, thiết kế dựa trên sai số của mô hình; phân biệt với tỷ lệ hoàn thành hiện tại.
+- [ ] Kiểm tra retry và yêu cầu nộp đáp án đồng thời, phiên đã hoàn tất và trường hợp ML không sẵn sàng.
 
-### Giai đoạn 3: Triển khai Các UseCase Nghiệp vụ Lõi
-1. **User Registration**: Viết `RegisterDto`, `UserRepository`, `RegisterUseCase`, `UserRegisteredEvent`.
-2. **User Login**: Viết `LoginDto`, `RefreshSessionRepository`, `LoginUseCase`.
-3. **Token Rotation & Replay Attack**: Viết `RefreshTokenDto`, `RefreshTokenUseCase` với logic revoke toàn bộ khi phát hiện Replay.
-4. **Logout & Password Change**: Viết `LogoutDto`, `ChangePasswordDto`, `LogoutUseCase`, `LogoutAllUseCase`, `ChangePasswordUseCase`, `PasswordChangedEvent`.
+## 5. AI/ML và yêu cầu CAT–DKT
 
-### Giai đoạn 4: Tích hợp Controller & Hoàn thiện Luồng API
-1. Đăng ký tất cả các endpoints vào `AuthController`.
-2. Gắn `ValidationPipe` toàn cục, bọc các route bảo vệ bằng Guard.
-3. Kiểm tra định dạng response JSON chuẩn: `{ success: true, data: { ... } }`.
+### 5.1. Những thành phần đã có
 
-### Giai đoạn 5: Kiểm thử Toàn diện & Đảm bảo Chất lượng (Quality Assurance)
-1. Viết Unit Tests cho từng UseCase với mock repository.
-2. Viết E2E Integration Test cho toàn bộ chu trình: Register → Login → Refresh → Replay Attack → Change Password → Logout.
-3. Kiểm tra tuân thủ quy tắc độ dài file (< 300 dòng với Controller, < 800 dòng với Service/UseCase).
-4. Kiểm tra mã nguồn không có lỗi TypeScript / Linter.
+- CAT/IRT 3PL: tính EAP và chọn câu theo thông tin Fisher tại `/cat/select`.
+- Mô hình DKT LSTM, DKVMN, SAINT+ và mã huấn luyện trên EdNet.
+- `/kt/predict` tải **SAINT+** từ `QG_KT_CHECKPOINT`, mặc định `checkpoints/saint_plus.pt`; thiếu checkpoint trả 503.
+- Advisor/RAG, sinh bài tập, AWE và speech scoring có endpoint FastAPI; backend có phương thức client nhưng chưa có controller nghiệp vụ công khai cho các luồng này.
+- DQN và DP có mã mô phỏng và báo cáo; chưa có lộ trình học tích hợp trên NestJS/mobile.
+
+### 5.2. Phần cần bổ sung để đáp ứng đề tài
+
+- [ ] Chốt vai trò CAT và DKT trong luồng đánh giá/học tập theo yêu cầu giảng viên.
+- [ ] Thiết kế dữ liệu bài học, kỹ năng và tương tác học tập xuyên suốt; `AssessmentResponse` hiện chỉ lưu đáp án placement.
+- [ ] Xác định đầu vào cho người mới chưa có lịch sử và cách sử dụng dữ liệu placement để khởi tạo mô hình phù hợp.
+- [ ] Xây ánh xạ câu hỏi/kỹ năng ứng dụng sang đầu vào của mô hình; không dùng UUID câu hỏi như `q_idx` EdNet khi chưa có ánh xạ hợp lệ.
+- [ ] Triển khai serving DKT, quản lý checkpoint, phiên bản và chuẩn hóa đầu vào nếu giữ DKT là mô hình chính của đề tài.
+- [ ] Gọi KT sau khi ghi tương tác, lưu dự đoán/trạng thái cần thiết và sử dụng kết quả trong đề xuất nội dung.
+- [ ] Đánh giá trên dữ liệu phù hợp ứng dụng; tách train/validation/test, so sánh baseline và báo cáo giới hạn khi chưa có dữ liệu người học thực.
+
+### 5.3. Bằng chứng thực nghiệm đang lưu
+
+| Báo cáo | Kết quả có thể trích dẫn với phạm vi tương ứng |
+| --- | --- |
+| [CAT simulation](apps/ml/reports/cat_simulation.md) | 312 câu, 1.000 lượt mô phỏng; CAT exact CEFR accuracy 0.671, Fixed-30 0.618; trung bình 30 câu. Khác phiên NestJS 15 câu. |
+| [KT results](apps/ml/reports/kt_results.md) | EdNet 60.000 user, 7.504.848 tương tác; Test AUC DKT 0.7565, DKVMN 0.7558, SAINT+ 0.7586. Cần xác định lần chạy khi dùng thêm dòng SAINT+ 0.7516 trong cùng báo cáo. |
+| [DQN PoC](apps/ml/reports/dqn_poc.md) | DP 0.636, DQN 0.588, Greedy 0.533, Random 0.197 trên ToyLearnerEnv; mọi goal-reach rate bằng 0 trong trần 60 bước của thiết lập báo cáo. |
+
+Không sử dụng số “CAT 0.750, trung bình 18.5 câu, ngân hàng 617 câu” thay cho nội dung `cat_simulation.md` hiện tại. Các ghi chép .NET, FSRS, mastery EMA hoặc E2E smoke cũ trong tài liệu chưa xác nhận các chức năng tương ứng đã tồn tại trong backend NestJS.
+
+## 6. Thứ tự triển khai đề xuất
+
+### Giai đoạn 1. Củng cố nền tảng và chuẩn bị demo đầu tiên
+
+1. Chốt cách kết hợp CAT–DKT và phạm vi bốn kỹ năng với giảng viên.
+2. Hoàn thiện các kiểm tra quyền sở hữu, câu đang giao, hết ngân hàng và tính nhất quán của placement.
+3. Bổ sung ngân hàng câu hỏi đủ cho luồng 15 câu; ghi nhận nguồn, nhãn kỹ năng và cách đặt tham số IRT.
+4. Sửa `run_mobile.ps1` từ `src/mobile` sang `apps/mobile`, cổng API từ 5000 sang 3000; nối `AppConfig` vào API client.
+5. Xây mobile đăng ký, đăng nhập, khôi phục phiên, đăng xuất và placement bằng shared widgets đã có.
+
+**Tiêu chí hoàn thành:** demo từ tài khoản mới đến kết quả placement trên mobile; dữ liệu lưu trong PostgreSQL; không truy cập phiên của user khác; xử lý được token hết hạn, lỗi mạng và ML offline. Có minh chứng của lần demo cụ thể.
+
+### Giai đoạn 2. Hoàn thiện hồ sơ và vòng đời bài học
+
+1. Thêm API/màn hình xem và sửa hồ sơ, mục tiêu CEFR và thời lượng học.
+2. Xây danh mục chủ đề, bài học, câu hỏi và quan hệ kỹ năng.
+3. Lưu lịch sử trả lời theo học viên, câu hỏi, thời gian, kết quả và phiên bản nội dung.
+4. Ngăn nộp lại gây tăng tiến độ/thành thạo nhiều lần; định nghĩa cách xử lý retry.
+
+**Tiêu chí hoàn thành:** học viên mở và hoàn thành bài học trên mobile, có tương tác bền vững trong DB và truy vấn lại được lịch sử để tạo đầu vào KT.
+
+### Giai đoạn 3. Tích hợp DKT và đề xuất nội dung
+
+1. Hoàn thiện pipeline dữ liệu, ánh xạ và serving mô hình DKT theo phạm vi đã thống nhất.
+2. Kết hợp kết quả placement, lịch sử tương tác và dự đoán KT để chọn nội dung/độ khó/kỹ năng cần cải thiện.
+3. Bổ sung phương án xử lý khi mô hình chưa sẵn sàng hoặc dữ liệu đầu vào chưa đủ; giải thích được lý do đề xuất.
+4. So sánh dự đoán và đề xuất với baseline, lưu cấu hình và kết quả đánh giá có thể tái lập.
+
+**Tiêu chí hoàn thành:** chuỗi bài học thực sự cập nhật trạng thái mô hình và thay đổi đề xuất; mô hình đang tải được xác nhận là DKT; báo cáo tách kết quả EdNet, mô phỏng và dữ liệu ứng dụng.
+
+### Giai đoạn 4. Trực quan hóa và hoàn thiện báo cáo
+
+1. Xây API và màn hình tiến độ, lịch sử học, biểu đồ tiến bộ theo thời gian.
+2. Thiết kế dữ liệu đánh giá và cách chấm riêng bốn kỹ năng; không suy ra bốn kỹ năng từ một điểm tổng.
+3. Hoàn thiện luồng mobile, nội dung song ngữ và các trạng thái lỗi/tải/rỗng.
+4. Kiểm thử tích hợp, đối chiếu từng yêu cầu trong `ProgressReport.md`, chuẩn bị demo và báo cáo.
+
+**Tiêu chí hoàn thành:** các biểu đồ lấy dữ liệu thực từ backend, bốn kỹ năng có nguồn đánh giá rõ ràng; mỗi yêu cầu có minh chứng mã nguồn, kiểm thử hoặc demo phù hợp.
+
+### Giai đoạn 5. Các hạng mục mở rộng
+
+Tùy thời gian sau khi hoàn thành các yêu cầu cốt lõi: tích hợp FSRS, đưa advisor/AWE/speech vào bài học, xây gamification, khởi tạo Web Admin hoặc thử nghiệm DQN trên môi trường gần dữ liệu ứng dụng hơn. Các mục này chưa được coi là đã hoàn thành chỉ vì có đặc tả hoặc mã mô phỏng.
+
+## 7. Các mốc theo yêu cầu đồ án
+
+| Mốc | Thời gian theo yêu cầu | Nội dung chuẩn bị đề xuất |
+| --- | --- | --- |
+| Báo cáo định kỳ lần 1 | 24–25/10/2026 | Trạng thái backend/ML/mobile, sơ đồ tích hợp, phạm vi CAT–DKT đã thống nhất, minh chứng hiện có và khoảng trống. |
+| Báo cáo định kỳ lần 2 | 21–22/11/2026 | Tiến độ luồng học, dữ liệu tương tác, tích hợp mô hình và kết quả kiểm thử/đánh giá tại thời điểm báo cáo. |
+| Kết thúc thực hiện | 06/12/2026 | Hoàn thiện chức năng thuộc phạm vi, bằng chứng đánh giá và bản demo. |
+| Nộp báo cáo đồ án | 08–09/12/2026 | Báo cáo cuối cùng đối chiếu yêu cầu và kết quả thực tế. |
+| Phản biện | 10–20/12/2026 | Giải trình thuật toán, dữ liệu, kết quả và giới hạn. |
+| Bảo vệ | 21–27/12/2026 | Demo hệ thống và trình bày kết quả. |
+
+Thời gian bắt đầu theo yêu cầu là 28/09/2026. Các nội dung chuẩn bị trong bảng là đề xuất tổ chức công việc, không phải kết quả đã đạt.
+
+## 8. Kiểm chứng và duy trì tài liệu
+
+- Cập nhật [README](README.md) khi thay đổi API, workspace, dependency, đường dẫn hoặc lệnh chạy.
+- Đánh dấu công việc hoàn tất khi có mã nguồn và bằng chứng đúng phạm vi; ghi lần chạy khi công bố kết quả test/CI.
+- Dùng báo cáo thực nghiệm trong `apps/ml/reports/` với đúng tập dữ liệu và thiết lập; làm rõ các dòng kết quả khác nhau trước khi tổng hợp.
+- Backend hiện có unit test; kiểm thử HTTP E2E là công việc còn thiếu. Mobile hiện chỉ có widget smoke test cho bộ đếm, chưa chứng minh Auth/Placement hoạt động.
+- Chạy các lệnh kiểm thử/build trong [README](README.md) khi có thay đổi triển khai tương ứng. Kiểm thử với PostgreSQL thật và dịch vụ ML để xác nhận các luồng tích hợp.
+- Tuân thủ [hướng dẫn dự án](.agents/AGENTS.md), bảo toàn dữ liệu khi đổi schema và giữ các thay đổi để review trước khi commit/push.
