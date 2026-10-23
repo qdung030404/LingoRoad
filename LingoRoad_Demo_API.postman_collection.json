@@ -1,0 +1,446 @@
+{
+  "info": {
+    "name": "LingoRoad First Demo — Reading + Listening",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "10 câu (5 Đọc, 5 Nghe); CEFR sơ bộ. Chạy trên database demo riêng. Chọn đáp án theo nội dung trước khi gửi; đáp án đã nộp bị khóa."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "email",
+      "value": "demo-learner@example.com"
+    },
+    {
+      "key": "password",
+      "value": "DemoEnglish123"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "sessionId",
+      "value": ""
+    },
+    {
+      "key": "itemId",
+      "value": ""
+    },
+    {
+      "key": "selectedOption",
+      "value": ""
+    },
+    {
+      "key": "itemIndex",
+      "value": "0"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Học viên Demo\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json().data;",
+              "if (data) { pm.collectionVariables.set(\"accessToken\", data.accessToken); pm.collectionVariables.set(\"refreshToken\", data.refreshToken); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json().data;",
+              "if (data) { pm.collectionVariables.set(\"accessToken\", data.accessToken); pm.collectionVariables.set(\"refreshToken\", data.refreshToken); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Refresh",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/refresh",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "refresh"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json().data;",
+              "if (data) { pm.collectionVariables.set(\"accessToken\", data.accessToken); pm.collectionVariables.set(\"refreshToken\", data.refreshToken); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get profile",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "me"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Complete onboarding / update profile",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "me"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"learningPurpose\": \"WORK\",\n  \"dailyGoalMinutes\": 10,\n  \"selfAssessedCefr\": null\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Placement status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/placement/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "placement",
+            "status"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Start or resume placement",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/placement/start",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "placement",
+            "start"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json().data;",
+              "if (data) {",
+              "  if (data.sessionId) pm.collectionVariables.set(\"sessionId\", data.sessionId);",
+              "  const item = data.firstItem || data.nextItem;",
+              "  if (item) { pm.collectionVariables.set(\"itemId\", item.id); pm.collectionVariables.set(\"itemIndex\", item.index); pm.collectionVariables.set(\"selectedOption\", item.options[0]); }",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Submit current answer",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/placement/{{sessionId}}/answer",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "placement",
+            "{{sessionId}}",
+            "answer"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"itemId\": \"{{itemId}}\",\n  \"itemIndex\": {{itemIndex}},\n  \"selectedOption\": \"{{selectedOption}}\",\n  \"responseTimeMs\": 1500\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json().data;",
+              "if (data) {",
+              "  if (data.sessionId) pm.collectionVariables.set(\"sessionId\", data.sessionId);",
+              "  const item = data.firstItem || data.nextItem;",
+              "  if (item) { pm.collectionVariables.set(\"itemId\", item.id); pm.collectionVariables.set(\"itemIndex\", item.index); pm.collectionVariables.set(\"selectedOption\", item.options[0]); }",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Placement result",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/placement/{{sessionId}}/result",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "placement",
+            "{{sessionId}}",
+            "result"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Read-only review",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/placement/{{sessionId}}/review",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "placement",
+            "{{sessionId}}",
+            "review"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Change password",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/change-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "change-password"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"oldPassword\": \"{{password}}\",\n  \"newPassword\": \"NewDemoEnglish456\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/auth/logout",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "logout"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

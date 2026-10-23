@@ -16,7 +16,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed:demo": "ts-node prisma/seed-placement.ts",
+    "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
     "@nestjs/axios": "^3.1.3",

@@ -12,10 +12,14 @@ class AppRadius {
   static const double full = 999.0;
 
   // Semantic Radius conforming to AGENTS.md
-  static const BorderRadius buttonRadius = BorderRadius.all(Radius.circular(md));
-  static const BorderRadius inputRadius = BorderRadius.all(Radius.circular(md));
-  static const BorderRadius cardRadius = BorderRadius.all(Radius.circular(lg));
-  static const BorderRadius dialogRadius = BorderRadius.all(Radius.circular(xl));
+  static const BorderRadius buttonRadius = BorderRadius.all(
+    Radius.circular(99),
+  );
+  static const BorderRadius inputRadius = BorderRadius.all(Radius.circular(99));
+  static const BorderRadius cardRadius = BorderRadius.all(Radius.circular(16));
+  static const BorderRadius dialogRadius = BorderRadius.all(
+    Radius.circular(xl),
+  );
   static const BorderRadius bottomSheetRadius = BorderRadius.vertical(
     top: Radius.circular(xxl),
   );

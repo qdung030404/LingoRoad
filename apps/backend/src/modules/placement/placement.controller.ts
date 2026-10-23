@@ -12,34 +12,22 @@ import {
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
-import {
-  PlacementResult,
-  PlacementStatusResult,
-  StartPlacementResult,
-  SubmitAnswerDto,
-  SubmitAnswerResult,
-} from './interfaces/placement.interface';
-import { StartPlacementUseCase } from './use-cases/start-placement.use-case';
-import { GetPlacementStatusUseCase } from './use-cases/get-placement-status.use-case';
-import { GetPlacementResultUseCase } from './use-cases/get-placement-result.use-case';
-import { SubmitAnswerUseCase } from './use-cases/submit-answer.use-case';
+import { SubmitAnswerDto } from './interfaces/placement.interface';
+import { DemoPlacementService } from './services/demo-placement.service';
 
 @Controller('placement')
 @UseGuards(JwtAuthGuard)
 export class PlacementController {
   constructor(
-    private readonly startPlacementUseCase: StartPlacementUseCase,
-    private readonly getPlacementStatusUseCase: GetPlacementStatusUseCase,
-    private readonly getPlacementResultUseCase: GetPlacementResultUseCase,
-    private readonly submitAnswerUseCase: SubmitAnswerUseCase,
+    private readonly placement: DemoPlacementService,
   ) {}
 
   @Post('start')
   @HttpCode(HttpStatus.CREATED)
   async start(
     @CurrentUser('sub') userId: string,
-  ): Promise<ApiResponse<StartPlacementResult>> {
-    const result = await this.startPlacementUseCase.execute(userId);
+  ) {
+    const result = await this.placement.start(userId);
     return {
       success: true,
       message: 'Khởi tạo phiên kiểm tra thành công',
@@ -51,8 +39,8 @@ export class PlacementController {
   @HttpCode(HttpStatus.OK)
   async getStatus(
     @CurrentUser('sub') userId: string,
-  ): Promise<ApiResponse<PlacementStatusResult>> {
-    const result = await this.getPlacementStatusUseCase.execute(userId);
+  ) {
+    const result = await this.placement.status(userId);
     return {
       success: true,
       data: result,
@@ -64,8 +52,9 @@ export class PlacementController {
   async submitAnswer(
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
     @Body() dto: SubmitAnswerDto,
-  ): Promise<ApiResponse<SubmitAnswerResult>> {
-    const result = await this.submitAnswerUseCase.execute(sessionId, dto);
+    @CurrentUser('sub') userId: string,
+  ) {
+    const result = await this.placement.answer(sessionId, userId, dto);
     return {
       success: true,
       data: result,
@@ -77,8 +66,8 @@ export class PlacementController {
   async getResult(
     @Param('sessionId', ParseUUIDPipe) sessionId: string,
     @CurrentUser('sub') userId: string,
-  ): Promise<ApiResponse<PlacementResult>> {
-    const result = await this.getPlacementResultUseCase.execute(
+  ) {
+    const result = await this.placement.result(
       sessionId,
       userId,
     );
@@ -86,5 +75,10 @@ export class PlacementController {
       success: true,
       data: result,
     };
+  }
+
+  @Get(':sessionId/review')
+  async review(@Param('sessionId', ParseUUIDPipe) sessionId: string, @CurrentUser('sub') userId: string) {
+    return { success: true, data: await this.placement.review(sessionId, userId) };
   }
 }

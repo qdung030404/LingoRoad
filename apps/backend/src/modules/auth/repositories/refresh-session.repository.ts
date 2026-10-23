@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { Prisma, RefreshSession, User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -71,10 +71,13 @@ export class RefreshSessionRepository {
     },
   ): Promise<RefreshSession> {
     return this.prisma.$transaction(async (tx) => {
-      await tx.refreshSession.update({
-        where: { id: oldSessionId },
+      const claimed = await tx.refreshSession.updateMany({
+        where: { id: oldSessionId, isRevoked: false, expiresAt: { gt: new Date() } },
         data: { isRevoked: true },
       });
+      if (claimed.count !== 1) {
+        throw new UnauthorizedException({ code: 'AUTH_INVALID_REFRESH_TOKEN', message: 'Phiên làm việc đã được sử dụng. Vui lòng đăng nhập lại.' });
+      }
 
       return tx.refreshSession.create({
         data: {

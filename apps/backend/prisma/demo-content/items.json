@@ -1,0 +1,282 @@
+[
+  {
+    "externalId": "demo-reading-a1-01", "skill": "READING", "cefrLevel": "A1",
+    "passage": "Hi Sam! My new flat is near the station. It has two bedrooms and a small kitchen. My sister uses the big bedroom. I use the small one. Come and visit on Sunday! Anna",
+    "prompt": "Who uses the big bedroom?",
+    "options": ["Anna", "Anna's sister", "Sam", "Anna's mother"],
+    "correctOption": "Anna's sister", "explanation": "Anna viết rằng chị/em gái của cô ấy dùng phòng ngủ lớn."
+  },
+  {
+    "externalId": "demo-reading-a1-02", "skill": "READING", "cefrLevel": "A1",
+    "passage": "Green Park Cafe is open from eight in the morning to four in the afternoon, Monday to Friday. On Saturday, we open at nine and close at two. We are closed on Sunday.",
+    "prompt": "What time does the cafe open on Saturday?",
+    "options": ["At eight", "At two", "At four", "At nine"],
+    "correctOption": "At nine", "explanation": "Thông báo ghi quán mở lúc chín giờ vào thứ Bảy."
+  },
+  {
+    "externalId": "demo-reading-a1-03", "skill": "READING", "cefrLevel": "A1",
+    "passage": "Hello class! Please bring a pencil and your English book tomorrow. You do not need a dictionary. Our lesson is in Room 12, next to the library. See you at ten! Mr Lee",
+    "prompt": "What should students bring?",
+    "options": ["A pencil and an English book", "A dictionary and a pencil", "A dictionary and an English book", "Only a dictionary"],
+    "correctOption": "A pencil and an English book", "explanation": "Thầy Lee yêu cầu mang bút chì và sách tiếng Anh; không cần từ điển."
+  },
+  {
+    "externalId": "demo-reading-a1-04", "skill": "READING", "cefrLevel": "A1",
+    "passage": "My name is Leo. I work in a shop from Tuesday to Saturday. On Monday I visit my grandparents. On Sunday I play football with my friends in the park. I like my busy week.",
+    "prompt": "What does Leo do on Monday?",
+    "options": ["He works in a shop", "He plays football", "He visits his grandparents", "He meets his teacher"],
+    "correctOption": "He visits his grandparents", "explanation": "Leo nói thứ Hai là ngày đến thăm ông bà."
+  },
+  {
+    "externalId": "demo-reading-a1-05", "skill": "READING", "cefrLevel": "A1",
+    "passage": "Mia, there is some rice in the kitchen, but we have no bread. Please buy bread on your way home. We have milk and eggs, so do not buy them. Thank you! Dad",
+    "prompt": "What does Mia need to buy?",
+    "options": ["Milk", "Bread", "Eggs", "Rice"],
+    "correctOption": "Bread", "explanation": "Bố nhắn nhà hết bánh mì và nhờ Mia mua; các món khác vẫn còn."
+  },
+  {
+    "externalId": "demo-reading-a2-01", "skill": "READING", "cefrLevel": "A2",
+    "passage": "Dear guests, the swimming pool will be closed on Tuesday morning while we clean it. It will open again at two in the afternoon. During the morning, you can use the gym on the second floor without paying. Please show your room key at the gym desk. We are sorry for the change.",
+    "prompt": "What can guests do while the pool is closed?",
+    "options": ["Swim on the second floor", "Collect a new room key", "Use the gym for free", "Book the pool for the evening"],
+    "correctOption": "Use the gym for free", "explanation": "Khách được dùng phòng gym miễn phí trong buổi sáng hồ bơi đóng cửa."
+  },
+  {
+    "externalId": "demo-reading-a2-02", "skill": "READING", "cefrLevel": "A2",
+    "passage": "Hi Ben, I booked our train tickets yesterday. We leave at nine on Friday, not ten as we first planned. Let's meet outside the station at half past eight. I will bring sandwiches, so you only need to bring drinks. The weather looks cold, so remember your jacket. See you soon! Julia",
+    "prompt": "When should Ben meet Julia?",
+    "options": ["At half past eight", "At nine", "At half past nine", "At ten"],
+    "correctOption": "At half past eight", "explanation": "Giờ gặp là 8:30; 9:00 là giờ tàu khởi hành, còn 10:00 là kế hoạch cũ."
+  },
+  {
+    "externalId": "demo-reading-a2-03", "skill": "READING", "cefrLevel": "A2",
+    "passage": "The town library is starting a Saturday book club for students aged twelve to sixteen. Meetings are from three to four in the afternoon. You do not have to buy the book: the library will lend you a copy. There are only fifteen places. To join, email your name and age to the librarian before Thursday.",
+    "prompt": "How can students join the club?",
+    "options": ["Buy a book on Saturday", "Pay at the library desk", "Call their school before Friday", "Email their name and age before Thursday"],
+    "correctOption": "Email their name and age before Thursday", "explanation": "Thông báo hướng dẫn gửi email tên và tuổi trước thứ Năm để đăng ký."
+  },
+  {
+    "externalId": "demo-reading-a2-04", "skill": "READING", "cefrLevel": "A2",
+    "passage": "Last summer, Omar worked at his uncle's bicycle shop. At first he only cleaned bikes and answered the phone. Later, his uncle taught him to repair wheels. Omar enjoyed learning a useful skill, but standing all day made him tired. This year he wants to work there again, although he will only do three days a week.",
+    "prompt": "What did Omar find difficult about the job?",
+    "options": ["Talking to his uncle", "Standing for the whole day", "Learning to clean bikes", "Working only three days"],
+    "correctOption": "Standing for the whole day", "explanation": "Omar mệt vì phải đứng cả ngày, dù cậu thích học kỹ năng sửa xe."
+  },
+  {
+    "externalId": "demo-reading-a2-05", "skill": "READING", "cefrLevel": "A2",
+    "passage": "Food market update: because of heavy rain, this Sunday's market will take place in the sports hall instead of the town square. The opening hours, ten until three, will stay the same. Please enter through the school gate on River Road. There is no parking at the hall, but bus number six stops outside the gate.",
+    "prompt": "What has changed about Sunday's market?",
+    "options": ["Its opening time", "Its closing time", "Its location", "Its day of the week"],
+    "correctOption": "Its location", "explanation": "Chợ chuyển từ quảng trường sang nhà thi đấu vì mưa; ngày và giờ không đổi."
+  },
+  {
+    "externalId": "demo-reading-b1-01", "skill": "READING", "cefrLevel": "B1",
+    "passage": "When the council suggested turning an empty car park into a community garden, some residents worried about losing parking spaces. Six months later, most have changed their minds. The garden supplies vegetables to the local food bank, and neighbours who had never spoken now meet there every weekend. Parking is still sometimes difficult, but resident Marta says that finding a space five minutes away is a small price to pay for a friendlier street.",
+    "prompt": "How does Marta feel about the garden?",
+    "options": ["Its benefits are worth the inconvenience", "It should become a car park again", "It mainly benefits people with cars", "Its food should be sold to residents"],
+    "correctOption": "Its benefits are worth the inconvenience", "explanation": "Marta chấp nhận đi bộ xa hơn để đỗ xe vì khu phố thân thiện hơn; lợi ích đáng với bất tiện."
+  },
+  {
+    "externalId": "demo-reading-b1-02", "skill": "READING", "cefrLevel": "B1",
+    "passage": "Nina used to write every new English word in a long list. She reviewed the list before tests, but quickly forgot most of it. Her teacher suggested grouping words around situations, such as ordering a meal or making travel plans. Nina now writes a short conversation using each group. She still forgets individual spellings occasionally, but finds it much easier to choose the right words when speaking. She plans to keep both methods, using lists mainly for spelling practice.",
+    "prompt": "Why does Nina still use word lists?",
+    "options": ["To replace speaking practice", "To prepare only for travel", "To avoid writing conversations", "To practise spelling"],
+    "correctOption": "To practise spelling", "explanation": "Nina giữ danh sách chủ yếu để luyện chính tả, còn hội thoại giúp dùng từ khi nói."
+  },
+  {
+    "externalId": "demo-reading-b1-03", "skill": "READING", "cefrLevel": "B1",
+    "passage": "To all staff: from next month, employees may work from home on two days each week. Team leaders must agree to the chosen days so that someone is always available in the office. The arrangement will be reviewed after three months. We hope it will reduce commuting time while maintaining good service. Please keep a note of any problems you experience, including difficulties contacting colleagues, so we can decide whether changes are needed at the review.",
+    "prompt": "Why are employees asked to record problems?",
+    "options": ["To explain why commuting is expensive", "To help evaluate the new arrangement", "To apply for more office space", "To select a new team leader"],
+    "correctOption": "To help evaluate the new arrangement", "explanation": "Các vấn đề được ghi lại để công ty đánh giá và điều chỉnh cách làm việc sau ba tháng."
+  },
+  {
+    "externalId": "demo-reading-b1-04", "skill": "READING", "cefrLevel": "B1",
+    "passage": "I expected the mountain museum to be full of old climbing equipment, and its first room certainly was. The surprise came upstairs, where local guides described how tourism had changed their villages. Their recorded stories were more memorable than the displays of boots and ropes. The cafe was crowded and the entrance ticket was rather expensive, but I stayed far longer than planned. If you visit, allow time for the interviews rather than just walking past the screens.",
+    "prompt": "What does the reviewer especially recommend?",
+    "options": ["Buying climbing equipment", "Eating at the cafe", "Listening to local people's stories", "Booking a guided mountain walk"],
+    "correctOption": "Listening to local people's stories", "explanation": "Người viết ấn tượng nhất với lời kể của hướng dẫn viên địa phương và khuyên dành thời gian nghe phỏng vấn."
+  },
+  {
+    "externalId": "demo-reading-b1-05", "skill": "READING", "cefrLevel": "B1",
+    "passage": "A repair cafe opens in our school hall next Saturday. Volunteers will help visitors fix small household items, from lamps to torn jackets. They cannot promise to repair everything, and visitors must stay with their items throughout the session. The aim is not to offer a free repair shop: it is to share skills and reduce waste. Bring any spare parts you already have. Donations for tea and tools are welcome, but nobody will be charged for advice.",
+    "prompt": "What is the main purpose of the repair cafe?",
+    "options": ["To teach repair skills and reduce waste", "To sell new household equipment", "To collect items for volunteers to keep", "To guarantee free repairs for every item"],
+    "correctOption": "To teach repair skills and reduce waste", "explanation": "Bài nêu rõ mục tiêu là chia sẻ kỹ năng và giảm rác thải, không bảo đảm sửa được mọi món đồ."
+  },
+  {
+    "externalId": "demo-reading-b2-01", "skill": "READING", "cefrLevel": "B2",
+    "passage": "Supporters of a four-day working week often cite a recent company trial in which output remained steady while staff reported less stress. The result is encouraging, but the trial involved firms that volunteered and could reorganise work fairly easily. Hospitals and small shops face different constraints. Dismissing the idea on those grounds would be premature; treating the trial as proof that every employer should adopt it would be equally unwise. The next useful step is to examine which conditions made the experiment successful and test adaptations in less flexible workplaces.",
+    "prompt": "What is the writer's attitude towards the trial?",
+    "options": ["It proves all employers should change immediately", "It is irrelevant because firms volunteered", "It shows shorter weeks cannot work in shops", "It is promising but needs broader investigation"],
+    "correctOption": "It is promising but needs broader investigation", "explanation": "Tác giả công nhận tín hiệu tích cực nhưng yêu cầu nghiên cứu điều kiện thành công và thử ở môi trường ít linh hoạt hơn."
+  },
+  {
+    "externalId": "demo-reading-b2-02", "skill": "READING", "cefrLevel": "B2",
+    "passage": "The new history exhibition gives ordinary residents as much space as famous leaders. This choice could have produced a collection of charming but disconnected memories. Instead, each personal account is linked to a larger change in the city: a bus driver's diary illuminates the expansion of the suburbs, while a shopkeeper's letters reveal the impact of new trade routes. A few interactive screens add little, and the final section feels rushed. Nevertheless, the exhibition succeeds because it makes complex developments understandable without pretending that everyone experienced them in the same way.",
+    "prompt": "Why does the reviewer think the exhibition succeeds?",
+    "options": ["It replaces historical analysis with entertaining memories", "It connects personal experiences with wider historical changes", "It gives the most space to famous political leaders", "It relies mainly on its interactive technology"],
+    "correctOption": "It connects personal experiences with wider historical changes", "explanation": "Các câu chuyện cá nhân được nối với thay đổi lớn của thành phố, giúp hiểu lịch sử mà vẫn giữ nhiều góc nhìn."
+  },
+  {
+    "externalId": "demo-reading-b2-03", "skill": "READING", "cefrLevel": "B2",
+    "passage": "A university introduced an app that rewards students for borrowing reusable cups. After two months, borrowing had doubled. The campaign team described this as a major reduction in waste, yet the figures counted every loan rather than the number of disposable cups avoided. Some students borrowed extra cups to earn points and returned them unused, creating additional washing. This does not mean incentives are pointless. It does suggest that measuring participation alone can hide whether a scheme achieves its environmental purpose. Future evaluation should track actual substitution and the resources used to support it.",
+    "prompt": "What weakness does the writer identify in the evaluation?",
+    "options": ["It assumes more borrowing necessarily means less waste", "It ignores how many students own smartphones", "It focuses too much on water use", "It compares different universities unfairly"],
+    "correctOption": "It assumes more borrowing necessarily means less waste", "explanation": "Số lượt mượn tăng không chứng minh ly dùng một lần giảm, nhất là khi có người mượn chỉ để lấy điểm."
+  },
+  {
+    "externalId": "demo-reading-b2-04", "skill": "READING", "cefrLevel": "B2",
+    "passage": "Our neighbourhood's old cinema is to reopen as a shared workspace. Campaigners who hoped to restore film screenings are understandably disappointed, but their efforts were not wasted. They persuaded the developers to retain the auditorium and allow community events there twice a month. The agreement falls short of their original ambition, yet prevents the building from becoming an inaccessible office block. Whether the compromise proves worthwhile now depends less on the attractive plans than on practical details: affordable booking fees, convenient opening hours and a clear process for residents to reserve the space.",
+    "prompt": "What will determine the value of the compromise for residents?",
+    "options": ["Whether every office worker likes films", "Whether the building receives a new name", "Whether community access works well in practice", "Whether the campaigners abandon all events"],
+    "correctOption": "Whether community access works well in practice", "explanation": "Giá trị thỏa thuận phụ thuộc phí, giờ mở cửa và cách đặt chỗ thực tế để người dân sử dụng được."
+  },
+  {
+    "externalId": "demo-reading-b2-05", "skill": "READING", "cefrLevel": "B2",
+    "passage": "Digital maps have made unfamiliar journeys easier, but their confidence can discourage observation. When a suggested path crosses a locked gate, users sometimes blame the landscape rather than question the route. The answer is hardly to abandon navigation tools. It is to use them as proposals that can be checked against signs, local knowledge and changing conditions. Schools teaching map skills should therefore include digital navigation rather than treating paper maps as a complete alternative. The essential skill is not loyalty to a particular device, but the ability to judge when its advice deserves trust.",
+    "prompt": "Which recommendation best matches the writer's argument?",
+    "options": ["Teach students to follow digital routes without hesitation", "Teach students to assess navigation advice critically", "Replace digital maps with paper maps in every lesson", "Avoid travelling through unfamiliar areas"],
+    "correctOption": "Teach students to assess navigation advice critically", "explanation": "Tác giả khuyên kiểm tra gợi ý công cụ bằng biển báo và điều kiện thực tế; kỹ năng cốt lõi là đánh giá độ đáng tin."
+  },
+  {
+    "externalId": "demo-listening-a1-01", "skill": "LISTENING", "cefrLevel": "A1",
+    "transcript": "Hi Tom, it's Lucy. Please come to my house on Saturday. We can have lunch at twelve. My house is number fifteen, next to the small supermarket. Bring your new game if you like. My brother wants to play it too. See you on Saturday!",
+    "prompt": "What time is lunch?",
+    "options": ["At ten", "At eleven", "At twelve", "At one"],
+    "correctOption": "At twelve", "explanation": "Lucy nói cả nhóm có thể ăn trưa lúc mười hai giờ."
+  },
+  {
+    "externalId": "demo-listening-a1-02", "skill": "LISTENING", "cefrLevel": "A1",
+    "transcript": "Good morning, everyone. My name is Mark, and I am your teacher today. Please sit down and open your books. We are in room seven today. Tomorrow, our class is in room nine. Please write that number in your notebook. Now, let's start our English lesson.",
+    "prompt": "Which room will the class use tomorrow?",
+    "options": ["Room seven", "Room nine", "Room ten", "Room twelve"],
+    "correctOption": "Room nine", "explanation": "Hôm nay học phòng bảy, ngày mai chuyển sang phòng chín."
+  },
+  {
+    "externalId": "demo-listening-a1-03", "skill": "LISTENING", "cefrLevel": "A1",
+    "transcript": "Hello, this is a message for Emma. Your blue bag is here at the sports centre. It is under the desk in the office. We are open until six this evening. Please come before six and ask for Paul. Your water bottle is inside the bag too.",
+    "prompt": "Where is Emma's bag?",
+    "options": ["In a classroom", "On a bus", "In a shop", "In the sports centre office"],
+    "correctOption": "In the sports centre office", "explanation": "Tin nhắn cho biết túi ở dưới bàn trong văn phòng trung tâm thể thao."
+  },
+  {
+    "externalId": "demo-listening-a1-04", "skill": "LISTENING", "cefrLevel": "A1",
+    "transcript": "Hi, my name is Alex. I live with my parents and my sister. We have a small dog called Max. Every morning, I walk Max in the park before school. My sister gives him his food in the evening. At the weekend, we all walk together.",
+    "prompt": "Who gives Max his food in the evening?",
+    "options": ["Alex's sister", "Alex's father", "Alex's mother", "Alex"],
+    "correctOption": "Alex's sister", "explanation": "Alex dắt chó buổi sáng; chị/em gái cho chó ăn buổi tối."
+  },
+  {
+    "externalId": "demo-listening-a1-05", "skill": "LISTENING", "cefrLevel": "A1",
+    "transcript": "Welcome to our little shop. Today, the apples are two dollars a bag. The oranges are three dollars a bag. You can find bread next to the door and milk at the back of the shop. If you need help, please ask me. My name is Jane.",
+    "prompt": "How much is a bag of apples?",
+    "options": ["One dollar", "Three dollars", "Two dollars", "Four dollars"],
+    "correctOption": "Two dollars", "explanation": "Người bán báo táo giá hai đô la một túi; ba đô la là giá cam."
+  },
+  {
+    "externalId": "demo-listening-a2-01", "skill": "LISTENING", "cefrLevel": "A2",
+    "transcript": "Hi Sarah, it's Daniel. Our picnic is still on tomorrow, but let's meet at the lake instead of the old bridge. The path near the bridge is closed. I'll get there at eleven thirty. Can you bring some cups? I've already packed the food and the drinks. Call me if you need a lift.",
+    "prompt": "What does Daniel ask Sarah to bring?",
+    "options": ["Sandwiches", "Cups", "Drinks", "A map"],
+    "correctOption": "Cups", "explanation": "Daniel đã chuẩn bị đồ ăn và thức uống, chỉ nhờ Sarah mang cốc."
+  },
+  {
+    "externalId": "demo-listening-a2-02", "skill": "LISTENING", "cefrLevel": "A2",
+    "transcript": "Attention, passengers. The train to Oakford will leave from platform four today, not platform two. It will leave at a quarter past three, as shown on your ticket. Please use the stairs beside the cafe to reach platform four. A member of staff can help you if you have heavy bags.",
+    "prompt": "What has changed about the train to Oakford?",
+    "options": ["Its destination", "Its ticket price", "Its departure time", "Its platform"],
+    "correctOption": "Its platform", "explanation": "Tàu đổi sân ga từ hai sang bốn; giờ khởi hành vẫn như trên vé."
+  },
+  {
+    "externalId": "demo-listening-a2-03", "skill": "LISTENING", "cefrLevel": "A2",
+    "transcript": "Thanks for calling the town museum. Our family art class is on Sunday at ten in the morning. Children must come with an adult. The class costs five pounds per child, but adults do not pay. All the paint and paper are included. Please book before Friday because we only have twelve places.",
+    "prompt": "Who must pay for the art class?",
+    "options": ["Each child", "Each adult", "Only the teacher", "Nobody"],
+    "correctOption": "Each child", "explanation": "Mỗi trẻ trả năm bảng; người lớn đi cùng không phải trả tiền."
+  },
+  {
+    "externalId": "demo-listening-a2-04", "skill": "LISTENING", "cefrLevel": "A2",
+    "transcript": "Hi Jack. I went to the new bookshop yesterday. It's smaller than the one near school, but it has a nice reading room upstairs. I wanted a travel book, but they didn't have it. The assistant ordered it for me, and I can collect it on Thursday. Let's go together after class.",
+    "prompt": "Why will the speaker return to the bookshop on Thursday?",
+    "options": ["To meet a travel writer", "To use its classroom", "To collect an ordered book", "To return a damaged book"],
+    "correctOption": "To collect an ordered book", "explanation": "Nhân viên đã đặt cuốn sách du lịch, người nói sẽ đến nhận vào thứ Năm."
+  },
+  {
+    "externalId": "demo-listening-a2-05", "skill": "LISTENING", "cefrLevel": "A2",
+    "transcript": "Good evening. Here's tomorrow's weather. The morning will be sunny, so it's a good time to visit the beach. Rain will arrive at about two in the afternoon and continue until the evening. It won't be very cold, but take a raincoat if you plan to stay outside after lunch. There may also be strong winds.",
+    "prompt": "When is the best time to visit the beach tomorrow?",
+    "options": ["In the late evening", "In the morning", "At two in the afternoon", "After dinner"],
+    "correctOption": "In the morning", "explanation": "Buổi sáng trời nắng phù hợp đi biển; mưa bắt đầu khoảng hai giờ chiều."
+  },
+  {
+    "externalId": "demo-listening-b1-01", "skill": "LISTENING", "cefrLevel": "B1",
+    "transcript": "I started cycling to work to save money, but the biggest surprise was how much calmer I felt when I arrived. The journey takes ten minutes longer than driving on a quiet day. However, traffic used to make the driving time impossible to predict. Now I know when I'll arrive. I still take the bus in heavy rain, so I wouldn't say cycling is the answer for every day.",
+    "prompt": "What does the speaker particularly appreciate about cycling?",
+    "options": ["It is always faster than driving", "It works in every kind of weather", "It lets him avoid all exercise", "Its journey time is predictable"],
+    "correctOption": "Its journey time is predictable", "explanation": "Người nói biết chắc thời gian đến nơi khi đạp xe, khác với đi ô tô phụ thuộc giao thông."
+  },
+  {
+    "externalId": "demo-listening-b1-02", "skill": "LISTENING", "cefrLevel": "B1",
+    "transcript": "Before we start the group project, please decide who will check the final report. Last time, everyone wrote a section, but nobody noticed that two sections repeated the same information. You can divide the research in any way you like. Just make sure one person reads everything together before you submit it. That person doesn't have to rewrite everyone's work, only check that the report makes sense as a whole.",
+    "prompt": "What problem is the teacher trying to prevent?",
+    "options": ["A report with repeated information", "Students choosing their own topics", "One student doing all the research", "The class submitting reports too early"],
+    "correctOption": "A report with repeated information", "explanation": "Lần trước các phần bị lặp nội dung; người đọc bản cuối cần kiểm tra tính thống nhất của cả báo cáo."
+  },
+  {
+    "externalId": "demo-listening-b1-03", "skill": "LISTENING", "cefrLevel": "B1",
+    "transcript": "Our weekend language exchange used to take place in a noisy cafe. People enjoyed the friendly atmosphere, but beginners found it hard to hear. We've moved to the library meeting room, where we can arrange smaller groups. Some members miss being able to buy coffee during the session. We now meet at the cafe afterwards, so anyone who wants to can continue chatting. So far, attendance has stayed about the same.",
+    "prompt": "Why was the language exchange moved to the library?",
+    "options": ["The cafe had become too expensive", "More people wanted to buy coffee", "Beginners struggled to hear in the cafe", "Attendance had fallen sharply"],
+    "correctOption": "Beginners struggled to hear in the cafe", "explanation": "Quán ồn làm người mới khó nghe; phòng họp thư viện giúp chia nhóm nhỏ và nghe rõ hơn."
+  },
+  {
+    "externalId": "demo-listening-b1-04", "skill": "LISTENING", "cefrLevel": "B1",
+    "transcript": "I was nervous about volunteering at the animal shelter because I'd never looked after a dog. I imagined I'd need lots of training before I could be useful. In fact, my first job was updating the website with photos that other volunteers had taken. My computer skills were useful immediately. I'll learn to work with the animals later, but the experience has shown me that volunteering doesn't always mean doing the most obvious job.",
+    "prompt": "What did the speaker learn from volunteering?",
+    "options": ["Only animal experts can help at shelters", "Existing skills can be useful in unexpected roles", "Website work requires no preparation", "All volunteers must first train dogs"],
+    "correctOption": "Existing skills can be useful in unexpected roles", "explanation": "Kỹ năng máy tính giúp người nói đóng góp ngay ở vai trò khác với việc chăm chó mà họ hình dung."
+  },
+  {
+    "externalId": "demo-listening-b1-05", "skill": "LISTENING", "cefrLevel": "B1",
+    "transcript": "Thank you for booking our riverside walking tour. The forecast suggests light rain, which won't affect the walk. Please wear shoes with a good grip because parts of the path may be slippery. If the river rises above the safety marker, we'll use a different route through the old town. We'll confirm the route at the meeting point. You don't need to contact us unless you want to cancel your booking.",
+    "prompt": "What will cause the organisers to change the route?",
+    "options": ["Any light rain", "A visitor arriving without a coat", "A cancellation by one visitor", "The river rising above the safety marker"],
+    "correctOption": "The river rising above the safety marker", "explanation": "Mưa nhẹ không đổi lộ trình; chỉ khi nước vượt mốc an toàn mới chuyển sang phố cổ."
+  },
+  {
+    "externalId": "demo-listening-b2-01", "skill": "LISTENING", "cefrLevel": "B2",
+    "transcript": "When we removed late fees at the library, some people predicted that books would never come back. Returns actually improved a little. I wouldn't claim the change caused that improvement; we also introduced reminder messages at the same time. What we can say is that more former members returned to borrow books. For me, that's the clearest benefit. We still need to monitor waiting times for popular titles before drawing broader conclusions.",
+    "prompt": "Which benefit does the speaker feel most confident about?",
+    "options": ["More former members used the library again", "Removing fees alone improved return rates", "Popular books no longer have waiting lists", "Every book was returned on time"],
+    "correctOption": "More former members used the library again", "explanation": "Người nói chắc chắn nhất về việc thành viên cũ quay lại; chưa thể quy cải thiện trả sách chỉ cho việc bỏ phí."
+  },
+  {
+    "externalId": "demo-listening-b2-02", "skill": "LISTENING", "cefrLevel": "B2",
+    "transcript": "The design team wanted one dashboard showing every available figure. It looked impressive, but users couldn't tell what required attention. We eventually kept just three measures on the main screen and put the rest one click away. Some colleagues initially saw this as losing information. In practice, people found the detailed figures more easily because they first understood the overall situation. The lesson wasn't that fewer numbers are always better, but that information needs a clear order.",
+    "prompt": "What lesson does the speaker draw from the redesign?",
+    "options": ["Detailed figures should never be available", "An impressive appearance guarantees usability", "Information should be organised by importance", "Every user needs exactly three figures"],
+    "correctOption": "Information should be organised by importance", "explanation": "Bài học là thông tin cần thứ tự rõ ràng, không phải lúc nào ít số liệu hơn cũng tốt."
+  },
+  {
+    "externalId": "demo-listening-b2-03", "skill": "LISTENING", "cefrLevel": "B2",
+    "transcript": "I support opening the school sports grounds at weekends, provided we budget for supervision. Simply unlocking the gate sounds inexpensive, but it transfers responsibility to teachers who may already be working extra hours. A partnership with the community centre could solve that problem, though their staff would need training. So my concern isn't the principle of sharing facilities. It's whether the proposal includes the people and resources needed to make access reliable rather than occasional.",
+    "prompt": "What is the speaker's main concern?",
+    "options": ["The grounds should be reserved for teachers", "The plan needs adequate staffing and resources", "The community centre should close on weekends", "Weekend access can never benefit residents"],
+    "correctOption": "The plan needs adequate staffing and resources", "explanation": "Người nói ủng hộ chia sẻ sân nhưng muốn có nhân sự và ngân sách giám sát để hoạt động ổn định."
+  },
+  {
+    "externalId": "demo-listening-b2-04", "skill": "LISTENING", "cefrLevel": "B2",
+    "transcript": "The restaurant's new menu uses ingredients from nearby farms, which is admirable. But calling a dish local doesn't automatically make it sustainable. Growing vegetables in heated buildings can use considerable energy, while some products travel efficiently by sea. I'm not suggesting that customers calculate every meal's emissions. I'd simply like restaurants to explain their choices more precisely, so that a convenient label doesn't stand in for evidence about how the food was actually produced.",
+    "prompt": "What does the speaker want restaurants to do?",
+    "options": ["Stop buying all locally grown ingredients", "Ask customers to calculate every meal's emissions", "Import every product by sea", "Explain the evidence behind sustainability claims"],
+    "correctOption": "Explain the evidence behind sustainability claims", "explanation": "Người nói muốn lời giải thích cụ thể về sản xuất thay vì chỉ dùng nhãn địa phương để khẳng định bền vững."
+  },
+  {
+    "externalId": "demo-listening-b2-05", "skill": "LISTENING", "cefrLevel": "B2",
+    "transcript": "At first, our mentoring programme matched new employees with the most senior person available. The advice was knowledgeable, but meetings were often cancelled because those mentors had little time. We now ask people only two or three years ahead of the newcomers to volunteer. They remember the everyday difficulties more clearly and are easier to reach. Senior staff still advise on specialist questions. The change reflects a better match between the kind of support needed and who can consistently provide it.",
+    "prompt": "Why does the speaker favour the new mentoring arrangement?",
+    "options": ["It offers relevant support more consistently", "It removes any role for senior staff", "It guarantees that all mentors are experts", "It requires newcomers to solve problems alone"],
+    "correctOption": "It offers relevant support more consistently", "explanation": "Người hướng dẫn gần kinh nghiệm hơn dễ liên hệ và nhớ khó khăn hằng ngày, trong khi chuyên gia vẫn hỗ trợ câu hỏi chuyên sâu."
+  }
+]

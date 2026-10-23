@@ -10,6 +10,11 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: AppTextStyles.fontFamily,
+      textTheme: ThemeData.light().textTheme.apply(
+        fontFamily: AppTextStyles.fontFamily,
+        bodyColor: AppColors.grey900,
+        displayColor: AppColors.grey900,
+      ),
       brightness: Brightness.light,
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
@@ -33,7 +38,9 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.buttonRadius),
+          shape: const RoundedRectangleBorder(
+            borderRadius: AppRadius.buttonRadius,
+          ),
           elevation: 0,
           textStyle: AppTextStyles.button,
           minimumSize: const Size.fromHeight(48),
@@ -90,7 +97,9 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.buttonRadius),
+          shape: const RoundedRectangleBorder(
+            borderRadius: AppRadius.buttonRadius,
+          ),
           elevation: 0,
           textStyle: AppTextStyles.button,
           minimumSize: const Size.fromHeight(48),

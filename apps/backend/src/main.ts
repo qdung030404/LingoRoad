@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication, ExpressAdapter } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { placementMediaRoot } from './modules/placement/services/demo-placement.service';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -32,6 +33,7 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
+  app.useStaticAssets(placementMediaRoot(), { prefix: '/media/placement/', index: false, dotfiles: 'deny' });
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
