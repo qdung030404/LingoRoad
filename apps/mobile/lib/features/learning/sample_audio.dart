@@ -13,9 +13,10 @@ class SampleAudio extends StatefulWidget {
     this.label = 'Nghe mẫu',
     this.player = false,
     this.dark = false,
+    this.minimal = false,
   });
   final String asset, label;
-  final bool player, dark;
+  final bool player, dark, minimal;
   @override
   State<SampleAudio> createState() => _SampleAudioState();
 }
@@ -99,6 +100,17 @@ class _SampleAudioState extends State<SampleAudio> with WidgetsBindingObserver {
       '${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
   @override
   Widget build(BuildContext context) {
+    if (widget.minimal) {
+      return IconButton(
+        tooltip: playing ? 'Tạm dừng audio mẫu' : widget.label,
+        onPressed: busy ? null : toggle,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+        icon: playing
+            ? const Icon(Icons.pause, size: 20, color: Color(0xFF5C403A))
+            : const FigmaAsset('srs/imgContainer6', size: 20),
+      );
+    }
     final icon = playing
         ? const FigmaAsset('listening-playing/imgVuesaxLinearPause', size: 20)
         : FigmaAsset(

@@ -10,6 +10,9 @@ import 'package:mobile/features/learning/learning_preview.dart';
 import 'package:mobile/features/learning/lesson_pages.dart';
 import 'package:mobile/features/learning/preview_model.dart';
 import 'package:mobile/features/learning/practice_pages.dart';
+import 'package:mobile/features/learning/word_library.dart';
+import 'package:mobile/features/learning/word_collection_pages.dart';
+import 'package:mobile/features/learning/srs_review_page.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/main.dart';
@@ -78,6 +81,15 @@ void main() {
       await (FontLoader(
         'Inter',
       )..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'))).load();
+      await (FontLoader('Be Vietnam Pro')
+            ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Medium.ttf')))
+          .load();
+      await (FontLoader('Hanken Grotesk')
+            ..addFont(rootBundle.load('assets/fonts/HankenGrotesk[wght].ttf')))
+          .load();
+      await (FontLoader(
+        'Madimi One',
+      )..addFont(rootBundle.load('assets/fonts/MadimiOne-Regular.ttf'))).load();
     });
     await tester.pumpWidget(
       RepaintBoundary(
@@ -239,10 +251,10 @@ void main() {
           .pixels;
       final savedOffset = offset();
       expect(savedOffset, greaterThan(0));
-      await tap(tester, find.byKey(const Key('previewTab2')));
+      await tap(tester, find.byKey(const Key('previewTab3')));
       await tap(tester, find.byKey(const Key('previewTab0')));
       expect(offset(), closeTo(savedOffset, 1));
-      await tester.tap(find.byKey(const Key('previewTab3')));
+      await tester.tap(find.byKey(const Key('previewTab4')));
       await tester.pump(const Duration(milliseconds: 50));
       await tester.tap(find.byKey(const Key('previewTab1')));
       await tester.pumpAndSettle();
@@ -251,7 +263,8 @@ void main() {
       await model.savePlan(20, {'Nghe'});
       await tester.pumpAndSettle();
       await tap(tester, find.byKey(const Key('previewTab0')));
-      expect(find.text('0/20 phút'), findsOneWidget);
+      expect(model.dailyMinutes, 20);
+      expect(find.text('Kế hoạch hôm nay'), findsOneWidget);
     },
   );
 
@@ -261,14 +274,14 @@ void main() {
       LearningPreview(model: PreviewModel()),
       reduceMotion: true,
     );
-    await tester.tap(find.byKey(const Key('previewTab3')));
+    await tester.tap(find.byKey(const Key('previewTab4')));
     await tester.pump();
     expect(
       tester
           .widget<PageView>(find.byKey(const Key('learningPages')))
           .controller!
           .page,
-      3,
+      4,
     );
     expect(tester.takeException(), isNull);
   });
@@ -294,7 +307,7 @@ void main() {
     await capture(tester, 'grammar-road');
     await tap(tester, find.text('Từ vựng'));
     await capture(tester, 'vocabulary-road');
-    await tap(tester, find.byKey(const Key('previewTab2')));
+    await tap(tester, find.byKey(const Key('previewTab3')));
     await capture(tester, 'practice');
     for (final skill in PracticeSkill.values) {
       await tap(tester, find.text(skill.label).first);
@@ -304,11 +317,96 @@ void main() {
       await tap(tester, find.byTooltip('Quay lại'));
       await tester.pumpAndSettle();
     }
-    await tap(tester, find.byKey(const Key('previewTab3')));
+    await tap(tester, find.byKey(const Key('previewTab4')));
     expect(
       find.text('Tiến độ minh họa trên thiết bị; không phải kết quả đánh giá.'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('word library searches, opens a deck, flips and rates a card', (
+    tester,
+  ) async {
+    final library = WordLibrary();
+    await tester.runAsync(library.restore);
+    await show(tester, MyWordsTab(library: library));
+    await capture(tester, 'my-words');
+    await tester.enterText(find.byKey(const Key('wordDeckSearch')), 'Gia đình');
+    await tester.pumpAndSettle();
+    expect(find.text('Công việc'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(WordDeckCard),
+        matching: find.text('Gia đình'),
+      ),
+      findsOneWidget,
+    );
+    await tap(tester, find.text('Tiếp tục học'));
+    await capture(tester, 'word-list');
+    expect(find.text('mother'), findsOneWidget);
+    await tap(tester, find.byKey(const Key('practiceWordDeck')));
+    expect(find.text('Còn lại 12 mục'), findsOneWidget);
+    await capture(tester, 'srs-front');
+    await tester.tap(find.byKey(const Key('srsFlashcard')));
+    await tester.pump(const Duration(milliseconds: 140));
+    expect(tester.binding.hasScheduledFrame, isTrue);
+    await tester.pumpAndSettle();
+    expect(find.text('mẹ'), findsOneWidget);
+    await capture(tester, 'srs-back');
+    // The UI rating advances the queue and persists a single rating for this word.
+    await tap(tester, find.byKey(const Key('srs-remember')));
+    expect(find.text('Còn lại 11 mục'), findsOneWidget);
+    expect(find.text('Father'), findsOneWidget);
+    final restored = WordLibrary();
+    await tester.runAsync(restored.restore);
+    expect(restored.remembered(restored.decks[1]), 6);
+    expect(restored.due(restored.decks[1]).length, 11);
+    library.dispose();
+    restored.dispose();
+  });
+
+  testWidgets('empty collections accept a word and survive reopening', (
+    tester,
+  ) async {
+    final library = WordLibrary();
+    await tester.runAsync(library.restore);
+    await show(tester, MyWordsTab(library: library));
+    await tap(tester, find.byKey(const Key('addWordDeck')));
+    await tester.enterText(find.byType(TextField).last, 'Bộ từ cá nhân');
+    await tap(tester, find.text('Tạo'));
+    final deck = library.decks.last;
+    expect(deck.name, 'Bộ từ cá nhân');
+    await show(tester, WordListPage(library: library, deckId: deck.id));
+    expect(find.text('Bộ từ chưa có từ vựng.'), findsOneWidget);
+    await tap(tester, find.text('Thêm từ đầu tiên'));
+    await tester.enterText(find.byType(TextFormField).first, 'hello');
+    await tester.enterText(find.byType(TextFormField).last, 'xin chào');
+    await tap(tester, find.text('Lưu'));
+    expect(find.text('hello'), findsOneWidget);
+    final restored = WordLibrary();
+    await tester.runAsync(restored.restore);
+    expect(restored.decks.last.words.single.meaning, 'xin chào');
+    library.dispose();
+    restored.dispose();
+  });
+
+  testWidgets('new collection and review screens fit a narrow device', (
+    tester,
+  ) async {
+    final library = WordLibrary();
+    for (final page in <Widget>[
+      MyWordsTab(library: library),
+      WordListPage(library: library, deckId: 'family'),
+      SrsReviewPage(library: library, deckId: 'work'),
+    ]) {
+      await show(tester, page, size: const Size(320, 640), reduceMotion: true);
+      expect(tester.takeException(), isNull);
+    }
+    await tester.tap(find.byKey(const Key('srsFlashcard')));
+    await tester.pumpAndSettle();
+    expect(find.text('Sự tình cờ may mắn'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    library.dispose();
   });
 
   testWidgets(
@@ -417,7 +515,7 @@ void main() {
         size: const Size(320, 640),
       );
       await tap(tester, find.byKey(const Key('previewTab1')));
-      await tap(tester, find.byKey(const Key('previewTab2')));
+      await tap(tester, find.byKey(const Key('previewTab3')));
       await show(
         tester,
         WritingPreviewPage(model: model),

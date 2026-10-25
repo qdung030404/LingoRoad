@@ -1,4 +1,6 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
@@ -6,6 +8,10 @@ import 'learning_widgets.dart';
 import 'preview_model.dart';
 import 'lesson_pages.dart';
 import 'practice_pages.dart';
+import 'home_dashboard.dart';
+import 'word_collection_pages.dart';
+import 'word_library.dart';
+import 'srs_review_page.dart';
 
 class LearningPreview extends StatefulWidget {
   const LearningPreview({
@@ -23,6 +29,7 @@ class LearningPreview extends StatefulWidget {
 
 class _LearningPreviewState extends State<LearningPreview> {
   late final model = widget.model ?? PreviewModel();
+  final library = WordLibrary();
   final selectedTab = ValueNotifier<int>(0);
   final tabs = PageController();
   void switchTab(int index) {
@@ -61,6 +68,13 @@ class _LearningPreviewState extends State<LearningPreview> {
   @override
   void initState() {
     super.initState();
+    library.restore().catchError((Object error) {
+      if (mounted) {
+        setState(
+          () => restoreError = 'Không khôi phục được bộ từ mẫu trên thiết bị.',
+        );
+      }
+    });
     if (widget.model == null) {
       model.restore().catchError((Object error, StackTrace stack) {
         // Keep preference values out of logs while retaining the failing stack.
@@ -90,6 +104,7 @@ class _LearningPreviewState extends State<LearningPreview> {
 
   @override
   void dispose() {
+    library.dispose();
     tabs.dispose();
     selectedTab.dispose();
     if (widget.model == null) model.dispose();
@@ -149,314 +164,256 @@ class _LearningPreviewState extends State<LearningPreview> {
     ),
   );
 
+  void returnToTab(int index) {
+    final route = ModalRoute.of(context);
+    Navigator.of(context).popUntil((candidate) => candidate == route);
+    if (index == 5) {
+      openProfile();
+    } else {
+      switchTab(index);
+    }
+  }
+
+  void openReview() => previewPush(
+    context,
+    SrsReviewPage(
+      library: library,
+      deckId: library.decks.first.id,
+      onNavigate: returnToTab,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: model,
+    animation: Listenable.merge([model, library]),
     builder: (context, _) => PreviewSurface(
-      child: FigmaPage(
-        child: Stack(
-          children: [
-            PageView(
-              key: const Key('learningPages'),
-              controller: tabs,
-              physics: const ClampingScrollPhysics(),
-              // PageView prepares one adjacent viewport before it is visible.
-              allowImplicitScrolling: true,
-              onPageChanged: (index) => selectedTab.value = index,
-              children: [
-                for (var index = 0; index < 4; index++)
-                  _RetainedTab(key: ValueKey(index), child: tabContent(index)),
-              ],
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: ValueListenableBuilder<int>(
-                valueListenable: selectedTab,
-                builder: (context, tab, _) => Container(
-                  padding: const EdgeInsets.only(top: 24, bottom: 12),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0x00FFFFFF), Colors.white],
-                      stops: [0, .48],
+      child: ValueListenableBuilder<int>(
+        valueListenable: selectedTab,
+        child: Scaffold(
+          backgroundColor: AppColors.grey25,
+          body: Stack(
+            children: [
+              PageView(
+                key: const Key('learningPages'),
+                controller: tabs,
+                physics: const ClampingScrollPhysics(),
+                allowImplicitScrolling: true,
+                onPageChanged: (index) => selectedTab.value = index,
+                children: [
+                  for (var index = 0; index < 5; index++)
+                    _RetainedTab(
+                      key: ValueKey(index),
+                      child: tabContent(index),
                     ),
-                  ),
-                  child: Center(
-                    child: Container(
-                      height: 56,
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(44),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x180D2249),
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
+                ],
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: math.max(24, MediaQuery.paddingOf(context).bottom),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: selectedTab,
+                  builder: (context, tab, _) => Container(
+                    padding: const EdgeInsets.only(top: 24, bottom: 8),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0x00FFFFFF), Colors.white],
+                        stops: [0, .48],
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (var i = 0; i < 4; i++)
-                            Padding(
-                              padding: EdgeInsets.only(left: i == 0 ? 0 : 16),
-                              child: Semantics(
-                                selected: tab == i,
-                                button: true,
-                                label: [
-                                  'Trang chủ',
-                                  'Học',
-                                  'Luyện tập',
-                                  'Tiến độ',
-                                ][i],
-                                child: Tooltip(
-                                  message: [
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: tab == 1
+                            ? MediaQuery.sizeOf(context).width - 28
+                            : null,
+                        height: 56,
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(44),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x40000000),
+                              blurRadius: 6,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < 5; i++)
+                              Padding(
+                                padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
+                                child: Semantics(
+                                  selected: tab == i,
+                                  button: true,
+                                  label: [
                                     'Trang chủ',
                                     'Học',
+                                    'Từ của tôi',
                                     'Luyện tập',
                                     'Tiến độ',
                                   ][i],
-                                  child: InkWell(
-                                    key: Key('previewTab$i'),
-                                    onTap: () => switchTab(i),
-                                    borderRadius: BorderRadius.circular(99),
-                                    child: AnimatedContainer(
-                                      duration:
-                                          MediaQuery.disableAnimationsOf(
-                                            context,
-                                          )
-                                          ? Duration.zero
-                                          : const Duration(milliseconds: 200),
-                                      curve: Curves.easeOutCubic,
-                                      width: 40,
-                                      height: 40,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: tab == i
-                                            ? AppColors.primary25
-                                            : Colors.white,
-                                      ),
-                                      child: AnimatedOpacity(
+                                  child: Tooltip(
+                                    message: [
+                                      'Trang chủ',
+                                      'Học',
+                                      'Từ của tôi',
+                                      'Luyện tập',
+                                      'Tiến độ',
+                                    ][i],
+                                    child: InkWell(
+                                      key: Key('previewTab$i'),
+                                      onTap: () => switchTab(i),
+                                      borderRadius: BorderRadius.circular(99),
+                                      child: AnimatedContainer(
                                         duration:
                                             MediaQuery.disableAnimationsOf(
                                               context,
                                             )
                                             ? Duration.zero
                                             : const Duration(milliseconds: 200),
-                                        opacity: tab == i ? 1 : .5,
-                                        child: FigmaAsset(
-                                          '${tab == 0
-                                              ? 'home'
-                                              : tab == 1
-                                              ? 'grammar-road'
-                                              : 'practice'}/${['imgVuesaxBoldHome', 'imgBook', 'imgVuesaxBoldEdit', 'imgVuesaxBoldChart'][i]}',
-                                          size: 20,
+                                        curve: Curves.easeOutCubic,
+                                        width: 40,
+                                        height: 40,
+                                        alignment: Alignment.center,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: tab == i
+                                              ? AppColors.primary25
+                                              : Colors.white,
+                                        ),
+                                        child: AnimatedOpacity(
+                                          duration:
+                                              MediaQuery.disableAnimationsOf(
+                                                context,
+                                              )
+                                              ? Duration.zero
+                                              : const Duration(
+                                                  milliseconds: 200,
+                                                ),
+                                          opacity: tab == i ? 1 : .5,
+                                          child: _navIcon(i, tab),
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+        builder: (context, tab, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+          value:
+              (tab == 0
+                      ? SystemUiOverlayStyle.light
+                      : SystemUiOverlayStyle.dark)
+                  .copyWith(
+                    statusBarColor: Colors.transparent,
+                    systemNavigationBarColor: AppColors.grey25,
+                    systemNavigationBarIconBrightness: Brightness.dark,
+                  ),
+          child: child!,
         ),
       ),
     ),
   );
 
-  Widget tabContent(int page) => RepaintBoundary(
-    child: ListView(
-      key: PageStorageKey('preview-content-$page'),
-      primary: false,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 108),
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(
-                ['Hello, Anna!', 'Học', 'Luyện tập', 'Tiến độ'][page],
-                style: designText(36, weight: FontWeight.w600, height: 1),
-              ),
-            ),
-            if (page == 0)
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: CustomAppButton(
-                  key: const Key('previewAvatar'),
-                  text: '',
-                  isSecondary: true,
-                  isLoading: loggingOut,
-                  onPressed: loggingOut ? null : openProfile,
-                  icon: const FigmaAsset('home/imgVuesaxLinearUser'),
-                ),
-              )
-            else
-              PreviewLevelBadge(
-                onTap: () => previewMessage(
-                  context,
-                  'A1 là mức minh họa của bản xem trước.',
-                ),
-              ),
-          ],
-        ),
-        if (page == 0) ...[
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: PreviewLevelBadge(onTap: loggingOut ? null : openProfile),
-          ),
-        ],
-        const SizedBox(height: 24),
-        if (restoreError != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(restoreError!),
-          ),
-        if (page == 0) ...home(),
-        if (page == 1) ...road(),
-        if (page == 2) ...practice(),
-        if (page == 3) ...progress(),
-      ],
-    ),
-  );
+  Widget _navIcon(int i, int selected) {
+    if (i == 2) {
+      return FigmaAsset(
+        selected == i
+            ? 'my-words/imgVuesaxBulkSave2'
+            : 'home-v2/imgVuesaxBoldSave2',
+        size: 20,
+      );
+    }
+    final oldIndex = [0, 1, 0, 2, 3][i];
+    return ColorFiltered(
+      colorFilter: ColorFilter.mode(
+        selected == i ? AppColors.primary500 : AppColors.grey900,
+        BlendMode.srcIn,
+      ),
+      child: FigmaAsset(
+        'home/${['imgVuesaxBoldHome', 'imgBook', 'imgVuesaxBoldEdit', 'imgVuesaxBoldChart'][oldIndex]}',
+        size: 20,
+      ),
+    );
+  }
 
-  List<Widget> home() => [
-    LearningCard(
-      children: [
-        LearningPill(
-          'Từ vựng',
-          small: true,
-          fill: const Color(0xFFDCF4E9),
-          color: const Color(0xFF1F452A),
-        ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            learningHeading('Greetings and introductions', size: 24),
-            const SizedBox(height: 8),
-            learningBody('Chào hỏi và giới thiệu'),
-          ],
-        ),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            const LearningPill(
-              '10 từ',
-              small: true,
-              icon: FigmaAsset('home/imgVuesaxLinearTaskSquare', size: 20),
-            ),
-            const LearningPill(
-              '10 phút',
-              small: true,
-              icon: FigmaAsset('home/imgVuesaxLinearTimer', size: 20),
-            ),
-          ],
-        ),
-        CustomAppButton(
-          text: 'Bắt đầu',
-          onPressed: () =>
+  Widget tabContent(int page) {
+    if (page == 0) {
+      return RepaintBoundary(
+        child: HomeDashboard(
+          model: model,
+          library: library,
+          onProfile: openProfile,
+          onLesson: () =>
               previewPush(context, VocabularyLessonPage(model: model)),
+          onGrammar: () =>
+              previewPush(context, GrammarLessonPage(model: model)),
+          onWords: () => switchTab(2),
+          onReview: openReview,
+          onNavigate: returnToTab,
         ),
-      ],
-    ),
-    const SizedBox(height: 24),
-    LearningCard(
-      gap: 24,
-      children: [
-        Row(
+      );
+    }
+    if (page == 2) {
+      return RepaintBoundary(
+        child: MyWordsTab(library: library, onNavigate: returnToTab),
+      );
+    }
+    final oldPage = page > 2 ? page - 1 : page;
+    return RepaintBoundary(
+      child: FigmaPage(
+        titleStyle: designHeading(18),
+        child: ListView(
+          key: PageStorageKey('preview-content-$oldPage'),
+          primary: false,
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 108),
           children: [
-            Expanded(child: learningHeading('Kế hoạch hôm nay')),
-            learningBody(
-              '${model.completed.length * 5}/${model.dailyMinutes} phút',
-            ),
-          ],
-        ),
-        LinearProgressIndicator(
-          value: (model.completed.length * 5 / model.dailyMinutes).clamp(0, 1),
-          minHeight: 4,
-          color: AppColors.primary500,
-          backgroundColor: AppColors.grey200,
-        ),
-        for (var i = 0; i < 2; i++)
-          InkWell(
-            onTap: () => previewPush(
-              context,
-              i == 0
-                  ? VocabularyLessonPage(model: model)
-                  : GrammarLessonPage(model: model),
-            ),
-            child: Row(
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 24,
-                  height: 24,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFFF3F3F3),
-                    border: Border.all(color: AppColors.grey100),
-                  ),
-                ),
-                const SizedBox(width: 16),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      learningHeading(
-                        i == 0
-                            ? 'Greetings and introductions'
-                            : 'Subject pronouns and verb to be',
-                        size: 18,
-                      ),
-                      const SizedBox(height: 8),
-                      learningBody(
-                        '${i == 0 ? 'Từ vựng' : 'Ngữ pháp'} · 10 phút',
-                      ),
-                    ],
+                  child: Text(
+                    ['Hello, Anna!', 'Học', 'Luyện tập', 'Tiến độ'][oldPage],
+                    style: designHeading(36, height: 1),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: AppColors.grey200),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    model.completed.contains(i == 0 ? 'vocabulary' : 'grammar')
-                        ? 'Đã học'
-                        : 'Chưa học',
-                    style: designText(10),
+                PreviewLevelBadge(
+                  onTap: () => previewMessage(
+                    context,
+                    'A1 là mức minh họa của bản xem trước.',
                   ),
                 ),
               ],
             ),
-          ),
-      ],
-    ),
-    const SizedBox(height: 16),
-    TextButton(
-      onPressed: () => previewPush(context, WeeklyPlanPage(model: model)),
-      child: const Text('Xem lộ trình tuần đầu tiên'),
-    ),
-  ];
+            const SizedBox(height: 24),
+            if (restoreError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(restoreError!),
+              ),
+            if (oldPage == 1) ...road(),
+            if (oldPage == 2) ...practice(),
+            if (oldPage == 3) ...progress(),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget segments(
     List<String> labels,
@@ -751,6 +708,7 @@ class WeeklyPlanPage extends StatelessWidget {
     animation: model,
     builder: (context, _) => PreviewSurface(
       child: FigmaPage(
+        titleStyle: designHeading(18),
         title: '',
         headerHeight: 42,
         bottom: Column(
@@ -859,6 +817,7 @@ class _AdjustPlanPageState extends State<AdjustPlanPage> {
   @override
   Widget build(BuildContext context) => PreviewSurface(
     child: FigmaPage(
+      titleStyle: designHeading(18),
       title: 'Điều chỉnh kế hoạch',
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
