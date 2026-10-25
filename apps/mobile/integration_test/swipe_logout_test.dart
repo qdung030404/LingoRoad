@@ -82,9 +82,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(page('learningPages'), closeTo(2, .01));
-    await shot('05-practice');
-    await tap(find.byKey(const Key('previewTab3')));
-    expect(page('learningPages'), closeTo(3, .01));
+    await shot('05-my-words');
+    await tap(find.byKey(const Key('previewTab4')));
+    expect(page('learningPages'), closeTo(4, .01));
     await shot('06-progress');
     await tap(find.byKey(const Key('previewTab0')));
     final home = find.byKey(const PageStorageKey('preview-content-0'));
@@ -98,10 +98,10 @@ void main() {
         .pixels;
     final saved = offset();
     expect(saved, greaterThan(0));
-    await tap(find.byKey(const Key('previewTab2')));
+    await tap(find.byKey(const Key('previewTab3')));
     await tap(find.byKey(const Key('previewTab0')));
     expect(offset(), closeTo(saved, 1));
-    await tester.tap(find.byKey(const Key('previewTab3')));
+    await tester.tap(find.byKey(const Key('previewTab4')));
     await tester.pump(const Duration(milliseconds: 50));
     await tester.tap(find.byKey(const Key('previewTab1')));
     await tester.pumpAndSettle();
