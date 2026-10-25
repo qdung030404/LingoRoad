@@ -59,3 +59,9 @@ ENV/
 opencode.json
 .claude/settings.local.json
 .mcp.json
+
+# Local AI tooling, handoffs, worktrees and code indexes
+/.claude/
+/.agents/
+/.codex/
+/.gitnexus/
