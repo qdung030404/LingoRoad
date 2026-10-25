@@ -154,14 +154,8 @@ class PreviewLevelBadge extends StatelessWidget {
   );
 }
 
-Widget learningHeading(String value, {double size = 20}) => Text(
-  value,
-  style: designText(
-    size,
-    weight: FontWeight.w600,
-    height: size >= 28 ? 1 : 1.2,
-  ),
-);
+Widget learningHeading(String value, {double size = 20}) =>
+    Text(value, style: designHeading(size, height: size >= 28 ? 1 : 1.2));
 Widget learningBody(String value, {double size = 16}) =>
     Text(value, style: designText(size, color: AppColors.grey800));
 

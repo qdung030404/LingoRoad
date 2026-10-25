@@ -41,14 +41,12 @@ class _WelcomePageState extends State<WelcomePage> {
         context,
       ),
     );
-    for (final source in sources) {
-      unawaited(
-        precacheImage(
-          AssetImage('assets/figma/${source}_glow_3x.png'),
-          context,
-        ),
-      );
-    }
+    unawaited(
+      precacheImage(
+        const AssetImage('assets/figma/welcome_v2_glow_3x.png'),
+        context,
+      ),
+    );
   }
 
   @override
@@ -93,13 +91,13 @@ class _WelcomePageState extends State<WelcomePage> {
                           child: DecoratedBox(
                             decoration: const BoxDecoration(
                               gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                stops: [0, .50565, .91406],
+                                begin: Alignment(-.5, -1),
+                                end: Alignment(.5, 1),
+                                stops: [.14353, .45387, .70454],
                                 colors: [
-                                  Color(0xFF59B070),
-                                  Color(0xFF73DD91),
-                                  AppColors.grey25,
+                                  Color(0xFF1F452A),
+                                  Color(0xFF53AC69),
+                                  AppColors.grey5,
                                 ],
                               ),
                             ),
@@ -187,7 +185,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const FigmaAsset(
-                                    'welcome/imgUnion',
+                                    'welcome-v2/imgUnion',
                                     width: 72,
                                     height: 52,
                                   ),
@@ -197,11 +195,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                     child: Text(
                                       titles[page],
                                       textAlign: TextAlign.center,
-                                      style: designText(
-                                        32,
-                                        weight: FontWeight.w600,
-                                        height: 1,
-                                      ),
+                                      style: designHeading(32, height: 1),
                                     ),
                                   ),
                                   const SizedBox(height: 12),
@@ -391,7 +385,7 @@ class _WelcomeArt extends StatelessWidget {
         width: 393 * scale,
         height: 852 * scale,
         child: Image.asset(
-          'assets/figma/${source}_glow_3x.png',
+          'assets/figma/welcome_v2_glow_3x.png',
           fit: BoxFit.fill,
         ),
       ),

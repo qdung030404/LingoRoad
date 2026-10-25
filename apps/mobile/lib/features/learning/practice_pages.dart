@@ -28,6 +28,7 @@ class PracticeIntroPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PreviewSurface(
     child: FigmaPage(
+      titleStyle: designHeading(18),
       title: 'Bài tập',
       bottom: CustomAppButton(
         text: 'Bắt đầu',
@@ -239,6 +240,7 @@ class _PreviewQuizPageState extends State<PreviewQuizPage> {
     final options = q[1] as List<String>;
     return PreviewSurface(
       child: FigmaPage(
+        titleStyle: designHeading(18),
         title: title,
         trailing: previewFlag(context),
         bottom: PreviewToolbar(
@@ -336,6 +338,7 @@ class QuizSummaryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PreviewSurface(
     child: FigmaPage(
+      titleStyle: designHeading(18),
       title: 'Kết quả',
       bottom: CustomAppButton(
         text: 'Quay lại bài học',
@@ -350,11 +353,7 @@ class QuizSummaryPage extends StatelessWidget {
               learningBody(title),
               Text(
                 '$correct/$total câu đúng',
-                style: designText(
-                  36,
-                  weight: FontWeight.w600,
-                  color: AppColors.primary500,
-                ),
+                style: designHeading(36, color: AppColors.primary500),
               ),
               learningBody(
                 'Điểm bài mẫu không cập nhật CEFR hoặc kết quả kiểm tra đầu vào.',
@@ -373,6 +372,7 @@ class MicrophonePreviewPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PreviewSurface(
     child: FigmaPage(
+      titleStyle: designHeading(18),
       title: 'Luyện Nói',
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
@@ -417,7 +417,7 @@ class MicrophonePreviewPage extends StatelessWidget {
           Text(
             'Cho phép dùng micro\nđể luyện nói',
             textAlign: TextAlign.center,
-            style: designText(24, weight: FontWeight.w600),
+            style: designHeading(24),
           ),
           const SizedBox(height: 28),
           Text(
@@ -532,6 +532,7 @@ class _SpeakingPreviewPageState extends State<SpeakingPreviewPage>
   @override
   Widget build(BuildContext context) => PreviewSurface(
     child: FigmaPage(
+      titleStyle: designHeading(18),
       title: 'Luyện Nói',
       trailing: previewFlag(context),
       bottom: stage == _SpeakingStage.feedback
@@ -579,11 +580,7 @@ class _SpeakingPreviewPageState extends State<SpeakingPreviewPage>
                             child: Text(
                               prompts[index],
                               textAlign: TextAlign.center,
-                              style: designText(
-                                32,
-                                weight: FontWeight.w600,
-                                height: 1,
-                              ),
+                              style: designHeading(32, height: 1),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -800,7 +797,7 @@ class _PreparationClock extends StatelessWidget {
             children: [
               Text(
                 recording ? '0:${seconds.toString().padLeft(2, '0')}' : '0:12',
-                style: designText(32, weight: FontWeight.w600, height: 1),
+                style: designHeading(32, height: 1),
               ),
               const SizedBox(height: 4),
               Text(
@@ -965,6 +962,7 @@ class _WritingPreviewPageState extends State<WritingPreviewPage> {
     },
     child: PreviewSurface(
       child: FigmaPage(
+        titleStyle: designHeading(18),
         title: 'Luyện Viết',
         trailing: previewFlag(context),
         bottom: PreviewToolbar(
@@ -1130,6 +1128,7 @@ class WritingResultPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PreviewSurface(
     child: FigmaPage(
+      titleStyle: designHeading(18),
       title: 'Kết quả',
       headerHeight: 42,
       bottom: CustomAppButton(
@@ -1145,7 +1144,7 @@ class WritingResultPage extends StatelessWidget {
                 Text(
                   'Đã nộp 2 bài viết',
                   textAlign: TextAlign.center,
-                  style: designText(28, weight: FontWeight.w600),
+                  style: designHeading(28),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -1202,6 +1201,7 @@ class _WritingReviewPageState extends State<WritingReviewPage> {
   @override
   Widget build(BuildContext context) => PreviewSurface(
     child: FigmaPage(
+      titleStyle: designHeading(18),
       title: 'Bài viết ${index + 1}/2',
       headerHeight: 42,
       bottom: PreviewToolbar(

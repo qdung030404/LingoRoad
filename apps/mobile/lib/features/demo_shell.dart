@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../shared/figma_widgets.dart';
 import 'auth/auth_page.dart';
 import 'auth/session_controller.dart';
 import 'common.dart';
@@ -12,7 +13,27 @@ class DemoShell extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (session.stage) {
       case SessionStage.loading:
-        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Semantics(
+                  label: 'Logo LingoRoad',
+                  image: true,
+                  child: const FigmaAsset('brand/logo', size: 96),
+                ),
+                const SizedBox(height: 20),
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ],
+            ),
+          ),
+        );
       case SessionStage.signedOut:
         return AuthPage(session: session);
       case SessionStage.onboarding:
