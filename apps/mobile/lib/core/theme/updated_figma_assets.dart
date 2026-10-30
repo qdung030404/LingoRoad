@@ -1,6 +1,12 @@
-// Assets exported from LingoRoad2 on 2026-10-25.
+// Assets exported from LingoRoad2; navigation refreshed on 2026-10-27.
 class UpdatedFigmaAssets {
   static const files = <String, String>{
+    'nav/home': 'assets/figma/v3_vuesax_bulk_home.svg',
+    'nav/book': 'assets/figma/v3_book.svg',
+    'nav/words': 'assets/figma/v3_vuesax_bold_save2.svg',
+    'nav/practice': 'assets/figma/v3_vuesax_bold_edit.svg',
+    'nav/progress': 'assets/figma/v3_vuesax_bold_chart.svg',
+    'home-v3/cup': 'assets/figma/v3_vuesax_bulk_cup.png',
     'brand/logo': 'assets/figma/logo.svg',
     'my-words/add': 'assets/figma/v2_word_add.svg',
     'my-words/search': 'assets/figma/v2_word_search.svg',

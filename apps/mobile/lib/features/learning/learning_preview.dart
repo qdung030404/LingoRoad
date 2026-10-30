@@ -12,6 +12,7 @@ import 'home_dashboard.dart';
 import 'word_collection_pages.dart';
 import 'word_library.dart';
 import 'srs_review_page.dart';
+import 'preview_navigation_bar.dart';
 
 class LearningPreview extends StatefulWidget {
   const LearningPreview({
@@ -223,90 +224,9 @@ class _LearningPreviewState extends State<LearningPreview> {
                         stops: [0, .48],
                       ),
                     ),
-                    child: Center(
-                      child: Container(
-                        width: tab == 1
-                            ? MediaQuery.sizeOf(context).width - 28
-                            : null,
-                        height: 56,
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(44),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x40000000),
-                              blurRadius: 6,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            for (var i = 0; i < 5; i++)
-                              Padding(
-                                padding: EdgeInsets.only(left: i == 0 ? 0 : 8),
-                                child: Semantics(
-                                  selected: tab == i,
-                                  button: true,
-                                  label: [
-                                    'Trang chủ',
-                                    'Học',
-                                    'Từ của tôi',
-                                    'Luyện tập',
-                                    'Tiến độ',
-                                  ][i],
-                                  child: Tooltip(
-                                    message: [
-                                      'Trang chủ',
-                                      'Học',
-                                      'Từ của tôi',
-                                      'Luyện tập',
-                                      'Tiến độ',
-                                    ][i],
-                                    child: InkWell(
-                                      key: Key('previewTab$i'),
-                                      onTap: () => switchTab(i),
-                                      borderRadius: BorderRadius.circular(99),
-                                      child: AnimatedContainer(
-                                        duration:
-                                            MediaQuery.disableAnimationsOf(
-                                              context,
-                                            )
-                                            ? Duration.zero
-                                            : const Duration(milliseconds: 200),
-                                        curve: Curves.easeOutCubic,
-                                        width: 40,
-                                        height: 40,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: tab == i
-                                              ? AppColors.primary25
-                                              : Colors.white,
-                                        ),
-                                        child: AnimatedOpacity(
-                                          duration:
-                                              MediaQuery.disableAnimationsOf(
-                                                context,
-                                              )
-                                              ? Duration.zero
-                                              : const Duration(
-                                                  milliseconds: 200,
-                                                ),
-                                          opacity: tab == i ? 1 : .5,
-                                          child: _navIcon(i, tab),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                    child: PreviewNavigationBar(
+                      selectedIndex: tab,
+                      onSelected: switchTab,
                     ),
                   ),
                 ),
@@ -330,28 +250,6 @@ class _LearningPreviewState extends State<LearningPreview> {
     ),
   );
 
-  Widget _navIcon(int i, int selected) {
-    if (i == 2) {
-      return FigmaAsset(
-        selected == i
-            ? 'my-words/imgVuesaxBulkSave2'
-            : 'home-v2/imgVuesaxBoldSave2',
-        size: 20,
-      );
-    }
-    final oldIndex = [0, 1, 0, 2, 3][i];
-    return ColorFiltered(
-      colorFilter: ColorFilter.mode(
-        selected == i ? AppColors.primary500 : AppColors.grey900,
-        BlendMode.srcIn,
-      ),
-      child: FigmaAsset(
-        'home/${['imgVuesaxBoldHome', 'imgBook', 'imgVuesaxBoldEdit', 'imgVuesaxBoldChart'][oldIndex]}',
-        size: 20,
-      ),
-    );
-  }
-
   Widget tabContent(int page) {
     if (page == 0) {
       return RepaintBoundary(
@@ -365,7 +263,14 @@ class _LearningPreviewState extends State<LearningPreview> {
               previewPush(context, GrammarLessonPage(model: model)),
           onWords: () => switchTab(2),
           onReview: openReview,
-          onNavigate: returnToTab,
+          onDeck: (deckId) => previewPush(
+            context,
+            WordListPage(
+              library: library,
+              deckId: deckId,
+              onNavigate: returnToTab,
+            ),
+          ),
         ),
       );
     }

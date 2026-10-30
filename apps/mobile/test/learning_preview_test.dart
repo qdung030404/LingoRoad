@@ -13,6 +13,7 @@ import 'package:mobile/features/learning/practice_pages.dart';
 import 'package:mobile/features/learning/word_library.dart';
 import 'package:mobile/features/learning/word_collection_pages.dart';
 import 'package:mobile/features/learning/srs_review_page.dart';
+import 'package:mobile/features/learning/preview_navigation_bar.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/main.dart';
@@ -539,4 +540,38 @@ void main() {
       );
     },
   );
+
+  testWidgets('all five navigation destinations share one responsive width', (
+    tester,
+  ) async {
+    for (final size in [
+      const Size(320, 640),
+      const Size(393, 852),
+      const Size(480, 960),
+    ]) {
+      final model = PreviewModel();
+      await show(
+        tester,
+        LearningPreview(model: model),
+        size: size,
+        reduceMotion: true,
+      );
+      for (var tab = 0; tab < 5; tab++) {
+        await tap(tester, find.byKey(Key('previewTab$tab')));
+        expect(
+          tester.getSize(find.byKey(const Key('previewNavigationBar'))).width,
+          size.width - 2 * PreviewNavigationBar.horizontalInset,
+        );
+        expect(
+          tester.getSize(find.byKey(const Key('previewNavigationBar'))).height,
+          56,
+        );
+        expect(
+          tester.getTopLeft(find.byKey(const Key('previewNavigationBar'))).dx,
+          24,
+        );
+      }
+      model.dispose();
+    }
+  });
 }

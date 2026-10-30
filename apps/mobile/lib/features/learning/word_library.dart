@@ -28,6 +28,11 @@ class WordLibrary extends ChangeNotifier {
   final Map<String, String> ratings = {};
   bool _disposed = false;
 
+  int get totalWords =>
+      decks.fold(0, (total, deck) => total + deck.words.length);
+  int get rememberedWords =>
+      decks.fold(0, (total, deck) => total + remembered(deck));
+
   int remembered(WordDeck deck) => deck.words.where(isRemembered).length;
   bool isRemembered(PreviewWord word) =>
       (ratings[word.id] ?? (word.id.endsWith('-known') ? 'remember' : '')) ==

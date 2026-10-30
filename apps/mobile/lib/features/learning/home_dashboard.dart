@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import 'learning_widgets.dart';
 import 'preview_model.dart';
 import 'word_library.dart';
-import 'word_collection_pages.dart';
+import 'vocabulary_summary.dart';
+import 'word_collection_pages.dart' show WordStatistic, WordDeckCard;
 
-class HomeDashboard extends StatelessWidget {
+class HomeDashboard extends StatefulWidget {
   const HomeDashboard({
     super.key,
     required this.model,
@@ -17,377 +19,445 @@ class HomeDashboard extends StatelessWidget {
     required this.onGrammar,
     required this.onWords,
     required this.onReview,
-    required this.onNavigate,
+    required this.onDeck,
   });
   final PreviewModel model;
   final WordLibrary library;
   final VoidCallback onProfile, onLesson, onGrammar, onWords, onReview;
-  final ValueChanged<int> onNavigate;
+  final ValueChanged<String> onDeck;
 
   @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      Positioned(
-        left: 0,
-        right: 0,
-        top: 0,
-        height: 532,
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment(-.3, -1),
-              end: Alignment(.3, 1),
-              colors: [Color(0xFF1F452A), Color(0xFF53AC69), AppColors.grey25],
-              stops: [.14353, .45387, .70454],
-            ),
-          ),
-        ),
-      ),
-      Positioned(
-        left: 0,
-        right: 0,
-        top: 0,
-        height: 532,
-        child: Image.asset(
-          'assets/figma/home_v2_glow_3x.png',
-          fit: BoxFit.fill,
-        ),
-      ),
-      ListView(
-        key: const PageStorageKey('preview-content-0'),
-        primary: false,
-        padding: EdgeInsets.fromLTRB(
-          8,
-          (MediaQuery.paddingOf(context).top).clamp(60, double.infinity) + 16,
-          8,
-          120,
-        ),
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  State<HomeDashboard> createState() => _HomeDashboardState();
+}
+
+class _HomeDashboardState extends State<HomeDashboard> {
+  final scroll = ScrollController();
+  PreviewModel get model => widget.model;
+  WordLibrary get library => widget.library;
+  VoidCallback get onProfile => widget.onProfile;
+  VoidCallback get onLesson => widget.onLesson;
+  VoidCallback get onGrammar => widget.onGrammar;
+  VoidCallback get onWords => widget.onWords;
+  VoidCallback get onReview => widget.onReview;
+
+  @override
+  void dispose() {
+    scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: scroll,
+    builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+      value:
+          (scroll.hasClients && scroll.offset > 180
+                  ? SystemUiOverlayStyle.dark
+                  : SystemUiOverlayStyle.light)
+              .copyWith(
+                statusBarColor: Colors.transparent,
+                systemNavigationBarColor: AppColors.grey25,
+                systemNavigationBarIconBrightness: Brightness.dark,
+              ),
+      child: child!,
+    ),
+    child: Stack(
+      children: [
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 0,
+          height: 532,
+          child: AnimatedBuilder(
+            animation: scroll,
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Semantics(
-                  button: true,
-                  label: 'Tài khoản',
-                  child: InkWell(
-                    key: const Key('previewAvatar'),
-                    onTap: onProfile,
-                    borderRadius: BorderRadius.circular(24),
-                    child: const ClipOval(
-                      child: FigmaAsset('home-v2/imgEllipse5', size: 48),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment(-.3, -1),
+                      end: Alignment(.3, 1),
+                      colors: [
+                        Color(0xFF1F452A),
+                        Color(0xFF53AC69),
+                        AppColors.grey25,
+                      ],
+                      stops: [.14353, .45387, .70454],
                     ),
                   ),
                 ),
-                IconButton(
-                  tooltip: 'Ôn tập hôm nay',
-                  onPressed: onReview,
-                  icon: const FigmaAsset(
-                    'home-v2/imgVuesaxBulkNotification',
-                    size: 20,
-                  ),
+                Image.asset(
+                  'assets/figma/home_v2_glow_3x.png',
+                  fit: BoxFit.fill,
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Hello, Anna!',
-                    style: designHeading(36, color: Colors.white, height: 1),
-                  ),
-                ),
-                PreviewLevelBadge(onTap: onProfile),
-              ],
+            builder: (context, child) => Transform.translate(
+              key: const Key('homeBackgroundScroll'),
+              offset: Offset(0, scroll.hasClients ? -scroll.offset : 0),
+              child: child,
             ),
           ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.grey25,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              children: [
-                DashboardCard(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      learningHeading('Tuần này của bạn', size: 24),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          for (var i = 0; i < 7; i++) ...[
-                            if (i > 0) const SizedBox(width: 6),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: AppColors.grey100),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      [
-                                        'T2',
-                                        'T3',
-                                        'T4',
-                                        'T5',
-                                        'T6',
-                                        'T7',
-                                        'CN',
-                                      ][i],
-                                      style: designText(
-                                        12,
-                                        color: AppColors.grey800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    PreviewCheck(
-                                      checked: i >= 2 && i <= 4,
-                                      size: 24,
-                                      focused: i == 5,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+        ),
+        ListView(
+          key: const PageStorageKey('preview-content-0'),
+          controller: scroll,
+          primary: false,
+          padding: EdgeInsets.fromLTRB(
+            8,
+            (MediaQuery.paddingOf(context).top).clamp(60, double.infinity) + 16,
+            8,
+            120,
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Semantics(
+                    button: true,
+                    label: 'Tài khoản',
+                    child: InkWell(
+                      key: const Key('previewAvatar'),
+                      onTap: onProfile,
+                      borderRadius: BorderRadius.circular(24),
+                      child: const ClipOval(
+                        child: FigmaAsset('home-v2/imgEllipse5', size: 48),
                       ),
-                      const SizedBox(height: 16),
-                      const Row(
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Ôn tập hôm nay',
+                    onPressed: onReview,
+                    icon: const FigmaAsset(
+                      'home-v2/imgVuesaxBulkNotification',
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Hello, Anna!',
+                      style: designHeading(36, color: Colors.white, height: 1),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: onProfile,
+                    borderRadius: BorderRadius.circular(99),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary25,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: WordStatistic(
-                              'Từ vựng',
-                              '35',
-                              'imgVuesaxBulkNote2',
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: WordStatistic(
-                              'Bài học',
-                              '12',
-                              'imgVuesaxBulkBook',
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          Expanded(
-                            child: WordStatistic(
-                              'Thời gian',
-                              '2h 15p',
-                              'imgVuesaxBulkTimer',
+                          const FigmaAsset('home-v3/cup', size: 22),
+                          const SizedBox(width: 4),
+                          Text(
+                            'A1',
+                            style: designText(
+                              18,
+                              weight: FontWeight.w600,
+                              color: AppColors.primary600,
                             ),
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                DashboardCard(
-                  child: Column(
-                    children: [
-                      _header('Tiếp tục học'),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.grey25,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Column(
+                children: [
+                  DashboardCard(
+                    key: const Key('homeWeeklyCard'),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        learningHeading('Tuần này của bạn', size: 24),
+                        const SizedBox(height: 16),
+                        Row(
                           children: [
-                            learningHeading(
-                              'Greetings and introductions',
-                              size: 24,
-                            ),
-                            const SizedBox(height: 6),
-                            learningBody('Chào hỏi và giới thiệu'),
-                            const SizedBox(height: 12),
-                            const Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                LearningPill(
-                                  '10 từ',
-                                  small: true,
-                                  icon: FigmaAsset(
-                                    'home/imgVuesaxLinearTaskSquare',
-                                    size: 20,
+                            for (var i = 0; i < 7; i++) ...[
+                              if (i > 0) const SizedBox(width: 6),
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 6,
                                   ),
-                                ),
-                                LearningPill(
-                                  '10 phút',
-                                  small: true,
-                                  icon: FigmaAsset(
-                                    'home/imgVuesaxLinearTimer',
-                                    size: 20,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 24),
-                            _progress(
-                              model.completed.contains('vocabulary') ? 1 : .32,
-                            ),
-                            const SizedBox(height: 24),
-                            CustomAppButton(
-                              text: 'Tiếp tục học',
-                              onPressed: onLesson,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-                DashboardCard(
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            learningHeading('Kế hoạch hôm nay', size: 24),
-                            const SizedBox(height: 10),
-                            _progress(
-                              model.completed.isEmpty
-                                  ? .32
-                                  : (model.completed.length / 3).clamp(0, 1),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1, color: AppColors.grey100),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            for (var i = 0; i < 3; i++) ...[
-                              if (i > 0)
-                                const Divider(
-                                  height: 24,
-                                  color: AppColors.grey100,
-                                ),
-                              InkWell(
-                                onTap: i == 0 ? onLesson : onGrammar,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    PreviewCheck(
-                                      checked:
-                                          i == 0 ||
-                                          model.completed.contains('grammar'),
-                                      size: 20,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: AppColors.grey100,
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          learningHeading(
-                                            [
-                                              'Greetings and introductions',
-                                              'Subject pronouns and verb to be',
-                                              "Pronouns and the Verb 'To Be'",
-                                            ][i],
-                                            size: 18,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          learningBody(
-                                            '${i == 0 ? 'Từ vựng' : 'Ngữ pháp'} · 10 phút',
-                                          ),
-                                        ],
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        [
+                                          'T2',
+                                          'T3',
+                                          'T4',
+                                          'T5',
+                                          'T6',
+                                          'T7',
+                                          'CN',
+                                        ][i],
+                                        style: designText(
+                                          12,
+                                          color: AppColors.grey800,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 8),
+                                      PreviewCheck(
+                                        checked: i >= 2 && i <= 4,
+                                        size: 24,
+                                        focused: i == 5,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        const Row(
+                          children: [
+                            Expanded(
+                              child: WordStatistic(
+                                'Từ vựng',
+                                '35',
+                                'imgVuesaxBulkNote2',
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: WordStatistic(
+                                'Bài học',
+                                '12',
+                                'imgVuesaxBulkBook',
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: WordStatistic(
+                                'Thời gian',
+                                '2h 15p',
+                                'imgVuesaxBulkTimer',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          Center(
-            child: SizedBox(
-              width: 352,
-              height: 356,
-              child: DashboardCard(
-                radius: 12,
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: learningHeading('Từ của tôi', size: 24),
+                  const SizedBox(height: 24),
+                  DashboardCard(
+                    child: Column(
+                      children: [
+                        _header('Tiếp tục học'),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              learningHeading(
+                                'Greetings and introductions',
+                                size: 24,
+                              ),
+                              const SizedBox(height: 6),
+                              learningBody('Chào hỏi và giới thiệu'),
+                              const SizedBox(height: 12),
+                              const Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  LearningPill(
+                                    '10 từ',
+                                    small: true,
+                                    icon: FigmaAsset(
+                                      'home/imgVuesaxLinearTaskSquare',
+                                      size: 20,
+                                    ),
+                                  ),
+                                  LearningPill(
+                                    '10 phút',
+                                    small: true,
+                                    icon: FigmaAsset(
+                                      'home/imgVuesaxLinearTimer',
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+                              _progress(
+                                model.completed.contains('vocabulary')
+                                    ? 1
+                                    : .32,
+                              ),
+                              const SizedBox(height: 24),
+                              CustomAppButton(
+                                text: 'Tiếp tục học',
+                                onPressed: onLesson,
+                              ),
+                            ],
                           ),
-                          OutlinedButton(
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  DashboardCard(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              learningHeading('Kế hoạch hôm nay', size: 24),
+                              const SizedBox(height: 10),
+                              _progress(
+                                model.completed.isEmpty
+                                    ? .32
+                                    : (model.completed.length / 3).clamp(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Divider(height: 1, color: AppColors.grey100),
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              for (var i = 0; i < 3; i++) ...[
+                                if (i > 0)
+                                  const Divider(
+                                    height: 24,
+                                    color: AppColors.grey100,
+                                  ),
+                                InkWell(
+                                  onTap: i == 0 ? onLesson : onGrammar,
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      PreviewCheck(
+                                        checked:
+                                            i == 0 ||
+                                            model.completed.contains('grammar'),
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            learningHeading(
+                                              [
+                                                'Greetings and introductions',
+                                                'Subject pronouns and verb to be',
+                                                "Pronouns and the Verb 'To Be'",
+                                              ][i],
+                                              size: 18,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            learningBody(
+                                              '${i == 0 ? 'Từ vựng' : 'Ngữ pháp'} · 10 phút',
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: VocabularySummary(
+                library: library,
+                onReview: onReview,
+                onWords: onWords,
+                decks: SizedBox(
+                  key: const Key('homeWordDecks'),
+                  width: double.infinity,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: OutlinedButton(
+                            key: const Key('homeAllWordDecks'),
                             onPressed: onWords,
                             style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 32),
+                              minimumSize: const Size(0, 36),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
+                                horizontal: 16,
                               ),
                               side: const BorderSide(color: AppColors.grey200),
                             ),
-                            child: Text('Xem tất cả', style: designText(10)),
+                            child: Text('Xem tất cả', style: designText(12)),
                           ),
+                        ),
+                        const SizedBox(height: 16),
+                        if (library.decks.isEmpty)
+                          learningBody('Chưa có bộ từ vựng.'),
+                        for (final deck in library.decks.take(2)) ...[
+                          WordDeckCard(
+                            key: ValueKey('home-deck-${deck.id}'),
+                            deck: deck,
+                            library: library,
+                            onTap: () => widget.onDeck(deck.id),
+                          ),
+                          const SizedBox(height: 12),
                         ],
-                      ),
+                      ],
                     ),
-                    const Divider(height: 1, color: AppColors.grey100),
-                    Expanded(
-                      child: ListView(
-                        key: const PageStorageKey('home-word-decks'),
-                        primary: false,
-                        padding: const EdgeInsets.all(12),
-                        children: [
-                          for (final deck in library.decks.take(2)) ...[
-                            WordDeckCard(
-                              deck: deck,
-                              library: library,
-                              onTap: () => previewPush(
-                                context,
-                                WordListPage(
-                                  library: library,
-                                  deckId: deck.id,
-                                  onNavigate: onNavigate,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
-    ],
+          ],
+        ),
+      ],
+    ),
   );
 
   Widget _header(String text) => Container(
