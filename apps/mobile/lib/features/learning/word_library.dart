@@ -10,8 +10,9 @@ class PreviewWord {
     this.phonetic,
     this.example, {
     this.translation = '',
+    this.partOfSpeech = '',
   });
-  final String id, word, meaning, phonetic, example, translation;
+  final String id, word, meaning, phonetic, example, translation, partOfSpeech;
 }
 
 class WordDeck {
@@ -57,6 +58,8 @@ class WordLibrary extends ChangeNotifier {
                 w['meaning'] as String,
                 w['phonetic'] as String,
                 w['example'] as String,
+                translation: w['translation'] as String? ?? '',
+                partOfSpeech: w['partOfSpeech'] as String? ?? '',
               ),
             )
             .toList();
@@ -91,6 +94,8 @@ class WordLibrary extends ChangeNotifier {
                         'meaning': w.meaning,
                         'phonetic': w.phonetic,
                         'example': w.example,
+                        'translation': w.translation,
+                        'partOfSpeech': w.partOfSpeech,
                       },
                     )
                     .toList(),
@@ -104,8 +109,18 @@ class WordLibrary extends ChangeNotifier {
 
   Future<void> rate(PreviewWord word, String rating) async {
     if (!['remember', 'hard', 'forgot'].contains(rating)) return;
+    final previous = ratings[word.id];
     ratings[word.id] = rating;
-    await _save();
+    try {
+      await _save();
+    } catch (_) {
+      if (previous == null) {
+        ratings.remove(word.id);
+      } else {
+        ratings[word.id] = previous;
+      }
+      rethrow;
+    }
   }
 
   Future<void> addDeck(String name) async {
@@ -152,6 +167,8 @@ List<PreviewWord> _words(String deck, List<List<String>> rows) => [
       rows[i][1],
       rows[i][2],
       rows[i][3],
+      translation: rows[i].length > 4 ? rows[i][4] : '',
+      partOfSpeech: rows[i][0] == 'work' ? 'động từ' : 'danh từ',
     ),
 ];
 
@@ -193,7 +210,13 @@ final sampleWordDecks = [
     'family',
     'Gia đình',
     _words('family', const [
-      ['mother', 'mẹ', '/ˈmʌðə(r)/', 'My mother is a teacher.'],
+      [
+        'mother',
+        'mẹ',
+        '/ˈmʌðə(r)/',
+        'My mother is a teacher.',
+        'Mẹ tôi là giáo viên.',
+      ],
       ['Father', 'bố, cha', '/ˈfɑː.ðər/', 'My father works very well.'],
       ['sister', 'chị, em gái', '/ˈsɪs.tər/', 'My sister is a student.'],
       ['brother', 'anh, em trai', '/ˈbrʌð.ər/', 'My brother likes football.'],

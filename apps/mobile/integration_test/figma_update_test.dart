@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/features/auth/session_controller.dart';
+import 'package:mobile/features/learning/srs_review_page.dart';
 import '../test/test_helpers.dart';
 
 void main() {
@@ -17,6 +18,13 @@ void main() {
     await binding.convertFlutterSurfaceToImage();
     Future<void> shot(String name) async {
       await tester.pumpAndSettle();
+      final nav = find.byKey(const Key('previewNavigationBar')).hitTestable();
+      if (nav.evaluate().isNotEmpty) {
+        expect(
+          tester.getSize(nav).width,
+          tester.getSize(find.byKey(const Key('learningPages'))).width - 48,
+        );
+      }
       if (const bool.fromEnvironment('CAPTURE_EVIDENCE')) {
         await binding.takeScreenshot(name);
       }
@@ -63,13 +71,58 @@ void main() {
     await shot('09-family-native-audio');
     await tap(find.byKey(const Key('practiceWordDeck')));
     await shot('10-review-front');
+    final review = tester.widget<SrsReviewPage>(find.byType(SrsReviewPage));
+    final deck = review.library.decks.firstWhere((d) => d.id == review.deckId);
+    final due = review.library.due(deck);
+    expect(due.length, greaterThan(2));
+    final ratingsBefore = Map<String, String>.of(review.library.ratings);
+    await tester.timedDrag(
+      find.byKey(const Key('srsFlashcard')),
+      const Offset(180, 0),
+      const Duration(milliseconds: 400),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(due[1].word), findsOneWidget);
+    await shot('10b-swipe-right-requeued');
+    await tester.timedDrag(
+      find.byKey(const Key('srsFlashcard')),
+      const Offset(-180, 0),
+      const Duration(milliseconds: 400),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(due[2].word), findsOneWidget);
+    await shot('10c-swipe-left-skipped');
+    for (var i = 2; i < due.length; i++) {
+      await tap(find.byKey(const Key('skipPracticeWord')));
+    }
+    expect(find.text(due.first.word), findsOneWidget);
+    expect(review.library.ratings, ratingsBefore);
     await tap(find.byKey(const Key('srsFlashcard')));
-    expect(find.text('mẹ'), findsOneWidget);
+    expect(find.text('Định nghĩa : mẹ'), findsOneWidget);
     await shot('11-review-back');
     // This flow only reads the user's preview library; rating persistence is
     // covered by isolated widget tests with mock preferences.
-    await tap(find.text('Lộ trình'));
-    expect(find.text('Học'), findsOneWidget);
+    await tap(find.byKey(const Key('wordPracticeNext')));
+    expect(find.text('Viết lại từ'), findsOneWidget);
+    await shot('11b-word-recall');
+    // Skip only changes the current queue, preserving the device's ratings.
+    await tap(find.byKey(const Key('skipPracticeWord')));
+    expect(find.text('Bạn đã ôn hết từ'), findsOneWidget);
+    expect(
+      find.byKey(const Key('previewNavigationBar')).hitTestable(),
+      findsNothing,
+    );
+    await shot('11c-review-complete');
+    await tap(find.byKey(const Key('replayWordDeck')));
+    expect(find.text('mother'), findsOneWidget);
+    await shot('11d-review-replay');
+    for (var i = 0; i < deck.words.length; i++) {
+      await tap(find.byKey(const Key('skipPracticeWord')));
+    }
+    await tap(find.byKey(const Key('returnToMyWords')));
+    expect(find.text('Từ của tôi').hitTestable(), findsOneWidget);
+    await tap(find.byKey(const Key('previewTab1')));
+    expect(find.text('Học').hitTestable(), findsOneWidget);
     await tap(find.byKey(const Key('previewTab3')));
     await shot('12-practice');
     await tap(find.byKey(const Key('previewTab4')));
