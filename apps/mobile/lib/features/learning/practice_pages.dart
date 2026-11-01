@@ -1084,6 +1084,13 @@ class _WritingPreviewPageState extends State<WritingPreviewPage> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: AppColors.grey100),
                   ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary500,
+                      width: 1.5,
+                    ),
+                  ),
                 ),
               ),
             ),
