@@ -18,9 +18,25 @@ class AuthPage extends StatefulWidget {
 
 class _AuthPageState extends State<AuthPage> {
   bool emailOpen = false;
+  bool googleBusy = false;
+  Future<void> google() async {
+    if (googleBusy || emailOpen) return;
+    setState(() => googleBusy = true);
+    try {
+      await widget.session.signInWithGoogle();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage(e))));
+      }
+    } finally {
+      if (mounted) setState(() => googleBusy = false);
+    }
+  }
 
   Future<void> openEmail() async {
-    if (emailOpen) return;
+    if (emailOpen || googleBusy) return;
     emailOpen = true;
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     try {
@@ -72,8 +88,12 @@ class _AuthPageState extends State<AuthPage> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      WelcomePage(onEmail: openEmail, onLogout: widget.session.logout);
+  Widget build(BuildContext context) => WelcomePage(
+    onEmail: openEmail,
+    onLogout: widget.session.logout,
+    onGoogle: google,
+    authBusy: googleBusy,
+  );
 }
 
 class _EmailAuthPage extends StatefulWidget {
@@ -93,6 +113,34 @@ class _EmailAuthPageState extends State<_EmailAuthPage> {
   final email = TextEditingController();
   final password = TextEditingController();
   final confirmation = TextEditingController();
+  Future<void> resetPassword() async {
+    final address = email.text.trim();
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(address)) {
+      setState(() => error = 'Nhập email hợp lệ để khôi phục mật khẩu.');
+      return;
+    }
+    setState(() {
+      busy = true;
+      error = null;
+    });
+    try {
+      await widget.session.resetPassword(address);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Nếu email có thể nhận thư khôi phục, bạn sẽ nhận được hướng dẫn.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = errorMessage(e));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   void dispose() {
     name.dispose();
@@ -280,16 +328,7 @@ class _EmailAuthPageState extends State<_EmailAuthPage> {
                                       style: TextButton.styleFrom(
                                         padding: EdgeInsets.zero,
                                       ),
-                                      onPressed: () =>
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Khôi phục mật khẩu chưa có trong bản demo.',
-                                              ),
-                                            ),
-                                          ),
+                                      onPressed: busy ? null : resetPassword,
                                       child: Text(
                                         'Quên mật khẩu?',
                                         style: designText(

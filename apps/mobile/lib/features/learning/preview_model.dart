@@ -3,8 +3,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Isolated, local preview data. Never writes assessment or account records.
 class PreviewModel extends ChangeNotifier {
+  PreviewModel({String? accountId, int initialDailyMinutes = 10})
+    : _prefix = accountId == null ? prefix : '${prefix}user.$accountId.',
+      dailyMinutes = initialDailyMinutes;
   static const prefix = 'lingoroad.uiPreview.';
-  int dailyMinutes = 10;
+  final String _prefix;
+  int dailyMinutes;
   Set<String> focus = {'Đọc: Ngữ pháp', 'Nghe'};
   Set<String> completed = {};
   final drafts = ['', ''];
@@ -23,11 +27,12 @@ class PreviewModel extends ChangeNotifier {
 
   Future<void> restore() async {
     _prefs = await SharedPreferences.getInstance();
-    dailyMinutes = _prefs!.getInt('${prefix}minutes') ?? 10;
-    focus = (_prefs!.getStringList('${prefix}focus') ?? focus.toList()).toSet();
-    completed = (_prefs!.getStringList('${prefix}completed') ?? []).toSet();
+    dailyMinutes = _prefs!.getInt('${_prefix}minutes') ?? dailyMinutes;
+    focus = (_prefs!.getStringList('${_prefix}focus') ?? focus.toList())
+        .toSet();
+    completed = (_prefs!.getStringList('${_prefix}completed') ?? []).toSet();
     for (var i = 0; i < 2; i++) {
-      drafts[i] = _prefs!.getString('${prefix}draft$i') ?? '';
+      drafts[i] = _prefs!.getString('${_prefix}draft$i') ?? '';
     }
     notifyListeners();
   }
@@ -36,20 +41,20 @@ class PreviewModel extends ChangeNotifier {
     if (![5, 10, 20].contains(minutes) || skills.isEmpty) return;
     dailyMinutes = minutes;
     focus = Set.of(skills);
-    await _prefs?.setInt('${prefix}minutes', minutes);
-    await _prefs?.setStringList('${prefix}focus', skills.toList());
+    await _prefs?.setInt('${_prefix}minutes', minutes);
+    await _prefs?.setStringList('${_prefix}focus', skills.toList());
     notifyListeners();
   }
 
   Future<void> saveDraft(int index, String text) async {
     drafts[index] = text;
-    await _prefs?.setString('${prefix}draft$index', text);
+    await _prefs?.setString('${_prefix}draft$index', text);
     notifyListeners();
   }
 
   Future<void> finish(String lesson) async {
     completed.add(lesson);
-    await _prefs?.setStringList('${prefix}completed', completed.toList());
+    await _prefs?.setStringList('${_prefix}completed', completed.toList());
     notifyListeners();
   }
 }

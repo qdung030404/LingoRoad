@@ -4,21 +4,35 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/core/config/app_config.dart';
+import 'package:mobile/core/auth/firebase_identity.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/main.dart';
 
-// Run against a seeded demo backend, never the user's normal database:
-// flutter test integration_test/first_demo_test.dart -d emulator-5554
+// Run with demo-* Firebase options and a local Auth Emulator only.
+// The backend must use a dedicated *_test PostgreSQL database.
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
     'Real API: register, onboard, resume, reading/listening, result and session restore',
     (tester) async {
       final store = SecureTokenStore();
-      // Account and results stay in the dedicated demo database for evidence.
-      await store.clear();
-      SessionController newSession() =>
-          SessionController(ApiClient(config: AppConfig(), store: store));
+      const project = String.fromEnvironment('FIREBASE_PROJECT_ID');
+      const emulator = String.fromEnvironment('FIREBASE_AUTH_EMULATOR_HOST');
+      expect(
+        project.startsWith('demo-') && emulator.isNotEmpty,
+        isTrue,
+        reason: 'This integration test requires Firebase Auth Emulator.',
+      );
+      final initialIdentity = FirebaseIdentity();
+      await initialIdentity.initialize();
+      await initialIdentity.signOut();
+      SessionController newSession() => SessionController(
+        ApiClient(
+          config: AppConfig(),
+          store: store,
+          identity: FirebaseIdentity(),
+        ),
+      );
       var session = newSession();
       await tester.pumpWidget(
         MyApp(key: const ValueKey('initial'), session: session),
@@ -68,6 +82,7 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tap(find.byKey(const Key('authSubmit')));
       expect(find.text('Mục tiêu của bạn'), findsOneWidget);
+      debugPrint('Firebase E2E: registration and onboarding route OK');
       await screenshot('02-onboarding');
       await tap(find.byKey(const Key('learningPurpose')));
       await tap(find.text('Giao tiếp hằng ngày').last);
@@ -81,7 +96,7 @@ void main() {
       await tap(find.text('Tiếp theo'));
       expect(find.text('Câu 2/5'), findsOneWidget);
       final resumedId = session.placement['currentSessionId'];
-      // Recreate app/session: reads refresh token from platform secure storage.
+      // Recreate app/session: Firebase SDK restores its persisted identity.
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       session = newSession();
@@ -145,6 +160,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Chưa đánh giá'), findsNWidgets(2));
+      debugPrint('Firebase E2E: placement completed with real API result');
       await screenshot('05-result');
       await tap(find.text('Xem lại bài làm'));
       await screenshot('06-review');
@@ -153,6 +169,11 @@ void main() {
         expect(find.text('Đáp án đã nộp được khóa.'), findsOneWidget);
         await tap(find.byKey(const Key('nextReview')));
       }
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      await tap(find.text('Bắt đầu học'));
+      expect(find.byKey(const Key('previewAvatar')), findsOneWidget);
+      debugPrint('Firebase E2E: result to Home navigation OK');
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
@@ -161,8 +182,10 @@ void main() {
         MyApp(key: const ValueKey('completed'), session: session),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Đây là điểm\nxuất phát của bạn'), findsOneWidget);
-      await tap(find.byTooltip('Hồ sơ của tôi'));
+      expect(find.byKey(const Key('previewAvatar')), findsOneWidget);
+      debugPrint('Firebase E2E: SDK session restore to Home OK');
+      await tap(find.byKey(const Key('previewAvatar')));
+      await tap(find.text('Hồ sơ của tôi'));
       expect(find.text(email), findsOneWidget);
       expect(find.text('Giao tiếp hằng ngày'), findsOneWidget);
       expect(session.profile['dailyGoalMinutes'], 20);
@@ -174,24 +197,26 @@ void main() {
       await tap(find.text('Lưu thay đổi'));
       expect(find.text('Đã lưu hồ sơ.'), findsOneWidget);
       expect(session.profile['dailyGoalMinutes'], 10);
-      await tap(find.text('Đổi mật khẩu'));
-      await tester.enterText(find.byType(TextFormField).at(0), 'DemoPass123');
-      await tester.enterText(find.byType(TextFormField).at(1), 'DemoPass456');
-      await tester.testTextInput.receiveAction(TextInputAction.done);
-      await tap(find.widgetWithText(ElevatedButton, 'Đổi mật khẩu'));
+      await tap(find.text('Đặt lại mật khẩu qua email'));
+      expect(find.text('Kiểm tra email để đặt lại mật khẩu.'), findsOneWidget);
+      await tap(find.text('Đăng xuất'));
+      expect(find.text('Tiếp tục với Email'), findsOneWidget);
+      debugPrint('Firebase E2E: logout to Welcome OK');
+      expect(find.byKey(const Key('previewAvatar')), findsNothing);
+      expect(Navigator.of(tester.element(find.text('Tiếp tục với Email'))).canPop(), isFalse);
       await tap(find.text('Tiếp tục với Email'));
       await tester.enterText(find.byType(TextFormField).at(0), email);
-      await tester.enterText(find.byType(TextFormField).at(1), 'DemoPass456');
+      await tester.enterText(find.byType(TextFormField).at(1), 'DemoPass123');
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tap(find.byKey(const Key('authSubmit')));
-      expect(find.text('Đây là điểm\nxuất phát của bạn'), findsOneWidget);
+      expect(find.byKey(const Key('previewAvatar')), findsOneWidget);
       expect(session.user?['name'], 'Demo Mobile Updated');
       expect(session.profile['dailyGoalMinutes'], 10);
       binding.reportData = {
         ...?binding.reportData,
         'email': email,
         'sessionId': session.placement['currentSessionId'],
-        'scenario': 'first-demo-full-happy-path',
+        'scenario': 'firebase-emulator-full-happy-path',
       };
     },
   );

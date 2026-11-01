@@ -9,6 +9,7 @@ import {
   Headers,
   Get,
   Patch,
+  BadRequestException,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { RegisterDto } from './dto/register.dto';
@@ -28,6 +29,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { ApiResponse } from '../../common/interfaces/api-response.interface';
 import { ProfileService } from './profile.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { FirebaseTokenService } from './firebase/firebase-token.service';
 
 @Controller('auth')
 @UseGuards(JwtAuthGuard)
@@ -40,7 +42,12 @@ export class AuthController {
     private readonly logoutAllUseCase: LogoutAllUseCase,
     private readonly changePasswordUseCase: ChangePasswordUseCase,
     private readonly profileService: ProfileService,
+    private readonly firebase: FirebaseTokenService,
   ) {}
+
+  private legacyOnly() {
+    if (this.firebase.enabled) throw new BadRequestException({ code: 'AUTH_USE_FIREBASE', message: 'Đăng nhập và quản lý mật khẩu bằng Firebase Authentication.' });
+  }
 
   @Get('me')
   async me(@CurrentUser('sub') userId: string) {
@@ -60,6 +67,7 @@ export class AuthController {
     @Req() req: Request,
     @Headers('x-device-id') deviceId?: string,
   ): Promise<ApiResponse<AuthResult>> {
+    this.legacyOnly();
     const ipAddress = req.ip || req.socket.remoteAddress;
     const result = await this.registerUseCase.execute(dto, {
       ipAddress,
@@ -81,6 +89,7 @@ export class AuthController {
     @Req() req: Request,
     @Headers('x-device-id') deviceId?: string,
   ): Promise<ApiResponse<AuthResult>> {
+    this.legacyOnly();
     const ipAddress = req.ip || req.socket.remoteAddress;
     const result = await this.loginUseCase.execute(dto, {
       ipAddress,
@@ -102,6 +111,7 @@ export class AuthController {
     @Req() req: Request,
     @Headers('x-device-id') deviceId?: string,
   ): Promise<ApiResponse<RefreshResult>> {
+    this.legacyOnly();
     const ipAddress = req.ip || req.socket.remoteAddress;
     const result = await this.refreshTokenUseCase.execute(dto, {
       ipAddress,
@@ -119,6 +129,7 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Body() dto: LogoutDto): Promise<ApiResponse<null>> {
+    this.legacyOnly();
     await this.logoutUseCase.execute(dto);
     return {
       success: true,
@@ -129,8 +140,9 @@ export class AuthController {
 
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
-  async logoutAll(@CurrentUser('sub') userId: string): Promise<ApiResponse<null>> {
-    await this.logoutAllUseCase.execute(userId);
+  async logoutAll(@CurrentUser('sub') userId: string, @CurrentUser('firebaseUid') firebaseUid?: string): Promise<ApiResponse<null>> {
+    if (this.firebase.enabled && firebaseUid) await this.firebase.revoke(firebaseUid);
+    else { this.legacyOnly(); await this.logoutAllUseCase.execute(userId); }
     return {
       success: true,
       message: 'Đã đăng xuất khỏi tất cả các thiết bị',
@@ -144,6 +156,7 @@ export class AuthController {
     @CurrentUser('sub') userId: string,
     @Body() dto: ChangePasswordDto,
   ): Promise<ApiResponse<null>> {
+    this.legacyOnly();
     await this.changePasswordUseCase.execute(userId, dto);
     return {
       success: true,

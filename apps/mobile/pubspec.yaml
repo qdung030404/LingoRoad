@@ -39,6 +39,9 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   audioplayers: ^6.5.0
   flutter_svg: ^2.3.0
+  firebase_core: ^5.1.0
+  firebase_auth: ^7.0.1
+  google_sign_in: ^7.2.0
 
 dev_dependencies:
   flutter_test:

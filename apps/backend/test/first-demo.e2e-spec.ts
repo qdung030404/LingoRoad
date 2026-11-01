@@ -16,6 +16,7 @@ describe('First demo: real HTTP + PostgreSQL', () => {
   const password = 'DemoEnglish123';
 
   beforeAll(async () => {
+    process.env.AUTH_PROVIDER = 'legacy'; // This suite exercises the retained legacy API.
     const databaseUrl = process.env.DATABASE_URL;
     if (!databaseUrl || !new URL(databaseUrl).pathname.endsWith('_test')) {
       throw new Error('E2E chỉ được chạy trên DATABASE_URL trỏ tới database có tên kết thúc _test.');

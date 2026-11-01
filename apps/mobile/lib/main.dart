@@ -4,6 +4,7 @@ import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/session_controller.dart';
 import 'features/demo_shell.dart';
+import 'core/auth/firebase_identity.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,7 +22,11 @@ class _MyAppState extends State<MyApp> {
   late final SessionController session =
       widget.session ??
       SessionController(
-        ApiClient(config: AppConfig(), store: SecureTokenStore()),
+        ApiClient(
+          config: AppConfig(),
+          store: SecureTokenStore(),
+          identity: FirebaseIdentity(),
+        ),
       );
   @override
   void initState() {

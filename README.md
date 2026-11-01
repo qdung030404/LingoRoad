@@ -16,17 +16,17 @@ Chạy theo [hướng dẫn demo](docs/first-demo.md), [thực nghiệm MuMu](do
 
 ## 1. Trạng thái tại snapshot 19/10/2026
 
-| Thành phần | Đã có trong mã nguồn | Phần còn thiếu hoặc giới hạn |
-| --- | --- | --- |
-| Xác thực và phiên đăng nhập | Đăng ký, đăng nhập, refresh token rotation, phát hiện token bị thu hồi được dùng lại, logout, logout-all, đổi mật khẩu; unit test cho bốn use case chính. | Chưa có màn hình mobile kết nối API; chưa có bộ kiểm thử HTTP E2E trong `apps/backend/test/`. |
-| Hồ sơ học viên | Model `UserProfile`, tạo hồ sơ mặc định khi đăng ký, trả hồ sơ trong kết quả đăng ký/đăng nhập. | Chưa có API và màn hình chỉnh sửa hồ sơ. |
-| Placement | Tạo hoặc tiếp tục phiên thi, lưu đáp án, chọn câu bằng CAT/EAP qua ML hoặc fallback trong backend, trả kết quả CEFR. | Phiên thi 15 câu; kết quả hiện chỉ A1–B2 theo tỷ lệ đúng. Seed chỉ có 12 câu, cần bổ sung trước khi thử luồng đủ 15 câu không lặp. |
-| Knowledge Tracing | Mã huấn luyện DKT, DKVMN, SAINT+; endpoint ML `/kt/predict`; phương thức `MlClientService.predictKt()`. | Endpoint tải SAINT+, chưa phục vụ DKT; chưa có luồng nghiệp vụ backend gọi KT khi học viên hoàn thành bài học. |
-| AI hỗ trợ học | Endpoint advisor/RAG, sinh bài tập, chấm viết và chấm phát âm đọc thành tiếng. | Cần cấu hình Gemini, chỉ mục RAG hoặc mô hình tương ứng; chưa có luồng sử dụng từ mobile qua backend. |
-| Tối ưu lộ trình | Mã DQN, DP và mô phỏng trong `apps/ml/lingoroad_ml/rl/`. | Mới có bằng chứng thử nghiệm trên môi trường mô phỏng; chưa tích hợp vào lộ trình học của ứng dụng. |
-| Mobile | Design tokens, theme sáng/tối, shared widgets, màn hình showcase; tiện ích cấu hình và ngôn ngữ. | Chưa có luồng đăng nhập → placement → bài học → đề xuất → biểu đồ tiến bộ; chưa tích hợp đầy đủ đa ngôn ngữ. |
-| Ôn tập FSRS, gamification, Web Admin | Có tài liệu đặc tả/thiết kế. | Chưa có hiện thực FSRS trong backend/ML hiện tại, module gamification hoặc thư mục `apps/frontend-web/`. |
-| CI và hạ tầng | Workflow backend, ML, mobile; Docker Compose cho PostgreSQL, Redis và backend. | Cấu hình CI trong repo không xác nhận lần chạy mới nhất đã thành công; Redis chưa được tích hợp vào logic backend. |
+| Thành phần                           | Đã có trong mã nguồn                                                                                                                                      | Phần còn thiếu hoặc giới hạn                                                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Xác thực và phiên đăng nhập          | Đăng ký, đăng nhập, refresh token rotation, phát hiện token bị thu hồi được dùng lại, logout, logout-all, đổi mật khẩu; unit test cho bốn use case chính. | Chưa có màn hình mobile kết nối API; chưa có bộ kiểm thử HTTP E2E trong `apps/backend/test/`.                                      |
+| Hồ sơ học viên                       | Model `UserProfile`, tạo hồ sơ mặc định khi đăng ký, trả hồ sơ trong kết quả đăng ký/đăng nhập.                                                           | Chưa có API và màn hình chỉnh sửa hồ sơ.                                                                                           |
+| Placement                            | Tạo hoặc tiếp tục phiên thi, lưu đáp án, chọn câu bằng CAT/EAP qua ML hoặc fallback trong backend, trả kết quả CEFR.                                      | Phiên thi 15 câu; kết quả hiện chỉ A1–B2 theo tỷ lệ đúng. Seed chỉ có 12 câu, cần bổ sung trước khi thử luồng đủ 15 câu không lặp. |
+| Knowledge Tracing                    | Mã huấn luyện DKT, DKVMN, SAINT+; endpoint ML `/kt/predict`; phương thức `MlClientService.predictKt()`.                                                   | Endpoint tải SAINT+, chưa phục vụ DKT; chưa có luồng nghiệp vụ backend gọi KT khi học viên hoàn thành bài học.                     |
+| AI hỗ trợ học                        | Endpoint advisor/RAG, sinh bài tập, chấm viết và chấm phát âm đọc thành tiếng.                                                                            | Cần cấu hình Gemini, chỉ mục RAG hoặc mô hình tương ứng; chưa có luồng sử dụng từ mobile qua backend.                              |
+| Tối ưu lộ trình                      | Mã DQN, DP và mô phỏng trong `apps/ml/lingoroad_ml/rl/`.                                                                                                  | Mới có bằng chứng thử nghiệm trên môi trường mô phỏng; chưa tích hợp vào lộ trình học của ứng dụng.                                |
+| Mobile                               | Design tokens, theme sáng/tối, shared widgets, màn hình showcase; tiện ích cấu hình và ngôn ngữ.                                                          | Chưa có luồng đăng nhập → placement → bài học → đề xuất → biểu đồ tiến bộ; chưa tích hợp đầy đủ đa ngôn ngữ.                       |
+| Ôn tập FSRS, gamification, Web Admin | Có tài liệu đặc tả/thiết kế.                                                                                                                              | Chưa có hiện thực FSRS trong backend/ML hiện tại, module gamification hoặc thư mục `apps/frontend-web/`.                           |
+| CI và hạ tầng                        | Workflow backend, ML, mobile; Docker Compose cho PostgreSQL, Redis và backend.                                                                            | Cấu hình CI trong repo không xác nhận lần chạy mới nhất đã thành công; Redis chưa được tích hợp vào logic backend.                 |
 
 Trạng thái trên được xác định từ mã nguồn và cấu hình, không phải tỷ lệ hoàn thành đã nghiệm thu. Các báo cáo cũ có nhắc backend .NET, `MasteryCalc.cs`, đường dẫn `src/backend/` hoặc “16/16 hoàn tất” thuộc bối cảnh khác; cần đối chiếu lại trước khi dùng cho checkout NestJS hiện tại.
 
@@ -61,12 +61,12 @@ LingoRoad/
 
 Backend tổ chức theo controller, use case, repository và các dịch vụ dùng chung. Placement gọi ML qua HTTP; nếu gọi CAT thất bại, `MlClientService` dùng bộ CAT/EAP trong tiến trình backend. Dữ liệu người dùng, phiên đăng nhập và placement được lưu trong PostgreSQL qua Prisma.
 
-| Lớp | Công nghệ đang có | Ghi chú |
-| --- | --- | --- |
-| Backend | NestJS 10, TypeScript, Prisma 5, PostgreSQL 16 | JWT, Argon2id, SHA-256 cho refresh token; chưa có fallback bcrypt. |
-| ML | Python, FastAPI, PyTorch, NumPy, SciPy, Faster-Whisper, Gemini API | CI dùng Python 3.12 và PyTorch CPU. |
-| Mobile | Flutter, Material 3, `shared_preferences` | Hiện dùng `MaterialApp` và `setState`; chưa có dependency `provider`, `go_router`, `flutter_screenutil`. |
-| Hạ tầng | Docker Compose, PostgreSQL 16, Redis 7, GitHub Actions | Redis có service trong Compose, chưa có client/cache/leaderboard dùng Redis trong backend. |
+| Lớp     | Công nghệ đang có                                                  | Ghi chú                                                                                                  |
+| ------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Backend | NestJS 10, TypeScript, Prisma 5, PostgreSQL 16                     | JWT, Argon2id, SHA-256 cho refresh token; chưa có fallback bcrypt.                                       |
+| ML      | Python, FastAPI, PyTorch, NumPy, SciPy, Faster-Whisper, Gemini API | CI dùng Python 3.12 và PyTorch CPU.                                                                      |
+| Mobile  | Flutter, Material 3, `shared_preferences`                          | Hiện dùng `MaterialApp` và `setState`; chưa có dependency `provider`, `go_router`, `flutter_screenutil`. |
+| Hạ tầng | Docker Compose, PostgreSQL 16, Redis 7, GitHub Actions             | Redis có service trong Compose, chưa có client/cache/leaderboard dùng Redis trong backend.               |
 
 MVVM, Web Admin Next.js, JSON localization và các quy tắc design system là định hướng/quy chuẩn phát triển. Việc có tài liệu hoặc lớp tiện ích chưa đồng nghĩa các luồng ứng dụng đã áp dụng đầy đủ.
 
@@ -76,18 +76,18 @@ MVVM, Web Admin Next.js, JSON localization và các quy tắc design system là 
 
 Mặc định chạy tại `http://localhost:3000`, không có tiền tố `/api` toàn cục.
 
-| Phương thức | Đường dẫn | Xác thực |
-| --- | --- | --- |
-| POST | `/auth/register` | Public |
-| POST | `/auth/login` | Public |
-| POST | `/auth/refresh` | Public, nhận refresh token |
-| POST | `/auth/logout` | Public, nhận refresh token |
-| POST | `/auth/logout-all` | Bearer JWT |
-| POST | `/auth/change-password` | Bearer JWT |
-| POST | `/placement/start` | Bearer JWT |
-| GET | `/placement/status` | Bearer JWT |
-| POST | `/placement/:sessionId/answer` | Bearer JWT |
-| GET | `/placement/:sessionId/result` | Bearer JWT |
+| Phương thức | Đường dẫn                      | Xác thực                   |
+| ----------- | ------------------------------ | -------------------------- |
+| POST        | `/auth/register`               | Public                     |
+| POST        | `/auth/login`                  | Public                     |
+| POST        | `/auth/refresh`                | Public, nhận refresh token |
+| POST        | `/auth/logout`                 | Public, nhận refresh token |
+| POST        | `/auth/logout-all`             | Bearer JWT                 |
+| POST        | `/auth/change-password`        | Bearer JWT                 |
+| POST        | `/placement/start`             | Bearer JWT                 |
+| GET         | `/placement/status`            | Bearer JWT                 |
+| POST        | `/placement/:sessionId/answer` | Bearer JWT                 |
+| GET         | `/placement/:sessionId/result` | Bearer JWT                 |
 
 Nộp đáp án dùng các trường `itemId`, `itemIndex`, `selectedOption`, tùy chọn `responseTimeMs`. Chưa có route `/placement/submit`, `/placement/result` hoặc controller import câu hỏi. `InternalAuthGuard` đã có mã nguồn và test nhưng chưa được gắn vào route import.
 
@@ -97,16 +97,16 @@ Placement bắt đầu từ câu A2 nếu có, hoàn tất sau 15 đáp án. `Ce
 
 Mặc định chạy tại `http://localhost:8001`.
 
-| Phương thức | Đường dẫn | Chức năng |
-| --- | --- | --- |
-| GET | `/health` | Kiểm tra tiến trình dịch vụ. |
-| GET | `/ready` | Kiểm tra cấu hình/artifact của các thành phần được yêu cầu. |
-| POST | `/cat/select` | Ước lượng theta, sai số chuẩn bằng EAP và chọn câu theo thông tin Fisher. |
-| POST | `/kt/predict` | Suy luận SAINT+ từ chuỗi tương tác; trả 503 nếu thiếu checkpoint. |
-| POST | `/llm/advisor` | Tư vấn học tập, truy xuất RAG khi có chỉ mục. |
-| POST | `/llm/exercises` | Sinh bài tập qua Gemini. |
-| POST | `/llm/awe` | Đánh giá bài viết qua Gemini. |
-| POST | `/speech/score` | Nhận bản ghi âm và văn bản mẫu để chấm phát âm đọc thành tiếng. |
+| Phương thức | Đường dẫn        | Chức năng                                                                 |
+| ----------- | ---------------- | ------------------------------------------------------------------------- |
+| GET         | `/health`        | Kiểm tra tiến trình dịch vụ.                                              |
+| GET         | `/ready`         | Kiểm tra cấu hình/artifact của các thành phần được yêu cầu.               |
+| POST        | `/cat/select`    | Ước lượng theta, sai số chuẩn bằng EAP và chọn câu theo thông tin Fisher. |
+| POST        | `/kt/predict`    | Suy luận SAINT+ từ chuỗi tương tác; trả 503 nếu thiếu checkpoint.         |
+| POST        | `/llm/advisor`   | Tư vấn học tập, truy xuất RAG khi có chỉ mục.                             |
+| POST        | `/llm/exercises` | Sinh bài tập qua Gemini.                                                  |
+| POST        | `/llm/awe`       | Đánh giá bài viết qua Gemini.                                             |
+| POST        | `/speech/score`  | Nhận bản ghi âm và văn bản mẫu để chấm phát âm đọc thành tiếng.           |
 
 `/health` thành công không có nghĩa mọi mô hình đã sẵn sàng. Các endpoint ML ngoài CAT chưa có controller nghiệp vụ tương ứng để mobile sử dụng qua NestJS.
 
@@ -114,11 +114,11 @@ Mặc định chạy tại `http://localhost:8001`.
 
 Các giá trị dưới đây lấy từ báo cáo đang lưu trong repo; chưa được chạy lại trong lần cập nhật tài liệu này.
 
-| Thực nghiệm | Kết quả ghi trong báo cáo | Phạm vi |
-| --- | --- | --- |
-| [CAT simulation](apps/ml/reports/cat_simulation.md) | Ngân hàng 312 câu, 1.000 lượt mô phỏng; exact CEFR accuracy CAT 0.671, Fixed-30 0.618; trung bình CAT 30 câu. | Mô phỏng độc lập, khác phiên placement 15 câu của NestJS. |
-| [Knowledge Tracing](apps/ml/reports/kt_results.md) | EdNet: 60.000 người dùng, 7.504.848 tương tác; Test AUC DKT 0.7565, DKVMN 0.7558, SAINT+ 0.7586. Báo cáo còn một dòng SAINT+ 0.7516, cần làm rõ lần chạy khi trích dẫn. | Kết quả trên EdNet, chưa đánh giá KT trên dữ liệu học viên LingoRoad. |
-| [DQN và DP](apps/ml/reports/dqn_poc.md) | Mean return: DP 0.636, DQN 0.588, Greedy 0.533, Random 0.197. | ToyLearnerEnv; mọi chính sách có goal-reach rate 0 trong giới hạn 60 bước của thiết lập này. |
+| Thực nghiệm                                         | Kết quả ghi trong báo cáo                                                                                                                                               | Phạm vi                                                                                      |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [CAT simulation](apps/ml/reports/cat_simulation.md) | Ngân hàng 312 câu, 1.000 lượt mô phỏng; exact CEFR accuracy CAT 0.671, Fixed-30 0.618; trung bình CAT 30 câu.                                                           | Mô phỏng độc lập, khác phiên placement 15 câu của NestJS.                                    |
+| [Knowledge Tracing](apps/ml/reports/kt_results.md)  | EdNet: 60.000 người dùng, 7.504.848 tương tác; Test AUC DKT 0.7565, DKVMN 0.7558, SAINT+ 0.7586. Báo cáo còn một dòng SAINT+ 0.7516, cần làm rõ lần chạy khi trích dẫn. | Kết quả trên EdNet, chưa đánh giá KT trên dữ liệu học viên LingoRoad.                        |
+| [DQN và DP](apps/ml/reports/dqn_poc.md)             | Mean return: DP 0.636, DQN 0.588, Greedy 0.533, Random 0.197.                                                                                                           | ToyLearnerEnv; mọi chính sách có goal-reach rate 0 trong giới hạn 60 bước của thiết lập này. |
 
 DKT là mô hình LSTM riêng trong `kt/dkt.py`; SAINT+ là mô hình Transformer riêng trong `kt/saint_plus.py`. Endpoint KT hiện tải `checkpoints/saint_plus.pt`, không tải DKT. Việc đáp ứng đề tài CAT–DKT còn cần tích hợp mô hình phù hợp, ánh xạ câu hỏi/kỹ năng, lưu tương tác học tập và đánh giá trên dữ liệu ứng dụng.
 
@@ -128,7 +128,7 @@ Các nhóm lệnh dưới đây bắt đầu từ thư mục gốc repo, trừ k
 
 ### 6.1. Yêu cầu môi trường
 
-- Node.js 20 và npm, theo cấu hình backend CI.
+- Node.js 22.12+ và npm, theo cấu hình backend CI và yêu cầu Firebase Admin. Xem [cấu hình Firebase Authentication](docs/firebase-auth-setup.md).
 - Python 3.12, theo cấu hình ML CI và môi trường freeze trong `apps/ml/`.
 - Flutter SDK kèm Dart thỏa ràng buộc `^3.12.0-273.0.dev` trong `apps/mobile/pubspec.yaml`; không suy ra phiên bản Flutter tối thiểu từ số phiên bản Dart.
 - Android SDK và thiết bị/giả lập để chạy mobile hoặc build APK.
@@ -178,14 +178,14 @@ Lệnh chạy từ `apps/ml/` để đường dẫn checkpoint và dữ liệu m
 
 Cấu hình qua biến môi trường hoặc tệp `apps/ml/.env` tự tạo; repo chưa có `.env.example` cho ML:
 
-| Biến phía ML | Mục đích |
-| --- | --- |
-| `LINGOROAD_ML_INTERNAL_TOKEN` | Token dùng chung với `ML_INTERNAL_TOKEN` phía backend, truyền bằng header `x-internal-token`. |
-| `LINGOROAD_ENVIRONMENT` | Khi đặt `production`, token nội bộ phải dài ít nhất 32 ký tự. |
-| `LINGOROAD_ML_REQUIRED_MODELS` | Danh sách thành phần mà `/ready` yêu cầu, mặc định `cat`. |
-| `QG_KT_CHECKPOINT` | Đường dẫn checkpoint, mặc định `checkpoints/saint_plus.pt`. |
-| `GEMINI_API_KEY` | Khóa API cho các chức năng LLM và embedding. |
-| `QG_RAG_INDEX` | Đường dẫn chỉ mục RAG, mặc định `data/corpus_index.npz`. |
+| Biến phía ML                   | Mục đích                                                                                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------- |
+| `LINGOROAD_ML_INTERNAL_TOKEN`  | Token dùng chung với `ML_INTERNAL_TOKEN` phía backend, truyền bằng header `x-internal-token`. |
+| `LINGOROAD_ENVIRONMENT`        | Khi đặt `production`, token nội bộ phải dài ít nhất 32 ký tự.                                 |
+| `LINGOROAD_ML_REQUIRED_MODELS` | Danh sách thành phần mà `/ready` yêu cầu, mặc định `cat`.                                     |
+| `QG_KT_CHECKPOINT`             | Đường dẫn checkpoint, mặc định `checkpoints/saint_plus.pt`.                                   |
+| `GEMINI_API_KEY`               | Khóa API cho các chức năng LLM và embedding.                                                  |
+| `QG_RAG_INDEX`                 | Đường dẫn chỉ mục RAG, mặc định `data/corpus_index.npz`.                                      |
 
 CAT có thể chạy mà không cần khóa Gemini hoặc checkpoint KT. Khi đã cấu hình token nội bộ, truy cập `/docs` cũng cần header này; `/health` và `/ready` được miễn xác thực. `npm run ml:dev` giả định virtualenv và tệp `apps/ml/.env` đã tồn tại; khi chạy từ gốc, cần cấu hình đường dẫn artifact phù hợp, ưu tiên đường dẫn tuyệt đối.
 

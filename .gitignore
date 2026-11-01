@@ -67,3 +67,9 @@ opencode.json
 /.gitnexus/
 CLAUDE.md
 AGENTS.md
+
+# Local Firebase configuration and Admin credentials
+/google-services.json
+**/firebase-config.local.json
+**/*firebase-adminsdk*.json
+firebase-debug.log*

@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "LingoRoad Backend API with NestJS & Prisma",
   "private": true,
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -17,7 +20,11 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:firebase:e2e": "node --test test/firebase-auth.e2e.cjs",
+    "test:learning:e2e": "node --test test/learning.e2e.cjs",
     "seed:demo": "ts-node prisma/seed-placement.ts",
+    "seed:learning": "ts-node prisma/seed-learning.ts",
+    "seed:learning:validate": "ts-node prisma/seed-learning.ts --validate",
     "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
@@ -36,6 +43,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "dotenv": "^16.4.5",
+    "firebase-admin": "^14.5.0",
     "form-data": "^4.0.6",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",

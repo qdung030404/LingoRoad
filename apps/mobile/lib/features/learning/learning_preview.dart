@@ -13,6 +13,12 @@ import 'word_collection_pages.dart';
 import 'word_library.dart';
 import 'srs_review_page.dart';
 import 'preview_navigation_bar.dart';
+import '../auth/session_controller.dart';
+import '../profile/profile_page.dart';
+import '../placement/placement_pages.dart' show ResultPage;
+import 'learning_controller.dart';
+import 'learning_repository.dart';
+import 'learning_pages.dart';
 
 class LearningPreview extends StatefulWidget {
   const LearningPreview({
@@ -20,18 +26,36 @@ class LearningPreview extends StatefulWidget {
     this.showPlan = false,
     this.model,
     this.onLogout,
+    this.account,
   });
   final bool showPlan;
   final PreviewModel? model;
   final Future<void> Function()? onLogout;
+  final SessionController? account;
   @override
   State<LearningPreview> createState() => _LearningPreviewState();
 }
 
 class _LearningPreviewState extends State<LearningPreview> {
-  late final model = widget.model ?? PreviewModel();
-  final library = WordLibrary();
+  late final model =
+      widget.model ??
+      PreviewModel(
+        accountId: widget.account?.user?['id'] as String?,
+        initialDailyMinutes:
+            widget.account?.profile['dailyGoalMinutes'] as int? ?? 10,
+      );
+  late final library = WordLibrary(
+    accountId: widget.account?.user?['id'] as String?,
+  );
   final selectedTab = ValueNotifier<int>(0);
+  late final LearningController? learning = widget.account == null
+      ? null
+      : LearningController(
+          repository: ApiLearningRepository(widget.account!.api),
+          accountId: widget.account!.user!['id'] as String,
+          isAccountCurrent: () =>
+              widget.account!.user?['id'] == learning?.accountId,
+        );
   final tabs = PageController();
   void switchTab(int index) {
     if (!tabs.hasClients) return;
@@ -69,6 +93,7 @@ class _LearningPreviewState extends State<LearningPreview> {
   @override
   void initState() {
     super.initState();
+    learning?.refresh();
     library.restore().catchError((Object error) {
       if (mounted) {
         setState(
@@ -105,6 +130,7 @@ class _LearningPreviewState extends State<LearningPreview> {
 
   @override
   void dispose() {
+    learning?.dispose();
     library.dispose();
     tabs.dispose();
     selectedTab.dispose();
@@ -124,28 +150,67 @@ class _LearningPreviewState extends State<LearningPreview> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              learningHeading('Anna · tài khoản mẫu', size: 24),
+              learningHeading(
+                widget.account?.user?['name'] as String? ??
+                    'Anna · tài khoản mẫu',
+                size: 24,
+              ),
               const SizedBox(height: 12),
               learningBody(
-                'Bạn đang xem giao diện với dữ liệu mẫu trên thiết bị. Phản hồi Nói/Viết là minh họa; không thu micro hay cập nhật kết quả kiểm tra thật.',
+                widget.account == null
+                    ? 'Bạn đang xem giao diện với dữ liệu mẫu trên thiết bị. Phản hồi Nói/Viết là minh họa; không thu micro hay cập nhật kết quả kiểm tra thật.'
+                    : 'Bài học và luyện Đọc/Nghe lưu theo tài khoản. Bộ từ cá nhân lưu trên thiết bị; Nói/Viết và kế hoạch tuần hiện là bản xem trước.',
               ),
               const SizedBox(height: 20),
-              CustomAppButton(
-                text: 'Lộ trình tuần đầu tiên',
-                onPressed: () {
-                  Navigator.pop(context);
-                  previewPush(this.context, WeeklyPlanPage(model: model));
-                },
-              ),
+              if (widget.account != null) ...[
+                CustomAppButton(
+                  text: 'Hồ sơ của tôi',
+                  onPressed: () {
+                    Navigator.pop(context);
+                    previewPush(
+                      this.context,
+                      ProfilePage(session: widget.account!),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+                CustomAppButton(
+                  key: const Key('accountPlacementResult'),
+                  text: 'Kết quả đầu vào',
+                  isSecondary: true,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    previewPush(
+                      this.context,
+                      ResultPage(
+                        session: widget.account!,
+                        sessionId:
+                            widget.account!.placement['currentSessionId']
+                                as String,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+              if (widget.account == null)
+                CustomAppButton(
+                  text: 'Lộ trình tuần đầu tiên',
+                  onPressed: () {
+                    Navigator.pop(context);
+                    previewPush(this.context, WeeklyPlanPage(model: model));
+                  },
+                ),
               const SizedBox(height: 12),
-              CustomAppButton(
-                text: 'Đóng bản xem trước',
-                isSecondary: true,
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.of(this.context).pop();
-                },
-              ),
+              if (widget.account == null)
+                CustomAppButton(
+                  text: 'Đóng bản xem trước',
+                  isSecondary: true,
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.of(this.context).pop();
+                  },
+                ),
               const SizedBox(height: 12),
               CustomAppButton(
                 key: const Key('previewLogout'),
@@ -186,9 +251,9 @@ class _LearningPreviewState extends State<LearningPreview> {
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: Listenable.merge([model, library]),
-    builder: (context, _) => PreviewSurface(
-      child: ValueListenableBuilder<int>(
+    animation: Listenable.merge([model, library, widget.account, learning]),
+    builder: (context, _) {
+      final surface = ValueListenableBuilder<int>(
         valueListenable: selectedTab,
         child: Scaffold(
           backgroundColor: AppColors.grey25,
@@ -246,8 +311,9 @@ class _LearningPreviewState extends State<LearningPreview> {
                   ),
           child: child!,
         ),
-      ),
-    ),
+      );
+      return widget.account == null ? PreviewSurface(child: surface) : surface;
+    },
   );
 
   Widget tabContent(int page) {
@@ -257,8 +323,28 @@ class _LearningPreviewState extends State<LearningPreview> {
           model: model,
           library: library,
           onProfile: openProfile,
-          onLesson: () =>
-              previewPush(context, VocabularyLessonPage(model: model)),
+          displayName: widget.account?.user?['name'] as String? ?? 'Anna',
+          level: widget.account == null
+              ? 'A1'
+              : widget.account!.placementResult?['estimatedCefr'] as String?,
+          learning: learning,
+          onLesson: () {
+            final lesson = learning?.continueLesson;
+            if (learning != null) {
+              if (lesson != null) {
+                openLearningLesson(
+                  context,
+                  learning!,
+                  lessonId: lesson.id,
+                  attemptId: lesson.activeAttemptId,
+                );
+              } else {
+                switchTab(1);
+              }
+            } else {
+              previewPush(context, VocabularyLessonPage(model: model));
+            }
+          },
           onGrammar: () =>
               previewPush(context, GrammarLessonPage(model: model)),
           onWords: () => switchTab(2),
@@ -298,9 +384,16 @@ class _LearningPreviewState extends State<LearningPreview> {
                   ),
                 ),
                 PreviewLevelBadge(
+                  label: widget.account == null
+                      ? 'A1'
+                      : widget.account!.placementResult?['estimatedCefr']
+                                as String? ??
+                            '—',
                   onTap: () => previewMessage(
                     context,
-                    'A1 là mức minh họa của bản xem trước.',
+                    widget.account == null
+                        ? 'A1 là mức minh họa của bản xem trước.'
+                        : 'Mức tạm tính từ bài kiểm tra Đọc/Nghe; chưa đánh giá Nói/Viết.',
                   ),
                 ),
               ],
@@ -381,6 +474,20 @@ class _LearningPreviewState extends State<LearningPreview> {
   );
 
   List<Widget> road() {
+    if (learning != null) {
+      return [
+        segments(
+          ['Ngữ pháp', 'Từ vựng'],
+          vocabulary ? 1 : 0,
+          (i) => setState(() => vocabulary = i == 1),
+        ),
+        const SizedBox(height: 24),
+        LearningCatalogue(
+          controller: learning!,
+          kinds: [vocabulary ? 'VOCABULARY' : 'GRAMMAR'],
+        ),
+      ];
+    }
     final names = vocabulary
         ? [
             'Greetings and introductions',
@@ -521,65 +628,110 @@ class _LearningPreviewState extends State<LearningPreview> {
       ],
     ),
     const SizedBox(height: 24),
-    Row(
-      children: [
-        Expanded(child: learningHeading('Chặng 1')),
-        learningBody('1/3', size: 20),
-      ],
-    ),
-    const SizedBox(height: 12),
-    for (var i = 0; i < 3; i++) ...[
-      catalogCard(
-        i == 0
-            ? skill.title
-            : i == 1
-            ? 'Personal Information'
-            : 'Family and Relationships',
-        i == 0
-            ? skill.description
-            : i == 1
-            ? 'Luyện tập với thông tin về tên, tuổi, nơi sống và nghề nghiệp.'
-            : 'Luyện tập từ vựng và cấu trúc về gia đình và các mối quan hệ.',
-        i,
-        () =>
-            previewPush(context, PracticeIntroPage(skill: skill, model: model)),
+    if (learning != null &&
+        (skill == PracticeSkill.reading || skill == PracticeSkill.listening))
+      LearningCatalogue(
+        controller: learning!,
+        kinds: [skill == PracticeSkill.reading ? 'READING' : 'LISTENING'],
+      )
+    else ...[
+      if (learning != null)
+        learningBody('Bản xem trước · chưa lưu kết quả Nói/Viết.'),
+      Row(
+        children: [
+          Expanded(child: learningHeading('Chặng 1')),
+          learningBody('1/3', size: 20),
+        ],
       ),
       const SizedBox(height: 12),
+      for (var i = 0; i < 3; i++) ...[
+        catalogCard(
+          i == 0
+              ? skill.title
+              : i == 1
+              ? 'Personal Information'
+              : 'Family and Relationships',
+          i == 0
+              ? skill.description
+              : i == 1
+              ? 'Luyện tập với thông tin về tên, tuổi, nơi sống và nghề nghiệp.'
+              : 'Luyện tập từ vựng và cấu trúc về gia đình và các mối quan hệ.',
+          i,
+          () => previewPush(
+            context,
+            PracticeIntroPage(skill: skill, model: model),
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
     ],
   ];
 
   List<Widget> progress() => [
-    LearningCard(
-      children: [
-        learningHeading('Hành trình của bạn', size: 24),
-        learningBody(
-          'Tiến độ minh họa trên thiết bị; không phải kết quả đánh giá.',
-        ),
-        learningHeading(
-          '${model.completed.length} hoạt động đã hoàn thành',
-          size: 28,
-        ),
-        for (final s in ['Từ vựng', 'Ngữ pháp', 'Nghe', 'Đọc', 'Nói', 'Viết'])
-          Row(
-            children: [
-              Expanded(child: learningBody(s)),
-              Text(
-                'A1',
-                style: designText(
-                  20,
-                  weight: FontWeight.w600,
-                  color: AppColors.primary500,
-                ),
-              ),
-            ],
+    if (learning != null) ...[
+      LearningCard(
+        children: [
+          learningHeading('Hành trình của bạn', size: 24),
+          learningHeading(
+            '${learning!.summary['completedLessonCount'] ?? '—'}/${learning!.summary['totalLessons'] ?? '—'} bài đã hoàn thành',
+            size: 28,
           ),
-      ],
-    ),
-    const SizedBox(height: 16),
-    CustomAppButton(
-      text: 'Lộ trình tuần đầu tiên',
-      onPressed: () => previewPush(context, WeeklyPlanPage(model: model)),
-    ),
+          learningBody(
+            '${learning!.summary['completedAttemptCount'] ?? '—'} lượt nộp bài · ${learning!.summary['activeAttemptCount'] ?? '—'} lượt đang học',
+          ),
+          learningBody('Tiến độ bài học không thay đổi mức CEFR đầu vào.'),
+          if (learning!.error != null)
+            LearningError(learning!.error!, retry: learning!.refresh),
+          CustomAppButton(
+            key: const Key('learningHistory'),
+            text: 'Lịch sử học tập',
+            onPressed: () => previewPush(
+              context,
+              LearningHistoryPage(controller: learning!),
+            ),
+          ),
+        ],
+      ),
+    ] else ...[
+      LearningCard(
+        children: [
+          learningHeading('Hành trình của bạn', size: 24),
+          learningBody(
+            'Tiến độ minh họa trên thiết bị; không phải kết quả đánh giá.',
+          ),
+          learningHeading(
+            '${model.completed.length} hoạt động đã hoàn thành',
+            size: 28,
+          ),
+          for (final s in ['Từ vựng', 'Ngữ pháp', 'Nghe', 'Đọc', 'Nói', 'Viết'])
+            Row(
+              children: [
+                Expanded(child: learningBody(s)),
+                Text(
+                  widget.account == null
+                      ? 'A1'
+                      : (widget.account!.placementResult?['skills']?[{
+                                  'Nghe': 'listening',
+                                  'Đọc': 'reading',
+                                }[s]]?['estimatedCefr']
+                                as String? ??
+                            'Chưa đánh giá'),
+                  style: designText(
+                    20,
+                    weight: FontWeight.w600,
+                    color: AppColors.primary500,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+      const SizedBox(height: 16),
+      CustomAppButton(
+        text: 'Lộ trình tuần đầu tiên',
+        onPressed: () => previewPush(context, WeeklyPlanPage(model: model)),
+      ),
+    ],
   ];
 }
 

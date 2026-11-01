@@ -3,9 +3,58 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/features/placement/placement_pages.dart';
 import 'package:mobile/main.dart';
+import 'package:mobile/shared/figma_dropdown.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'test_helpers.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'Dropdown near the bottom opens above and back preserves selection',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      String selected = 'UNKNOWN';
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: FigmaDropdown(
+                  label: 'Trình độ',
+                  value: selected,
+                  items: const {
+                    'UNKNOWN': 'Chưa biết',
+                    'A1': 'A1',
+                    'A2': 'A2',
+                    'B1': 'B1',
+                    'B2': 'B2',
+                  },
+                  onChanged: (value) => selected = value,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final trigger = find.descendant(
+        of: find.byType(FigmaDropdown),
+        matching: find.byType(InkWell),
+      );
+      final triggerTop = tester.getRect(trigger).top;
+      await tester.tap(trigger);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(find.text('B2')).bottom, lessThan(triggerTop));
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('B2'), findsNothing);
+      expect(selected, 'UNKNOWN');
+    },
+  );
   testWidgets('Android back pops account pages without ending the session', (
     tester,
   ) async {
@@ -98,13 +147,18 @@ void main() {
     },
   );
   testWidgets(
-    'Completed startup shows provisional result and unassessed skills',
+    'Completed startup opens Home and account menu retains the placement result',
     (tester) async {
       await tester.pumpWidget(
         MyApp(
           session: SessionController(FakeApi(signedIn: true, completed: true)),
         ),
       );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('previewAvatar')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('previewAvatar')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('accountPlacementResult')));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.textContaining('CEFR B1'), 200);
       expect(find.textContaining('CEFR B1'), findsOneWidget);

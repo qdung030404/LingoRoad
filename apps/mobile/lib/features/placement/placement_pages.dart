@@ -531,15 +531,24 @@ class _ResultPageState extends State<ResultPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             CustomAppButton(
-              text: 'Xem lộ trình mẫu',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => LearningPreview(
-                    showPlan: true,
-                    onLogout: widget.session.logout,
+              text: 'Bắt đầu học',
+              onPressed: () {
+                widget.session.placementResult = result;
+                widget.session.placement = {
+                  ...widget.session.placement,
+                  'status': 'COMPLETED',
+                  'currentSessionId': widget.sessionId,
+                };
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute<void>(
+                    builder: (_) => LearningPreview(
+                      account: widget.session,
+                      onLogout: widget.session.logout,
+                    ),
                   ),
-                ),
-              ),
+                  (_) => false,
+                );
+              },
             ),
             const SizedBox(height: 12),
             CustomAppButton(

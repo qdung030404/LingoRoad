@@ -24,7 +24,7 @@ export class LoginUseCase {
   ): Promise<AuthResult> {
     const user = await this.userRepository.findByEmail(dto.email);
 
-    if (!user) {
+    if (!user || !user.passwordHash) {
       await this.passwordService.dummyVerify(dto.password);
       throw new UnauthorizedException({
         code: 'AUTH_INVALID_CREDENTIALS',

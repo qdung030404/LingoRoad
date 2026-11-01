@@ -42,10 +42,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -72,6 +72,14 @@ jobs:
           npx ts-node prisma/demo-content/validate.spec.ts
           npx prisma migrate deploy
           npm run test:e2e -- --runInBand
+
+      - name: Firebase Auth and Learning HTTP E2E
+        env:
+          AUTH_PROVIDER: firebase
+          FIREBASE_PROJECT_ID: demo-lingoroad
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+        run: |
+          npx --yes firebase-tools@14.20.0 emulators:exec --only auth --project demo-lingoroad "npm run test:firebase:e2e --workspace apps/backend && npm run test:learning:e2e --workspace apps/backend"
 
   # ==========================================
   # JOB 2: AI / ML Service CI (FastAPI + PyTorch)

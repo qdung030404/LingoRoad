@@ -233,8 +233,6 @@ void main() {
         final session = SessionController(api);
         await tester.pumpWidget(MyApp(session: session));
         await tester.pumpAndSettle();
-        await tap(tester, find.text('Xem lộ trình mẫu'));
-        await tap(tester, find.byTooltip('Quay lại'));
         await tap(tester, find.byKey(const Key('previewAvatar')));
         expect(find.text('Đăng xuất'), findsOneWidget);
         await tap(tester, find.byKey(const Key('previewLogout')));

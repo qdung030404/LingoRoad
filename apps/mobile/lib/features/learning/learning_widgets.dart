@@ -128,8 +128,9 @@ class LearningPill extends StatelessWidget {
 }
 
 class PreviewLevelBadge extends StatelessWidget {
-  const PreviewLevelBadge({super.key, this.onTap});
+  const PreviewLevelBadge({super.key, this.onTap, this.label = 'A1'});
   final VoidCallback? onTap;
+  final String label;
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
@@ -145,7 +146,7 @@ class PreviewLevelBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        'A1',
+        label,
         maxLines: 1,
         softWrap: false,
         style: designText(14, color: AppColors.primary500),

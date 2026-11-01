@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/main.dart';
+import 'package:mobile/features/placement/placement_pages.dart';
 import 'test_helpers.dart';
 
 // Optional exports are actual widget renders, never runtime backgrounds.
@@ -114,7 +115,18 @@ void main() {
     (tester) async {
       await prepare(tester);
       final api = FakeApi(signedIn: true, completed: true)..index = 1;
-      await app(tester, api);
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: boundaryKey,
+          child: MaterialApp(
+            home: ResultPage(
+              session: SessionController(api),
+              sessionId: 'session',
+              initialResult: testResult(),
+            ),
+          ),
+        ),
+      );
       await capture(tester, 'result');
       expect(find.text('Chưa đánh giá'), findsNWidgets(2));
       await tester.tap(find.text('Xem lại bài làm'));

@@ -26,7 +26,7 @@ export class ChangePasswordUseCase {
 
   async execute(userId: string, dto: ChangePasswordDto): Promise<void> {
     const user = await this.userRepository.findById(userId);
-    if (!user) {
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedException({
         code: 'AUTH_USER_NOT_FOUND',
         message: 'Không tìm thấy thông tin tài khoản.',

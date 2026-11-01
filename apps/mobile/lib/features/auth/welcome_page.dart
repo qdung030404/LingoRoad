@@ -8,7 +8,15 @@ import '../../shared/figma_widgets.dart';
 import '../learning/learning_preview.dart';
 
 class WelcomePage extends StatefulWidget {
-  const WelcomePage({super.key, required this.onEmail, this.onLogout});
+  const WelcomePage({
+    super.key,
+    required this.onEmail,
+    this.onLogout,
+    this.onGoogle,
+    this.authBusy = false,
+  });
+  final VoidCallback? onGoogle;
+  final bool authBusy;
   final VoidCallback onEmail;
   final Future<void> Function()? onLogout;
   @override
@@ -248,19 +256,26 @@ class _WelcomePageState extends State<WelcomePage> {
                                     label: 'Tiếp tục với Apple',
                                     icon: 'apple/imgLogos',
                                     dark: true,
-                                    onPressed: () => _emailNotice(context),
+                                    onPressed: widget.authBusy
+                                        ? null
+                                        : () => _emailNotice(context),
                                   ),
                                   const SizedBox(height: 12),
                                   _SocialButton(
                                     label: 'Tiếp tục với Google',
                                     icon: 'google/imgLogos',
-                                    onPressed: () => _emailNotice(context),
+                                    onPressed: widget.authBusy
+                                        ? null
+                                        : widget.onGoogle ??
+                                              () => _emailNotice(context),
                                   ),
                                   const SizedBox(height: 12),
                                   _SocialButton(
                                     label: 'Tiếp tục với Email',
                                     muted: true,
-                                    onPressed: widget.onEmail,
+                                    onPressed: widget.authBusy
+                                        ? null
+                                        : widget.onEmail,
                                   ),
                                   const SizedBox(height: 24),
                                   const TermsCaption(),
@@ -320,7 +335,7 @@ class _SocialButton extends StatelessWidget {
   });
   final String label;
   final String? icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool dark, muted;
   @override
   Widget build(BuildContext context) => SizedBox(

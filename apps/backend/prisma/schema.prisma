@@ -42,7 +42,8 @@ enum AssessmentSkill {
 model User {
   id           String         @id @default(uuid()) @db.Uuid
   email        String         @unique @db.VarChar(255)
-  passwordHash String         @map("password_hash") @db.VarChar(255)
+  passwordHash String?        @map("password_hash") @db.VarChar(255)
+  firebaseUid  String?        @unique @map("firebase_uid") @db.VarChar(128)
   name         String         @db.VarChar(100)
   role         UserRole       @default(LEARNER)
   status       UserStatus     @default(ACTIVE)
@@ -52,6 +53,7 @@ model User {
   profile           UserProfile?
   refreshSessions   RefreshSession[]
   placementSessions PlacementSession[]
+  learningAttempts  LearningAttempt[]
 
   @@map("users")
 }
@@ -171,4 +173,73 @@ model AssessmentResponse {
   @@unique([sessionId, itemIndex])
   @@unique([sessionId, itemId])
   @@map("assessment_responses")
+}
+
+enum LearningKind {
+  GRAMMAR
+  VOCABULARY
+  READING
+  LISTENING
+}
+
+enum LearningAttemptStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model LearningLesson {
+  id               String       @id @default(uuid()) @db.Uuid
+  code             String       @unique @db.VarChar(100)
+  kind             LearningKind
+  title            String       @db.VarChar(200)
+  description      String       @db.Text
+  estimatedMinutes Int          @map("estimated_minutes")
+  sortOrder        Int          @map("sort_order")
+  published        Boolean      @default(false)
+  contentVersion   Int          @default(1) @map("content_version")
+  content          Json         @db.JsonB
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  attempts         LearningAttempt[]
+
+  @@index([published, sortOrder])
+  @@map("learning_lessons")
+}
+
+model LearningAttempt {
+  id               String                @id @default(uuid()) @db.Uuid
+  userId           String                @map("user_id") @db.Uuid
+  lessonId         String                @map("lesson_id") @db.Uuid
+  status           LearningAttemptStatus @default(IN_PROGRESS)
+  version          Int                   @default(0)
+  phase            String                @default("STUDY") @db.VarChar(10)
+  positionIndex    Int                   @default(0) @map("position_index")
+  lessonSnapshot   Json                  @map("lesson_snapshot") @db.JsonB
+  contentSnapshot  Json                  @map("content_snapshot") @db.JsonB
+  correctCount     Int?                  @map("correct_count")
+  totalQuestions   Int                   @map("total_questions")
+  startedAt        DateTime              @default(now()) @map("started_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  submittedAt      DateTime?             @map("submitted_at")
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson           LearningLesson        @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  answers          LearningAttemptAnswer[]
+
+  @@index([userId, status, updatedAt])
+  @@index([userId, lessonId])
+  @@map("learning_attempts")
+}
+
+model LearningAttemptAnswer {
+  id          String          @id @default(uuid()) @db.Uuid
+  attemptId   String          @map("attempt_id") @db.Uuid
+  questionId  String          @map("question_id") @db.VarChar(100)
+  optionId    String?         @map("option_id") @db.VarChar(100)
+  checked     Boolean         @default(false)
+  isCorrect   Boolean?        @map("is_correct")
+  checkedAt   DateTime?       @map("checked_at")
+  attempt     LearningAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@map("learning_attempt_answers")
 }
