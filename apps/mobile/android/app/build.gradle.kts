@@ -1,10 +1,3 @@
-// Auto-fallback to example configuration in CI / clean dev checkout if real credentials are not present
-val googleServicesFile = file("google-services.json")
-val googleServicesExample = file("google-services.json.example")
-if (!googleServicesFile.exists() && googleServicesExample.exists()) {
-    googleServicesExample.copyTo(googleServicesFile, overwrite = false)
-}
-
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -13,6 +6,13 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Auto-fallback to example configuration in CI / clean dev checkout if real credentials are not present
+val googleServicesFile = file("google-services.json")
+val googleServicesExample = file("google-services.json.example")
+if (!googleServicesFile.exists() && googleServicesExample.exists()) {
+    googleServicesExample.copyTo(googleServicesFile, overwrite = false)
 }
 
 android {
