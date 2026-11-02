@@ -118,9 +118,8 @@ jobs:
 
       - name: Prepare Google Services Configuration for CI
         run: |
-          if [ ! -f apps/mobile/android/app/google-services.json ] && [ -f apps/mobile/android/app/google-services.json.example ]; then
-            cp apps/mobile/android/app/google-services.json.example apps/mobile/android/app/google-services.json
-          fi
+          cp -fv apps/mobile/android/app/google-services.json.example apps/mobile/android/app/google-services.json
+          ls -la apps/mobile/android/app/google-services.json
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -154,6 +153,8 @@ jobs:
       - name: Build Android APK (Test Build Verification)
         run: |
           cd apps/mobile
+          cp -fv android/app/google-services.json.example android/app/google-services.json
+          ls -la android/app/google-services.json
           flutter build apk --debug
 
       - name: Upload Debug APK Artifact

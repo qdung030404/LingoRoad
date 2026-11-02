@@ -12,7 +12,7 @@ plugins {
 val googleServicesFile = file("google-services.json")
 val googleServicesExample = file("google-services.json.example")
 if (!googleServicesFile.exists() && googleServicesExample.exists()) {
-    googleServicesExample.copyTo(googleServicesFile, overwrite = false)
+    googleServicesExample.copyTo(googleServicesFile, overwrite = true)
 }
 
 android {
