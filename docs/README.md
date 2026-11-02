@@ -3,6 +3,7 @@
 | Document (Tài liệu)                                            | Nội dung / What it answers                                        |
 | -------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [first-demo.md](first-demo.md) | Chạy demo tài khoản, hồ sơ, Đọc/Nghe và kết quả kiểm thử |
+| [demo-status-and-audit.md](demo-status-and-audit.md) | Báo cáo trạng thái First Demo, audit Figma UI, khoảng cách CAT-DKT và kiểm thử cục bộ |
 | [mumu-experiment.md](mumu-experiment.md) | Kết nối và kiểm chứng trên MuMu |
 | [figma-ui-implementation.md](figma-ui-implementation.md) | Giao diện Figma, chuyển cảnh và bằng chứng kiểm tra |
 | [figma-learning-preview.md](figma-learning-preview.md) | Các màn học tập dùng fixture và giới hạn nghiệp vụ |
@@ -12,6 +13,7 @@
 | [learning-path-optimization.md](learning-path-optimization.md) | Tối ưu hóa lộ trình học (Greedy, DP, RL)                          |
 | [system-architecture.md](system-architecture.md)               | Kiến trúc toàn hệ thống (Next.js + NestJS + PostgreSQL + Flutter) |
 | [mobile-local-development.md](mobile-local-development.md)     | Hướng dẫn phát triển Mobile trên máy Local                        |
+| [dev-setup.md](dev-setup.md)                                   | Hướng dẫn cài đặt & khởi chạy nhanh các dịch vụ từ Root monorepo  |
 | [api-frontend-gap-analysis.md](api-frontend-gap-analysis.md)   | Đánh giá độ phủ API giữa NestJS Backend và Mobile/Admin Frontend  |
 | [privacy-retention.md](privacy-retention.md)                   | Chính sách bảo mật và lưu trữ dữ liệu                             |
 | [production-deployment.md](production-deployment.md)           | Hướng dẫn Deploy hệ thống lên môi trường thực tế                  |

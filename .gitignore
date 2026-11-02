@@ -59,3 +59,7 @@ ENV/
 opencode.json
 .claude/settings.local.json
 .mcp.json
+
+# Firebase & Secrets
+**/google-services.json
+!**/google-services.json.example

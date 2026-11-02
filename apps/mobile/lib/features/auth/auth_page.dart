@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/app_text_field.dart';
 import '../../shared/figma_widgets.dart';
@@ -18,6 +19,49 @@ class AuthPage extends StatefulWidget {
 
 class _AuthPageState extends State<AuthPage> {
   bool emailOpen = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.session.addListener(_onSessionChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.session.error != null && !emailOpen) {
+        _showErrorSnackBar(widget.session.error!);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(AuthPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session != widget.session) {
+      oldWidget.session.removeListener(_onSessionChanged);
+      widget.session.addListener(_onSessionChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.session.removeListener(_onSessionChanged);
+    super.dispose();
+  }
+
+  void _onSessionChanged() {
+    final error = widget.session.error;
+    if (error != null && mounted && !emailOpen) {
+      _showErrorSnackBar(error);
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error100,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
   Future<void> openEmail() async {
     if (emailOpen) return;
@@ -41,9 +85,7 @@ class _AuthPageState extends State<AuthPage> {
             ),
             child: ClipRRect(
               key: const Key('authSheet'),
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
-              ),
+              borderRadius: AppRadius.bottomSheetRadius,
               child: MediaQuery.removePadding(
                 context: context,
                 removeTop: true,
@@ -73,7 +115,12 @@ class _AuthPageState extends State<AuthPage> {
 
   @override
   Widget build(BuildContext context) =>
-      WelcomePage(onEmail: openEmail, onLogout: widget.session.logout);
+      WelcomePage(
+        onEmail: openEmail,
+        onGoogle: widget.session.authenticateWithGoogle,
+        isGoogleLoading: widget.session.isAuthenticatingGoogle,
+        onLogout: widget.session.logout,
+      );
 }
 
 class _EmailAuthPage extends StatefulWidget {

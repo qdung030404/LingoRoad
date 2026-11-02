@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import 'learning_widgets.dart';
@@ -190,7 +191,7 @@ class _LearningPreviewState extends State<LearningPreview> {
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(44),
+                        borderRadius: AppRadius.pill,
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x180D2249),
@@ -224,7 +225,7 @@ class _LearningPreviewState extends State<LearningPreview> {
                                   child: InkWell(
                                     key: Key('previewTab$i'),
                                     onTap: () => switchTab(i),
-                                    borderRadius: BorderRadius.circular(99),
+                                    borderRadius: AppRadius.buttonRadius,
                                     child: AnimatedContainer(
                                       duration:
                                           MediaQuery.disableAnimationsOf(
@@ -437,7 +438,7 @@ class _LearningPreviewState extends State<LearningPreview> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     border: Border.all(color: AppColors.grey200),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.tagRadius,
                   ),
                   child: Text(
                     model.completed.contains(i == 0 ? 'vocabulary' : 'grammar')
@@ -467,7 +468,7 @@ class _LearningPreviewState extends State<LearningPreview> {
     padding: const EdgeInsets.all(4),
     decoration: BoxDecoration(
       color: AppColors.grey50,
-      borderRadius: BorderRadius.circular(icons == null ? 99 : 12),
+      borderRadius: icons == null ? AppRadius.buttonRadius : AppRadius.cardSm,
     ),
     child: Row(
       children: [
@@ -475,14 +476,14 @@ class _LearningPreviewState extends State<LearningPreview> {
           Expanded(
             child: InkWell(
               onTap: () => onChange(i),
-              borderRadius: BorderRadius.circular(99),
+              borderRadius: AppRadius.buttonRadius,
               child: Container(
                 padding: EdgeInsets.symmetric(
                   vertical: icons == null ? 11.5 : 8,
                 ),
                 decoration: BoxDecoration(
                   color: selected == i ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(icons == null ? 99 : 8),
+                  borderRadius: icons == null ? AppRadius.buttonRadius : AppRadius.tagRadius,
                   boxShadow: selected == i
                       ? const [
                           BoxShadow(
@@ -940,7 +941,7 @@ class _AdjustPlanPageState extends State<AdjustPlanPage> {
             decoration: BoxDecoration(
               color: const Color(0xFFFFF7EA),
               border: Border.all(color: const Color(0xFFE28A00)),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppRadius.cardRadius,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mobile/core/api/api_client.dart';
+import 'package:mobile/core/theme/app_radius.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/main.dart';
 import 'test_helpers.dart';
@@ -71,7 +73,7 @@ void main() {
       expect(tester.getTopLeft(sheet).dy, greaterThan(0));
       expect(
         tester.widget<ClipRRect>(sheet).borderRadius,
-        const BorderRadius.vertical(top: Radius.circular(24)),
+        AppRadius.bottomSheetRadius,
       );
       expect(find.text('Học tiếng anh\nmọi nơi'), findsOneWidget);
       expect(
@@ -129,6 +131,106 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Tiếp tục với Email'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'authenticateWithGoogle logs in successfully with injected token provider',
+    (tester) async {
+      final api = FakeApi(onboarding: true);
+      final session = SessionController(
+        api,
+        googleTokenProvider: () async => 'mock-google-id-token',
+        socialSignOut: () async {},
+      );
+
+      await tester.pumpWidget(MyApp(session: session));
+      await tester.pumpAndSettle();
+
+      await session.authenticateWithGoogle();
+      await tester.pumpAndSettle();
+
+      expect(session.stage, SessionStage.onboarding);
+      expect(session.error, isNull);
+      expect(api.accessToken, 'access');
+      expect(find.text('Mục tiêu của bạn'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'authenticateWithGoogle captures error when token provider fails',
+    (tester) async {
+      final api = FakeApi();
+      final session = SessionController(
+        api,
+        googleTokenProvider: () async => null,
+        socialSignOut: () async {},
+      );
+
+      await tester.pumpWidget(MyApp(session: session));
+      await tester.pumpAndSettle();
+
+      await session.authenticateWithGoogle();
+      await tester.pumpAndSettle();
+
+      expect(session.stage, SessionStage.signedOut);
+      expect(session.error, 'Không thể lấy Firebase ID Token');
+      expect(find.text('Không thể lấy Firebase ID Token'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'authenticateWithGoogle handles canceled sign-in cleanly without error',
+    (tester) async {
+      final api = FakeApi();
+      final session = SessionController(
+        api,
+        googleTokenProvider: () async => throw GoogleSignInException(
+          code: GoogleSignInExceptionCode.canceled,
+          description: 'Canceled by user',
+        ),
+        socialSignOut: () async {},
+      );
+
+      await tester.pumpWidget(MyApp(session: session));
+      await tester.pumpAndSettle();
+
+      await session.authenticateWithGoogle();
+      await tester.pumpAndSettle();
+
+      expect(session.stage, SessionStage.signedOut);
+      expect(session.error, isNull);
+    },
+  );
+
+  testWidgets(
+    'authenticateWithGoogle shows inline progress and keeps welcome mounted during auth',
+    (tester) async {
+      final completer = Completer<String?>();
+      final api = FakeApi(onboarding: true);
+      final session = SessionController(
+        api,
+        googleTokenProvider: () => completer.future,
+        socialSignOut: () async {},
+      );
+
+      await tester.pumpWidget(MyApp(session: session));
+      await tester.pumpAndSettle();
+
+      final authFuture = session.authenticateWithGoogle();
+      await tester.pump();
+
+      expect(session.isAuthenticatingGoogle, isTrue);
+      expect(session.stage, SessionStage.signedOut);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Tiếp tục với Google'), findsOneWidget);
+
+      completer.complete('mock-token');
+      await authFuture;
+      await tester.pumpAndSettle();
+
+      expect(session.isAuthenticatingGoogle, isFalse);
+      expect(session.stage, SessionStage.onboarding);
     },
   );
 }

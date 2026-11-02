@@ -17,6 +17,10 @@ class AppRadius {
   );
   static const BorderRadius inputRadius = BorderRadius.all(Radius.circular(99));
   static const BorderRadius cardRadius = BorderRadius.all(Radius.circular(16));
+  static const BorderRadius cardSm = BorderRadius.all(Radius.circular(12));
+  static const BorderRadius cardMd = cardRadius;
+  static const BorderRadius tagRadius = BorderRadius.all(Radius.circular(8));
+  static const BorderRadius pill = BorderRadius.all(Radius.circular(full));
   static const BorderRadius dialogRadius = BorderRadius.all(
     Radius.circular(xl),
   );

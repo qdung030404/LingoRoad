@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import 'learning_widgets.dart';
@@ -99,7 +100,7 @@ class VocabularyLessonPage extends StatelessWidget {
           learningBody('Gia đình và các mối quan hệ', size: 14),
           const SizedBox(height: 16),
           ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.cardRadius,
             child: const FigmaAsset(
               'vocabulary-lesson/imgImage59',
               width: double.infinity,
@@ -253,7 +254,7 @@ class _VocabularyWordPageState extends State<VocabularyWordPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.tagRadius,
                     child: SizedBox(
                       height: 180,
                       width: double.infinity,
