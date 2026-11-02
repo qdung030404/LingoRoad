@@ -33,6 +33,13 @@ export class ChangePasswordUseCase {
       });
     }
 
+    if (!user.passwordHash) {
+      throw new BadRequestException({
+        code: 'AUTH_PASSWORD_NOT_SET',
+        message: 'Tài khoản được đăng ký qua tài khoản xã hội và chưa thiết lập mật khẩu.',
+      });
+    }
+
     const isOldMatch = await this.passwordService.verify(user.passwordHash, dto.oldPassword);
     if (!isOldMatch) {
       throw new BadRequestException({

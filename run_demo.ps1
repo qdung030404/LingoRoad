@@ -23,7 +23,7 @@ try {
     $ready = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
         if ($backendProcess.HasExited) { throw 'Backend dừng. Xem .demo/backend-error.log.' }
-        try { $health = Invoke-RestMethod -Uri 'http://127.0.0.1:3000/health'; $ready = $true; break }
+        try { $null = Invoke-RestMethod -Uri 'http://127.0.0.1:3000/health'; $ready = $true; break }
         catch { Start-Sleep -Milliseconds 500 }
     }
     if (-not $ready) { throw 'Backend chưa sẵn sàng ở cổng 3000.' }

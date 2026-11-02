@@ -1,8 +1,18 @@
 plugins {
     id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Auto-fallback to example configuration in CI / clean dev checkout if real credentials are not present
+val googleServicesFile = file("google-services.json")
+val googleServicesExample = file("google-services.json.example")
+if (!googleServicesFile.exists() && googleServicesExample.exists()) {
+    googleServicesExample.copyTo(googleServicesFile, overwrite = true)
 }
 
 android {
@@ -15,8 +25,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        }
     }
 
     defaultConfig {

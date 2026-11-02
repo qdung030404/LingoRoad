@@ -3,13 +3,22 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../core/theme/figma_assets.dart';
 import '../../shared/figma_widgets.dart';
 import '../learning/learning_preview.dart';
 
 class WelcomePage extends StatefulWidget {
-  const WelcomePage({super.key, required this.onEmail, this.onLogout});
+  const WelcomePage({
+    super.key,
+    required this.onEmail,
+    this.onGoogle,
+    this.isGoogleLoading = false,
+    this.onLogout,
+  });
   final VoidCallback onEmail;
+  final VoidCallback? onGoogle;
+  final bool isGoogleLoading;
   final Future<void> Function()? onLogout;
   @override
   State<WelcomePage> createState() => _WelcomePageState();
@@ -174,7 +183,7 @@ class _WelcomePageState extends State<WelcomePage> {
                               ),
                               decoration: BoxDecoration(
                                 color: AppColors.grey5,
-                                borderRadius: BorderRadius.circular(24),
+                                borderRadius: AppRadius.dialogRadius,
                                 boxShadow: const [
                                   BoxShadow(
                                     color: Color(0x0F0D2249),
@@ -260,7 +269,8 @@ class _WelcomePageState extends State<WelcomePage> {
                                   _SocialButton(
                                     label: 'Tiếp tục với Google',
                                     icon: 'google/imgLogos',
-                                    onPressed: () => _emailNotice(context),
+                                    isLoading: widget.isGoogleLoading,
+                                    onPressed: widget.onGoogle ?? () => _emailNotice(context),
                                   ),
                                   const SizedBox(height: 12),
                                   _SocialButton(
@@ -323,11 +333,12 @@ class _SocialButton extends StatelessWidget {
     this.icon,
     this.dark = false,
     this.muted = false,
+    this.isLoading = false,
   });
   final String label;
   final String? icon;
   final VoidCallback onPressed;
-  final bool dark, muted;
+  final bool dark, muted, isLoading;
   @override
   Widget build(BuildContext context) => SizedBox(
     height: 48,
@@ -346,11 +357,21 @@ class _SocialButton extends StatelessWidget {
             : BorderSide.none,
         shape: const StadiumBorder(),
       ),
-      onPressed: onPressed,
+      onPressed: isLoading ? null : onPressed,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (icon != null) ...[
+          if (isLoading) ...[
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: dark ? Colors.white : AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ] else if (icon != null) ...[
             FigmaAsset(icon!, size: 20),
             const SizedBox(width: 8),
           ],
@@ -433,7 +454,7 @@ class _WelcomeArt extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: AppColors.grey5,
-              borderRadius: BorderRadius.circular(99),
+              borderRadius: AppRadius.buttonRadius,
             ),
             child: Text.rich(
               TextSpan(
@@ -458,7 +479,7 @@ class _WelcomeArt extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.grey5,
-              borderRadius: BorderRadius.circular(99),
+              borderRadius: AppRadius.buttonRadius,
             ),
             child: Row(
               children: [
@@ -512,7 +533,7 @@ class _WelcomeArt extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.grey5,
-              borderRadius: BorderRadius.circular(99),
+              borderRadius: AppRadius.buttonRadius,
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -551,7 +572,7 @@ class _WelcomeArt extends StatelessWidget {
       padding: EdgeInsets.all(12 * scale),
       decoration: BoxDecoration(
         color: AppColors.grey5,
-        borderRadius: BorderRadius.circular(99),
+        borderRadius: AppRadius.buttonRadius,
       ),
       child: Row(
         children: [

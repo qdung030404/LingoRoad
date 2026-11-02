@@ -32,6 +32,12 @@ class AppConfig {
   final String apiBaseUrl;
   final String environment;
 
+  static const String googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue:
+        '741177056758-hsr0l8gk3avp17ui9ef42fhsdjhj47u3.apps.googleusercontent.com',
+  );
+
   Uri resolve(String path) {
     final normalizedPath = path.startsWith('/') ? path : '/$path';
     return Uri.parse('$apiBaseUrl$normalizedPath');

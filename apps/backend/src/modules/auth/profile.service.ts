@@ -4,6 +4,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 
 const safeAccount = {
   id: true, name: true, email: true, role: true, status: true,
+  avatarUrl: true, provider: true,
   createdAt: true, profile: true,
 } as const;
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../core/api/api_client.dart';
+import '../core/theme/app_spacing.dart';
 import '../shared/app_button.dart';
 
 String errorMessage(Object error) =>
@@ -15,13 +16,13 @@ class PageBody extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: AppSpacing.cardPadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final child in children)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
                   child: child,
                 ),
             ],
@@ -126,7 +127,7 @@ class BrandHeading extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       Icon(icon, size: 60, color: Theme.of(context).colorScheme.primary),
-      const SizedBox(height: 24),
+      const SizedBox(height: AppSpacing.lg),
       Text(
         title,
         style: Theme.of(
