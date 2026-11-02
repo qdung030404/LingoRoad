@@ -1,3 +1,10 @@
+// Auto-fallback to example configuration in CI / clean dev checkout if real credentials are not present
+val googleServicesFile = file("google-services.json")
+val googleServicesExample = file("google-services.json.example")
+if (!googleServicesFile.exists() && googleServicesExample.exists()) {
+    googleServicesExample.copyTo(googleServicesFile, overwrite = false)
+}
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration

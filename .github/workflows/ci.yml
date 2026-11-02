@@ -145,6 +145,12 @@ jobs:
           cd apps/mobile
           flutter test
 
+      - name: Prepare Google Services Configuration for CI
+        run: |
+          if [ ! -f apps/mobile/android/app/google-services.json ] && [ -f apps/mobile/android/app/google-services.json.example ]; then
+            cp apps/mobile/android/app/google-services.json.example apps/mobile/android/app/google-services.json
+          fi
+
       - name: Build Android APK (Test Build Verification)
         run: |
           cd apps/mobile
