@@ -464,7 +464,44 @@ PowerShell admin:
 Remove-NetFirewallRule -DisplayName $ruleName
 ```
 
-## 6. Build và cài APK
+## 6. Cấu hình Firebase (google-services.json) cho Android
+
+Để ứng dụng Android tương tác với Firebase Authentication và đăng nhập Google trên máy local, cần thiết lập tệp cấu hình tại:
+`apps/mobile/android/app/google-services.json`
+
+> **Lưu ý:** Tệp `google-services.json` được đưa vào `.gitignore` để bảo vệ khóa API và thông tin dự án. Dự án cung cấp sẵn tệp mẫu an toàn `google-services.json.example`.
+
+### Tùy chọn 1: Chạy nhanh trên Local (Fallback tự động)
+- Gradle của dự án (`apps/mobile/android/app/build.gradle.kts`) đã cấu hình sẵn cơ chế tự động: nếu chưa có tệp `google-services.json`, tác vụ build sẽ tự động sao chép từ `google-services.json.example` sang `google-services.json`.
+- Bạn cũng có thể chủ động sao chép thủ công:
+  ```powershell
+  Copy-Item apps/mobile/android/app/google-services.json.example apps/mobile/android/app/google-services.json
+  ```
+- *Mục đích:* Đảm bảo ứng dụng compile, build và chạy mượt mà ngay trên máy mới mà không gặp lỗi thiếu tệp dịch vụ Google.
+
+### Tùy chọn 2: Cấu hình Firebase để kiểm thử Đăng nhập Google thật
+Nếu bạn cần kiểm thử luồng đăng nhập Google và trao đổi token với Backend:
+1. **Lấy mã băm SHA-1 của Debug Keystore trên máy:**
+   ```powershell
+   cd apps/mobile/android
+   ./gradlew signingReport
+   ```
+   *(Hoặc dùng keytool: `keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android`)*. Tìm biến thể `debug` và sao chép mã `SHA1`.
+2. **Đăng ký Android App trên Firebase Console:**
+   - Mở [Firebase Console](https://console.firebase.google.com/) và chọn project của bạn (hoặc project `lingoroad-7fb29`).
+   - Đăng ký Android app với **Package name**: `com.example.mobile` (khớp với `applicationId` và `namespace` trong `apps/mobile/android/app/build.gradle.kts`).
+   - Dán mã **SHA-1** vào mục chứng chỉ vân tay và lưu.
+3. **Bật xác thực Google Sign-In:**
+   - Trong Firebase Console, vào **Authentication** > **Sign-in method** > kích hoạt **Google**.
+   - Lấy mã **Web client ID** (chuỗi kết thúc bằng `.apps.googleusercontent.com`).
+4. **Tải và lưu tệp cấu hình:**
+   - Tải tệp `google-services.json` từ Firebase Console.
+   - Di chuyển và lưu đúng vào: `apps/mobile/android/app/google-services.json` (ghi đè tệp cũ nếu có).
+5. **Đồng bộ Client & Backend:**
+   - **Client:** Khởi chạy với tham số `--dart-define=GOOGLE_SERVER_CLIENT_ID=<WEB_CLIENT_ID>` (hoặc dùng `run_mobile.ps1 -GoogleServerClientId <WEB_CLIENT_ID>`).
+   - **Backend:** Cập nhật các biến `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` trong `apps/backend/.env` để backend NestJS giải mã và xác minh ID Token.
+
+## 7. Build và cài APK
 
 Truyền cùng `API_BASE_URL` khi build vì `--dart-define` được nhúng vào APK:
 
