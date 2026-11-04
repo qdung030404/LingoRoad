@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { MlModule } from './modules/ml/ml.module';
 import { PlacementModule } from './modules/placement/placement.module';
 import { LearningModule } from './modules/learning/learning.module';
+import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -35,6 +36,7 @@ import { HealthController } from './health.controller';
     MlModule,
     PlacementModule,
     LearningModule,
+    VocabularyModule,
   ],
 })
 export class AppModule {}

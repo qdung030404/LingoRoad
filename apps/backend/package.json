@@ -22,6 +22,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "test:firebase:e2e": "node --test test/firebase-auth.e2e.cjs",
     "test:learning:e2e": "node --test test/learning.e2e.cjs",
+    "test:daily:e2e": "node --test test/daily-progress.e2e.cjs",
+    "test:vocabulary:e2e": "node --test test/vocabulary.e2e.cjs",
     "seed:demo": "ts-node prisma/seed-placement.ts",
     "seed:learning": "ts-node prisma/seed-learning.ts",
     "seed:learning:validate": "ts-node prisma/seed-learning.ts --validate",

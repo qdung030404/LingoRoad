@@ -83,6 +83,8 @@ describe('RegisterUseCase', () => {
         userId: 'uuid-user-1',
         targetCefr: CefrLevel.B1,
         dailyGoalMinutes: 15,
+        preferredKinds: ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'],
+        preferencesVersion: 0,
         reminderEnabled: true,
         updatedAt: new Date('2026-10-08T00:00:00Z'),
       },

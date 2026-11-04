@@ -12,9 +12,10 @@ import { LogoutAllUseCase } from './use-cases/logout-all.use-case';
 import { ChangePasswordUseCase } from './use-cases/change-password.use-case';
 import { ProfileService } from './profile.service';
 import { FirebaseAuthModule } from './firebase/firebase-auth.module';
+import { PlanningModule } from '../planning/planning.module';
 
 @Module({
-  imports: [FirebaseAuthModule, PassportModule.register({ defaultStrategy: 'jwt' })],
+  imports: [FirebaseAuthModule, PlanningModule, PassportModule.register({ defaultStrategy: 'jwt' })],
   controllers: [AuthController],
   providers: [
     JwtStrategy,

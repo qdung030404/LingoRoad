@@ -79,7 +79,7 @@ jobs:
           FIREBASE_PROJECT_ID: demo-lingoroad
           FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
         run: |
-          npx --yes firebase-tools@14.20.0 emulators:exec --only auth --project demo-lingoroad "npm run test:firebase:e2e --workspace apps/backend && npm run test:learning:e2e --workspace apps/backend"
+          npx --yes firebase-tools@14.20.0 emulators:exec --only auth --project demo-lingoroad "npm run test:firebase:e2e --workspace apps/backend && npm run test:learning:e2e --workspace apps/backend && npm run test:daily:e2e --workspace apps/backend && npm run test:vocabulary:e2e --workspace apps/backend"
 
   # ==========================================
   # JOB 2: AI / ML Service CI (FastAPI + PyTorch)

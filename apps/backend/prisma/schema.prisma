@@ -54,6 +54,11 @@ model User {
   refreshSessions   RefreshSession[]
   placementSessions PlacementSession[]
   learningAttempts  LearningAttempt[]
+  dayPlans          LearningDayPlan[]
+  activitySessions  LearningActivitySession[]
+  vocabularyDecks VocabularyDeck[]
+  vocabularyReviews VocabularyReviewAttempt[]
+  vocabularyReceipts VocabularyCommandReceipt[]
 
   @@map("users")
 }
@@ -63,6 +68,8 @@ model UserProfile {
   userId           String    @unique @map("user_id") @db.Uuid
   targetCefr       CefrLevel @default(B1) @map("target_cefr")
   dailyGoalMinutes Int       @default(10) @map("daily_goal_minutes")
+  preferredKinds LearningKind[] @default([GRAMMAR, VOCABULARY, READING, LISTENING]) @map("preferred_kinds")
+  preferencesVersion Int @default(0) @map("preferences_version")
   learningPurpose LearningPurpose? @map("learning_purpose")
   selfAssessedCefr CefrLevel? @map("self_assessed_cefr")
   onboardingCompletedAt DateTime? @map("onboarding_completed_at")
@@ -224,6 +231,7 @@ model LearningAttempt {
   user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   lesson           LearningLesson        @relation(fields: [lessonId], references: [id], onDelete: Restrict)
   answers          LearningAttemptAnswer[]
+  activitySessions LearningActivitySession[]
 
   @@index([userId, status, updatedAt])
   @@index([userId, lessonId])
@@ -242,4 +250,147 @@ model LearningAttemptAnswer {
 
   @@unique([attemptId, questionId])
   @@map("learning_attempt_answers")
+}
+
+model LearningDayPlan {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  date String @db.VarChar(10)
+  version Int @default(0)
+  preferencesVersion Int @map("preferences_version")
+  dailyGoalMinutes Int @map("daily_goal_minutes")
+  items Json @db.JsonB
+  policyVersion String @default("baseline-v1") @map("policy_version")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, date])
+  @@map("learning_day_plans")
+}
+
+model LearningActivitySession {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  attemptId String @map("attempt_id") @db.Uuid
+  clientRunId String @map("client_run_id") @db.Uuid
+  anchorAt DateTime @default(now()) @map("anchor_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt LearningAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  segments LearningActivitySegment[]
+  @@unique([userId, attemptId, clientRunId])
+  @@index([userId, anchorAt])
+  @@map("learning_activity_sessions")
+}
+
+model LearningActivitySegment {
+  id String @id @default(uuid()) @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+  seq Int
+  startOffsetMs Int @map("start_offset_ms")
+  endOffsetMs Int @map("end_offset_ms")
+  startAt DateTime? @map("start_at")
+  endAt DateTime? @map("end_at")
+  session LearningActivitySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  @@unique([sessionId, seq])
+  @@index([startAt, endAt])
+  @@map("learning_activity_segments")
+}
+
+model VocabularyDeck {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  name String @db.VarChar(60)
+  version Int @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  words VocabularyWord[]
+  reviews VocabularyReviewAttempt[]
+  @@index([userId, deletedAt, createdAt, id])
+  @@map("vocabulary_decks")
+}
+
+model VocabularyWord {
+  id String @id @default(uuid()) @db.Uuid
+  deckId String @map("deck_id") @db.Uuid
+  english String @db.VarChar(100)
+  meaning String @db.VarChar(500)
+  phonetic String @default("") @db.VarChar(100)
+  partOfSpeech String @default("") @map("part_of_speech") @db.VarChar(50)
+  example String @default("") @db.VarChar(1000)
+  translation String @default("") @db.VarChar(1000)
+  acceptedAnswers String[] @map("accepted_answers")
+  contentVersion Int @default(1) @map("content_version")
+  version Int @default(0)
+  learningState String @default("NEEDS_REVIEW") @map("learning_state") @db.VarChar(20)
+  lastPresentedAt DateTime? @map("last_presented_at")
+  lastReviewedAt DateTime? @map("last_reviewed_at")
+  lastReviewItemId String? @map("last_review_item_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  deck VocabularyDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  reviewItems VocabularyReviewItem[]
+  @@index([deckId, deletedAt, createdAt, id])
+  @@map("vocabulary_words")
+}
+
+model VocabularyReviewAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  deckId String @map("deck_id") @db.Uuid
+  scope String @db.VarChar(20)
+  status String @default("IN_PROGRESS") @db.VarChar(20)
+  version Int @default(0)
+  deckSnapshot Json @map("deck_snapshot") @db.JsonB
+  queue String[] @db.Uuid
+  phase String @default("FRONT") @db.VarChar(20)
+  remainingEligibleCount Int @default(0) @map("remaining_eligible_count")
+  startedAt DateTime @default(now()) @map("started_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  submittedAt DateTime? @map("submitted_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deck VocabularyDeck @relation(fields: [deckId], references: [id], onDelete: Restrict)
+  items VocabularyReviewItem[]
+  @@index([userId, startedAt, id])
+  @@map("vocabulary_review_attempts")
+}
+
+model VocabularyReviewItem {
+  id String @id @default(uuid()) @db.Uuid
+  attemptId String @map("attempt_id") @db.Uuid
+  wordId String @map("word_id") @db.Uuid
+  initialOrdinal Int @map("initial_ordinal")
+  wordContentVersion Int @map("word_content_version")
+  wordSnapshot Json @map("word_snapshot") @db.JsonB
+  state String @default("PENDING") @db.VarChar(20)
+  draft String @default("") @db.VarChar(1000)
+  checkedAnswer String? @map("checked_answer") @db.VarChar(1000)
+  normalizedAnswer String? @map("normalized_answer") @db.VarChar(1000)
+  normalizationVersion String? @map("normalization_version") @db.VarChar(10)
+  isCorrect Boolean? @map("is_correct")
+  checkedAt DateTime? @map("checked_at")
+  rating String? @db.VarChar(10)
+  resultSource String? @map("result_source") @db.VarChar(30)
+  finalizedAt DateTime? @map("finalized_at")
+  attempt VocabularyReviewAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  word VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Restrict)
+  @@unique([attemptId, wordId])
+  @@map("vocabulary_review_items")
+}
+
+model VocabularyCommandReceipt {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  commandId String @map("command_id") @db.Uuid
+  action String @db.VarChar(40)
+  targetId String @map("target_id")
+  canonicalPayloadHash String @map("canonical_payload_hash") @db.VarChar(64)
+  appliedVersion Int? @map("applied_version")
+  result Json @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, commandId])
+  @@map("vocabulary_command_receipts")
 }

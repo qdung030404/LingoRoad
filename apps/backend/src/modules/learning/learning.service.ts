@@ -1,10 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { LearningAttempt, LearningAttemptAnswer, LearningLesson, Prisma } from '@prisma/client';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
 import { CheckLearningAnswerDto, LearningProgressDto } from './learning.dto';
 import { LearningContent, LessonSnapshot, validateLearningContent } from './learning.types';
+import { PlanningService } from '../planning/planning.service';
 
 type Attempt = LearningAttempt & { answers: LearningAttemptAnswer[] };
 const includeAnswers = { answers: true } as const;
@@ -19,7 +20,7 @@ export function learningMediaRoot(): string {
 /** All learner mutations use an attempt version; answer locks are permanent. */
 @Injectable()
 export class LearningService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, @Optional() private readonly planning?: PlanningService) {}
 
   private conflict(): never {
     throw new ConflictException({ code: 'LEARNING_STATE_CONFLICT', message: 'Bài học đã thay đổi trên thiết bị khác. Vui lòng tải lại.' });
@@ -222,6 +223,7 @@ export class LearningService {
   }
 
   async summary(userId: string) {
+    if (this.planning) return this.planning.summary(userId);
     const [catalogue, attempts] = await Promise.all([this.catalogue(userId), this.prisma.learningAttempt.findMany({ where: { userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }] })]);
     const completed = attempts.filter((attempt) => attempt.status === 'COMPLETED');
     const active = attempts.filter((attempt) => attempt.status === 'IN_PROGRESS');
