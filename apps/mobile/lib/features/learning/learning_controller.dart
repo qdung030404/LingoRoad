@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import 'learning_repository.dart';
+import 'daily_learning.dart';
+import 'activity_collector.dart';
 
 /// Owns one learner's server state. Pending edits never become graded answers.
 class LearningController extends ChangeNotifier {
@@ -11,10 +13,15 @@ class LearningController extends ChangeNotifier {
     required this.repository,
     required this.accountId,
     this.isAccountCurrent,
+    this.daily,
   });
   final LearningRepository repository;
   final String accountId;
   final bool Function()? isAccountCurrent;
+  final DailyLearningController? daily;
+  ActivityOutbox? _activity;
+  ActivityOutbox? get activity =>
+      daily == null ? null : (_activity ??= ActivityOutbox(owner: daily!));
   List<LearningLesson> lessons = [];
   Json summary = {};
   bool loading = false;
@@ -42,6 +49,7 @@ class LearningController extends ChangeNotifier {
         result[0]['items'],
       ).map(LearningLesson.new).toList();
       summary = result[1];
+      await daily?.refresh();
     } catch (e) {
       if (active && epoch == _epoch) {
         error = e is ApiFailure
@@ -57,7 +65,10 @@ class LearningController extends ChangeNotifier {
   }
 
   LearningLesson? get continueLesson {
-    final id = summary['continueLessonId'];
+    final id = daily?.plan?['continueLessonId'] ?? summary['continueLessonId'];
+    if (daily?.plan != null && daily!.plan!['continueLessonId'] == null) {
+      return null;
+    }
     for (final lesson in lessons) {
       if (lesson.id == id) return lesson;
     }

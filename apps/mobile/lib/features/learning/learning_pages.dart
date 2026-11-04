@@ -8,6 +8,7 @@ import '../../shared/figma_widgets.dart';
 import 'learning_controller.dart';
 import 'learning_repository.dart';
 import 'learning_widgets.dart';
+import 'activity_collector.dart';
 
 String learningKindLabel(String kind) => switch (kind) {
   'GRAMMAR' => 'Ngữ pháp',
@@ -203,22 +204,67 @@ class LearningAttemptPage extends StatefulWidget {
 class _LearningAttemptPageState extends State<LearningAttemptPage>
     with WidgetsBindingObserver {
   late final controller = LearningAttemptController(owner: widget.owner);
+  ActivityCollector? activity;
   bool _leaving = false;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    controller.addListener(_attemptChanged);
     controller.load(lessonId: widget.lessonId, attemptId: widget.attemptId);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) controller.flush();
+    if (state != AppLifecycleState.resumed) {
+      controller.flush();
+      activity?.pause();
+    } else {
+      activity?.resume();
+    }
+  }
+
+  void _attemptChanged() {
+    final attempt = controller.attempt;
+    if (attempt == null || controller.loading) return;
+    if (attempt.completed) {
+      activity?.finish();
+      return;
+    }
+    if (activity?.attemptId == attempt.id) return;
+    activity?.dispose();
+    final outbox = widget.owner.activity;
+    if (outbox == null) return;
+    activity = ActivityCollector(
+      outbox: outbox,
+      attemptId: attempt.id,
+      isEligible: () =>
+          mounted &&
+          ModalRoute.of(context)?.isCurrent == true &&
+          !controller.loading &&
+          controller.attempt?.completed == false,
+    );
+    activity!.addListener(_activityChanged);
+    activity!.start();
+  }
+
+  void _activityChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _checkpointActivity() async {
+    try {
+      await activity?.checkpoint().timeout(const Duration(seconds: 2));
+    } on TimeoutException {
+      /* Durable outbox continues uploading independently. */
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    controller.removeListener(_attemptChanged);
+    activity?.dispose();
     controller.dispose();
     super.dispose();
   }
@@ -226,6 +272,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
   Future<void> leave() async {
     if (_leaving) return;
     _leaving = true;
+    await _checkpointActivity();
     await controller.flush();
     if (mounted) Navigator.pop(context);
   }
@@ -265,151 +312,179 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
       final checked = answer?['checked'] == true;
       final blocked = controller.busy || controller.syncing;
       final last = index == items.length - 1;
-      return PopScope(
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) leave();
-        },
-        child: FigmaPage(
-          title: attempt.lesson.title,
-          titleStyle: designHeading(18),
-          leading: IconButton(
-            tooltip: 'Lưu và thoát',
-            onPressed: leave,
-            icon: const Icon(Icons.arrow_back),
-          ),
-          bottom: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (controller.unsynced)
-                Text(
-                  'Chưa đồng bộ · Bản nháp đã giữ trên thiết bị',
-                  style: designText(12, color: AppColors.grey800),
-                ),
-              if (controller.error != null)
-                LearningError(controller.error!, retry: controller.retry),
-              if (controller.notice != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(controller.notice!, style: designText(12)),
-                ),
-              Row(
-                children: [
-                  SizedBox(
-                    width: 48,
-                    child: CustomAppButton(
-                      text: '',
-                      isSecondary: true,
-                      icon: const Icon(Icons.chevron_left),
-                      onPressed: blocked || index == 0
-                          ? null
-                          : () => controller.move(
-                              study ? 'STUDY' : 'QUIZ',
-                              index - 1,
-                            ),
-                    ),
+      return Listener(
+        onPointerDown: (_) => activity?.touch(),
+        onPointerMove: (_) => activity?.touch(),
+        onPointerSignal: (_) => activity?.touch(),
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) leave();
+          },
+          child: FigmaPage(
+            title: attempt.lesson.title,
+            titleStyle: designHeading(18),
+            leading: IconButton(
+              tooltip: 'Lưu và thoát',
+              onPressed: leave,
+              icon: const Icon(Icons.arrow_back),
+            ),
+            bottom: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (controller.unsynced)
+                  Text(
+                    'Chưa đồng bộ · Bản nháp đã giữ trên thiết bị',
+                    style: designText(12, color: AppColors.grey800),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: CustomAppButton(
-                      key: const Key('learningPrimaryAction'),
-                      isLoading: controller.busy,
-                      text: study
-                          ? (last ? 'Bắt đầu luyện tập' : 'Tiếp theo')
-                          : (!checked
-                                ? 'Kiểm tra'
-                                : (last ? 'Nộp bài' : 'Tiếp theo')),
-                      onPressed:
-                          blocked ||
-                              (!study &&
-                                  !checked &&
-                                  controller.selected(questionId!) == null)
-                          ? null
-                          : () {
-                              if (study) {
-                                controller.move(
-                                  last ? 'QUIZ' : 'STUDY',
-                                  last ? 0 : index + 1,
-                                );
-                              } else if (!checked) {
-                                controller.check(questionId!);
-                              } else if (last) {
-                                controller.submit();
-                              } else {
-                                controller.move('QUIZ', index + 1);
-                              }
-                            },
-                    ),
+                if ((widget.owner.activity?.pendingSeconds ?? 0) > 0)
+                  Text(
+                    'Chờ đồng bộ thời gian: ${widget.owner.activity!.pendingSeconds} giây',
+                    key: const Key('activityPending'),
+                    style: designText(12),
                   ),
-                ],
-              ),
-            ],
-          ),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              PreviewProgress(
-                index: index,
-                total: items.length,
-                label: '${study ? 'Học' : 'Câu'} ${index + 1}/${items.length}',
-              ),
-              if (study)
-                LearningCard(
+                if (activity?.error != null)
+                  LearningError(activity!.error!, retry: activity!.start),
+                if (widget.owner.activity?.error != null)
+                  LearningError(
+                    widget.owner.activity!.error!,
+                    retry: () => widget.owner.activity!.flush(),
+                  ),
+                if (controller.error != null)
+                  LearningError(controller.error!, retry: controller.retry),
+                if (controller.notice != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(controller.notice!, style: designText(12)),
+                  ),
+                Row(
                   children: [
-                    learningHeading(
-                      item['word'] as String? ?? item['title'] as String,
-                      size: 28,
+                    SizedBox(
+                      width: 48,
+                      child: CustomAppButton(
+                        text: '',
+                        isSecondary: true,
+                        icon: const Icon(Icons.chevron_left),
+                        onPressed: blocked || index == 0
+                            ? null
+                            : () => controller.move(
+                                study ? 'STUDY' : 'QUIZ',
+                                index - 1,
+                              ),
+                      ),
                     ),
-                    if (item['phonetic'] case final String text)
-                      learningBody(text),
-                    if (item['audioUrl'] case final String url)
-                      LearningAudio(
-                        key: ValueKey('${attempt.id}-step-${item['id']}'),
-                        url: widget.owner.repository.audioUrl(url),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: CustomAppButton(
+                        key: const Key('learningPrimaryAction'),
+                        isLoading: controller.busy,
+                        text: study
+                            ? (last ? 'Bắt đầu luyện tập' : 'Tiếp theo')
+                            : (!checked
+                                  ? 'Kiểm tra'
+                                  : (last ? 'Nộp bài' : 'Tiếp theo')),
+                        onPressed:
+                            blocked ||
+                                (!study &&
+                                    !checked &&
+                                    controller.selected(questionId!) == null)
+                            ? null
+                            : () async {
+                                await activity?.touch();
+                                if (study) {
+                                  controller.move(
+                                    last ? 'QUIZ' : 'STUDY',
+                                    last ? 0 : index + 1,
+                                  );
+                                } else if (!checked) {
+                                  controller.check(questionId!);
+                                } else if (last) {
+                                  await _checkpointActivity();
+                                  await controller.submit();
+                                } else {
+                                  controller.move('QUIZ', index + 1);
+                                }
+                              },
                       ),
-                    if (item['meaning'] case final String text)
-                      learningHeading(text),
-                    learningBody(item['body'] as String? ?? '', size: 18),
-                    if (item['example'] case final String text)
-                      learningBody(text, size: 18),
+                    ),
                   ],
-                )
-              else ...[
-                if (attempt.content['passage'] case final String passage) ...[
-                  LearningCard(children: [learningBody(passage, size: 18)]),
-                  const SizedBox(height: 16),
-                ],
-                if (attempt.content['audioUrl'] case final String url) ...[
-                  LearningCard(
-                    children: [
-                      LearningAudio(
-                        key: ValueKey('${attempt.id}-$questionId'),
-                        url: widget.owner.repository.audioUrl(url),
-                      ),
-                      learningBody('Nghe lại và tua không giới hạn.', size: 12),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                learningHeading(item['prompt'] as String, size: 24),
-                const SizedBox(height: 16),
-                for (final option in learningItems(item['options'])) ...[
-                  _answerOption(option, questionId!, answer, blocked),
-                  const SizedBox(height: 12),
-                ],
-                if (checked)
+                ),
+              ],
+            ),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                PreviewProgress(
+                  index: index,
+                  total: items.length,
+                  label:
+                      '${study ? 'Học' : 'Câu'} ${index + 1}/${items.length}',
+                ),
+                if (study)
                   LearningCard(
                     children: [
                       learningHeading(
-                        answer!['isCorrect'] == true
-                            ? 'Chính xác!'
-                            : 'Chưa chính xác',
+                        item['word'] as String? ?? item['title'] as String,
+                        size: 28,
                       ),
-                      learningBody(answer['explanation'] as String? ?? ''),
+                      if (item['phonetic'] case final String text)
+                        learningBody(text),
+                      if (item['audioUrl'] case final String url)
+                        LearningAudio(
+                          key: ValueKey('${attempt.id}-step-${item['id']}'),
+                          url: widget.owner.repository.audioUrl(url),
+                          onProgress: () => activity?.audioAdvanced(),
+                          onStopped: () => activity?.audioStopped(),
+                        ),
+                      if (item['meaning'] case final String text)
+                        learningHeading(text),
+                      learningBody(item['body'] as String? ?? '', size: 18),
+                      if (item['example'] case final String text)
+                        learningBody(text, size: 18),
                     ],
-                  ),
+                  )
+                else ...[
+                  if (attempt.content['passage'] case final String passage) ...[
+                    LearningCard(children: [learningBody(passage, size: 18)]),
+                    const SizedBox(height: 16),
+                  ],
+                  if (attempt.content['audioUrl'] case final String url) ...[
+                    LearningCard(
+                      children: [
+                        LearningAudio(
+                          key: ValueKey('${attempt.id}-$questionId'),
+                          url: widget.owner.repository.audioUrl(url),
+                          onProgress: () => activity?.audioAdvanced(),
+                          onStopped: () => activity?.audioStopped(),
+                        ),
+                        learningBody(
+                          'Nghe lại và tua không giới hạn.',
+                          size: 12,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  learningHeading(item['prompt'] as String, size: 24),
+                  const SizedBox(height: 16),
+                  for (final option in learningItems(item['options'])) ...[
+                    _answerOption(option, questionId!, answer, blocked),
+                    const SizedBox(height: 12),
+                  ],
+                  if (checked)
+                    LearningCard(
+                      children: [
+                        learningHeading(
+                          answer!['isCorrect'] == true
+                              ? 'Chính xác!'
+                              : 'Chưa chính xác',
+                        ),
+                        learningBody(answer['explanation'] as String? ?? ''),
+                      ],
+                    ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       );
@@ -657,8 +732,14 @@ class _LearningHistoryPageState extends State<LearningHistoryPage> {
 
 /// Curriculum audio only: reopen paused at zero; no microphone or play counter.
 class LearningAudio extends StatefulWidget {
-  const LearningAudio({super.key, required this.url});
+  const LearningAudio({
+    super.key,
+    required this.url,
+    this.onProgress,
+    this.onStopped,
+  });
   final String url;
+  final VoidCallback? onProgress, onStopped;
   @override
   State<LearningAudio> createState() => _LearningAudioState();
 }
@@ -676,6 +757,11 @@ class _LearningAudioState extends State<LearningAudio>
     WidgetsBinding.instance.addObserver(this);
     subscriptions.add(
       player.onPositionChanged.listen((p) {
+        if (playing &&
+            p > position &&
+            p - position < const Duration(seconds: 3)) {
+          widget.onProgress?.call();
+        }
         if (mounted) setState(() => position = p);
       }),
     );
@@ -686,6 +772,7 @@ class _LearningAudioState extends State<LearningAudio>
     );
     subscriptions.add(
       player.onPlayerStateChanged.listen((s) {
+        if (s != PlayerState.playing) widget.onStopped?.call();
         if (mounted) setState(() => playing = s == PlayerState.playing);
       }),
     );
@@ -699,6 +786,7 @@ class _LearningAudioState extends State<LearningAudio>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.onStopped?.call();
     for (final s in subscriptions) {
       s.cancel();
     }

@@ -10,6 +10,7 @@ import 'vocabulary_summary.dart';
 import 'word_collection_pages.dart' show WordStatistic, WordDeckCard;
 import 'learning_controller.dart';
 import 'learning_pages.dart';
+import 'daily_pages.dart';
 
 class HomeDashboard extends StatefulWidget {
   const HomeDashboard({
@@ -25,6 +26,7 @@ class HomeDashboard extends StatefulWidget {
     this.displayName = 'Anna',
     this.level = 'A1',
     this.learning,
+    this.vocabularySection,
   });
   final PreviewModel model;
   final WordLibrary library;
@@ -33,6 +35,7 @@ class HomeDashboard extends StatefulWidget {
   final String displayName;
   final String? level;
   final LearningController? learning;
+  final Widget? vocabularySection;
 
   @override
   State<HomeDashboard> createState() => _HomeDashboardState();
@@ -264,7 +267,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                           ),
                         if (widget.learning != null)
                           learningBody(
-                            'Số bài đã hoàn thành theo tài khoản. Thời gian học và thống kê tuần chưa được ghi nhận.',
+                            'Kết quả bài học theo tài khoản; thời gian hoạt động được ghi nhận riêng.',
                             size: 12,
                           ),
                         const SizedBox(height: 16),
@@ -290,8 +293,14 @@ class _HomeDashboardState extends State<HomeDashboard> {
                             SizedBox(width: 8),
                             Expanded(
                               child: WordStatistic(
-                                'Thời gian',
-                                widget.learning == null ? '2h 15p' : '—',
+                                widget.learning == null
+                                    ? 'Thời gian'
+                                    : 'Đã ghi nhận',
+                                widget.learning == null
+                                    ? '2h 15p'
+                                    : (widget.learning!.daily?.progress == null
+                                          ? '—'
+                                          : '${((widget.learning!.daily!.progress!['totals'] as Map)['activeSeconds'] as num? ?? 0) ~/ 60} phút'),
                                 'imgVuesaxBulkTimer',
                               ),
                             ),
@@ -302,6 +311,10 @@ class _HomeDashboardState extends State<HomeDashboard> {
                   ),
                   const SizedBox(height: 24),
                   if (widget.learning != null) ...[
+                    if (widget.learning!.daily != null) ...[
+                      DailyPlanCard(learning: widget.learning!),
+                      const SizedBox(height: 24),
+                    ],
                     DashboardCard(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -321,12 +334,14 @@ class _HomeDashboardState extends State<HomeDashboard> {
                             widget.learning!.continueLesson?.title ??
                                 (widget.learning!.lessons.isEmpty
                                     ? 'Chưa có bài học'
+                                    : widget.learning!.daily?.plan != null
+                                    ? 'Đã hoàn thành kế hoạch hôm nay'
                                     : 'Bạn đã hoàn thành các bài hiện có'),
                           ),
                           const SizedBox(height: 8),
                           learningBody(
                             widget.learning!.continueLesson?.description ??
-                                'Chọn một bài để luyện tập lại.',
+                                'Bạn có thể chọn thêm bài học để luyện tập.',
                           ),
                           const SizedBox(height: 16),
                           CustomAppButton(
@@ -500,49 +515,56 @@ class _HomeDashboardState extends State<HomeDashboard> {
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: VocabularySummary(
-                library: library,
-                onReview: onReview,
-                onWords: onWords,
-                decks: SizedBox(
-                  key: const Key('homeWordDecks'),
-                  width: double.infinity,
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      children: [
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: OutlinedButton(
-                            key: const Key('homeAllWordDecks'),
-                            onPressed: onWords,
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 36),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
+              child:
+                  widget.vocabularySection ??
+                  VocabularySummary(
+                    library: library,
+                    onReview: onReview,
+                    onWords: onWords,
+                    decks: SizedBox(
+                      key: const Key('homeWordDecks'),
+                      width: double.infinity,
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: OutlinedButton(
+                                key: const Key('homeAllWordDecks'),
+                                onPressed: onWords,
+                                style: OutlinedButton.styleFrom(
+                                  minimumSize: const Size(0, 36),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  side: const BorderSide(
+                                    color: AppColors.grey200,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Xem tất cả',
+                                  style: designText(12),
+                                ),
                               ),
-                              side: const BorderSide(color: AppColors.grey200),
                             ),
-                            child: Text('Xem tất cả', style: designText(12)),
-                          ),
+                            const SizedBox(height: 16),
+                            if (library.decks.isEmpty)
+                              learningBody('Chưa có bộ từ vựng.'),
+                            for (final deck in library.decks.take(2)) ...[
+                              WordDeckCard(
+                                key: ValueKey('home-deck-${deck.id}'),
+                                deck: deck,
+                                library: library,
+                                onTap: () => widget.onDeck(deck.id),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        if (library.decks.isEmpty)
-                          learningBody('Chưa có bộ từ vựng.'),
-                        for (final deck in library.decks.take(2)) ...[
-                          WordDeckCard(
-                            key: ValueKey('home-deck-${deck.id}'),
-                            deck: deck,
-                            library: library,
-                            onTap: () => widget.onDeck(deck.id),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
             ),
           ],
         ),

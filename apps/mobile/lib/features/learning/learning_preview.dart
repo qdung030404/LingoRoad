@@ -19,6 +19,12 @@ import '../placement/placement_pages.dart' show ResultPage;
 import 'learning_controller.dart';
 import 'learning_repository.dart';
 import 'learning_pages.dart';
+import 'daily_learning.dart';
+import 'daily_pages.dart';
+import '../vocabulary/vocabulary_controller.dart';
+import '../vocabulary/vocabulary_repository.dart';
+import '../vocabulary/vocabulary_pages.dart';
+import '../vocabulary/vocabulary_review_page.dart';
 
 class LearningPreview extends StatefulWidget {
   const LearningPreview({
@@ -36,7 +42,29 @@ class LearningPreview extends StatefulWidget {
   State<LearningPreview> createState() => _LearningPreviewState();
 }
 
-class _LearningPreviewState extends State<LearningPreview> {
+class _LearningPreviewState extends State<LearningPreview>
+    with WidgetsBindingObserver {
+  late final VocabularyController? vocabularyController = widget.account == null
+      ? null
+      : VocabularyController(
+          repository: ApiVocabularyRepository(widget.account!.api),
+          accountId: widget.account!.user!['id'] as String,
+          isCurrent: () =>
+              widget.account!.user?['id'] == vocabularyController?.accountId,
+        );
+  late final DailyLearningController? daily = widget.account == null
+      ? null
+      : DailyLearningController(
+          repository: ApiDailyRepository(widget.account!.api),
+          accountId: widget.account!.user!['id'] as String,
+          isCurrent: () => widget.account!.user?['id'] == daily?.accountId,
+          onPreferences: (prefs) {
+            final profile = widget.account!.user?['profile'];
+            if (profile is Map) {
+              profile['dailyGoalMinutes'] = prefs['dailyGoalMinutes'];
+            }
+          },
+        );
   late final model =
       widget.model ??
       PreviewModel(
@@ -53,6 +81,7 @@ class _LearningPreviewState extends State<LearningPreview> {
       : LearningController(
           repository: ApiLearningRepository(widget.account!.api),
           accountId: widget.account!.user!['id'] as String,
+          daily: daily,
           isAccountCurrent: () =>
               widget.account!.user?['id'] == learning?.accountId,
         );
@@ -93,7 +122,10 @@ class _LearningPreviewState extends State<LearningPreview> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    daily?.addListener(_dailyChanged);
     learning?.refresh();
+    vocabularyController?.refresh();
     library.restore().catchError((Object error) {
       if (mounted) {
         setState(
@@ -123,19 +155,43 @@ class _LearningPreviewState extends State<LearningPreview> {
     }
     if (widget.showPlan) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) previewPush(context, WeeklyPlanPage(model: model));
+        if (mounted) {
+          previewPush(
+            context,
+            daily == null
+                ? WeeklyPlanPage(model: model)
+                : DailyPlanPage(learning: learning!),
+          );
+        }
       });
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    daily?.removeListener(_dailyChanged);
+    daily?.dispose();
     learning?.dispose();
+    vocabularyController?.dispose();
     library.dispose();
     tabs.dispose();
     selectedTab.dispose();
     if (widget.model == null) model.dispose();
     super.dispose();
+  }
+
+  void _dailyChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      learning?.activity?.flush();
+      learning?.refresh();
+      vocabularyController?.refresh();
+    }
   }
 
   void openProfile() => showModalBottomSheet<void>(
@@ -159,7 +215,7 @@ class _LearningPreviewState extends State<LearningPreview> {
               learningBody(
                 widget.account == null
                     ? 'Bạn đang xem giao diện với dữ liệu mẫu trên thiết bị. Phản hồi Nói/Viết là minh họa; không thu micro hay cập nhật kết quả kiểm tra thật.'
-                    : 'Bài học và luyện Đọc/Nghe lưu theo tài khoản. Bộ từ cá nhân lưu trên thiết bị; Nói/Viết và kế hoạch tuần hiện là bản xem trước.',
+                    : 'Bài học, bộ từ cá nhân, lịch sử ôn và tiến độ lưu theo tài khoản. Nói/Viết hiện là bản xem trước.',
               ),
               const SizedBox(height: 20),
               if (widget.account != null) ...[
@@ -167,10 +223,10 @@ class _LearningPreviewState extends State<LearningPreview> {
                   text: 'Hồ sơ của tôi',
                   onPressed: () {
                     Navigator.pop(context);
-                    previewPush(
+                    previewPush<void>(
                       this.context,
                       ProfilePage(session: widget.account!),
-                    );
+                    ).then((_) => learning?.refresh());
                   },
                 ),
                 const SizedBox(height: 12),
@@ -240,18 +296,55 @@ class _LearningPreviewState extends State<LearningPreview> {
     }
   }
 
-  void openReview() => previewPush(
+  void openReview() {
+    if (vocabularyController != null) {
+      final decks = vocabularyController!.summary?['decks'] as List? ?? [];
+      final active = decks
+          .where((d) => (d as Map)['activeAttemptId'] != null)
+          .toList();
+      if (active.length == 1) {
+        previewPush(
+          context,
+          VocabularyReviewPage(
+            controller: vocabularyController!,
+            attemptId: (active.single as Map)['activeAttemptId'] as String,
+          ),
+        );
+        return;
+      }
+      switchTab(2);
+      return;
+    }
+    previewPush(
+      context,
+      SrsReviewPage(
+        library: library,
+        deckId: library.decks.first.id,
+        onNavigate: returnToTab,
+      ),
+    );
+  }
+
+  void openWordDeck(String deckId) => previewPush(
     context,
-    SrsReviewPage(
-      library: library,
-      deckId: library.decks.first.id,
-      onNavigate: returnToTab,
-    ),
+    vocabularyController != null
+        ? VocabularyDeckPage(controller: vocabularyController!, deckId: deckId)
+        : WordListPage(
+            library: library,
+            deckId: deckId,
+            onNavigate: returnToTab,
+          ),
   );
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-    animation: Listenable.merge([model, library, widget.account, learning]),
+    animation: Listenable.merge([
+      model,
+      library,
+      widget.account,
+      learning,
+      vocabularyController,
+    ]),
     builder: (context, _) {
       final surface = ValueListenableBuilder<int>(
         valueListenable: selectedTab,
@@ -328,6 +421,14 @@ class _LearningPreviewState extends State<LearningPreview> {
               ? 'A1'
               : widget.account!.placementResult?['estimatedCefr'] as String?,
           learning: learning,
+          vocabularySection: vocabularyController == null
+              ? null
+              : VocabularyHomeSection(
+                  controller: vocabularyController!,
+                  onWords: () => switchTab(2),
+                  onDeck: openWordDeck,
+                  onReview: openReview,
+                ),
           onLesson: () {
             final lesson = learning?.continueLesson;
             if (learning != null) {
@@ -349,20 +450,15 @@ class _LearningPreviewState extends State<LearningPreview> {
               previewPush(context, GrammarLessonPage(model: model)),
           onWords: () => switchTab(2),
           onReview: openReview,
-          onDeck: (deckId) => previewPush(
-            context,
-            WordListPage(
-              library: library,
-              deckId: deckId,
-              onNavigate: returnToTab,
-            ),
-          ),
+          onDeck: openWordDeck,
         ),
       );
     }
     if (page == 2) {
       return RepaintBoundary(
-        child: MyWordsTab(library: library, onNavigate: returnToTab),
+        child: vocabularyController != null
+            ? VocabularyWordsTab(controller: vocabularyController!)
+            : MyWordsTab(library: library, onNavigate: returnToTab),
       );
     }
     final oldPage = page > 2 ? page - 1 : page;
@@ -669,6 +765,16 @@ class _LearningPreviewState extends State<LearningPreview> {
 
   List<Widget> progress() => [
     if (learning != null) ...[
+      if (daily != null) DailyProgressCard(daily: daily!),
+      const SizedBox(height: 16),
+      if (daily != null)
+        CustomAppButton(
+          key: const Key('dailyPlanOpen'),
+          text: 'Kế hoạch hôm nay',
+          onPressed: () =>
+              previewPush(context, DailyPlanPage(learning: learning!)),
+        ),
+      const SizedBox(height: 16),
       LearningCard(
         children: [
           learningHeading('Hành trình của bạn', size: 24),
