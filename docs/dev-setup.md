@@ -116,6 +116,48 @@ npm run dev
 
 ### 5. Khởi chạy Ứng dụng Mobile (Flutter)
 
+#### 5.1. Thiết lập Cấu hình Firebase (`google-services.json`) cho Android
+
+Ứng dụng Flutter tích hợp dịch vụ Firebase Authentication & Google Sign-In trên Android, yêu cầu tệp cấu hình `google-services.json` đặt đúng vị trí:
+`apps/mobile/android/app/google-services.json`
+
+> ⚠️ **Lưu ý bảo mật:** Tệp `google-services.json` chứa API key và client ID dự án nên đã được đưa vào `.gitignore` để tránh rò rỉ mã nguồn. Dự án cung cấp sẵn tệp mẫu an toàn `google-services.json.example`.
+
+Tùy theo nhu cầu phát triển, chọn một trong hai phương án sau:
+
+- **Phương án A: Chạy nhanh (Mặc định cho môi trường dev cục bộ & CI)**
+  - Gradle của dự án (`apps/mobile/android/app/build.gradle.kts`) đã tích hợp cơ chế tự động: nếu chưa tìm thấy `google-services.json`, bản build sẽ tự động sao chép từ `google-services.json.example` sang `google-services.json`.
+  - Bạn cũng có thể chủ động sao chép thủ công trước khi build:
+    ```powershell
+    Copy-Item apps/mobile/android/app/google-services.json.example apps/mobile/android/app/google-services.json
+    ```
+  - *Kết quả:* Ứng dụng build và chạy mượt mà toàn bộ các màn hình và tính năng (Học, Luyện tập, Đăng nhập Email/Mật khẩu), ngoại trừ tính năng Đăng nhập bằng Google sẽ không gọi được Firebase thật.
+
+- **Phương án B: Thiết lập đầy đủ (Để kiểm thử tính năng Đăng nhập Google thật)**
+  1. **Lấy mã băm SHA-1 của Debug Keystore trên máy:**
+     ```powershell
+     cd apps/mobile/android
+     ./gradlew signingReport
+     ```
+     *(Hoặc dùng lệnh keytool: `keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias androiddebugkey -storepass android -keypass android`)*. Copy giá trị `SHA1` của biến thể `debug` (ví dụ: `2D:97:52:0F:...`).
+  2. **Tạo / Đăng ký ứng dụng trên Firebase Console:**
+     - Truy cập [Firebase Console](https://console.firebase.google.com/) và mở/tạo project (ví dụ: `lingoroad-7fb29`).
+     - Thêm ứng dụng Android với **Package name**: `com.example.mobile` (khớp với `applicationId` và `namespace` trong `apps/mobile/android/app/build.gradle.kts`).
+     - Dán mã **SHA-1** vừa lấy ở bước 1 vào mục cấu hình chứng chỉ ký của ứng dụng.
+  3. **Bật Google Sign-In trên Firebase Console:**
+     - Vào menu **Build** > **Authentication** > thẻ **Sign-in method** > bật **Google**.
+     - Điền email hỗ trợ dự án và lưu lại. Ghi nhớ mã **Web SDK configuration / Web client ID** (chuỗi có dạng `...apps.googleusercontent.com`).
+  4. **Tải tệp và đặt vào đúng vị trí:**
+     - Tải tệp `google-services.json` từ mục **Project settings** > **Your apps** > **Android app**.
+     - Đặt tệp vào: `apps/mobile/android/app/google-services.json` (ghi đè nếu tệp đã tồn tại).
+  5. **Cấu hình Backend & Khởi chạy:**
+     - Cấu hình Firebase Admin trong `apps/backend/.env` (`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`) để backend NestJS xác thực Google ID Token.
+     - Khi chạy mobile, truyền Web Client ID qua biến `--dart-define=GOOGLE_SERVER_CLIENT_ID=<WEB_CLIENT_ID>` (hoặc dùng tham số `-GoogleServerClientId` trong launcher script `run_mobile.ps1`).
+
+---
+
+#### 5.2. Khởi chạy Ứng dụng Mobile
+
 ```powershell
 # Cách 1: Chạy tự động với launcher script (Khuyến nghị - tự động quét IP LAN & config)
 .\run_mobile.ps1
@@ -123,10 +165,13 @@ npm run dev
 # Mở kèm giả lập Android Emulator
 .\run_mobile.ps1 -emu
 
+# Khởi chạy kèm Web Client ID tùy chỉnh cho Google Sign-In
+.\run_mobile.ps1 -emu -GoogleServerClientId "YOUR_WEB_CLIENT_ID.apps.googleusercontent.com"
+
 # Cách 2: Chạy thủ công truyền thống
 cd apps/mobile
 flutter pub get
-flutter run
+flutter run --dart-define=APP_ENV=dev --dart-define=API_BASE_URL=http://10.0.2.2:3000
 ```
 
 ---
@@ -137,4 +182,3 @@ flutter run
 - 📱 [Hướng dẫn phát triển Mobile trên máy Local](mobile-local-development.md)
 - 🚀 [Hướng dẫn Deploy môi trường thực tế](production-deployment.md)
 - 🔍 [Báo cáo Trạng thái First Demo & Audit](demo-status-and-audit.md)
-
