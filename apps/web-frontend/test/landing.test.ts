@@ -7,7 +7,7 @@ import {
   SIMULATION_QUESTIONS,
   COMPARISONS,
   FAQ_DATA,
-} from '../src/data/landing-content.ts';
+} from '../src/data/landing-content';
 
 describe('Landing Page Content & Data Integrity', () => {
   test('NAV_ITEMS contains valid anchor links', () => {
@@ -97,4 +97,3 @@ describe('Adaptive Simulator Logic Verification', () => {
     assert.strictEqual(ratings.easy, 11.4);
   });
 });
-

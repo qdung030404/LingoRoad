@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "next lint",
-    "test": "node --test test/**/*.test.mjs"
+    "test": "tsx --test test/landing.test.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -26,6 +26,7 @@
     "eslint-config-next": "^14.2.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.3"
   }
 }
