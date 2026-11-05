@@ -17,9 +17,9 @@
     "backend:build": "npm run build --workspace=apps/backend",
     "backend:start": "node apps/backend/dist/main",
     "ml:dev": "apps/ml/.venv/Scripts/uvicorn lingoroad_ml.serving.app:app --app-dir apps/ml --env-file apps/ml/.env --host 0.0.0.0 --port 8001 --reload",
-    "frontend:dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 npm run dev --workspace=apps/frontend-web",
-    "frontend:build": "npm run build --workspace=apps/frontend-web",
-    "frontend:start": "npm run start --workspace=apps/frontend-web"
+    "frontend:dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 npm run dev --workspace=apps/web-frontend",
+    "frontend:build": "npm run build --workspace=apps/web-frontend",
+    "frontend:start": "npm run start --workspace=apps/web-frontend"
   },
   "dependencies": {
     "class-transformer": "^0.5.1",
