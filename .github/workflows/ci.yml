@@ -164,3 +164,35 @@ jobs:
           path: apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 7
 
+
+  # ==========================================
+  # JOB 4: Web Frontend CI (Next.js)
+  # ==========================================
+  web-frontend-ci:
+    name: Web Frontend (Next.js)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Typecheck Web Frontend
+        run: npx tsc -p apps/web-frontend/tsconfig.json --noEmit
+
+      - name: Lint Web Frontend
+        run: npm run lint --workspace=apps/web-frontend
+
+      - name: Run Web Frontend Tests
+        run: npm run test --workspace=apps/web-frontend
+
+      - name: Build Web Frontend
+        run: npm run frontend:build
