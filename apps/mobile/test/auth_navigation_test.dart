@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/api/api_client.dart';
+import 'package:mobile/core/theme/app_radius.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/main.dart';
 import 'test_helpers.dart';
@@ -71,7 +72,7 @@ void main() {
       expect(tester.getTopLeft(sheet).dy, greaterThan(0));
       expect(
         tester.widget<ClipRRect>(sheet).borderRadius,
-        const BorderRadius.vertical(top: Radius.circular(24)),
+        AppRadius.bottomSheetRadius,
       );
       expect(find.text('Học tiếng anh\nmọi nơi'), findsOneWidget);
       expect(
@@ -129,6 +130,105 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Tiếp tục với Email'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Google sign-in uses Firebase identity without a second legacy session',
+    (tester) async {
+      final identity = FakeAuthIdentity();
+      final api = FakeApi(onboarding: true, identity: identity);
+      final session = SessionController(api);
+
+      await tester.pumpWidget(MyApp(session: session));
+      await tester.pumpAndSettle();
+
+      await session.authenticateWithGoogle();
+      await tester.pumpAndSettle();
+
+      expect(session.stage, SessionStage.onboarding);
+      expect(session.error, isNull);
+      expect(identity.signedIn, isTrue);
+      expect(api.accessToken, isNull);
+      expect(api.requestedPaths, isNot(contains('/auth/google')));
+      expect(api.requestedPaths, isNot(contains('/auth/login')));
+      expect(find.text('Mục tiêu của bạn'), findsOneWidget);
+    },
+  );
+
+  testWidgets('authenticateWithGoogle displays errors from Firebase identity', (
+    tester,
+  ) async {
+    final api = FakeApi(
+      identity: FakeAuthIdentity(
+        onGoogle: () async {
+          throw const ApiFailure('Không thể đăng nhập Google.');
+        },
+      ),
+    );
+    final session = SessionController(api);
+
+    await tester.pumpWidget(MyApp(session: session));
+    await tester.pumpAndSettle();
+
+    await session.authenticateWithGoogle();
+    await tester.pumpAndSettle();
+
+    expect(session.stage, SessionStage.signedOut);
+    expect(session.error, 'Không thể đăng nhập Google.');
+    expect(find.text('Không thể đăng nhập Google.'), findsOneWidget);
+  });
+
+  testWidgets(
+    'authenticateWithGoogle handles canceled sign-in cleanly without error',
+    (tester) async {
+      final api = FakeApi(
+        identity: FakeAuthIdentity(
+          onGoogle: () async {
+            throw const ApiFailure('Đã hủy đăng nhập.', code: 'AUTH_CANCELLED');
+          },
+        ),
+      );
+      final session = SessionController(api);
+
+      await tester.pumpWidget(MyApp(session: session));
+      await tester.pumpAndSettle();
+
+      await session.authenticateWithGoogle();
+      await tester.pumpAndSettle();
+
+      expect(session.stage, SessionStage.signedOut);
+      expect(session.error, isNull);
+    },
+  );
+
+  testWidgets(
+    'authenticateWithGoogle shows inline progress and keeps welcome mounted during auth',
+    (tester) async {
+      final completer = Completer<void>();
+      final api = FakeApi(
+        onboarding: true,
+        identity: FakeAuthIdentity(onGoogle: () => completer.future),
+      );
+      final session = SessionController(api);
+
+      await tester.pumpWidget(MyApp(session: session));
+      await tester.pumpAndSettle();
+
+      final authFuture = session.authenticateWithGoogle();
+      await tester.pump();
+
+      expect(session.isAuthenticatingGoogle, isTrue);
+      expect(session.stage, SessionStage.signedOut);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Tiếp tục với Google'), findsOneWidget);
+
+      completer.complete();
+      await authFuture;
+      await tester.pumpAndSettle();
+
+      expect(session.isAuthenticatingGoogle, isFalse);
+      expect(session.stage, SessionStage.onboarding);
     },
   );
 }

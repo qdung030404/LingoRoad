@@ -15,7 +15,7 @@ def build_messages(question: str, path: list[dict], context_chunks: list[str]) -
 
 def answer(question: str, path: list[dict], retrieve_fn, client) -> str:
     chunks = retrieve_fn(question)
-    model = os.environ.get("LINGOROAD_LLM_MODEL_VERSION", "gemini-3.8-flash")
+    model = os.environ.get("LINGOROAD_LLM_MODEL_VERSION", "gemini-2.5-flash")
     resp = client.chat.completions.create(
         model=model, temperature=0.4,
         messages=build_messages(question, path, chunks))

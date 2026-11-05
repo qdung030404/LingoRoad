@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../../firebase_options.dart';
 import '../api/api_client.dart';
 import 'auth_identity.dart';
 
@@ -38,7 +39,7 @@ class FirebaseIdentity implements AuthIdentity {
           ? Firebase.app()
           : await Firebase.initializeApp(
               options: _projectId.isEmpty
-                  ? null
+                  ? DefaultFirebaseOptions.currentPlatform
                   : const FirebaseOptions(
                       apiKey: String.fromEnvironment('FIREBASE_API_KEY'),
                       appId: String.fromEnvironment('FIREBASE_APP_ID'),
@@ -119,7 +120,12 @@ class FirebaseIdentity implements AuthIdentity {
       await auth.signInWithPopup(GoogleAuthProvider());
       return;
     }
-    const serverId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+    const serverId = String.fromEnvironment(
+      'GOOGLE_SERVER_CLIENT_ID',
+      defaultValue: (_projectId == '' || _projectId == 'lingoroad-7fb29')
+          ? '741177056758-hsr0l8gk3avp17ui9ef42fhsdjhj47u3.apps.googleusercontent.com'
+          : '',
+    );
     const clientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
     try {
       await (_googleSetup ??= GoogleSignIn.instance.initialize(

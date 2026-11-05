@@ -11,14 +11,17 @@ import {
   Patch,
   BadRequestException,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { Request } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { LogoutDto } from './dto/logout.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { RegisterUseCase, AuthResult } from './use-cases/register.use-case';
 import { LoginUseCase } from './use-cases/login.use-case';
+import { GoogleAuthResult, GoogleLoginUseCase } from './use-cases/google-login.use-case';
 import { RefreshTokenUseCase, RefreshResult } from './use-cases/refresh-token.use-case';
 import { LogoutUseCase } from './use-cases/logout.use-case';
 import { LogoutAllUseCase } from './use-cases/logout-all.use-case';
@@ -37,6 +40,7 @@ export class AuthController {
   constructor(
     private readonly registerUseCase: RegisterUseCase,
     private readonly loginUseCase: LoginUseCase,
+    private readonly googleLoginUseCase: GoogleLoginUseCase,
     private readonly refreshTokenUseCase: RefreshTokenUseCase,
     private readonly logoutUseCase: LogoutUseCase,
     private readonly logoutAllUseCase: LogoutAllUseCase,
@@ -60,6 +64,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
@@ -82,6 +88,8 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -99,6 +107,23 @@ export class AuthController {
     return {
       success: true,
       message: 'Đăng nhập thành công',
+      data: result,
+    };
+  }
+
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('google')
+  @HttpCode(HttpStatus.OK)
+  async googleLogin(
+    @Body() dto: GoogleLoginDto,
+  ): Promise<ApiResponse<GoogleAuthResult>> {
+    const result = await this.googleLoginUseCase.execute(dto);
+
+    return {
+      success: true,
+      message: 'Đăng nhập Google thành công',
       data: result,
     };
   }

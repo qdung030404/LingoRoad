@@ -3,6 +3,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../common.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 
 class AudioControls extends StatefulWidget {
@@ -127,7 +128,7 @@ class _AudioControlsState extends State<AudioControls>
               child: Column(
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(99),
+                    borderRadius: AppRadius.pill,
                     child: LinearProgressIndicator(
                       key: const Key('audioProgress'),
                       minHeight: 4,

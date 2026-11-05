@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import 'learning_widgets.dart';
@@ -539,7 +540,7 @@ class _SpeakingPreviewPageState extends State<SpeakingPreviewPage>
           ? CustomAppButton(
               text: index == 4 ? 'Hoàn thành' : 'Câu tiếp',
               onPressed: next,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.tagRadius,
             )
           : PreviewToolbar(
               index: index,
@@ -660,7 +661,7 @@ class _SpeakingPreviewPageState extends State<SpeakingPreviewPage>
                                   onTap: stage == _SpeakingStage.recording
                                       ? stop
                                       : record,
-                                  borderRadius: BorderRadius.circular(99),
+                                  borderRadius: AppRadius.buttonRadius,
                                   child: Container(
                                     width: 96,
                                     height: 96,
@@ -1077,11 +1078,11 @@ class _WritingPreviewPageState extends State<WritingPreviewPage> {
                   fillColor: AppColors.grey50,
                   contentPadding: const EdgeInsets.all(16),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.tagRadius,
                     borderSide: const BorderSide(color: AppColors.grey100),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: AppRadius.tagRadius,
                     borderSide: const BorderSide(color: AppColors.grey100),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -1238,7 +1239,7 @@ class _WritingReviewPageState extends State<WritingReviewPage> {
             decoration: BoxDecoration(
               color: AppColors.grey50,
               border: Border.all(color: AppColors.grey100),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.tagRadius,
             ),
             child: SelectableText(
               widget.model.drafts[index],

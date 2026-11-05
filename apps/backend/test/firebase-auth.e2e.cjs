@@ -52,6 +52,24 @@ describe('Firebase Auth Emulator + real HTTP + PostgreSQL', () => {
     post: (path) => request(app.getHttpServer()).post(path).set('Authorization', `Bearer ${account.idToken}`),
     patch: (path) => request(app.getHttpServer()).patch(path).set('Authorization', `Bearer ${account.idToken}`),
   });
+  async function googleIdentity(email = `google-e2e-${randomUUID()}@example.com`) {
+    // The local Auth Emulator accepts a JSON IdP credential for deterministic
+    // Google sign-in without contacting Google or using production credentials.
+    const response = await fetch(`http://${emulator}/identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=fake-key`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        requestUri: 'http://localhost', returnSecureToken: true,
+        postBody: new URLSearchParams({ providerId: 'google.com', id_token: JSON.stringify({
+          sub: randomUUID(), email, email_verified: true, name: 'Google Learner',
+          picture: 'https://example.com/avatar.png',
+        }) }).toString(),
+      }),
+    });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    identities.push(data.localId);
+    return { ...data, email };
+  }
   async function provision(account) {
     const response = await api(account).get('/auth/me').expect(200);
     users.push(response.body.data.id);
@@ -84,6 +102,63 @@ describe('Firebase Auth Emulator + real HTTP + PostgreSQL', () => {
     const response = await api(account).get('/auth/me').expect(409);
     assert.equal(response.body.error.code, 'AUTH_ACCOUNT_LINK_REQUIRED');
     assert.equal((await prisma.user.findUnique({ where: { id: legacy.id } })).firebaseUid, null);
+  });
+  it('Google sign-in and bearer auth share the same UUID without issuing a parallel backend session', async () => {
+    const account = await googleIdentity();
+    const response = await request(app.getHttpServer()).post('/auth/google').send({ idToken: account.idToken }).expect(200);
+    const user = response.body.data.user;
+    users.push(user.id);
+    assert.equal(user.provider, 'GOOGLE');
+    assert.equal(user.avatarUrl, 'https://example.com/avatar.png');
+    assert.equal(response.body.data.accessToken, undefined);
+    assert.equal(response.body.data.refreshToken, undefined);
+    assert.equal(user.passwordHash, undefined);
+    const me = await api(account).get('/auth/me').expect(200);
+    assert.equal(me.body.data.id, user.id);
+    assert.equal(await prisma.refreshSession.count({ where: { userId: user.id } }), 0);
+    const passwordAccount = await identity();
+    await request(app.getHttpServer()).post('/auth/google').send({ idToken: passwordAccount.idToken }).expect(400);
+    await request(app.getHttpServer()).post('/auth/google').send({ idToken: 'invalid-token' }).expect(401);
+  });
+  it('Google route never links an existing email, including an admin account', async () => {
+    const account = await googleIdentity();
+    const existing = await prisma.user.create({ data: { name: 'Existing Admin', email: account.email, role: 'ADMIN', profile: { create: {} } } });
+    users.push(existing.id);
+    const response = await request(app.getHttpServer()).post('/auth/google').send({ idToken: account.idToken }).expect(409);
+    assert.equal(response.body.error.code, 'AUTH_ACCOUNT_LINK_REQUIRED');
+    assert.equal((await prisma.user.findUnique({ where: { id: existing.id } })).firebaseUid, null);
+  });
+  it('Google route respects database suspension, disabled identities and revoked Firebase sessions', async () => {
+    const account = await googleIdentity();
+    const owner = await provision(account);
+    const google = () => request(app.getHttpServer()).post('/auth/google').send({ idToken: account.idToken });
+    await prisma.user.update({ where: { id: owner.id }, data: { status: 'SUSPENDED' } });
+    await google().expect(403);
+    await prisma.user.update({ where: { id: owner.id }, data: { status: 'ACTIVE' } });
+    const { getApps } = require('firebase-admin/app');
+    const { getAuth } = require('firebase-admin/auth');
+    const admin = getAuth(getApps().find(a => a.name === `lingoroad-auth-${project}`));
+    await admin.updateUser(account.localId, { disabled: true });
+    await google().expect(401);
+    await admin.updateUser(account.localId, { disabled: false });
+    await new Promise(resolve => setTimeout(resolve, 1100));
+    await api(account).post('/auth/logout-all').expect(200);
+    await google().expect(401);
+  });
+  it('does not rebind an existing learner UID when another Firebase project supplies the same email', async () => {
+    const account = await googleIdentity();
+    const oldUid = `previous-project-${randomUUID()}`;
+    const existing = await prisma.user.create({ data: {
+      name: 'Original Learner', email: account.email, firebaseUid: oldUid,
+      profile: { create: { dailyGoalMinutes: 30 } },
+    } });
+    users.push(existing.id);
+    await request(app.getHttpServer()).post('/auth/google').send({ idToken: account.idToken }).expect(409);
+    await api(account).get('/auth/me').expect(409);
+    const preserved = await prisma.user.findUnique({ where: { id: existing.id }, include: { profile: true } });
+    assert.equal(preserved.firebaseUid, oldUid);
+    assert.equal(preserved.name, 'Original Learner');
+    assert.equal(preserved.profile.dailyGoalMinutes, 30);
   });
   it('isolates learner profiles and rejects client-supplied ownership or roles', async () => {
     const a = await identity(), b = await identity();

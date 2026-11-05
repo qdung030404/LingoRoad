@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 
@@ -66,7 +67,7 @@ class LearningCard extends StatelessWidget {
             button: true,
             child: InkWell(
               onTap: onTap,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: AppRadius.cardRadius,
               child: card,
             ),
           );
@@ -93,14 +94,14 @@ class LearningPill extends StatelessWidget {
   Widget build(BuildContext context) => Material(
     color: fill ?? (selected ? AppColors.primary25 : Colors.white),
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(small ? 8 : 99),
+      borderRadius: small ? AppRadius.tagRadius : AppRadius.buttonRadius,
       side: BorderSide(
         color: selected ? AppColors.primary500 : (fill ?? AppColors.grey200),
       ),
     ),
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(small ? 8 : 99),
+      borderRadius: small ? AppRadius.tagRadius : AppRadius.buttonRadius,
       child: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: small ? 12 : 20,
@@ -134,7 +135,7 @@ class PreviewLevelBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
-    borderRadius: BorderRadius.circular(4),
+    borderRadius: const BorderRadius.all(Radius.circular(AppRadius.xs)),
     child: Container(
       height: 40,
       width: 40,
@@ -143,7 +144,7 @@ class PreviewLevelBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primary25,
         border: Border.all(color: AppColors.primary200),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: const BorderRadius.all(Radius.circular(AppRadius.xs)),
       ),
       child: Text(
         label,
@@ -182,7 +183,7 @@ class PreviewToolbar extends StatelessWidget {
           text: '',
           isSecondary: true,
           onPressed: onBack,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.tagRadius,
           icon: const FigmaAsset(
             'vocabulary-word/imgVuesaxLinearArrowLeft1',
             size: 20,
@@ -197,7 +198,7 @@ class PreviewToolbar extends StatelessWidget {
           onPressed:
               onGrid ??
               () => previewMessage(context, 'Câu ${index + 1} trên $total'),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.tagRadius,
           icon: const FigmaAsset(
             'vocabulary-word/imgVuesaxBoldCategory',
             size: 20,
@@ -210,7 +211,7 @@ class PreviewToolbar extends StatelessWidget {
           key: const Key('previewNext'),
           text: nextLabel,
           onPressed: onNext,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.tagRadius,
         ),
       ),
     ],
@@ -249,7 +250,7 @@ class PreviewProgress extends StatelessWidget {
         )
       else
         ClipRRect(
-          borderRadius: BorderRadius.circular(99),
+          borderRadius: AppRadius.pill,
           child: LinearProgressIndicator(
             value: (index + 1) / total,
             minHeight: 4,

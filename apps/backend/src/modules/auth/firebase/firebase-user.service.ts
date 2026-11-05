@@ -1,6 +1,6 @@
 import { ConflictException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { DecodedIdToken } from 'firebase-admin/auth';
-import { Prisma, User, UserStatus } from '@prisma/client';
+import { AuthProvider, Prisma, User, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -16,6 +16,8 @@ export class FirebaseUserService {
           firebaseUid: token.uid,
           email: token.email.toLowerCase(),
           name: (typeof token.name === 'string' ? token.name : token.email.split('@')[0]).slice(0, 100),
+          provider: token.firebase?.sign_in_provider === 'google.com' ? AuthProvider.GOOGLE : AuthProvider.LOCAL,
+          avatarUrl: typeof token.picture === 'string' && token.picture.startsWith('https://') ? token.picture.slice(0, 500) : null,
           profile: { create: {} },
         } });
       } catch (error) {

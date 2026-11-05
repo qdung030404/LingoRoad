@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_radius.dart';
+import '../core/theme/app_spacing.dart';
 import '../core/theme/figma_assets.dart';
 import '../core/theme/learning_assets.dart';
 import '../core/theme/updated_figma_assets.dart';
@@ -172,7 +174,7 @@ class FigmaCard extends StatelessWidget {
   const FigmaCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(24),
+    this.padding = const EdgeInsets.all(AppSpacing.lg),
   });
   final Widget child;
   final EdgeInsetsGeometry padding;
@@ -183,7 +185,7 @@ class FigmaCard extends StatelessWidget {
     decoration: BoxDecoration(
       color: AppColors.grey5,
       border: Border.all(color: AppColors.grey100),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: AppRadius.cardRadius,
     ),
     child: child,
   );
@@ -234,11 +236,11 @@ class AnswerOption extends StatelessWidget {
         color: fill,
         shape: RoundedRectangleBorder(
           side: BorderSide(color: border),
-          borderRadius: BorderRadius.circular(99),
+          borderRadius: AppRadius.buttonRadius,
         ),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(99),
+          borderRadius: AppRadius.buttonRadius,
           child: ConstrainedBox(
             constraints: const BoxConstraints(minHeight: 72),
             child: Padding(
@@ -282,7 +284,7 @@ class AnswerOption extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       text,
@@ -311,7 +313,7 @@ class AnswerOption extends StatelessWidget {
                                 : 'review/imgVuesaxLinearInfoCircle',
                             size: 20,
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: AppSpacing.sm),
                           Text(
                             correct == true ? 'Đáp án' : 'Bạn chọn',
                             style: designText(16, color: tone),
@@ -339,7 +341,7 @@ class SectionProgress extends StatelessWidget {
         if (part != 0) const SizedBox(width: 12),
         Expanded(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(99),
+            borderRadius: AppRadius.pill,
             child: LinearProgressIndicator(
               minHeight: 4,
               value: ((index - part * 5) / 5).clamp(0, 1),

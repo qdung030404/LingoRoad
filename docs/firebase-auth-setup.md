@@ -1,3 +1,7 @@
+> Cập nhật tích hợp 05/11/2026: nhóm quyết định chuyển từ `lingoroad-fdd48` sang Firebase project của thành viên `lingoroad-7fb29`. Phần nghiệm thu cloud ngày 31/10 dưới đây chỉ áp dụng project cũ. Mobile đã chuyển cấu hình local; backend cần Application Default Credentials có quyền trên project mới trước khi nghiệm thu cloud. Không dùng khóa Admin project cũ như bằng chứng đã chuyển thành công. Xem [biên bản tích hợp main](main-integration-20261105.md).
+>
+> Dữ liệu bài học, kế hoạch ngày và từ vựng hiện đã lưu backend; các mô tả dữ liệu học chỉ lưu local trong bản ghi 31/10 là lịch sử. Cấu hình `DefaultFirebaseOptions` hiện đã nối vào `FirebaseIdentity` làm fallback; dart-defines vẫn dùng cho cấu hình riêng/emulator. UID thay đổi giữa hai Firebase project: chưa tự chuyển user cũ theo email, cần đối chiếu quyền sở hữu và giữ UUID PostgreSQL khi chuyển.
+
 # Firebase Authentication và điều hướng — 31/10/2026
 
 Nhóm chọn Firebase Authentication cho email/mật khẩu và Google. Firebase quản lý danh tính, mật khẩu và phiên; NestJS vẫn giữ hồ sơ, quyền và dữ liệu học trong PostgreSQL. Không cần chuyển dữ liệu học sang Firestore.

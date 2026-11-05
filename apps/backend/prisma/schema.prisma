@@ -27,6 +27,12 @@ enum CefrLevel {
   C2
 }
 
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  APPLE
+}
+
 enum LearningPurpose {
   EXAM
   WORK
@@ -44,6 +50,8 @@ model User {
   email        String         @unique @db.VarChar(255)
   passwordHash String?        @map("password_hash") @db.VarChar(255)
   firebaseUid  String?        @unique @map("firebase_uid") @db.VarChar(128)
+  avatarUrl    String?        @map("avatar_url") @db.VarChar(500)
+  provider     AuthProvider   @default(LOCAL)
   name         String         @db.VarChar(100)
   role         UserRole       @default(LEARNER)
   status       UserStatus     @default(ACTIVE)

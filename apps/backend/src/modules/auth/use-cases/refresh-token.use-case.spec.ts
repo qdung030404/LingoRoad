@@ -6,7 +6,7 @@ import {
   RefreshSessionWithUser,
 } from '../repositories/refresh-session.repository';
 import { TokenService } from '../../security/token.service';
-import { UserRole, UserStatus } from '@prisma/client';
+import { AuthProvider, UserRole, UserStatus } from '@prisma/client';
 
 describe('RefreshTokenUseCase', () => {
   let useCase: RefreshTokenUseCase;
@@ -60,6 +60,8 @@ describe('RefreshTokenUseCase', () => {
         passwordHash: 'hash',
         firebaseUid: null,
         name: 'User One',
+        avatarUrl: null,
+        provider: AuthProvider.LOCAL,
         role: UserRole.LEARNER,
         status: UserStatus.ACTIVE,
         createdAt: new Date(),
@@ -106,6 +108,8 @@ describe('RefreshTokenUseCase', () => {
         passwordHash: 'hash',
         firebaseUid: null,
         name: 'User One',
+        avatarUrl: null,
+        provider: AuthProvider.LOCAL,
         role: UserRole.LEARNER,
         status: UserStatus.ACTIVE,
         createdAt: new Date(),
@@ -140,6 +144,8 @@ describe('RefreshTokenUseCase', () => {
         passwordHash: 'hash',
         firebaseUid: null,
         name: 'User One',
+        avatarUrl: null,
+        provider: AuthProvider.LOCAL,
         role: UserRole.LEARNER,
         status: UserStatus.ACTIVE,
         createdAt: new Date(),
@@ -173,6 +179,8 @@ describe('RefreshTokenUseCase', () => {
         passwordHash: 'hash',
         firebaseUid: null,
         name: 'Suspended User',
+        avatarUrl: null,
+        provider: AuthProvider.LOCAL,
         role: UserRole.LEARNER,
         status: UserStatus.SUSPENDED,
         createdAt: new Date(),

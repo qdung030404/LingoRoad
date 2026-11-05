@@ -15,8 +15,10 @@ class SessionController extends ChangeNotifier {
       notifyListeners();
     };
   }
+
   final ApiClient api;
   SessionStage stage = SessionStage.loading;
+  bool isAuthenticatingGoogle = false;
   Json? user;
   Json placement = {};
   Json? placementResult;
@@ -36,6 +38,27 @@ class SessionController extends ChangeNotifier {
     _epoch++;
     _authChanges?.cancel();
     super.dispose();
+  }
+
+  Future<void> authenticateWithGoogle() async {
+    if (_disposed || isAuthenticatingGoogle || stage == SessionStage.loading) {
+      return;
+    }
+    isAuthenticatingGoogle = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      await signInWithGoogle();
+    } on ApiFailure catch (e) {
+      if (!_disposed && e.code != 'AUTH_CANCELLED') error = e.message;
+    } catch (_) {
+      if (_disposed) return;
+      error = 'Đăng nhập Google thất bại. Vui lòng thử lại.';
+    } finally {
+      isAuthenticatingGoogle = false;
+      notifyListeners();
+    }
   }
 
   Future<void> initialize() async {

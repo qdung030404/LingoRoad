@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 
 /// Rectangle geometry from Figma 47:9176; illustrative, not microphone analysis.
 class PreviewWaveform extends StatelessWidget {
@@ -66,7 +67,7 @@ class PreviewWaveform extends StatelessWidget {
               height: heights[i],
               decoration: BoxDecoration(
                 color: AppColors.primary500,
-                borderRadius: BorderRadius.circular(114),
+                borderRadius: AppRadius.pill,
               ),
             ),
           ],

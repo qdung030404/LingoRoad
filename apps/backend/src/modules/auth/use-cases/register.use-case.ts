@@ -16,6 +16,8 @@ export interface AuthResult {
     name: string;
     role: UserRole;
     status: UserStatus;
+    avatarUrl?: string | null;
+    provider?: string;
     profile: {
       targetCefr: CefrLevel;
       dailyGoalMinutes: number;

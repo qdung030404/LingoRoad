@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 import 'learning_widgets.dart';
 
@@ -123,7 +124,7 @@ class _SampleAudioState extends State<SampleAudio> with WidgetsBindingObserver {
       message: playing ? 'Tạm dừng audio mẫu' : widget.label,
       child: InkWell(
         onTap: busy ? null : toggle,
-        borderRadius: BorderRadius.circular(99),
+        borderRadius: AppRadius.buttonRadius,
         child: Container(
           width: 48,
           height: 48,
@@ -149,12 +150,12 @@ class _SampleAudioState extends State<SampleAudio> with WidgetsBindingObserver {
         child: Material(
           color: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(99),
+            borderRadius: AppRadius.buttonRadius,
             side: const BorderSide(color: AppColors.grey200),
           ),
           child: InkWell(
             onTap: busy ? null : toggle,
-            borderRadius: BorderRadius.circular(99),
+            borderRadius: AppRadius.buttonRadius,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               child: Row(
