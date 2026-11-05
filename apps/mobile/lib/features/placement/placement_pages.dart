@@ -70,7 +70,7 @@ class _PlacementHomeState extends State<PlacementHome> {
             resume
                 ? 'Tiếp tục bài kiểm tra'
                 : 'Cùng tìm điểm xuất phát của bạn',
-            style: designText(28, weight: FontWeight.w600, height: 1),
+            style: designHeading(28, height: 1),
           ),
           const SizedBox(height: 24),
           FigmaCard(
@@ -247,7 +247,7 @@ class _QuestionPageState extends State<QuestionPage> {
                 const SizedBox(height: 32),
                 Text(
                   'Sẵn sàng cho phần Nghe?',
-                  style: designText(28, weight: FontWeight.w600, height: 1),
+                  style: designHeading(28, height: 1),
                 ),
                 const SizedBox(height: 24),
                 FigmaCard(
@@ -452,10 +452,7 @@ class PassageCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'Đoạn văn',
-                        style: designText(20, weight: FontWeight.w600),
-                      ),
+                      Text('Đoạn văn', style: designHeading(20)),
                       const SizedBox(height: 24),
                       Text(passage, style: designText(16, height: 1.6)),
                     ],
@@ -569,7 +566,7 @@ class _ResultPageState extends State<ResultPage> {
                 Expanded(
                   child: Text(
                     'Đây là điểm\nxuất phát của bạn',
-                    style: designText(28, weight: FontWeight.w600, height: 1),
+                    style: designHeading(28, height: 1),
                   ),
                 ),
                 profileAction(context, widget.session),
@@ -637,11 +634,7 @@ class _SkillCard extends StatelessWidget {
                   child: Text(
                     level,
                     textAlign: TextAlign.center,
-                    style: designText(
-                      20,
-                      weight: FontWeight.w600,
-                      color: AppColors.primary500,
-                    ),
+                    style: designHeading(20, color: AppColors.primary500),
                   ),
                 ),
               Expanded(

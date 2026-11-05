@@ -5,7 +5,6 @@ import 'package:integration_test/integration_test.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/features/learning/preview_model.dart';
-import 'package:mobile/shared/figma_widgets.dart';
 import '../test/test_helpers.dart';
 
 void main() {
@@ -61,7 +60,7 @@ void main() {
     await tap(find.text('Từ vựng'));
     await shot('03-vocabulary-road');
     await tap(find.byKey(const Key('previewTab0')));
-    await tap(find.text('Bắt đầu'));
+    await tap(find.text('Tiếp tục học').hitTestable().first);
     await shot('04-vocabulary-lesson');
     await tap(find.text('Bắt đầu học'));
     await shot('05-vocabulary-word');
@@ -80,7 +79,7 @@ void main() {
     await tap(find.text("Subject pronouns and 'to be'"));
     await shot('07-grammar-lesson');
     await home();
-    await tap(find.byKey(const Key('previewTab2')));
+    await tap(find.byKey(const Key('previewTab3')));
     await shot('08-practice');
     for (final skill in [PracticeSkill.listening, PracticeSkill.reading]) {
       await tap(find.text(skill.label).first);
@@ -168,7 +167,7 @@ void main() {
       await tap(find.text(i == 4 ? 'Hoàn thành' : 'Câu tiếp'));
     }
     await home();
-    await tap(find.byKey(const Key('previewTab3')));
+    await tap(find.byKey(const Key('previewTab4')));
     await shot('24-progress');
     await tap(find.text('Lộ trình tuần đầu tiên'));
     await shot('25-plan');
@@ -179,15 +178,11 @@ void main() {
     expect(find.text('20 phút/ngày'), findsOneWidget);
     await home();
     await tap(find.byKey(const Key('previewTab0')));
-    await tap(
-      find.byWidgetPredicate(
-        (w) => w is FigmaAsset && w.asset == 'home/imgVuesaxLinearUser',
-      ),
-    );
+    await tap(find.byKey(const Key('previewAvatar')));
     await tap(find.text('Đóng bản xem trước'));
     expect(find.byKey(const Key('openLearningPreview')), findsOneWidget);
     await tap(find.byKey(const Key('openLearningPreview')));
-    await tap(find.byKey(const Key('previewTab3')));
+    await tap(find.byKey(const Key('previewTab4')));
     await tap(find.text('Lộ trình tuần đầu tiên'));
     expect(find.text('20 phút/ngày'), findsOneWidget);
     await shot('27-restored-plan');

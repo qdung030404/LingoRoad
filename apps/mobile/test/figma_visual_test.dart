@@ -24,6 +24,9 @@ void main() {
       final font = FontLoader('Inter')
         ..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'));
       await font.load();
+      await (FontLoader('Be Vietnam Pro')
+            ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Medium.ttf')))
+          .load();
     });
   }
 

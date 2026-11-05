@@ -266,11 +266,7 @@ class _EmailAuthPageState extends State<_EmailAuthPage> {
                                   register
                                       ? 'Bắt đầu hành trình học tiếng Anh của bạn.'
                                       : 'Tiếp tục hành trình học tiếng Anh của bạn.',
-                                  style: designText(
-                                    32,
-                                    weight: FontWeight.w600,
-                                    height: 1,
-                                  ),
+                                  style: designHeading(32, height: 1),
                                 ),
                                 const SizedBox(height: 32),
                                 if (register) ...[

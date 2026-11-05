@@ -8,6 +8,7 @@ import '../core/theme/app_radius.dart';
 import '../core/theme/app_spacing.dart';
 import '../core/theme/figma_assets.dart';
 import '../core/theme/learning_assets.dart';
+import '../core/theme/updated_figma_assets.dart';
 
 TextStyle designText(
   double size, {
@@ -22,6 +23,21 @@ TextStyle designText(
   height: height,
   letterSpacing: -size * .03,
   fontVariations: [ui.FontVariation('wght', weight.value.toDouble())],
+);
+
+/// Medium headings in the current LingoRoad2 design use Be Vietnam Pro.
+/// Body text and controls keep Inter, including Inter's semibold variants.
+TextStyle designHeading(
+  double size, {
+  Color color = AppColors.grey900,
+  double height = 1.2,
+}) => TextStyle(
+  fontFamily: 'Be Vietnam Pro',
+  fontSize: size,
+  fontWeight: FontWeight.w500,
+  color: color,
+  height: height,
+  letterSpacing: -size * .03,
 );
 
 class FigmaAsset extends StatelessWidget {
@@ -41,7 +57,10 @@ class FigmaAsset extends StatelessWidget {
   final int? cacheWidth;
   @override
   Widget build(BuildContext context) {
-    final path = FigmaAssets.files[asset] ?? LearningAssets.files[asset]!;
+    final path =
+        UpdatedFigmaAssets.files[asset] ??
+        FigmaAssets.files[asset] ??
+        LearningAssets.files[asset]!;
     return ExcludeSemantics(
       child: path.endsWith('.svg')
           ? SvgPicture.asset(
@@ -73,12 +92,14 @@ class FigmaPage extends StatelessWidget {
     this.bottom,
     this.color = AppColors.grey25,
     this.headerHeight = 52,
+    this.titleStyle,
   });
   final Widget child;
   final String? title;
   final Widget? leading, trailing, bottom;
   final Color color;
   final double headerHeight;
+  final TextStyle? titleStyle;
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
     value: SystemUiOverlayStyle.dark.copyWith(
@@ -118,7 +139,9 @@ class FigmaPage extends StatelessWidget {
                       child: Text(
                         title!,
                         textAlign: TextAlign.center,
-                        style: designText(18, weight: FontWeight.w600),
+                        style:
+                            titleStyle ??
+                            designText(18, weight: FontWeight.w600),
                       ),
                     ),
                     SizedBox(width: 56, child: trailing),

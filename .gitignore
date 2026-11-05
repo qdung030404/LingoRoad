@@ -63,3 +63,11 @@ opencode.json
 # Firebase & Secrets
 **/google-services.json
 !**/google-services.json.example
+
+# Local AI tooling, handoffs, worktrees and code indexes
+/.claude/
+/.agents/
+/.codex/
+/.gitnexus/
+CLAUDE.md
+AGENTS.md

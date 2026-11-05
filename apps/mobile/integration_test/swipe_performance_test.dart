@@ -131,26 +131,32 @@ void main() {
     await tester.tap(find.byKey(const Key('openLearningPreview')));
     await tester.pumpAndSettle();
     await measure('main_horizontal_first', () async {
-      for (final target in [1, 2, 3, 2, 1, 0]) {
+      for (final target in [1, 2, 3, 4, 3, 2, 1, 0]) {
         await swipe('learningPages', target);
       }
     });
     await measure('main_horizontal_warm', () async {
       for (var repeat = 0; repeat < 2; repeat++) {
-        for (final target in [1, 2, 3, 2, 1, 0]) {
+        for (final target in [1, 2, 3, 4, 3, 2, 1, 0]) {
           await swipe('learningPages', target);
         }
       }
     });
     await measure('main_buttons', () async {
-      for (final target in [3, 0, 2, 1, 3, 0]) {
+      for (final target in [4, 0, 3, 2, 1, 4, 0]) {
         await tapTab(target);
       }
     });
     await measure('main_vertical_first', () async {
-      for (var tab = 0; tab < 4; tab++) {
+      for (var tab = 0; tab < 5; tab++) {
         await tapTab(tab);
-        final finder = find.byKey(PageStorageKey('preview-content-$tab'));
+        final finder = find.byKey(
+          PageStorageKey(
+            tab == 2
+                ? 'preview-content-words'
+                : 'preview-content-${tab > 2 ? tab - 1 : tab}',
+          ),
+        );
         for (final dy in [-350.0, 350.0]) {
           await tester.timedDrag(
             finder,
@@ -162,9 +168,15 @@ void main() {
       }
     });
     await measure('main_vertical_warm', () async {
-      for (var tab = 0; tab < 4; tab++) {
+      for (var tab = 0; tab < 5; tab++) {
         await tapTab(tab);
-        final finder = find.byKey(PageStorageKey('preview-content-$tab'));
+        final finder = find.byKey(
+          PageStorageKey(
+            tab == 2
+                ? 'preview-content-words'
+                : 'preview-content-${tab > 2 ? tab - 1 : tab}',
+          ),
+        );
         for (final dy in [-350.0, 350.0]) {
           await tester.timedDrag(
             finder,

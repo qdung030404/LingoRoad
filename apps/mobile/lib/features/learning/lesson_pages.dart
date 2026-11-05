@@ -14,6 +14,7 @@ class GrammarLessonPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PreviewSurface(
     child: FigmaPage(
+      titleStyle: designHeading(18),
       title: 'Bài học',
       bottom: CustomAppButton(
         text: 'Bắt đầu học',
@@ -87,6 +88,7 @@ class VocabularyLessonPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => PreviewSurface(
     child: FigmaPage(
+      titleStyle: designHeading(18),
       title: 'Bài học',
       bottom: CustomAppButton(
         text: 'Bắt đầu học',
@@ -222,6 +224,7 @@ class _VocabularyWordPageState extends State<VocabularyWordPage> {
     final word = vocabularyWords[index];
     return PreviewSurface(
       child: FigmaPage(
+        titleStyle: designHeading(18),
         title: 'Phần 1 · Học từ vựng',
         bottom: PreviewToolbar(
           index: index,
