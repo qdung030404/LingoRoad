@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PasswordService } from './password.service';
 import { TokenService } from './token.service';
+import { FirebaseAdminService } from './firebase-admin.service';
 
 @Global()
 @Module({
@@ -21,7 +22,7 @@ import { TokenService } from './token.service';
       inject: [ConfigService],
     }),
   ],
-  providers: [PasswordService, TokenService],
-  exports: [PasswordService, TokenService, JwtModule],
+  providers: [PasswordService, TokenService, FirebaseAdminService],
+  exports: [PasswordService, TokenService, FirebaseAdminService, JwtModule],
 })
 export class SecurityModule {}

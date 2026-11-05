@@ -28,7 +28,19 @@ class AppSpacing {
     return width < 360 ? md : lg;
   }
 
+  // Predefined Gaps
+  static const SizedBox gapXs = SizedBox(width: xs, height: xs);
+  static const SizedBox gapSm = SizedBox(width: sm, height: sm);
+  static const SizedBox gapMd = SizedBox(width: md, height: md);
+  static const SizedBox gapLg = SizedBox(width: lg, height: lg);
+  static const SizedBox gapXl = SizedBox(width: xl, height: xl);
+  static const SizedBox gapXxl = SizedBox(width: xxl, height: xxl);
+
   // Predefined EdgeInsets
+  static const EdgeInsets allXs = EdgeInsets.all(xs);
+  static const EdgeInsets allSm = EdgeInsets.all(sm);
+  static const EdgeInsets allMd = EdgeInsets.all(md);
+  static const EdgeInsets allLg = EdgeInsets.all(lg);
   static const EdgeInsets screenPadding = EdgeInsets.symmetric(horizontal: md);
   static const EdgeInsets cardPadding = EdgeInsets.all(md);
   static const EdgeInsets dialogPadding = EdgeInsets.all(lg);

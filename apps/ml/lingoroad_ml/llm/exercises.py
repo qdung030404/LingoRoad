@@ -14,7 +14,14 @@ Return JSON: {{"exercises":[{{"stem","options","correct_answer","explanation_vi"
     return [{"role": "system", "content": SYSTEM}, {"role": "user", "content": user}]
 
 def parse_exercises(raw: str) -> list[dict]:
-    items = json.loads(raw).get("exercises", [])
+    clean = raw.strip()
+    if clean.startswith("```"):
+        clean = clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    try:
+        data = json.loads(clean)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"LLM returned invalid or truncated JSON response: {exc}") from exc
+    items = data.get("exercises", []) if isinstance(data, dict) else []
     valid = []
     for it in items:
         if not it.get("stem") or not it.get("correct_answer"):
@@ -28,7 +35,7 @@ def parse_exercises(raw: str) -> list[dict]:
     return valid
 
 def generate(client, skill_code, skill_name, cefr, ex_type, count) -> list[dict]:
-    model = os.environ.get("LINGOROAD_LLM_MODEL_VERSION", "gemini-3.8-flash")
+    model = os.environ.get("LINGOROAD_LLM_MODEL_VERSION", "gemini-2.5-flash")
     resp = client.chat.completions.create(
         model=model, temperature=0.7, response_format={"type": "json_object"},
         messages=build_exercise_messages(skill_code, skill_name, cefr, ex_type, count))

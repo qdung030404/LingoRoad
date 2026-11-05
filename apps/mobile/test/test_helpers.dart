@@ -82,7 +82,9 @@ class FakeApi extends ApiClient {
     Json? data,
     bool auth = true,
   }) async {
-    if (path == '/auth/login' || path == '/auth/register') {
+    if (path == '/auth/login' ||
+        path == '/auth/register' ||
+        path == '/auth/google') {
       return {'accessToken': 'access', 'refreshToken': 'refresh'};
     }
     if (path == '/auth/me') {

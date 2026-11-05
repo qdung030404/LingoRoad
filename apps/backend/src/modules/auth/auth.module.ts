@@ -6,6 +6,7 @@ import { UserRepository } from './repositories/user.repository';
 import { RefreshSessionRepository } from './repositories/refresh-session.repository';
 import { RegisterUseCase } from './use-cases/register.use-case';
 import { LoginUseCase } from './use-cases/login.use-case';
+import { GoogleLoginUseCase } from './use-cases/google-login.use-case';
 import { RefreshTokenUseCase } from './use-cases/refresh-token.use-case';
 import { LogoutUseCase } from './use-cases/logout.use-case';
 import { LogoutAllUseCase } from './use-cases/logout-all.use-case';
@@ -21,6 +22,7 @@ import { ProfileService } from './profile.service';
     RefreshSessionRepository,
     RegisterUseCase,
     LoginUseCase,
+    GoogleLoginUseCase,
     RefreshTokenUseCase,
     LogoutUseCase,
     LogoutAllUseCase,

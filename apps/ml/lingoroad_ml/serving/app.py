@@ -102,7 +102,7 @@ def ready():
     )
     components = {
         "cat": "ready",
-        "llm": "ready" if os.environ.get("GEMINI_API_KEY") else "missing_config",
+        "llm": "ready" if (os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")) else "missing_config",
         "rag": "ready" if rag_index.exists() else "missing_artifact",
         "speech": (
             "ready"

@@ -6,7 +6,7 @@ import {
   RefreshSessionWithUser,
 } from '../repositories/refresh-session.repository';
 import { TokenService } from '../../security/token.service';
-import { UserRole, UserStatus } from '@prisma/client';
+import { AuthProvider, UserRole, UserStatus } from '@prisma/client';
 
 describe('RefreshTokenUseCase', () => {
   let useCase: RefreshTokenUseCase;
@@ -59,6 +59,9 @@ describe('RefreshTokenUseCase', () => {
         email: 'user@lingoroad.com',
         passwordHash: 'hash',
         name: 'User One',
+        avatarUrl: null,
+        provider: AuthProvider.LOCAL,
+        firebaseUid: null,
         role: UserRole.LEARNER,
         status: UserStatus.ACTIVE,
         createdAt: new Date(),
@@ -104,6 +107,9 @@ describe('RefreshTokenUseCase', () => {
         email: 'user@lingoroad.com',
         passwordHash: 'hash',
         name: 'User One',
+        avatarUrl: null,
+        provider: AuthProvider.LOCAL,
+        firebaseUid: null,
         role: UserRole.LEARNER,
         status: UserStatus.ACTIVE,
         createdAt: new Date(),
@@ -137,6 +143,9 @@ describe('RefreshTokenUseCase', () => {
         email: 'user@lingoroad.com',
         passwordHash: 'hash',
         name: 'User One',
+        avatarUrl: null,
+        provider: AuthProvider.LOCAL,
+        firebaseUid: null,
         role: UserRole.LEARNER,
         status: UserStatus.ACTIVE,
         createdAt: new Date(),
@@ -169,6 +178,9 @@ describe('RefreshTokenUseCase', () => {
         email: 'user@lingoroad.com',
         passwordHash: 'hash',
         name: 'Suspended User',
+        avatarUrl: null,
+        provider: AuthProvider.LOCAL,
+        firebaseUid: null,
         role: UserRole.LEARNER,
         status: UserStatus.SUSPENDED,
         createdAt: new Date(),

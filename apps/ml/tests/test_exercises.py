@@ -1,6 +1,7 @@
 import json
+import pytest
 from lingoroad_ml.llm.exercises import build_exercise_messages, parse_exercises
-from lingoroad_ml.llm.awe import build_awe_messages
+from lingoroad_ml.llm.awe import build_awe_messages, parse_awe_response
 from lingoroad_ml.llm.distractors import wordnet_distractors
 
 def test_exercise_prompt_pins_cefr_skill_and_type():
@@ -18,6 +19,25 @@ def test_parse_exercises_validates_correct_answer_in_options():
     parsed = parse_exercises(raw)
     assert len(parsed) == 1            # invalid item dropped
     assert parsed[0]["correct_answer"] == "were"
+
+def test_parse_exercises_handles_markdown_code_fences():
+    raw = "```json\n" + json.dumps({"exercises": [
+        {"stem": "She ___ to school.", "options": ["goes", "go"],
+         "correct_answer": "goes", "explanation_vi": "Chủ ngữ số ít đi với goes."}
+    ]}) + "\n```"
+    parsed = parse_exercises(raw)
+    assert len(parsed) == 1
+    assert parsed[0]["correct_answer"] == "goes"
+
+def test_parse_exercises_handles_truncated_json_raises_value_error():
+    raw = "```json\n{\"exercises\": [{\"stem\": \"Incomplete stem"
+    with pytest.raises(ValueError, match="invalid or truncated JSON"):
+        parse_exercises(raw)
+
+def test_parse_awe_response_handles_truncated_json_raises_value_error():
+    raw = "{\"scores\": {\"task_achievement\": 7.0, \"coherence"
+    with pytest.raises(ValueError, match="invalid or truncated JSON"):
+        parse_awe_response(raw)
 
 def test_wordnet_distractors_exclude_the_answer():
     ds = wordnet_distractors("happy", n=3)

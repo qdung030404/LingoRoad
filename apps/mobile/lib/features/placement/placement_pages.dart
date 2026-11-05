@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import '../auth/session_controller.dart';
@@ -382,7 +383,7 @@ class QuestionToolbar extends StatelessWidget {
         child: CustomAppButton(
           text: '',
           isSecondary: true,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.tagRadius,
           icon: const FigmaAsset('reading/imgVuesaxLinearArrowLeft1', size: 20),
           onPressed: canReview ? onReview : null,
         ),
@@ -392,7 +393,7 @@ class QuestionToolbar extends StatelessWidget {
         child: CustomAppButton(
           text: progress,
           isSecondary: true,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.tagRadius,
           icon: const FigmaAsset('reading/imgVuesaxBoldCategory', size: 20),
           onPressed: busy ? null : onReview,
         ),
@@ -402,7 +403,7 @@ class QuestionToolbar extends StatelessWidget {
         child: CustomAppButton(
           key: const Key('submitAnswer'),
           text: label,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppRadius.tagRadius,
           fontSize: 18,
           onPressed: onNext,
           isLoading: busy,
@@ -666,7 +667,7 @@ class _SkillCard extends StatelessWidget {
                             ? AppColors.primary200
                             : AppColors.grey200,
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: AppRadius.tagRadius,
                     ),
                     child: Text(
                       value,
@@ -777,7 +778,7 @@ class _ReviewPageState extends State<ReviewPage> {
               child: CustomAppButton(
                 text: '',
                 isSecondary: true,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppRadius.tagRadius,
                 icon: const FigmaAsset(
                   'review/imgVuesaxLinearArrowLeft1',
                   size: 20,
@@ -792,7 +793,7 @@ class _ReviewPageState extends State<ReviewPage> {
               child: CustomAppButton(
                 key: const Key('nextReview'),
                 text: mistakesOnly ? 'Câu sai tiếp theo' : 'Câu tiếp theo',
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: AppRadius.tagRadius,
                 onPressed: () =>
                     setState(() => position = (current + 1) % items.length),
               ),
