@@ -81,8 +81,29 @@ model PlacementSession {
   @@map("placement_sessions")
 }
 
+model AssessmentItemGroup {
+  id          String           @id @default(uuid()) @db.Uuid
+  skill       AssessmentSkill
+  title       String?          @db.VarChar(200)
+  cefrLevel   CefrLevel        @map("cefr_level")
+  partNumber  Int              @map("part_number")
+  passage     String?          @db.Text
+  audioUrl    String?          @map("audio_url") @db.VarChar(500)
+  transcript  String?          @db.Text
+  usageScope  ItemUsageScope   @default(ALL) @map("usage_scope")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  items       AssessmentItem[]
+
+  @@index([skill, cefrLevel])
+  @@index([usageScope, skill, cefrLevel])
+  @@map("assessment_item_groups")
+}
+
 model AssessmentItem {
   id              String               @id @default(uuid()) @db.Uuid
+  groupId         String?              @map("group_id") @db.Uuid
+  itemOrder       Int                  @default(1) @map("item_order")
+  group           AssessmentItemGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   externalId      String?              @unique @map("external_id") @db.VarChar(100)
   bankVersion     String?              @map("bank_version") @db.VarChar(100)
   skill           AssessmentSkill?
@@ -91,10 +112,12 @@ model AssessmentItem {
   cefrLevel       CefrLevel            @map("cefr_level")
   type            ItemType             @default(MULTIPLE_CHOICE)
   prompt          String               @db.Text
-  options         Json                 @db.JsonB
-  correctOption   String               @map("correct_option") @db.Text
+  options         Json?                @db.JsonB
+  correctOption   String?              @map("correct_option") @db.Text
   explanation     String?              @db.Text
   audioUrl        String?              @map("audio_url") @db.VarChar(500)
+  rubricCriteria  Json?                @map("rubric_criteria") @db.JsonB
+  usageScope      ItemUsageScope       @default(ALL) @map("usage_scope")
   irtA            Float                @default(1.0) @map("irt_a")
   irtB            Float                @default(0.0) @map("irt_b")
   irtC            Float                @default(0.25) @map("irt_c")
@@ -102,9 +125,12 @@ model AssessmentItem {
   responses       AssessmentResponse[]
   currentSessions PlacementSession[]
 
+  @@index([groupId])
+  @@index([usageScope, skill, cefrLevel])
   @@index([skillCode, cefrLevel])
   @@index([cefrLevel])
   @@index([bankVersion, skill])
+  @@index([skill, cefrLevel])
   @@map("assessment_items")
 }
 
@@ -161,6 +187,8 @@ enum LearningPurpose {
 enum AssessmentSkill {
   READING
   LISTENING
+  WRITING
+  SPEAKING
 }
 
 enum SessionStatus {
@@ -174,4 +202,14 @@ enum ItemType {
   CLOZE
   SENTENCE_REORDER
   MATCHING
+  GAP_FILL
+  ESSAY
+  SPEAKING_PROMPT
+}
+
+enum ItemUsageScope {
+  PLACEMENT
+  MOCK_EXAM
+  PRACTICE
+  ALL
 }

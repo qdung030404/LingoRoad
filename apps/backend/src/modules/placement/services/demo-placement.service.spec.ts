@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { AssessmentItem, AssessmentSkill, CefrLevel } from '@prisma/client';
+import { AssessmentItem, AssessmentSkill, CefrLevel, ItemUsageScope } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MlClientService } from '../../ml/ml-client.service';
 import { DemoPlacementService, provisionalCefr } from './demo-placement.service';
@@ -9,12 +9,12 @@ jest.mock('fs', () => ({ ...jest.requireActual('fs'), existsSync: jest.fn(() => 
 
 function item(id: string, skill: AssessmentSkill = AssessmentSkill.READING, cefrLevel: CefrLevel = CefrLevel.A2): AssessmentItem {
   return {
-    id, externalId: id, bankVersion: 'demo-v1', skill, cefrLevel, type: 'MULTIPLE_CHOICE',
+    id, groupId: null, itemOrder: 1, externalId: id, bankVersion: 'demo-v1', skill, cefrLevel, type: 'MULTIPLE_CHOICE',
     passage: skill === 'READING' ? 'A short original passage.' : null,
     prompt: 'Choose the correct answer.', options: ['Yes', 'No', 'Maybe', 'Never'],
     correctOption: 'Yes', explanation: 'A clear explanation.', skillCode: `${skill.toLowerCase()}.general`,
     audioUrl: skill === 'LISTENING' ? '/media/placement/demo.wav' : null,
-    irtA: 1, irtB: 0, irtC: 0.25, createdAt: new Date(),
+    rubricCriteria: null, usageScope: ItemUsageScope.PLACEMENT, irtA: 1, irtB: 0, irtC: 0.25, createdAt: new Date(),
   };
 }
 

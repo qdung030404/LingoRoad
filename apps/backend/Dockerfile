@@ -41,8 +41,9 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json ./
+COPY media ./media
 
 EXPOSE 3000
 
-# Automatically push schema to Postgres and start the NestJS app
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main"]
+# Start the NestJS application
+CMD ["node", "dist/main"]

@@ -59,7 +59,11 @@ export class CefrScoringService {
   /**
    * Đánh giá đơn lẻ một câu trả lời — dùng bởi SubmitAnswerUseCase.
    */
-  evaluateAnswer(correctOption: string, selectedOption: string): boolean {
-    return correctOption.trim() === selectedOption.trim();
+  evaluateAnswer(
+    correctOption: string | null | undefined,
+    selectedOption: string | null | undefined,
+  ): boolean {
+    if (!correctOption || !selectedOption) return false;
+    return correctOption.trim().toLowerCase() === selectedOption.trim().toLowerCase();
   }
 }
