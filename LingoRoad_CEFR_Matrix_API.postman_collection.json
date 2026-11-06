@@ -1,0 +1,256 @@
+{
+  "info": {
+    "_postman_id": "c29f8744-1234-4567-89ab-lingoroadcefrmatrix",
+    "name": "LingoRoad - CEFR Exam Matrix & Item Bank API",
+    "description": "Postman Collection kiểm thử Phân hệ Khung Ma trận CEFR & Ngân hàng Đề thi 4 Kỹ năng (Feature 24.01).\n\nBao gồm tra cứu ma trận 6 bậc x 4 kỹ năng, lấy đề bài luyện tập an toàn (Zero Leakage) và tra cứu theo mã Can-Do Descriptors.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "your-jwt-access-token",
+      "type": "string"
+    },
+    {
+      "key": "sampleGroupId",
+      "value": "11111111-1111-4111-8111-111111111111",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Lấy Toàn Bộ Ma Trận CEFR & Thống Kê (GET /api/v1/assessment/matrix)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success true and matrix of 24 cells\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data.matrix).to.be.an('array');",
+              "    pm.expect(json.data.matrix.length).to.eql(24);",
+              "    pm.expect(json.data.totalSupportedLevels).to.eql(6);",
+              "    pm.expect(json.data.totalSkills).to.eql(4);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/assessment/matrix",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "assessment", "matrix"]
+        },
+        "description": "Lấy tổng quan 24 ô ma trận năng lực theo chuẩn CEFR (A1-C2 x 4 Kỹ năng) kèm theo Can-Do Descriptors và số lượng câu hỏi hiện có trong DB."
+      },
+      "response": []
+    },
+    {
+      "name": "2. Lấy Danh Sách Đề Luyện Tập Reading B1 (GET /practice/groups)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Zero Leakage Policy: Never expose answers or transcripts\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data).to.be.an('array');",
+              "    if (json.data.length > 0) {",
+              "        const firstGroup = json.data[0];",
+              "        pm.expect(firstGroup.transcript).to.be.undefined;",
+              "        pm.environment.set(\"sampleGroupId\", firstGroup.id);",
+              "        if (firstGroup.items && firstGroup.items.length > 0) {",
+              "            pm.expect(firstGroup.items[0].correctOption).to.be.undefined;",
+              "            pm.expect(firstGroup.items[0].explanation).to.be.undefined;",
+              "        }",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/assessment/practice/groups?skill=READING&cefrLevel=B1&limit=10&offset=0",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "assessment", "practice", "groups"],
+          "query": [
+            {
+              "key": "skill",
+              "value": "READING",
+              "description": "LISTENING | READING | WRITING | SPEAKING"
+            },
+            {
+              "key": "cefrLevel",
+              "value": "B1",
+              "description": "A1 | A2 | B1 | B2 | C1 | C2"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        },
+        "description": "Lấy danh sách nhóm đề luyện tập kỹ năng Reading bậc B1. Payload được bảo mật an toàn tuyệt đối, không lộ transcript hay đáp án."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Lấy Danh Sách Đề Luyện Tập Listening B2 (GET /practice/groups)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/assessment/practice/groups?skill=LISTENING&cefrLevel=B2",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "assessment", "practice", "groups"],
+          "query": [
+            {
+              "key": "skill",
+              "value": "LISTENING"
+            },
+            {
+              "key": "cefrLevel",
+              "value": "B2"
+            }
+          ]
+        },
+        "description": "Lấy các bài nghe có file audio cho trình độ B2 (Part 2)."
+      },
+      "response": []
+    },
+    {
+      "name": "4. Lấy Chi Tiết Một Nhóm Đề Luyện Tập (GET /practice/groups/:id)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Group details returned without answers\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data.id).to.eql(pm.variables.get(\"sampleGroupId\"));",
+              "    pm.expect(json.data.transcript).to.be.undefined;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/assessment/practice/groups/{{sampleGroupId}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "assessment", "practice", "groups", "{{sampleGroupId}}"]
+        },
+        "description": "Lấy chi tiết một bài tập dạng chùm (Passage + Câu hỏi con) theo ID."
+      },
+      "response": []
+    },
+    {
+      "name": "5. Tra Cứu Câu Hỏi Theo Mã Can-Do Descriptor (GET /descriptors/:skillCode)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Zero Leakage: Answers and psychometrics are stripped\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data).to.be.an('array');",
+              "    if (json.data.length > 0) {",
+              "        const item = json.data[0];",
+              "        pm.expect(item.correctOption).to.be.undefined;",
+              "        pm.expect(item.explanation).to.be.undefined;",
+              "        pm.expect(item.irtA).to.be.undefined;",
+              "        if (item.group) {",
+              "            pm.expect(item.group.transcript).to.be.undefined;",
+              "        }",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/assessment/descriptors/reading.skimming?cefrLevel=B1",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "assessment", "descriptors", "reading.skimming"],
+          "query": [
+            {
+              "key": "cefrLevel",
+              "value": "B1"
+            }
+          ]
+        },
+        "description": "Tra cứu các câu hỏi thuộc mã kỹ năng Can-Do Descriptor 'reading.skimming' ở trình độ B1."
+      },
+      "response": []
+    }
+  ]
+}
+

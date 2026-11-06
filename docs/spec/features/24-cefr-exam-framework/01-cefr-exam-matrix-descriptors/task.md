@@ -48,9 +48,9 @@ Thiết kế Schema Ngân hàng đề thi CEFR (`AssessmentItemGroup`) và tích
 
 # 5. Implementation Checklist (Danh mục Triển khai)
 
-- [ ] Cập nhật `apps/backend/prisma/schema.prisma` với `AssessmentItemGroup`.
-- [ ] Chạy `npx prisma generate` trong `apps/backend`.
-- [ ] Tạo DTO `AssessmentItemGroupDto` và `AssessmentItemDto` trong backend common.
-- [ ] Viết UseCase `GetPracticeGroupsBySkillUseCase`.
-- [ ] Viết bộ seed mẫu kiểm thử cho 4 kỹ năng chuẩn CEFR.
+- [x] Cập nhật `apps/backend/prisma/schema.prisma` với `AssessmentItemGroup`.
+- [x] Chạy `npx prisma generate` trong `apps/backend`.
+- [x] Tạo DTO `AssessmentItemGroupDto` và `AssessmentItemDto` trong backend common.
+- [x] Viết UseCase / Service `AssessmentPracticeService` và `AssessmentMatrixService`.
+- [x] Viết bộ seed mẫu kiểm thử cho 4 kỹ năng chuẩn CEFR (`prisma/seed-cefr-bank.ts`).
 
