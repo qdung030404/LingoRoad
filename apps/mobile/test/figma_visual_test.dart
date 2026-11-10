@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/auth/session_controller.dart';
+import 'package:mobile/features/placement/placement_pages.dart';
 import 'package:mobile/main.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'test_helpers.dart';
 
 // Optional exports are actual widget renders, never runtime backgrounds.
@@ -16,6 +19,7 @@ void main() {
     WidgetTester tester, {
     Size size = const Size(393, 852),
   }) async {
+    SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
@@ -114,10 +118,21 @@ void main() {
     (tester) async {
       await prepare(tester);
       final api = FakeApi(signedIn: true, completed: true)..index = 1;
-      await app(tester, api);
+      final session = SessionController(api);
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: boundaryKey,
+          child: MaterialApp(
+            theme: AppTheme.lightTheme,
+            home: ResultPage(session: session, sessionId: 'session'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
       await capture(tester, 'result');
       expect(find.text('Chưa đánh giá'), findsNWidgets(2));
       await tester.tap(find.text('Xem lại bài làm'));
+      await tester.pumpAndSettle();
       await capture(tester, 'review');
       expect(find.text('Đáp án'), findsOneWidget);
       expect(find.text('Đáp án đã nộp được khóa.'), findsOneWidget);

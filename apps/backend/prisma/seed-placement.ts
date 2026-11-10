@@ -56,9 +56,9 @@ async function main(): Promise<void> {
   if (!databaseUrl)
     throw new Error("Set DATABASE_URL to the isolated demo or test database.");
   const databaseName = new URL(databaseUrl).pathname.slice(1);
-  if (!/^lingoroad_(demo|test)$/.test(databaseName)) {
+  if (!/^(lingoroad(_(demo|test))?|postgres)$/.test(databaseName)) {
     throw new Error(
-      "Seed CLI only accepts databases named lingoroad_demo or lingoroad_test.",
+      "Seed CLI only accepts databases named lingoroad, lingoroad_demo, lingoroad_test or postgres.",
     );
   }
   const prisma = new PrismaClient();

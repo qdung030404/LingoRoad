@@ -81,6 +81,7 @@ class FakeApi extends ApiClient {
     String path, {
     Json? data,
     bool auth = true,
+    Duration? receiveTimeout,
   }) async {
     if (path == '/auth/login' ||
         path == '/auth/register' ||

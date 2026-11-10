@@ -37,7 +37,7 @@ class ApiClient {
           dio ??
           Dio(
             BaseOptions(
-              connectTimeout: const Duration(seconds: 10),
+              connectTimeout: const Duration(seconds: 15),
               receiveTimeout: const Duration(seconds: 20),
             ),
           );
@@ -53,15 +53,28 @@ class ApiClient {
     String path, {
     Json? data,
     bool auth = true,
+    Duration? receiveTimeout,
   }) async {
     final sentToken = accessToken;
     try {
-      return await _send(method, path, data, auth ? sentToken : null);
+      return await _send(
+        method,
+        path,
+        data,
+        auth ? sentToken : null,
+        receiveTimeout: receiveTimeout,
+      );
     } on ApiFailure catch (e) {
       if (!auth || !e.unauthorized) rethrow;
       try {
         if (accessToken == sentToken) await refresh();
-        return await _send(method, path, data, accessToken);
+        return await _send(
+          method,
+          path,
+          data,
+          accessToken,
+          receiveTimeout: receiveTimeout,
+        );
       } on ApiFailure catch (retryError) {
         if (retryError.unauthorized) {
           await clearSession();
@@ -76,8 +89,9 @@ class ApiClient {
     String method,
     String path,
     Json? data,
-    String? token,
-  ) async {
+    String? token, {
+    Duration? receiveTimeout,
+  }) async {
     try {
       final response = await dio.request<dynamic>(
         config.resolve(path).toString(),
@@ -85,6 +99,7 @@ class ApiClient {
         options: Options(
           method: method,
           headers: token == null ? null : {'Authorization': 'Bearer $token'},
+          receiveTimeout: receiveTimeout,
         ),
       );
       final body = response.data;
@@ -97,6 +112,14 @@ class ApiClient {
     } on DioException catch (e) {
       if (e.response != null) {
         throw _failure(e.response!.data, e.response!.statusCode);
+      }
+      if (e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.connectionTimeout) {
+        throw const ApiFailure(
+          'Hệ thống AI xử lý phản hồi quá thời gian chờ (timeout). Vui lòng thử lại.',
+          code: 'TIMEOUT',
+        );
       }
       throw const ApiFailure(
         'Không thể kết nối máy chủ. Kiểm tra mạng và thử lại.',

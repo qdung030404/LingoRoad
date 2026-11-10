@@ -1,24 +1,33 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Post,
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { ThrottlerGuard } from "@nestjs/throttler";
+import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { ApiResponse } from "../../common/interfaces/api-response.interface";
 import { AssessmentMatrixService } from "./services/assessment-matrix.service";
 import { AssessmentPracticeService } from "./services/assessment-practice.service";
+import { EvaluateCefrWritingUseCase } from "./services/evaluate-cefr-writing.use-case";
 import { GetPracticeGroupsQueryDto } from "./dto/get-practice-groups-query.dto";
 import { GetItemsByDescriptorQueryDto } from "./dto/get-items-by-descriptor-query.dto";
+import { GetWritingItemsQueryDto } from "./dto/get-writing-items-query.dto";
+import {
+  CefrWritingEvaluationResultDto,
+  EvaluateCefrWritingDto,
+} from "../ml/dto/evaluate-cefr-writing.dto";
 import { ParseSkillCodePipe } from "./pipes/parse-skill-code.pipe";
 import { CefrMatrixOverviewResponse } from "./dto/cefr-matrix-response.dto";
 import { AssessmentSafeGroupDto } from "./dto/assessment-safe-group.dto";
 import { AssessmentSafeItemDto } from "./dto/assessment-safe-item.dto";
+import { CefrLevel } from "@prisma/client";
 
 export interface AssessmentResponse<T> {
   success: boolean;
@@ -45,6 +54,7 @@ export class AssessmentController {
   constructor(
     private readonly matrixService: AssessmentMatrixService,
     private readonly practiceService: AssessmentPracticeService,
+    private readonly writingUseCase: EvaluateCefrWritingUseCase,
   ) {}
 
   /**
@@ -133,6 +143,49 @@ export class AssessmentController {
         limit: result.limit,
         offset: result.offset,
       },
+    };
+  }
+
+  /**
+   * Lấy danh sách đề bài luyện viết tự luận từ ngân hàng đề CEFR trong Database.
+   * Yêu cầu xác thực tài khoản JWT.
+   */
+  @Get("writing/items")
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async getWritingItems(
+    @Query() query: GetWritingItemsQueryDto,
+  ): Promise<AssessmentResponse<{ items: AssessmentSafeItemDto[]; total: number }>> {
+    const result = await this.practiceService.getWritingPracticeItems(
+      query.cefrLevel,
+      {
+        limit: query.limit,
+        offset: query.offset,
+      },
+    );
+    return {
+      success: true,
+      message: "Lấy danh sách đề bài viết từ ngân hàng đề thành công",
+      data: result,
+    };
+  }
+
+  /**
+   * Đánh giá tự động bài thi viết tự luận theo 4 tiêu chí CEFR (Automated Writing Evaluation).
+   * Yêu cầu xác thực tài khoản JWT và chặn bài viết quá ngắn (< 20 từ).
+   */
+  @Post("writing/evaluate")
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  async evaluateWriting(
+    @Body() dto: EvaluateCefrWritingDto,
+  ): Promise<AssessmentResponse<CefrWritingEvaluationResultDto>> {
+    const result = await this.writingUseCase.execute(dto);
+    return {
+      success: true,
+      message: "Đánh giá bài viết theo chuẩn CEFR thành công",
+      data: result,
     };
   }
 }

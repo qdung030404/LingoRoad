@@ -3,6 +3,7 @@ import '../shared/figma_widgets.dart';
 import 'auth/auth_page.dart';
 import 'auth/session_controller.dart';
 import 'common.dart';
+import 'learning/learning_preview.dart';
 import 'placement/placement_pages.dart';
 import 'profile/profile_page.dart';
 
@@ -77,10 +78,7 @@ class _AccountNavigatorState extends State<_AccountNavigator> {
         key: navigatorKey,
         onGenerateRoute: (_) => MaterialPageRoute<void>(
           builder: (_) => session.placement['status'] == 'COMPLETED'
-              ? ResultPage(
-                  session: session,
-                  sessionId: session.placement['currentSessionId'] as String,
-                )
+              ? LearningPreview(onLogout: session.logout)
               : PlacementHome(session: session),
         ),
       ),

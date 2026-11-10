@@ -32,12 +32,19 @@ class _LogoutApi extends FakeApi {
     String path, {
     Json? data,
     bool auth = true,
+    Duration? receiveTimeout,
   }) async {
     if (path == '/auth/logout') {
       logoutCalls++;
       if (offline) throw const ApiFailure('Offline');
     }
-    return super.request(method, path, data: data, auth: auth);
+    return super.request(
+      method,
+      path,
+      data: data,
+      auth: auth,
+      receiveTimeout: receiveTimeout,
+    );
   }
 }
 
@@ -233,8 +240,6 @@ void main() {
         final session = SessionController(api);
         await tester.pumpWidget(MyApp(session: session));
         await tester.pumpAndSettle();
-        await tap(tester, find.text('Xem lộ trình mẫu'));
-        await tap(tester, find.byTooltip('Quay lại'));
         await tap(tester, find.byKey(const Key('previewAvatar')));
         expect(find.text('Đăng xuất'), findsOneWidget);
         await tap(tester, find.byKey(const Key('previewLogout')));
@@ -387,6 +392,11 @@ void main() {
     await capture(tester, 'practice');
     for (final skill in PracticeSkill.values) {
       await tap(tester, find.text(skill.label).first);
+      if (skill == PracticeSkill.writing) {
+        expect(find.text('Ngân hàng Đề Luyện Viết (CEFR)'), findsOneWidget);
+        await capture(tester, skill.source);
+        continue;
+      }
       await tap(tester, find.text(skill.title));
       expect(find.text(skill.title), findsOneWidget);
       await capture(tester, skill.source);

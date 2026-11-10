@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { ItemUsageScope } from "@prisma/client";
+import { CefrLevel, ItemUsageScope } from "@prisma/client";
 import { AssessmentItemGroupRepository } from "../repositories/assessment-item-group.repository";
+import { AssessmentCacheService } from "./assessment-cache.service";
 import { AssessmentSafeMapper } from "../mappers/assessment-safe.mapper";
 import { GetPracticeGroupsQueryDto } from "../dto/get-practice-groups-query.dto";
 import { AssessmentSafeGroupDto } from "../dto/assessment-safe-group.dto";
+import { AssessmentSafeItemDto } from "../dto/assessment-safe-item.dto";
 
 export interface PaginatedPracticeGroupsResponse {
   total: number;
@@ -14,7 +16,10 @@ export interface PaginatedPracticeGroupsResponse {
 
 @Injectable()
 export class AssessmentPracticeService {
-  constructor(private readonly repository: AssessmentItemGroupRepository) {}
+  constructor(
+    private readonly repository: AssessmentItemGroupRepository,
+    private readonly cacheService: AssessmentCacheService,
+  ) {}
 
   async getPracticeGroups(
     query: GetPracticeGroupsQueryDto,
@@ -49,5 +54,36 @@ export class AssessmentPracticeService {
     }
 
     return AssessmentSafeMapper.toSafeGroup(group);
+  }
+
+  async getWritingPracticeItems(
+    cefrLevel?: CefrLevel,
+    pagination?: { limit?: number; offset?: number },
+  ): Promise<{ items: AssessmentSafeItemDto[]; total: number }> {
+    const limit = Math.min(Math.max(pagination?.limit ?? 20, 1), 50);
+    const offset = Math.max(pagination?.offset ?? 0, 0);
+    const cacheKey = `assessment:writing:items:${cefrLevel ?? "ALL"}:${limit}:${offset}`;
+
+    const cached = await this.cacheService.get<{
+      items: AssessmentSafeItemDto[];
+      total: number;
+    }>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const [items, total] = await this.repository.findWritingPracticeItems({
+      cefrLevel,
+      limit,
+      offset,
+    });
+    const result = {
+      items: items.map((item) => AssessmentSafeMapper.toSafeItem(item)),
+      total,
+    };
+
+    // Cache static writing bank for 15 minutes (900 seconds)
+    await this.cacheService.set(cacheKey, result, 900);
+    return result;
   }
 }

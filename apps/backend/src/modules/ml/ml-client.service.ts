@@ -10,6 +10,8 @@ import {
   CatCandidate,
   CatHistoryEntry,
   CatSelectResponse,
+  CefrWritingEvaluationRequest,
+  CefrWritingEvaluationResult,
   ExerciseResponse,
   KtEvent,
   KtPredictResponse,
@@ -205,6 +207,33 @@ export class MlClientService {
         {
           headers: this.getHeaders({ 'Content-Type': 'application/json' }),
           timeout: Math.max(this.defaultTimeoutMs, 25000),
+        },
+      ),
+    );
+    return res.data;
+  }
+
+  /**
+   * CEFR Automated Writing Evaluation (4 Criteria Rubric)
+   */
+  async evaluateCefrWriting(
+    request: CefrWritingEvaluationRequest,
+  ): Promise<CefrWritingEvaluationResult> {
+    const payload = {
+      task_type: request.task_type || 'TASK_2',
+      task_prompt: request.task_prompt,
+      essay: request.essay,
+      target_cefr: request.target_cefr,
+      target_grammars: request.target_grammars || [],
+    };
+
+    const res = await firstValueFrom(
+      this.httpService.post<CefrWritingEvaluationResult>(
+        `${this.baseUrl}/ml/awe/evaluate-cefr`,
+        payload,
+        {
+          headers: this.getHeaders({ 'Content-Type': 'application/json' }),
+          timeout: Math.max(this.defaultTimeoutMs, 60000),
         },
       ),
     );
