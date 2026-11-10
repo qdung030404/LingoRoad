@@ -136,5 +136,62 @@ describe('MlClientService & InProcessCatFallback', () => {
       expect(result.next_item_id).toBe('cand_1');
       expect(result.theta).toBeGreaterThan(0.0);
     });
+
+    it('should evaluate CEFR writing successfully via ML service', async () => {
+      const mockResult = {
+        level_evaluation: {
+          status: 'MEETS_EXPECTATIONS' as const,
+          summary_vi: 'Bài viết đạt yêu cầu.',
+          encouragement_vi: 'Cố gắng phát huy!',
+        },
+        grammar_checklist: [
+          {
+            grammar_point: 'Thì tương lai đơn',
+            status: 'ATTEMPTED_WITH_ERRORS' as const,
+            evidence_sentence: 'I will going to school.',
+            feedback_vi: 'Sai cấu trúc thì tương lai đơn.',
+          },
+        ],
+        improvement_steps: ['Ôn tập lại thì tương lai đơn.'],
+        feedback: [
+          {
+            original_sentence: 'I will going to school.',
+            issue_vi: 'Sai cấu trúc thì tương lai đơn.',
+            suggestion: 'I will go to school.',
+            explanation_vi: 'Sau will là động từ nguyên mẫu.',
+          },
+        ],
+        overall_comment_vi: 'Bài viết đạt yêu cầu.',
+      };
+
+      const response: AxiosResponse = {
+        data: mockResult,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any,
+      };
+      mockHttpService.post.mockReturnValue(of(response));
+
+      const result = await service.evaluateCefrWriting({
+        task_type: 'TASK_2',
+        task_prompt: 'Write an essay about technology.',
+        essay: 'Technology has transformed our daily lives in numerous aspects...',
+        target_cefr: 'B2',
+      });
+
+      expect(result).toEqual(mockResult);
+      expect(mockHttpService.post).toHaveBeenCalledWith(
+        'http://localhost:8001/ml/awe/evaluate-cefr',
+        {
+          task_type: 'TASK_2',
+          task_prompt: 'Write an essay about technology.',
+          essay: 'Technology has transformed our daily lives in numerous aspects...',
+          target_cefr: 'B2',
+          target_grammars: [],
+        },
+        expect.any(Object),
+      );
+    });
   });
 });

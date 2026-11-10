@@ -17,24 +17,7 @@ class PreviewSurface extends StatelessWidget {
   const PreviewSurface({super.key, required this.child});
   final Widget child;
   @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      child,
-      Positioned(
-        top: MediaQuery.paddingOf(context).top + 5,
-        right: 16,
-        child: IgnorePointer(
-          child: Material(
-            color: Colors.transparent,
-            child: Text(
-              'Dữ liệu mẫu',
-              style: designText(10, color: AppColors.grey800),
-            ),
-          ),
-        ),
-      ),
-    ],
-  );
+  Widget build(BuildContext context) => child;
 }
 
 class LearningCard extends StatelessWidget {

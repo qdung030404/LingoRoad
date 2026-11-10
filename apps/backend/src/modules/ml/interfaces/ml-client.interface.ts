@@ -82,6 +82,52 @@ export interface AweResponse {
   overall_vi: string;
 }
 
+export type CefrWritingLevelStatus =
+  | 'EXCEEDS_EXPECTATIONS'
+  | 'MEETS_EXPECTATIONS'
+  | 'NEEDS_IMPROVEMENT';
+
+export type CefrWritingGrammarChecklistStatus =
+  | 'MASTERED'
+  | 'ATTEMPTED_WITH_ERRORS'
+  | 'NOT_USED';
+
+export interface CefrWritingLevelEvaluation {
+  status: CefrWritingLevelStatus;
+  summary_vi: string;
+  encouragement_vi: string;
+}
+
+export interface CefrWritingGrammarChecklistItem {
+  grammar_point: string;
+  status: CefrWritingGrammarChecklistStatus;
+  evidence_sentence?: string;
+  feedback_vi: string;
+}
+
+export interface CefrWritingFeedbackItem {
+  original_sentence: string;
+  issue_vi: string;
+  suggestion: string;
+  explanation_vi?: string;
+}
+
+export interface CefrWritingEvaluationResult {
+  level_evaluation: CefrWritingLevelEvaluation;
+  grammar_checklist: CefrWritingGrammarChecklistItem[];
+  improvement_steps: string[];
+  feedback: CefrWritingFeedbackItem[];
+  overall_comment_vi: string;
+}
+
+export interface CefrWritingEvaluationRequest {
+  task_type?: 'TASK_1' | 'TASK_2';
+  task_prompt: string;
+  essay: string;
+  target_cefr?: string;
+  target_grammars?: string[];
+}
+
 export interface KtEvent {
   q_idx: number;
   part: number;

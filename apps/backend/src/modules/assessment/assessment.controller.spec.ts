@@ -4,12 +4,18 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { AssessmentController } from "./assessment.controller";
 import { AssessmentMatrixService } from "./services/assessment-matrix.service";
 import { AssessmentPracticeService } from "./services/assessment-practice.service";
+import { EvaluateCefrWritingUseCase } from "./services/evaluate-cefr-writing.use-case";
 import { AssessmentSkill, CefrLevel, ItemUsageScope } from "@prisma/client";
+import {
+  CefrWritingTaskType,
+  EvaluationLevelStatus,
+} from "../ml/dto/evaluate-cefr-writing.dto";
 
 describe("AssessmentController", () => {
   let controller: AssessmentController;
   let matrixService: jest.Mocked<Partial<AssessmentMatrixService>>;
   let practiceService: jest.Mocked<Partial<AssessmentPracticeService>>;
+  let writingUseCase: jest.Mocked<Partial<EvaluateCefrWritingUseCase>>;
 
   beforeEach(async () => {
     matrixService = {
@@ -45,6 +51,33 @@ describe("AssessmentController", () => {
         usageScope: ItemUsageScope.ALL,
         items: [],
       }),
+      getWritingPracticeItems: jest.fn().mockResolvedValue({
+        items: [
+          {
+            id: "item-writing-1",
+            skill: AssessmentSkill.WRITING,
+            skillCode: "writing.opinion_essay",
+            cefrLevel: CefrLevel.B2,
+            type: "ESSAY",
+            prompt: "Write an essay about AI.",
+          },
+        ],
+        total: 1,
+      }),
+    };
+
+    writingUseCase = {
+      execute: jest.fn().mockResolvedValue({
+        levelEvaluation: {
+          status: EvaluationLevelStatus.MEETS_EXPECTATIONS,
+          summaryVi: "Đạt chuẩn B2",
+          encouragementVi: "Tiếp tục cố gắng!",
+        },
+        grammarChecklist: [],
+        improvementSteps: ["Phát triển thêm ý"],
+        feedback: [],
+        overallCommentVi: "Bài viết khá tốt.",
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -52,6 +85,7 @@ describe("AssessmentController", () => {
       providers: [
         { provide: AssessmentMatrixService, useValue: matrixService },
         { provide: AssessmentPracticeService, useValue: practiceService },
+        { provide: EvaluateCefrWritingUseCase, useValue: writingUseCase },
       ],
     })
       .overrideGuard(ThrottlerGuard)
@@ -98,6 +132,42 @@ describe("AssessmentController", () => {
     expect(matrixService.getItemsByDescriptor).toHaveBeenCalledWith(
       "reading.skimming",
       CefrLevel.B1,
+      { limit: 20, offset: 0 },
+    );
+  });
+
+  it("evaluateWriting should return wrapped evaluation result", async () => {
+    const dto = {
+      taskType: CefrWritingTaskType.TASK_2,
+      taskPrompt: "Write an essay about renewable energy.",
+      essay:
+        "Renewable energy is vital for our future development. In recent years, countries have invested heavily in solar and wind power to protect the ecosystem.",
+      targetCefr: "B2",
+    };
+
+    const res = await controller.evaluateWriting(dto);
+    expect(res.success).toBe(true);
+    expect(res.message).toBe("Đánh giá bài viết theo chuẩn CEFR thành công");
+    expect(res.data.levelEvaluation.status).toBe(
+      EvaluationLevelStatus.MEETS_EXPECTATIONS,
+    );
+    expect(res.data.levelEvaluation.summaryVi).toBe("Đạt chuẩn B2");
+    expect(writingUseCase.execute).toHaveBeenCalledWith(dto);
+  });
+
+  it("getWritingItems should return practice writing items from db with total count", async () => {
+    const res = await controller.getWritingItems({
+      cefrLevel: CefrLevel.B2,
+      limit: 20,
+      offset: 0,
+    });
+    expect(res.success).toBe(true);
+    expect(res.message).toBe("Lấy danh sách đề bài viết từ ngân hàng đề thành công");
+    expect(res.data.items.length).toBe(1);
+    expect(res.data.total).toBe(1);
+    expect(res.data.items[0].skillCode).toBe("writing.opinion_essay");
+    expect(practiceService.getWritingPracticeItems).toHaveBeenCalledWith(
+      CefrLevel.B2,
       { limit: 20, offset: 0 },
     );
   });

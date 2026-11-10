@@ -98,11 +98,16 @@ void main() {
     },
   );
   testWidgets(
-    'Completed startup shows provisional result and unassessed skills',
+    'ResultPage shows provisional result and unassessed skills',
     (tester) async {
+      final session =
+          SessionController(FakeApi(signedIn: true, completed: true));
       await tester.pumpWidget(
-        MyApp(
-          session: SessionController(FakeApi(signedIn: true, completed: true)),
+        MaterialApp(
+          home: ResultPage(
+            session: session,
+            sessionId: 'sess-1',
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -115,6 +120,19 @@ void main() {
       await tester.tap(find.text('Xem lại bài làm'));
       await tester.pumpAndSettle();
       expect(find.text('Xem lại bài làm'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Completed startup navigates directly to Home screen (LearningPreview)',
+    (tester) async {
+      await tester.pumpWidget(
+        MyApp(
+          session: SessionController(FakeApi(signedIn: true, completed: true)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('previewAvatar')), findsOneWidget);
     },
   );
 }

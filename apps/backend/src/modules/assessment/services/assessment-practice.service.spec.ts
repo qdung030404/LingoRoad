@@ -8,11 +8,13 @@ import {
 } from "@prisma/client";
 import { AssessmentPracticeService } from "./assessment-practice.service";
 import { AssessmentItemGroupRepository } from "../repositories/assessment-item-group.repository";
+import { AssessmentCacheService } from "./assessment-cache.service";
 import { AssessmentItemGroupWithItems } from "../interfaces/assessment.interface";
 
 describe("AssessmentPracticeService", () => {
   let service: AssessmentPracticeService;
   let repository: jest.Mocked<Partial<AssessmentItemGroupRepository>>;
+  let cacheService: jest.Mocked<Partial<AssessmentCacheService>>;
 
   const mockGroup: AssessmentItemGroupWithItems = {
     id: "grp-123",
@@ -66,6 +68,39 @@ describe("AssessmentPracticeService", () => {
           }
           return Promise.resolve(null);
         }),
+      findWritingPracticeItems: jest.fn().mockResolvedValue([
+        [
+          {
+            id: "itm-write-1",
+            groupId: null,
+            itemOrder: 1,
+            externalId: "ext-write-1",
+            bankVersion: "v1",
+            skill: AssessmentSkill.WRITING,
+            skillCode: "writing.opinion_essay",
+            cefrLevel: CefrLevel.B2,
+            type: ItemType.ESSAY,
+            prompt: "Write an essay about environment.",
+            options: null,
+            correctOption: null,
+            explanation: null,
+            audioUrl: null,
+            passage: null,
+            rubricCriteria: { wordCount: "200-250" },
+            usageScope: ItemUsageScope.PRACTICE,
+            irtA: 1.0,
+            irtB: 0.1,
+            irtC: 0.25,
+            createdAt: new Date(),
+          },
+        ],
+        1,
+      ]),
+    };
+
+    cacheService = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -74,6 +109,10 @@ describe("AssessmentPracticeService", () => {
         {
           provide: AssessmentItemGroupRepository,
           useValue: repository,
+        },
+        {
+          provide: AssessmentCacheService,
+          useValue: cacheService,
         },
       ],
     }).compile();
@@ -127,5 +166,32 @@ describe("AssessmentPracticeService", () => {
     expect(result.id).toBe("grp-123");
     const groupRecord = result as unknown as Record<string, unknown>;
     expect(groupRecord.transcript).toBeUndefined();
+  });
+
+  it("should return safe writing practice items and total count", async () => {
+    const result = await service.getWritingPracticeItems(CefrLevel.B2);
+    expect(result.total).toBe(1);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].id).toBe("itm-write-1");
+    expect(result.items[0].skillCode).toBe("writing.opinion_essay");
+    expect(result.items[0].prompt).toBe("Write an essay about environment.");
+    expect(repository.findWritingPracticeItems).toHaveBeenCalledWith({
+      cefrLevel: CefrLevel.B2,
+      limit: 20,
+      offset: 0,
+    });
+    expect(cacheService.set).toHaveBeenCalled();
+  });
+
+  it("should return cached writing practice items on cache hit without querying repository", async () => {
+    cacheService.get = jest.fn().mockResolvedValue({
+      items: [{ id: "cached-item", prompt: "Cached prompt" } as any],
+      total: 1,
+    });
+
+    const result = await service.getWritingPracticeItems(CefrLevel.B1);
+    expect(result.total).toBe(1);
+    expect(result.items[0].id).toBe("cached-item");
+    expect(repository.findWritingPracticeItems).not.toHaveBeenCalled();
   });
 });

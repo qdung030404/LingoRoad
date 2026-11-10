@@ -172,4 +172,56 @@ export class AssessmentItemGroupRepository {
 
     return [items, total];
   }
+
+  async findWritingPracticeItems(filter?: {
+    cefrLevel?: CefrLevel;
+    limit?: number;
+    offset?: number;
+  }): Promise<[AssessmentItem[], number]> {
+    const where: Prisma.AssessmentItemWhereInput = {
+      skill: AssessmentSkill.WRITING,
+      usageScope: { in: [ItemUsageScope.PRACTICE, ItemUsageScope.ALL] },
+    };
+    if (filter?.cefrLevel) {
+      where.cefrLevel = filter.cefrLevel;
+    }
+
+    const limit = Math.min(Math.max(filter?.limit ?? 20, 1), 50);
+    const offset = Math.max(filter?.offset ?? 0, 0);
+
+    const [items, total] = await Promise.all([
+      this.prisma.assessmentItem.findMany({
+        where,
+        orderBy: [{ cefrLevel: "asc" }, { createdAt: "asc" }],
+        skip: offset,
+        take: limit,
+      }),
+      this.prisma.assessmentItem.count({ where }),
+    ]);
+
+    return [items, total];
+  }
+
+  async findItemById(idOrExternalId: string): Promise<AssessmentItem | null> {
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        idOrExternalId,
+      );
+
+    if (isUuid) {
+      const item = await this.prisma.assessmentItem.findUnique({
+        where: { id: idOrExternalId },
+      });
+      if (item) return item;
+    }
+
+    return this.prisma.assessmentItem.findFirst({
+      where: {
+        OR: [
+          { externalId: idOrExternalId },
+          ...(isUuid ? [{ id: idOrExternalId }] : []),
+        ],
+      },
+    });
+  }
 }

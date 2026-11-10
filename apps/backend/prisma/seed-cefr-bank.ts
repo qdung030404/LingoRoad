@@ -191,7 +191,7 @@ export async function seedCefrBank(
   ];
 
   // ==========================================
-  // 3. WRITING: Standalone Items (Essay & Letter) - Level A2 & B2
+  // 3. WRITING: Standalone Items (Essay & Letter) - Level A2, B1, B2
   // ==========================================
   const writingItems = [
     {
@@ -210,10 +210,96 @@ export async function seedCefrBank(
           "Sử dụng từ vựng chỉ màu sắc, đồ vật, ngày tháng phù hợp trình độ A2.",
         grammarAccuracy:
           "Sử dụng đúng thì quá khứ đơn (I stayed, I forgot) và câu hỏi đơn giản (Can you...?).",
+        targetGrammars: [
+          "Thì quá khứ đơn (Past Simple: stayed, forgot)",
+          "Câu hỏi đề nghị lịch sự (Can you / Could you)",
+          "Liên từ nối cơ bản (and, but, because)",
+        ],
         wordCount: { min: 60, max: 100 },
       },
       irtA: 1.0,
       irtB: -0.9,
+      irtC: 0.0,
+    },
+    {
+      externalId: "cefr-write-a2-002",
+      skillCode: "writing.transactional_letter",
+      cefrLevel: CefrLevel.A2,
+      type: ItemType.ESSAY,
+      prompt:
+        "You cannot go to an English class tomorrow evening. Write an email (50-70 words) to your English teacher, Mr. David. In your email: explain why you cannot attend the class, ask what homework you need to prepare, and state when you will hand in the assignment.",
+      rubricCriteria: {
+        taskAchievement:
+          "Đủ 3 yêu cầu: lý do vắng mặt, hỏi bài tập về nhà, hẹn ngày nộp bài tập.",
+        coherenceCohesion:
+          "Mở đầu và kết thúc thư lịch sự (Dear Mr. David, Sincerely...), liên từ đơn giản (because, so, and).",
+        lexicalResource:
+          "Từ vựng về trường lớp, sức khỏe hoặc lý do cá nhân phù hợp bậc A2 (fever, appointment, homework, submit).",
+        grammarAccuracy:
+          "Thì hiện tại đơn, tương lai đơn (I will, I cannot come), câu hỏi lịch sự (Could you please tell me...?).",
+        targetGrammars: [
+          "Thì tương lai đơn & khuyết thiếu (will, cannot)",
+          "Câu hỏi lịch sự trang trọng (Could you please...?)",
+          "Liên từ chỉ nguyên nhân kết quả (because, so)",
+        ],
+        wordCount: { min: 50, max: 80 },
+      },
+      irtA: 1.0,
+      irtB: -0.8,
+      irtC: 0.0,
+    },
+    {
+      externalId: "cefr-write-b1-001",
+      skillCode: "writing.transactional_letter",
+      cefrLevel: CefrLevel.B1,
+      type: ItemType.ESSAY,
+      prompt:
+        "An English-speaking friend named Alex is planning to visit your hometown next month and has asked for your advice. Write an email (80-120 words) to Alex. In your email: suggest the best time to visit and why, recommend at least two interesting places to see, and advise on what local food to try.",
+      rubricCriteria: {
+        taskAchievement:
+          "Đề cập đủ 3 ý: thời điểm du lịch lý tưởng kèm lý do, gợi ý ít nhất 2 địa điểm tham quan, và gợi ý món ăn địa phương nên thử.",
+        coherenceCohesion:
+          "Văn phong thân mật (Dear Alex / Hi Alex, Best wishes...), chuyển đoạn tự nhiên bằng từ nối (first, also, besides, if you have time).",
+        lexicalResource:
+          "Từ vựng về du lịch, phong cảnh, ẩm thực địa phương phù hợp Bậc B1 (specialty, breathtaking, atmospheric, recommend).",
+        grammarAccuracy:
+          "Sử dụng câu đề xuất (You should, I suggest that, Why don't you), thì tương lai và hiện tại đơn chính xác.",
+        targetGrammars: [
+          "Mẫu câu gợi ý & khuyên nhủ (You should, Why don't you, I recommend)",
+          "Câu điều kiện loại 1 (If you visit..., you will see...)",
+          "Trạng từ chỉ thứ tự và bổ sung (First, Besides, In addition)",
+        ],
+        wordCount: { min: 80, max: 130 },
+      },
+      irtA: 1.2,
+      irtB: 0.1,
+      irtC: 0.0,
+    },
+    {
+      externalId: "cefr-write-b1-002",
+      skillCode: "writing.transactional_letter",
+      cefrLevel: CefrLevel.B1,
+      type: ItemType.ESSAY,
+      prompt:
+        "You recently had a birthday dinner with your friends at a local restaurant, but you were very dissatisfied with the service and the food. Write a formal email (100-140 words) to the restaurant manager. In your email: state when and why you were there, explain what went wrong with the food and service, and state what action you expect the manager to take.",
+      rubricCriteria: {
+        taskAchievement:
+          "Đầy đủ 3 nội dung: thời gian và mục đích bữa ăn, chi tiết sự cố món ăn/phục vụ, và yêu cầu bồi hoàn hoặc xin lỗi.",
+        coherenceCohesion:
+          "Văn phong lịch sự nhưng kiên quyết (Dear Manager, I am writing to express my disappointment...), kết thúc trang trọng (Yours sincerely).",
+        lexicalResource:
+          "Từ vựng phản ánh dịch vụ và phàn nàn (unacceptable, cold soup, delayed, compensation, apology).",
+        grammarAccuracy:
+          "Kết hợp thì quá khứ đơn, quá khứ tiếp diễn và câu điều kiện lịch sự (I would appreciate it if you could...).",
+        targetGrammars: [
+          "Thì quá khứ tiếp diễn kết hợp quá khứ đơn (While we were having dinner, ... happened)",
+          "Cấu trúc yêu cầu lịch sự trang trọng (I would appreciate it if you could...)",
+          "Thì hiện tại hoàn thành diễn tả trải nghiệm (We have never experienced...)",
+        ],
+        wordCount: { min: 100, max: 150 },
+      },
+      irtA: 1.3,
+      irtB: 0.3,
       irtC: 0.0,
     },
     {
@@ -232,10 +318,69 @@ export async function seedCefrBank(
           "Dùng từ vựng phong phú về công việc và năng suất: flexibility, commute, synergy, isolation, productivity.",
         grammarAccuracy:
           "Cấu trúc câu phức, câu điều kiện, mệnh đề quan hệ chuẩn xác, ít lỗi chính tả.",
+        targetGrammars: [
+          "Mệnh đề nhượng bộ & tương phản (While, Whereas, On the other hand)",
+          "Thể bị động khách quan (It is argued that... / can be observed)",
+          "Mệnh đề quan hệ xác định và không xác định (which, who)",
+        ],
         wordCount: { min: 220, max: 280 },
       },
       irtA: 1.4,
       irtB: 1.2,
+      irtC: 0.0,
+    },
+    {
+      externalId: "cefr-write-b2-002",
+      skillCode: "writing.opinion_essay",
+      cefrLevel: CefrLevel.B2,
+      type: ItemType.ESSAY,
+      prompt:
+        "Some people believe that university education should be completely free for all students, while others think that students should pay tuition fees for higher education. Write an essay (180-220 words) discussing both views and give your own opinion.",
+      rubricCriteria: {
+        taskAchievement:
+          "Phân tích cả hai mặt: lợi ích của việc miễn học phí đại học vs lý do cần thu học phí, và nêu rõ quan điểm cá nhân.",
+        coherenceCohesion:
+          "Bố cục bài luận học thuật chặt chẽ, luận điểm rõ ràng, sử dụng linh hoạt các liên từ (On the one hand, Conversely, In conclusion).",
+        lexicalResource:
+          "Vốn từ học thuật về giáo dục và kinh tế (tertiary education, financial burden, subsidy, equal opportunity, fiscal resources).",
+        grammarAccuracy:
+          "Sử dụng đa dạng câu bị động, câu phức, mệnh đề nhượng bộ (Although, Despite), cấu trúc đảo ngữ hoặc giả định.",
+        targetGrammars: [
+          "Cấu trúc nhượng bộ học thuật (Although, Despite the fact that)",
+          "Thể bị động trong văn phong học thuật (Higher education should be subsidized)",
+          "Câu điều kiện kết hợp (Mixed conditionals: If tuition were free...)",
+        ],
+        wordCount: { min: 180, max: 240 },
+      },
+      irtA: 1.5,
+      irtB: 1.1,
+      irtC: 0.0,
+    },
+    {
+      externalId: "cefr-write-b2-003",
+      skillCode: "writing.opinion_essay",
+      cefrLevel: CefrLevel.B2,
+      type: ItemType.ESSAY,
+      prompt:
+        "The widespread use of smartphones and social media has negatively affected personal relationships and face-to-face communication. To what extent do you agree or disagree? Write an essay (180-220 words) supporting your position with relevant reasons and examples.",
+      rubricCriteria: {
+        taskAchievement:
+          "Đưa ra lập trường rõ ràng và phát triển các luận cứ hỗ trợ logic bằng ví dụ cụ thể về tác động của smartphone đến các mối quan hệ.",
+        coherenceCohesion:
+          "Phân đoạn mạch lạc, chuyển tiếp ý mượt mà giữa các luận điểm (First and foremost, Moreover, In addition, To summarize).",
+        lexicalResource:
+          "Từ vựng phong phú về công nghệ và giao tiếp xã hội (digital distraction, superficial connections, interpersonal skills, alienation).",
+        grammarAccuracy:
+          "Kiểm soát tốt thì hiện tại hoàn thành, câu phức nhiều mệnh đề, mệnh đề quan hệ xác định và không xác định.",
+        targetGrammars: [
+          "Thì hiện tại hoàn thành & hiện tại hoàn thành tiếp diễn (have transformed, have been decreasing)",
+          "Mệnh đề quan hệ xác định và không xác định (which, who)",
+          "Trạng từ liên kết luận điểm (First and foremost, Furthermore, Consequently)",
+        ],
+        wordCount: { min: 180, max: 240 },
+      },
+      irtA: 1.4,
+      irtB: 1.3,
       irtC: 0.0,
     },
   ];
@@ -423,9 +568,9 @@ async function main(): Promise<void> {
     throw new Error("Set DATABASE_URL to the target database.");
   }
   const databaseName = new URL(databaseUrl).pathname.slice(1);
-  if (!/^lingoroad_(demo|test)$/.test(databaseName)) {
+  if (!/^(lingoroad(_(demo|test))?|postgres)$/.test(databaseName)) {
     throw new Error(
-      "Seed CLI only accepts databases named lingoroad_demo or lingoroad_test.",
+      "Seed CLI only accepts databases named lingoroad, lingoroad_demo, lingoroad_test or postgres.",
     );
   }
 

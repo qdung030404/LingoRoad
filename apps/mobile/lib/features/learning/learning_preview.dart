@@ -523,30 +523,34 @@ class _LearningPreviewState extends State<LearningPreview> {
       ],
     ),
     const SizedBox(height: 24),
-    Row(
-      children: [
-        Expanded(child: learningHeading('Chặng 1')),
-        learningBody('1/3', size: 20),
-      ],
-    ),
-    const SizedBox(height: 12),
-    for (var i = 0; i < 3; i++) ...[
-      catalogCard(
-        i == 0
-            ? skill.title
-            : i == 1
-            ? 'Personal Information'
-            : 'Family and Relationships',
-        i == 0
-            ? skill.description
-            : i == 1
-            ? 'Luyện tập với thông tin về tên, tuổi, nơi sống và nghề nghiệp.'
-            : 'Luyện tập từ vựng và cấu trúc về gia đình và các mối quan hệ.',
-        i,
-        () =>
-            previewPush(context, PracticeIntroPage(skill: skill, model: model)),
+    if (skill == PracticeSkill.writing)
+      WritingPracticeSection(model: model)
+    else ...[
+      Row(
+        children: [
+          Expanded(child: learningHeading('Chặng 1')),
+          learningBody('1/3', size: 20),
+        ],
       ),
       const SizedBox(height: 12),
+      for (var i = 0; i < 3; i++) ...[
+        catalogCard(
+          i == 0
+              ? skill.title
+              : i == 1
+              ? 'Personal Information'
+              : 'Family and Relationships',
+          i == 0
+              ? skill.description
+              : i == 1
+              ? 'Luyện tập với thông tin về tên, tuổi, nơi sống và nghề nghiệp.'
+              : 'Luyện tập từ vựng và cấu trúc về gia đình và các mối quan hệ.',
+          i,
+          () =>
+              previewPush(context, PracticeIntroPage(skill: skill, model: model)),
+        ),
+        const SizedBox(height: 12),
+      ],
     ],
   ];
 
