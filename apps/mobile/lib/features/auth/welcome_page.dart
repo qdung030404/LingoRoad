@@ -138,12 +138,21 @@ class _WelcomePageState extends State<WelcomePage> {
                               backgroundColor: Colors.white,
                               foregroundColor: AppColors.grey900,
                             ),
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    LearningPreview(onLogout: widget.onLogout),
-                              ),
-                            ),
+                            onPressed: () async {
+                              final signIn = await Navigator.of(context)
+                                  .push<bool>(
+                                    MaterialPageRoute<bool>(
+                                      builder: (guestContext) =>
+                                          LearningPreview(
+                                            onLogout: widget.onLogout,
+                                            onSignIn: () => Navigator.of(
+                                              guestContext,
+                                            ).pop(true),
+                                          ),
+                                    ),
+                                  );
+                              if (signIn == true && mounted) widget.onEmail();
+                            },
                             child: Text(
                               'Khám phá giao diện',
                               style: designText(12, weight: FontWeight.w500),

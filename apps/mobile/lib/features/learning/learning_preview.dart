@@ -26,6 +26,10 @@ import '../vocabulary/vocabulary_controller.dart';
 import '../vocabulary/vocabulary_repository.dart';
 import '../vocabulary/vocabulary_pages.dart';
 import '../vocabulary/vocabulary_review_page.dart';
+import '../speaking/speaking_controller.dart';
+import '../speaking/speaking_repository.dart';
+import '../speaking/speaking_recorder.dart';
+import '../speaking/speaking_pages.dart';
 
 class LearningPreview extends StatefulWidget {
   const LearningPreview({
@@ -34,17 +38,29 @@ class LearningPreview extends StatefulWidget {
     this.model,
     this.onLogout,
     this.account,
+    this.onSignIn,
   });
   final bool showPlan;
   final PreviewModel? model;
   final Future<void> Function()? onLogout;
   final SessionController? account;
+  final VoidCallback? onSignIn;
   @override
   State<LearningPreview> createState() => _LearningPreviewState();
 }
 
 class _LearningPreviewState extends State<LearningPreview>
     with WidgetsBindingObserver {
+  late final SpeakingController? speaking = widget.account == null
+      ? null
+      : SpeakingController(
+          repository: ApiSpeakingRepository(widget.account!.api),
+          recorder: DeviceSpeakingRecorder(
+            widget.account!.user!['id'] as String,
+          ),
+          accountId: widget.account!.user!['id'] as String,
+          isCurrent: () => widget.account!.user?['id'] == speaking?.accountId,
+        );
   late final VocabularyController? vocabularyController = widget.account == null
       ? null
       : VocabularyController(
@@ -109,6 +125,7 @@ class _LearningPreviewState extends State<LearningPreview>
     if (loggingOut) return;
     setState(() => loggingOut = true);
     try {
+      await speaking?.endSession();
       await widget.onLogout?.call();
       if (mounted) Navigator.of(context).pop();
     } catch (_) {
@@ -124,6 +141,7 @@ class _LearningPreviewState extends State<LearningPreview>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    widget.account?.addListener(_speakingSessionChanged);
     daily?.addListener(_dailyChanged);
     learning?.refresh();
     vocabularyController?.refresh();
@@ -171,6 +189,8 @@ class _LearningPreviewState extends State<LearningPreview>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    widget.account?.removeListener(_speakingSessionChanged);
+    speaking?.dispose();
     daily?.removeListener(_dailyChanged);
     daily?.dispose();
     learning?.dispose();
@@ -180,6 +200,12 @@ class _LearningPreviewState extends State<LearningPreview>
     selectedTab.dispose();
     if (widget.model == null) model.dispose();
     super.dispose();
+  }
+
+  void _speakingSessionChanged() {
+    if (speaking != null && !speaking!.active) {
+      speaking!.endSession();
+    }
   }
 
   void _dailyChanged() {
@@ -535,7 +561,9 @@ class _LearningPreviewState extends State<LearningPreview>
                 ),
                 decoration: BoxDecoration(
                   color: selected == i ? Colors.white : Colors.transparent,
-                  borderRadius: icons == null ? AppRadius.buttonRadius : AppRadius.tagRadius,
+                  borderRadius: icons == null
+                      ? AppRadius.buttonRadius
+                      : AppRadius.tagRadius,
                   boxShadow: selected == i
                       ? const [
                           BoxShadow(
@@ -726,6 +754,14 @@ class _LearningPreviewState extends State<LearningPreview>
       ],
     ),
     const SizedBox(height: 24),
+    if (speaking == null && skill == PracticeSkill.speaking) ...[
+      if (widget.onSignIn != null)
+        TextButton(
+          key: const Key('speakingSignIn'),
+          onPressed: widget.onSignIn,
+          child: const Text('Đăng nhập để chấm giọng thật'),
+        ),
+    ],
     if (learning != null &&
         (skill == PracticeSkill.reading || skill == PracticeSkill.listening))
       LearningCatalogue(
@@ -733,11 +769,20 @@ class _LearningPreviewState extends State<LearningPreview>
         kinds: [skill == PracticeSkill.reading ? 'READING' : 'LISTENING'],
       )
     else ...[
-      if (learning != null)
-        learningBody('Bản xem trước · chưa lưu kết quả Nói/Viết.'),
+      if (learning != null && skill != PracticeSkill.speaking)
+        learningBody('Bản xem trước · chưa lưu kết quả Viết.'),
       Row(
         children: [
           Expanded(child: learningHeading('Chặng 1')),
+          if (speaking != null && skill == PracticeSkill.speaking)
+            IconButton(
+              tooltip: 'Lịch sử Speaking',
+              icon: const Icon(Icons.history),
+              onPressed: () => previewPush(
+                context,
+                SpeakingHistoryPage(controller: speaking!),
+              ),
+            ),
           learningBody('1/3', size: 20),
         ],
       ),
@@ -755,10 +800,23 @@ class _LearningPreviewState extends State<LearningPreview>
               ? 'Luyện tập với thông tin về tên, tuổi, nơi sống và nghề nghiệp.'
               : 'Luyện tập từ vựng và cấu trúc về gia đình và các mối quan hệ.',
           i,
-          () => previewPush(
-            context,
-            PracticeIntroPage(skill: skill, model: model),
-          ),
+          () {
+            if (speaking != null && skill == PracticeSkill.speaking && i != 0) {
+              previewMessage(
+                context,
+                'Bài luyện này chưa được mở. Hãy bắt đầu với Luyện Nói.',
+              );
+              return;
+            }
+            previewPush(
+              context,
+              PracticeIntroPage(
+                skill: skill,
+                model: model,
+                speaking: skill == PracticeSkill.speaking ? speaking : null,
+              ),
+            );
+          },
         ),
         const SizedBox(height: 12),
       ],

@@ -78,6 +78,23 @@ describe('MlClientService & InProcessCatFallback', () => {
   });
 
   describe('MlClientService', () => {
+    it('sends the selected speaking profile and returns decimal scores verbatim', async () => {
+      const config = { get: (key: string, fallback: unknown) => key === 'SPEAKING_SCORING_PROFILE' ? 'read-aloud-v2' : fallback };
+      const client = new MlClientService(httpService, config as ConfigService, fallback);
+      const result = { pronunciation: 41.375, prosody: 40.125 };
+      mockHttpService.post.mockReturnValue(of({ data: result }));
+      expect(await client.scoreReadAloud(Buffer.from('audio'), 'Hello!')).toBe(result);
+      expect(mockHttpService.post.mock.calls[0][2].headers['x-speaking-profile']).toBe('read-aloud-v2');
+    });
+    it('enables the complete assessment profile by default', () => {
+      const config = { get: (_key: string, fallback: unknown) => fallback };
+      const client = new MlClientService(httpService, config as ConfigService, fallback);
+      expect(client.speakingProfile).toBe('read-aloud-v2');
+    });
+    it('rejects unknown scoring profiles at startup', () => {
+      const config = { get: () => 'unknown-profile' };
+      expect(() => new MlClientService(httpService, config as unknown as ConfigService, fallback)).toThrow('Invalid SPEAKING_SCORING_PROFILE');
+    });
     it('should check health successfully', async () => {
       const response: AxiosResponse = {
         data: { status: 'ok' },

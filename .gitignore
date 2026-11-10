@@ -11,11 +11,13 @@ build/
 out/
 
 # Environment Variables
+/config/local/
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+lingoroad-speech.env
 
 # Logs
 npm-debug.log*

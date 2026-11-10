@@ -1,0 +1,149 @@
+[
+  {
+    "code": "read-aloud-1",
+    "text": "I have lived here for five years",
+    "sha256": "c9bd494ff15b15e60c07ad4773e33a16524476c104d552fb3e700d2547ccc354",
+    "durationSeconds": 2.675,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "read-aloud-2",
+    "text": "My name is Anna",
+    "sha256": "be2799a1e4d5750b23c8699f862127b3788d78f478b2e6062573d8636ff43a6a",
+    "durationSeconds": 1.9125,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "read-aloud-3",
+    "text": "I am a student from Hanoi",
+    "sha256": "c3cc373613cc38d48e8ccdcc4c26ccc7e2bdc89373fbb929aa56a3208037983e",
+    "durationSeconds": 2.25,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "read-aloud-4",
+    "text": "I usually have breakfast at seven in the morning.",
+    "sha256": "c9b968f7d3d99d3bcf2e41aac3cd850c7acc6cdc0e51a10c580435b99e7debe5",
+    "durationSeconds": 3.2375,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "read-aloud-5",
+    "text": "My sister enjoys reading books and listening to music.",
+    "sha256": "db5f28bfd1f34be870400bacc703d0c59ddb2af7ef6704eef61ed163ff1e5ab0",
+    "durationSeconds": 3.8375,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "read-aloud-6",
+    "text": "Could you tell me how to get to the nearest bus stop?",
+    "sha256": "d57c45870bacf37977a90e159e47cddfd89316724e6e87ecc3d1ec497570fc37",
+    "durationSeconds": 3.175,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "read-aloud-7",
+    "text": "Last weekend, I visited my grandparents. We cooked dinner together and talked about our family.",
+    "sha256": "c90d8667cb6fa1d11f20b3cb78eefcab1c49c42b763d16853b4cb18d5b469dad",
+    "durationSeconds": 6.95,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "read-aloud-8",
+    "text": "Learning a new language takes time and practice. I try to learn something new every day.",
+    "sha256": "421fbec7a875122f8e55ba9f9122d344dee1fd250952f4eab0fbdcbdfaccd623",
+    "durationSeconds": 6.225,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "read-aloud-9",
+    "text": "Although the weather was cold, we decided to go for a walk. The streets were quiet, and the air felt fresh.",
+    "sha256": "948348b3ac0330457c371c19e7b67ad54888ad64f54e02e04c7f156d4814728c",
+    "durationSeconds": 7.4625,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-1",
+    "text": "Red lorry, yellow lorry.",
+    "sha256": "86f26a5d0bfe088dce9c694a77c57b825e0af8fc0bcb73f0eb01b8da3fc23e6d",
+    "durationSeconds": 2.5375,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-2",
+    "text": "She sees cheese.",
+    "sha256": "f5dc1d041371f1c48cdebd4109c6727576592139553f4a36403aa4846a89c6a0",
+    "durationSeconds": 2.075,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-3",
+    "text": "Four fine fresh fish for you.",
+    "sha256": "7372ef2d33711b7a5422fdc1cbb542dc4525f3075260d1b94734936ebc7b1cc1",
+    "durationSeconds": 2.6,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-4",
+    "text": "A big black bug bit a big black bear.",
+    "sha256": "a580aaebecb29debeb9de6edb8b085c838560c85bcf763158122729783cc4792",
+    "durationSeconds": 3.0875,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-5",
+    "text": "Six slippery snails slid slowly seaward.",
+    "sha256": "cfcd73a9edc13f2ba944b7de65e28163e929db8dfb5303501a28770c6a812079",
+    "durationSeconds": 3.2375,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-6",
+    "text": "Betty baked big batches of buttery biscuits before breakfast.",
+    "sha256": "fdae78e9eeb9b6c7f13364f5546897c509258042782d7d199d04f2dd86beb961",
+    "durationSeconds": 4.1875,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-7",
+    "text": "She sells seashells by the seashore.",
+    "sha256": "f560a13bcb5ceef7eeead846259adf05358c2be589ddf7f84b702d5d66e3136c",
+    "durationSeconds": 2.75,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-8",
+    "text": "Fresh fried fish, fish fresh fried.",
+    "sha256": "d93b6d1b3815602e0fa8d20ded0a7042c7555c38a852192e3844fe88528a96b2",
+    "durationSeconds": 3.225,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-9",
+    "text": "Three free throws thrilled the thoughtful crowd.",
+    "sha256": "1021b4bddac78f261907ddb13876f6da80fc1e5c00b5d422158c1a5aa59bf45f",
+    "durationSeconds": 3.05,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-10",
+    "text": "Peter Piper picked a peck of pickled peppers.",
+    "sha256": "57f765deec125fc6f29fc3b115fd3a55e825eefa8431851657aa108c8cb486ed",
+    "durationSeconds": 3.3875,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-11",
+    "text": "Which wristwatches are Swiss wristwatches?",
+    "sha256": "ddc38bdf1ea912fc7c30c62c7d243712ab6bc1a4451fee294cf9a22b3d928341",
+    "durationSeconds": 3.0375,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "twister-12",
+    "text": "The thirty-three thieves thought that they thrilled the throne throughout Thursday.",
+    "sha256": "e924287d2085834c36e777adddbdfa7a088fcf6bc3bab97efc011cc63852812b",
+    "durationSeconds": 4.3125,
+    "voice": "en-US-JennyNeural"
+  }
+]

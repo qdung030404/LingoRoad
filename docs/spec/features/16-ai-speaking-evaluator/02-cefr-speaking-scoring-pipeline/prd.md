@@ -1,3 +1,5 @@
+> Cập nhật phạm vi 08/11/2026: triển khai hiện tại là **luyện đọc câu bằng Azure**, theo [đặc tả read-aloud](read-aloud-v1.md). Phần nói tự do, Whisper/acoustic rubric và ánh xạ CEFR bên dưới là đề xuất cho giai đoạn sau, chưa được kiểm chứng hoặc nghiệm thu. Không dùng ngưỡng WPM để suy ra CEFR của người học.
+
 # Product Requirements Document (PRD) - CEFR Speaking Scoring Pipeline
 
 ## Mission (Sứ mệnh)

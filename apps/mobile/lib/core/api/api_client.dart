@@ -60,6 +60,20 @@ class ApiClient {
     String path, {
     Json? data,
     bool auth = true,
+  }) => _request(method, path, data: data, auth: auth);
+
+  Future<Json> multipartRequest(
+    String method,
+    String path, {
+    required Future<FormData> Function() factory,
+  }) => _request(method, path, multipart: factory);
+
+  Future<Json> _request(
+    String method,
+    String path, {
+    Json? data,
+    bool auth = true,
+    Future<FormData> Function()? multipart,
   }) async {
     final epoch = _sessionEpoch;
     String? sentToken;
@@ -71,7 +85,14 @@ class ApiClient {
       }
       sentToken = accessToken;
       _checkSession(epoch);
-      final result = await _send(method, path, data, auth ? sentToken : null);
+      final result = await _send(
+        method,
+        path,
+        data,
+        auth ? sentToken : null,
+        multipart: multipart,
+        epoch: epoch,
+      );
       _checkSession(epoch);
       return result;
     } on ApiFailure catch (e) {
@@ -80,7 +101,14 @@ class ApiClient {
       try {
         if (accessToken == sentToken) await refresh();
         _checkSession(epoch);
-        final result = await _send(method, path, data, accessToken);
+        final result = await _send(
+          method,
+          path,
+          data,
+          accessToken,
+          multipart: multipart,
+          epoch: epoch,
+        );
         _checkSession(epoch);
         return result;
       } on ApiFailure catch (retryError) {
@@ -97,14 +125,21 @@ class ApiClient {
     String method,
     String path,
     Json? data,
-    String? token,
-  ) async {
+    String? token, {
+    Future<FormData> Function()? multipart,
+    required int epoch,
+  }) async {
     try {
+      final bodyData = multipart == null ? data : await multipart();
+      _checkSession(epoch);
       final response = await dio.request<dynamic>(
         config.resolve(path).toString(),
-        data: data,
+        data: bodyData,
         options: Options(
           method: method,
+          receiveTimeout: multipart == null
+              ? null
+              : Duration(seconds: path.startsWith('/speaking/') ? 135 : 65),
           headers: token == null ? null : {'Authorization': 'Bearer $token'},
         ),
       );

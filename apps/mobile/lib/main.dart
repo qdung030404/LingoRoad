@@ -5,9 +5,11 @@ import 'core/theme/app_theme.dart';
 import 'features/auth/session_controller.dart';
 import 'features/demo_shell.dart';
 import 'core/auth/firebase_identity.dart';
+import 'features/speaking/speaking_recorder.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await cleanStaleSpeakingAudio();
   runApp(const MyApp());
 }
 

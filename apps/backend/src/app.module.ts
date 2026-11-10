@@ -10,6 +10,7 @@ import { PlacementModule } from './modules/placement/placement.module';
 import { LearningModule } from './modules/learning/learning.module';
 import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { HealthController } from './health.controller';
+import { SpeakingModule } from './modules/speaking/speaking.module';
 
 @Module({
   controllers: [HealthController],
@@ -37,6 +38,7 @@ import { HealthController } from './health.controller';
     PlacementModule,
     LearningModule,
     VocabularyModule,
+    SpeakingModule,
   ],
 })
 export class AppModule {}

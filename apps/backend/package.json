@@ -26,6 +26,10 @@
     "test:vocabulary:e2e": "node --test test/vocabulary.e2e.cjs",
     "seed:demo": "ts-node prisma/seed-placement.ts",
     "seed:learning": "ts-node prisma/seed-learning.ts",
+    "seed:speaking": "ts-node prisma/seed-speaking.ts",
+    "test:speaking:e2e": "node --test test/speaking.e2e.cjs",
+    "test:speaking:live": "node --test test/speaking-live.e2e.cjs",
+    "speaking:device-server": "node test/speaking-device-server.cjs",
     "seed:learning:validate": "ts-node prisma/seed-learning.ts --validate",
     "prisma:migrate": "prisma migrate deploy"
   },
@@ -50,7 +54,8 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.1",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.2",
@@ -62,6 +67,7 @@
     "@types/node": "^20.11.24",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
+    "@types/ws": "^8.18.1",
     "@types/yargs": "^17.0.35",
     "jest": "^29.7.0",
     "prisma": "^5.11.0",

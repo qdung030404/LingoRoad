@@ -24,3 +24,6 @@ kagglehub>=1.0.0
 # GPU training must pin a CUDA-compatible torch wheel in the build image.
 # NLTK corpus required by distractor tests/runtime:
 #   python -m nltk.downloader wordnet
+
+# Continuous topic pronunciation assessment
+azure-cognitiveservices-speech==1.53.0

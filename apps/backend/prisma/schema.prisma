@@ -67,8 +67,99 @@ model User {
   vocabularyDecks VocabularyDeck[]
   vocabularyReviews VocabularyReviewAttempt[]
   vocabularyReceipts VocabularyCommandReceipt[]
+  speakingSubmissions SpeakingSubmission[]
+  voiceConversations VoiceConversation[]
 
   @@map("users")
+}
+
+model VoiceConversation {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  clientRequestId String @map("client_request_id") @db.Uuid
+  activeUserId String? @unique @map("active_user_id") @db.Uuid
+  topicId String @map("topic_id") @db.Uuid
+  topicSnapshot Json @map("topic_snapshot") @db.JsonB
+  status String @default("CREATED") @db.VarChar(30)
+  endReason String? @map("end_reason") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  startedAt DateTime? @map("started_at")
+  endedAt DateTime? @map("ended_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns VoiceConversationTurn[]
+  @@unique([userId, clientRequestId])
+  @@index([userId, createdAt, id])
+  @@map("voice_conversations")
+}
+
+model VoiceConversationTurn {
+  id String @id @default(uuid()) @db.Uuid
+  conversationId String @map("conversation_id") @db.Uuid
+  providerItemId String @map("provider_item_id") @db.VarChar(200)
+  sequence Int
+  role String @db.VarChar(20)
+  transcript String @db.Text
+  translationVi String? @map("translation_vi") @db.Text
+  interrupted Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  conversation VoiceConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  @@unique([conversationId, providerItemId])
+  @@index([conversationId, sequence])
+  @@map("voice_conversation_turns")
+}
+
+enum SpeakingStatus {
+  CREATED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  UNKNOWN
+}
+
+enum SpeakingMode {
+  READ_ALOUD
+  TOPIC
+  TONGUE_TWISTER
+}
+
+model SpeakingPrompt {
+  mode SpeakingMode @default(READ_ALOUD)
+  title String @default("")
+  difficulty Int @default(1)
+  maxDurationSeconds Int @default(30) @map("max_duration_seconds")
+  hints Json @default("[]")
+  sampleAsset String? @map("sample_asset")
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique @db.VarChar(100)
+  text String @db.Text
+  contentVersion Int @default(1) @map("content_version")
+  sortOrder Int @map("sort_order")
+  published Boolean @default(true)
+  @@index([mode, sortOrder])
+  submissions SpeakingSubmission[]
+  @@map("speaking_prompts")
+}
+
+model SpeakingSubmission {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  promptId String @map("prompt_id") @db.Uuid
+  clientRequestId String @map("client_request_id") @db.Uuid
+  promptSnapshot Json @map("prompt_snapshot") @db.JsonB
+  audioHash String? @map("audio_hash") @db.VarChar(64)
+  status SpeakingStatus @default(CREATED)
+  result Json? @db.JsonB
+  errorCode String? @map("error_code") @db.VarChar(100)
+  adapterVersion String? @map("adapter_version") @db.VarChar(100)
+  processingAt DateTime? @map("processing_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt SpeakingPrompt @relation(fields: [promptId], references: [id], onDelete: Restrict)
+  @@unique([userId, clientRequestId])
+  @@index([userId, createdAt, id])
+  @@index([status, processingAt])
+  @@map("speaking_submissions")
 }
 
 model UserProfile {
@@ -401,4 +492,16 @@ model VocabularyCommandReceipt {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([userId, commandId])
   @@map("vocabulary_command_receipts")
+}
+
+model SpeakingGameProgress {
+  userId String @map("user_id") @db.Uuid
+  promptId String @map("prompt_id") @db.Uuid
+  contentVersion Int @map("content_version")
+  stars Int @default(0)
+  bestScore Float @default(0) @map("best_score")
+  cleared Boolean @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@id([userId, promptId, contentVersion])
+  @@map("speaking_game_progress")
 }
