@@ -171,6 +171,21 @@ export class MlClientService {
     return translated.trim();
   }
 
+  async scoreConversationAudio(audio: Buffer): Promise<Record<string, any>> {
+    const response = await firstValueFrom(this.httpService.post(
+      `${this.baseUrl}/speech/conversation/score`, audio,
+      { headers: this.getHeaders({ 'Content-Type': 'audio/wav' }), timeout: 210000,
+        maxBodyLength: 6 * 1024 * 1024, maxRedirects: 0 }));
+    return response.data;
+  }
+
+  async scoreConversationContent(topic: string, turns: { itemId: string; role: string; transcript: string }[]): Promise<Record<string, any>> {
+    const response = await firstValueFrom(this.httpService.post(
+      `${this.baseUrl}/speech/conversation/content`, { topic, turns, perTurn: true },
+      { headers: this.getHeaders(), timeout: 240000, maxRedirects: 0 }));
+    return response.data;
+  }
+
   async scoreReadAloud(audio: Buffer, promptText: string, profile = this.speakingProfile): Promise<ReadAloudResult> {
     const form = new FormData();
     form.append('file', audio, { filename: 'recording.wav', contentType: 'audio/wav' });

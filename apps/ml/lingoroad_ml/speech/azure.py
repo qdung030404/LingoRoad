@@ -93,8 +93,8 @@ def readiness() -> str:
         return "missing_config"
 
 
-def validate_audio(data: bytes, max_seconds: int = 30) -> float:
-    if len(data) > MAX_BYTES:
+def validate_audio(data: bytes, max_seconds: int = 30, max_bytes: int = MAX_BYTES) -> float:
+    if len(data) > max_bytes:
         raise HTTPException(413, "audio_too_large")
     if not data:
         raise HTTPException(422, "audio_empty")

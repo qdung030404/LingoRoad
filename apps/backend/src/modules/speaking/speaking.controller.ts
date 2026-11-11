@@ -21,6 +21,10 @@ export class SpeakingController {
   @Get('submissions/:id') async detail(@CurrentUser('sub') userId: string, @Param('id', ParseUUIDPipe) id: string) {
     return { success: true, data: await this.speaking.detail(userId, id) };
   }
+  @Post('submissions/:id/content')
+  async retryContent(@CurrentUser('sub') userId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return { success: true, data: await this.speaking.retryContent(userId, id) };
+  }
   @Put('submissions/:id/audio')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_SPEAKING_BYTES, files: 1, fields: 0 } }))
   async upload(@CurrentUser('sub') userId: string, @Param('id', ParseUUIDPipe) id: string, @UploadedFile() file?: { buffer: Buffer }) {

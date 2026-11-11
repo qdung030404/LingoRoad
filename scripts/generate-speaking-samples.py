@@ -21,7 +21,7 @@ async def generate(env_file):
     output = ROOT / "apps/mobile/assets/audio/preview"
     manifest = []
     async with httpx.AsyncClient(timeout=45) as client:
-        for variable, prefix in [("readingTexts", "read-aloud"), ("twisters", "twister")]:
+        for variable, prefix in [("readingTexts", "read-aloud"), ("topicReadingTexts", "topic-read-aloud"), ("twisters", "twister")]:
             section = source.split(f"export const {variable} = [", 1)[1].split("];", 1)[0]
             texts = re.findall(r"'([^']*)'", section)
             for index, text in enumerate(texts, 1):

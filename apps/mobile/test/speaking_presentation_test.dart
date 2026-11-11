@@ -152,7 +152,7 @@ void main() {
             closeTo(16, .1),
           );
           expect(find.text('Chưa có dữ liệu'), findsNWidgets(2));
-          expect(find.text('Bỏ sót'), findsOneWidget);
+          expect(find.text('Bỏ sót'), findsNWidgets(2));
           final transcript = find.byKey(const Key('speakingTranscript'));
           await tester.ensureVisible(transcript);
           await tester.tap(transcript);

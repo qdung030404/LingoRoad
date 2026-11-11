@@ -12,15 +12,16 @@ export class SpeakingService {
   private readonly logger = new Logger(SpeakingService.name);
   constructor(private readonly prisma: PrismaService, private readonly ml: MlClientService, private readonly config: ConfigService) {}
   private enabled() { return String(this.config.get('SPEAKING_ENABLED', 'false')).toLowerCase() === 'true'; }
-  private modeEnabled(mode: SpeakingMode) {
+  modeEnabled(mode: SpeakingMode) {
     const flag = mode === SpeakingMode.TOPIC ? 'SPEAKING_TOPIC_ENABLED' : mode === SpeakingMode.TONGUE_TWISTER ? 'SPEAKING_GAME_ENABLED' : 'SPEAKING_READ_ALOUD_ENABLED';
     return this.enabled() && String(this.config.get(flag, mode === SpeakingMode.READ_ALOUD ? 'true' : 'false')).toLowerCase() === 'true';
   }
   private requireEnabled() { if (!this.enabled()) throw new HttpException({ code: 'speaking_disabled', message: 'Tính năng nộp bài nói đang tạm đóng.' }, 503); }
   private conflict() { throw new HttpException({ code: 'speaking_conflict', message: 'Yêu cầu này đã gắn với nội dung khác.' }, 409); }
   private missing(): never { throw new HttpException({ code: 'speaking_not_found', message: 'Không tìm thấy bài nói.' }, 404); }
-  async prompts(mode: SpeakingMode = SpeakingMode.READ_ALOUD) {
-    return { enabled: this.modeEnabled(mode), assessmentProfile: this.ml.speakingProfile ?? 'read-aloud-v1', items: await this.prisma.speakingPrompt.findMany({ where: { published: true, mode }, orderBy: { sortOrder: 'asc' } }) };
+  async prompts(mode: SpeakingMode = SpeakingMode.READ_ALOUD, codes?: readonly string[]) {
+    return { enabled: this.modeEnabled(mode), assessmentProfile: this.ml.speakingProfile ?? 'read-aloud-v1', items: await this.prisma.speakingPrompt.findMany({ where: { published: true, mode, ...(codes ? { code: { in: [...codes] } } :
+      mode === SpeakingMode.READ_ALOUD ? { NOT: { code: { startsWith: 'topic-read-aloud-' } } } : {}) }, orderBy: { sortOrder: 'asc' } }) };
   }
   async create(userId: string, dto: CreateSpeakingDto) {
     this.requireEnabled();
@@ -53,8 +54,8 @@ export class SpeakingService {
       const result = row.result as Record<string, any> | null;
       const interrupted = result?.content?.status === 'processing'
         ? { ...result, content: { status: 'unavailable', errorCode: 'content_interrupted' } } : undefined;
-      await this.prisma.speakingSubmission.updateMany({ where: { id: row.id, userId, status: 'PROCESSING' },
-        data: { status: 'UNKNOWN', errorCode: 'processing_expired', completedAt: new Date(),
+      await this.prisma.speakingSubmission.updateMany({ where: { id: row.id, userId, status: 'PROCESSING', processingAt: row.processingAt },
+        data: { status: interrupted ? 'SUCCEEDED' : 'UNKNOWN', errorCode: interrupted ? null : 'processing_expired', completedAt: new Date(),
           ...(interrupted ? { result: interrupted as Prisma.InputJsonValue } : {}) } });
     }
   }
@@ -84,8 +85,9 @@ export class SpeakingService {
     const mode = snapshot.mode ?? SpeakingMode.READ_ALOUD;
     if (!this.modeEnabled(mode)) throw new HttpException({ code: 'speaking_disabled' }, 503);
     validateSpeakingWav(audio, mode === SpeakingMode.TOPIC ? 60 : 30);
+    const processingAt = new Date();
     const claimed = await this.prisma.speakingSubmission.updateMany({ where: { id, userId, status: 'CREATED', audioHash: null },
-      data: { status: 'PROCESSING', audioHash: hash, processingAt: new Date() } });
+      data: { status: 'PROCESSING', audioHash: hash, processingAt } });
     if (!claimed.count) {
       row = await this.detail(userId, id);
       if (row.audioHash !== hash) this.conflict();
@@ -95,7 +97,7 @@ export class SpeakingService {
     this.logger.log(JSON.stringify({ event: 'speaking_provider_call', submissionId: id, count: 1, assessmentProfile: snapshot.assessmentProfile ?? this.ml.speakingProfile ?? 'read-aloud-v1' }));
     try {
       if (mode === SpeakingMode.TOPIC) {
-        await this.processTopic(userId, id, audio, hash, snapshot.text, snapshot.hints ?? []);
+        await this.processTopic(userId, id, audio, hash, snapshot.text, snapshot.hints ?? [], processingAt);
         this.logResult(id, started, (await this.detail(userId, id)).status, undefined, undefined, 'topic-speaking-v1');
         return this.detail(userId, id);
       }
@@ -124,7 +126,7 @@ export class SpeakingService {
       this.logResult(id, started, saved.count ? 'SUCCEEDED' : (await this.detail(userId, id)).status, undefined, result.assessmentCompleteness, snapshot.assessmentProfile);
     } catch (error: unknown) {
       const known = this.providerFailure(error);
-      const saved = await this.prisma.speakingSubmission.updateMany({ where: { id, status: 'PROCESSING' }, data: {
+      const saved = await this.prisma.speakingSubmission.updateMany({ where: { id, status: 'PROCESSING', processingAt }, data: {
         status: known.uncertain ? 'UNKNOWN' : 'FAILED', errorCode: known.code, completedAt: new Date(),
       } });
       this.logResult(id, started, saved.count ? (known.uncertain ? 'UNKNOWN' : 'FAILED') : (await this.detail(userId, id)).status, known.code);
@@ -146,23 +148,49 @@ export class SpeakingService {
     const progress = await this.gameProgress(userId);
     if (!progress.items.find(item => item.id === promptId)?.unlocked) throw new HttpException({ code: 'speaking_level_locked', message: 'Hoàn thành màn trước để mở thử thách này.' }, 403);
   }
-  private async processTopic(userId: string, id: string, audio: Buffer, hash: string, topic: string, hints: string[]) {
+  async retryContent(userId: string, id: string) {
+    const row = await this.detail(userId, id);
+    const snapshot = row.promptSnapshot as { mode?: SpeakingMode; text: string; hints?: string[] };
+    const result = row.result as Record<string, any> | null;
+    if (snapshot.mode !== SpeakingMode.TOPIC || !row.audioHash || !result || !validTopicResult(result, row.audioHash)) {
+      throw new HttpException({ code: 'content_transcript_missing', message: 'Bài nói chưa có lời thoại để chấm lại.' }, 422);
+    }
+    if (row.status === 'PROCESSING' || result.content?.status === 'succeeded' || result.content?.status === 'insufficient_data') return row;
+    if (row.status !== 'SUCCEEDED' && row.status !== 'UNKNOWN') return row;
+
+    const processingAt = new Date();
+    const claim = await this.prisma.speakingSubmission.updateMany({
+      where: { id, userId, status: row.status, processingAt: row.processingAt, completedAt: row.completedAt },
+      data: { status: 'PROCESSING', processingAt, errorCode: null,
+        result: { ...result, content: { status: 'processing' } } as Prisma.InputJsonValue },
+    });
+    if (claim.count) await this.saveTopicContent(userId, id, snapshot.text, snapshot.hints ?? [], result, processingAt);
+    return this.detail(userId, id);
+  }
+
+  private async processTopic(userId: string, id: string, audio: Buffer, hash: string, topic: string, hints: string[], processingAt: Date) {
     const result = await this.ml.scoreTopic(audio);
     if (!validTopicResult(result, hash)) throw new Error('invalid_provider_result');
     const partial = { ...result, content: { status: 'processing' } };
-    const stored = await this.prisma.speakingSubmission.updateMany({ where: { id, userId, status: 'PROCESSING' },
+    const stored = await this.prisma.speakingSubmission.updateMany({ where: { id, userId, status: 'PROCESSING', processingAt },
       data: { result: partial as Prisma.InputJsonValue, adapterVersion: result.adapterVersion } });
     if (!stored.count) return;
+    await this.saveTopicContent(userId, id, topic, hints, result, processingAt);
+  }
+
+  private async saveTopicContent(userId: string, id: string, topic: string, hints: string[], result: Record<string, any>, processingAt: Date) {
     let content: Record<string, any>;
     try {
       this.logger.log(JSON.stringify({ event: 'speaking_content_call', submissionId: id, count: 1, assessmentProfile: 'topic-speaking-v1' }));
       content = await this.ml.scoreTopicContent(topic, hints, result.transcript, result.durationSeconds);
-      if (!validContentResult(content, result.transcript)) throw new Error('invalid_content');
-    } catch {
-      content = { status: 'unavailable', errorCode: 'content_assessment_failed' };
+      if (!validContentResult(content, result.transcript)) {
+        content = { status: 'unavailable', errorCode: 'content_invalid_response' };
+      }
+    } catch (error) {
+      content = contentRequestFailure(error);
     }
-    this.logger.log(JSON.stringify({ event: 'speaking_content_result', submissionId: id, status: content.status }));
-    await this.prisma.speakingSubmission.updateMany({ where: { id, userId, status: 'PROCESSING' }, data: {
+    this.logger.log(JSON.stringify({ event: 'speaking_content_result', submissionId: id, status: content.status, errorCode: content.errorCode }));
+    await this.prisma.speakingSubmission.updateMany({ where: { id, userId, status: 'PROCESSING', processingAt }, data: {
       result: { ...result, content } as Prisma.InputJsonValue, status: 'SUCCEEDED', completedAt: new Date(),
     } });
   }
@@ -226,13 +254,13 @@ export function validReadAloudResult(value: unknown): value is ReadAloudResult {
 }
 
 
-function validTopicResult(result: Record<string, any>, hash: string): boolean {
+export function validTopicResult(result: Record<string, any>, hash: string, maxSeconds = 60, profile = 'topic-speaking-v1'): boolean {
   const score = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100;
-  if (result.schemaVersion !== 3 || result.assessmentProfile !== 'topic-speaking-v1' || result.mode !== 'TOPIC' || result.provider !== 'azure' ||
+  if (result.schemaVersion !== 3 || result.assessmentProfile !== profile || result.mode !== 'TOPIC' || result.provider !== 'azure' ||
       result.audioHash !== hash || typeof result.adapterVersion !== 'string' ||
       typeof result.transcript !== 'string' || !result.transcript.trim() ||
       !score(result.accuracy) || !score(result.fluency) || !(result.prosody === null || score(result.prosody)) ||
-      typeof result.durationSeconds !== 'number' || !Number.isFinite(result.durationSeconds) || result.durationSeconds <= 0 || result.durationSeconds > 60 ||
+      typeof result.durationSeconds !== 'number' || !Number.isFinite(result.durationSeconds) || result.durationSeconds <= 0 || result.durationSeconds > maxSeconds ||
       !Array.isArray(result.words) || !result.words.length) return false;
   const expected = result.prosody === null ? null : (40 * result.accuracy + 25 * result.fluency + 25 * result.prosody) / 90;
   if (expected === null ? result.overall !== null : !score(result.overall) || Math.abs(result.overall - expected) > 0.000001) return false;
@@ -241,13 +269,24 @@ function validTopicResult(result: Record<string, any>, hash: string): boolean {
     (word.offsetMs === null && word.durationMs === null || typeof word.offsetMs === 'number' && typeof word.durationMs === 'number' &&
      Number.isFinite(word.offsetMs) && Number.isFinite(word.durationMs) && word.offsetMs >= 0 && word.durationMs >= 0 && word.offsetMs + word.durationMs <= result.durationSeconds * 1000 + 1));
 }
-function validContentResult(content: Record<string, any>, transcript: string): boolean {
+export function contentRequestFailure(error: unknown) {
+  const failure = error as { code?: string; response?: { status?: number } } | null;
+  const status = failure?.response?.status;
+  const errorCode = failure?.code === 'ECONNABORTED' || failure?.code === 'ETIMEDOUT' ? 'content_timeout'
+    : status === 413 || status === 422 ? 'content_invalid_input'
+    : status === 401 || status === 403 ? 'content_auth_failed'
+    : status === 429 ? 'content_rate_limited'
+    : 'content_service_unavailable';
+  return { status: 'unavailable', errorCode };
+}
+
+export function validContentResult(content: Record<string, any>, transcript: string, rubric = 'topic-content-v1'): boolean {
   if (['insufficient_data', 'unavailable'].includes(content?.status)) return true;
   const score = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100;
-  return content?.status === 'succeeded' && content.rubricVersion === 'topic-content-v1' &&
+  return content?.status === 'succeeded' && content.rubricVersion === rubric &&
     [content.vocabulary, content.grammar, content.topic, content.overall].every(score) &&
     Math.abs(content.overall - (content.vocabulary + content.grammar + content.topic) / 3) < 0.000001 &&
     Array.isArray(content.strengths) && content.strengths.length <= 3 && content.strengths.every((item: unknown) => typeof item === 'string') &&
     Array.isArray(content.improvements) && content.improvements.length <= 3 && content.improvements.every((item: any) =>
-      typeof item.quote === 'string' && item.quote.length > 0 && transcript.includes(item.quote) && typeof item.explanationVi === 'string' && typeof item.suggestion === 'string');
+      item != null && typeof item.quote === 'string' && item.quote.length > 0 && transcript.includes(item.quote) && typeof item.explanationVi === 'string' && typeof item.suggestion === 'string');
 }

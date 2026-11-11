@@ -60,8 +60,8 @@ def aggregate(payloads, duration, audio_hash):
         raise HTTPException(502, "azure_invalid_response") from None
 
 
-def assess(data):
-    duration = azure.validate_audio(data, max_seconds=60)
+def assess(data, *, max_seconds=60, max_bytes=azure.MAX_BYTES, timeout_seconds=80):
+    duration = azure.validate_audio(data, max_seconds=max_seconds, max_bytes=max_bytes)
     key, region = azure.configuration()
     try:
         import azure.cognitiveservices.speech as speechsdk
@@ -104,7 +104,7 @@ def assess(data):
         with wave.open(io.BytesIO(data), "rb") as audio:
             stream.write(audio.readframes(audio.getnframes()))
         stream.close()
-        if not done.wait(80):
+        if not done.wait(timeout_seconds):
             raise HTTPException(504, "azure_timeout")
         if failures:
             raise HTTPException(429 if failures[0] == "azure_quota_exceeded" else 503 if failures[0] == "azure_auth_failed" else 502, failures[0])

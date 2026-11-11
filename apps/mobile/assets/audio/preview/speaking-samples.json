@@ -63,6 +63,27 @@
     "voice": "en-US-JennyNeural"
   },
   {
+    "code": "topic-read-aloud-1",
+    "text": "I like playing badminton after class.",
+    "sha256": "97b1dba7f810085314fffc3324c586742383cd986fd67bf801ee608a3b41f442",
+    "durationSeconds": 3.2,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "topic-read-aloud-2",
+    "text": "My favourite food is chicken noodle soup.",
+    "sha256": "39a54b9378745cdd5c3ae7a24f9cd37ab99e385b5dcce19cda6cdd987e0952ff",
+    "durationSeconds": 3.0625,
+    "voice": "en-US-JennyNeural"
+  },
+  {
+    "code": "topic-read-aloud-3",
+    "text": "I live near my university.",
+    "sha256": "15de473bc52a4ae48cd59a2fff2ab34394cafaad05b7ee0c6df96eb3be98009a",
+    "durationSeconds": 2.4125,
+    "voice": "en-US-JennyNeural"
+  },
+  {
     "code": "twister-1",
     "text": "Red lorry, yellow lorry.",
     "sha256": "86f26a5d0bfe088dce9c694a77c57b825e0af8fc0bcb73f0eb01b8da3fc23e6d",

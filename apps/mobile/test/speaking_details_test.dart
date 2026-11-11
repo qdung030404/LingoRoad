@@ -171,7 +171,7 @@ void main() {
   );
 
   testWidgets(
-    'v2 filters, word details and partial result fit a narrow screen',
+    'static annotation, word details and partial result fit a narrow screen',
     (tester) async {
       tester.view.physicalSize = const Size(320, 1700);
       tester.view.devicePixelRatio = 1;
@@ -232,19 +232,9 @@ void main() {
       expect(find.text('Điểm từng từ'), findsNothing);
       expect(find.text('Chúng tôi nghe được'), findsNothing);
       expect(find.byKey(const Key('speakingTranscript')), findsNothing);
-      final filters = find.byKey(const Key('speakingFilters'));
-      await tester.ensureVisible(filters);
-      await tester.tap(filters);
-      await tester.pumpAndSettle();
-      expect(find.text('Giọng đều · 1'), findsOneWidget);
-      expect(find.text('Ngắt nghỉ sai · 1'), findsOneWidget);
-      final filter = find.byKey(
-        const ValueKey('speaking-filter-Mispronunciation'),
-      );
-      await tester.ensureVisible(filter);
-      await tester.tap(filter);
-      await tester.pumpAndSettle();
-      expect(tester.widget<FilterChip>(filter).selected, isFalse);
+      expect(find.byKey(const Key('speakingAnnotation')), findsOneWidget);
+      expect(find.byType(FilterChip), findsNothing);
+      expect(find.text('Bộ lọc lỗi'), findsNothing);
       final word = find.byKey(const ValueKey('speaking-reference-0'));
       await tester.ensureVisible(word);
       await tester.tap(word);

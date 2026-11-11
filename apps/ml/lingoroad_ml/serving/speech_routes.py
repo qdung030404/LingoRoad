@@ -180,6 +180,49 @@ class ConversationTranslationRequest(BaseModel):
     text: str = Field(min_length=1, max_length=12000)
 
 
+class ConversationTurn(BaseModel):
+    itemId: str | None = Field(default=None, min_length=1, max_length=200)
+    role: str = Field(pattern="^(USER|ASSISTANT)$")
+    transcript: str = Field(min_length=0, max_length=12000)
+
+
+class ConversationAssessmentRequest(BaseModel):
+    perTurn: bool = False
+    topic: str = Field(min_length=1, max_length=1000)
+    turns: list[ConversationTurn] = Field(max_length=256)
+
+
+@router.post("/speech/conversation/content")
+async def conversation_content(req: ConversationAssessmentRequest):
+    from lingoroad_ml.speech.content import evaluate
+    transcript = "\n".join(turn.transcript for turn in req.turns if turn.role == "USER")
+    if sum(len(turn.transcript) for turn in req.turns) > 48000:
+        raise HTTPException(413, "conversation_too_large")
+    turns = [turn.model_dump(exclude_none=True) for turn in req.turns if turn.transcript.strip()]
+    result = await asyncio.to_thread(evaluate, req.topic, [], transcript, None, conversation=turns)
+    return {**result, "assessmentScope": "whole_conversation"}
+
+
+
+@router.post("/speech/conversation/score")
+async def conversation_pronunciation(request: Request):
+    from lingoroad_ml.speech import topic
+    data = bytearray()
+    async for chunk in request.stream():
+        if len(data) + len(chunk) > 6 * 1024 * 1024:
+            raise HTTPException(413, "audio_too_large")
+        data.extend(chunk)
+    async with _speech_slots:
+        try:
+            result = await asyncio.wait_for(asyncio.to_thread(
+                topic.assess, bytes(data), max_seconds=180, max_bytes=6 * 1024 * 1024,
+                timeout_seconds=195), timeout=200)
+        except TimeoutError:
+            raise HTTPException(504, "azure_timeout") from None
+    return {**result, "assessmentProfile": "conversation-speaking-v1",
+            "adapterVersion": "azure-conversation-v1-ipa"}
+
+
 @router.post("/speech/conversation/translate")
 async def translate_conversation(req: ConversationTranslationRequest):
     from lingoroad_ml.speech.translation import translate

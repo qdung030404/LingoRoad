@@ -9,6 +9,11 @@ export const readingTexts = [
   'Learning a new language takes time and practice. I try to learn something new every day.',
   'Although the weather was cold, we decided to go for a walk. The streets were quiet, and the air felt fresh.',
 ];
+export const topicReadingTexts = [
+  'I like playing badminton after class.',
+  'My favourite food is chicken noodle soup.',
+  'I live near my university.',
+];
 export const topicContent = [
   ['Introduce yourself', 'What is your name?', 'Where do you live?', 'What do you enjoy doing?'],
   ['My day', 'When do you wake up?', 'What do you do during the day?', 'What is your favourite part of the day?'],
@@ -31,6 +36,7 @@ export const twisters = [
 export async function seedSpeakingContent(prisma: PrismaClient) {
   const groups = [
     { mode: SpeakingMode.READ_ALOUD, prefix: 'read-aloud', texts: readingTexts },
+    { mode: SpeakingMode.READ_ALOUD, prefix: 'topic-read-aloud', texts: topicReadingTexts },
     { mode: SpeakingMode.TOPIC, prefix: 'topic', texts: topicContent.map(item => item[0]) },
     { mode: SpeakingMode.TONGUE_TWISTER, prefix: 'twister', texts: twisters },
   ];

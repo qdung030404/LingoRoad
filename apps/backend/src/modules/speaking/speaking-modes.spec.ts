@@ -31,16 +31,17 @@ describe('Speaking mode catalogue', () => {
     await expect(service.create('owner', { promptId: 'prompt', clientRequestId: 'request' })).rejects.toMatchObject({ status: 503 });
     expect(prisma.speakingSubmission.create).not.toHaveBeenCalled();
   });
-  it('seeds 9 reading, 6 topic and 12 game prompts idempotently', async () => {
+  it('seeds the reading, topic and game prompts idempotently', async () => {
     const upsert = jest.fn().mockResolvedValue({});
     await seedSpeakingContent({ speakingPrompt: { upsert } } as any);
     const rows = upsert.mock.calls.map(call => call[0]);
-    expect(rows.filter(row => row.create.mode === 'READ_ALOUD')).toHaveLength(9);
+    expect(rows.filter(row => row.where.code.startsWith('read-aloud-'))).toHaveLength(9);
+    expect(rows.filter(row => row.where.code.startsWith('topic-read-aloud-'))).toHaveLength(3);
     expect(rows.filter(row => row.create.mode === 'TOPIC')).toHaveLength(6);
     expect(rows.filter(row => row.create.mode === 'TONGUE_TWISTER')).toHaveLength(12);
-    expect(new Set(rows.map(row => row.where.code)).size).toBe(27);
+    expect(new Set(rows.map(row => row.where.code)).size).toBe(30);
     expect(rows.filter(row => row.create.mode === 'TOPIC').every(row => row.create.maxDurationSeconds === 60)).toBe(true);
     await seedSpeakingContent({ speakingPrompt: { upsert } } as any);
-    expect(upsert).toHaveBeenCalledTimes(54);
+    expect(upsert).toHaveBeenCalledTimes(60);
   });
 });

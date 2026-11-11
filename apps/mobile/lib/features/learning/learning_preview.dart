@@ -29,7 +29,7 @@ import '../vocabulary/vocabulary_review_page.dart';
 import '../speaking/speaking_controller.dart';
 import '../speaking/speaking_repository.dart';
 import '../speaking/speaking_recorder.dart';
-import '../speaking/speaking_pages.dart';
+import '../speaking/speaking_topic_catalogue.dart';
 
 class LearningPreview extends StatefulWidget {
   const LearningPreview({
@@ -762,7 +762,13 @@ class _LearningPreviewState extends State<LearningPreview>
           child: const Text('Đăng nhập để chấm giọng thật'),
         ),
     ],
-    if (learning != null &&
+    if (speaking != null && skill == PracticeSkill.speaking)
+      SpeakingTopicCatalogue(
+        controller: speaking!,
+        practicePage: () =>
+            SpeakingPreviewPage(model: model, speaking: speaking),
+      )
+    else if (learning != null &&
         (skill == PracticeSkill.reading || skill == PracticeSkill.listening))
       LearningCatalogue(
         controller: learning!,
@@ -774,15 +780,6 @@ class _LearningPreviewState extends State<LearningPreview>
       Row(
         children: [
           Expanded(child: learningHeading('Chặng 1')),
-          if (speaking != null && skill == PracticeSkill.speaking)
-            IconButton(
-              tooltip: 'Lịch sử Speaking',
-              icon: const Icon(Icons.history),
-              onPressed: () => previewPush(
-                context,
-                SpeakingHistoryPage(controller: speaking!),
-              ),
-            ),
           learningBody('1/3', size: 20),
         ],
       ),
@@ -801,21 +798,7 @@ class _LearningPreviewState extends State<LearningPreview>
               : 'Luyện tập từ vựng và cấu trúc về gia đình và các mối quan hệ.',
           i,
           () {
-            if (speaking != null && skill == PracticeSkill.speaking && i != 0) {
-              previewMessage(
-                context,
-                'Bài luyện này chưa được mở. Hãy bắt đầu với Luyện Nói.',
-              );
-              return;
-            }
-            previewPush(
-              context,
-              PracticeIntroPage(
-                skill: skill,
-                model: model,
-                speaking: skill == PracticeSkill.speaking ? speaking : null,
-              ),
-            );
+            previewPush(context, PracticeIntroPage(skill: skill, model: model));
           },
         ),
         const SizedBox(height: 12),

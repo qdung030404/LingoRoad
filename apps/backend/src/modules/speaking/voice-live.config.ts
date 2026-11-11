@@ -3,6 +3,20 @@ import { ConfigService } from '@nestjs/config';
 import { readFileSync } from 'fs';
 import { parse } from 'dotenv';
 
+export const conversationVoices = {
+  standard: undefined,
+  ava: 'en-US-AvaMultilingualNeural',
+  brian: 'en-US-BrianMultilingualNeural',
+} as const;
+export const conversationSpeechRates = { normal: '1.0', slow: '0.85', fast: '1.15' } as const;
+export const conversationTurnPauses = { normal: 700, long: 1200 } as const;
+
+export interface VoiceConversationPreferences {
+  voice?: keyof typeof conversationVoices;
+  speechRate?: keyof typeof conversationSpeechRates;
+  turnPause?: keyof typeof conversationTurnPauses;
+}
+
 @Injectable()
 export class VoiceLiveConfig {
   constructor(private readonly config: ConfigService) {}

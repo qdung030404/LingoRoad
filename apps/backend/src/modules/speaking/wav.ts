@@ -1,8 +1,8 @@
 import { HttpException } from '@nestjs/common';
 export const MAX_SPEAKING_BYTES = 2 * 1024 * 1024;
-export function validateSpeakingWav(data: Buffer, maxSeconds = 30): number {
+export function validateSpeakingWav(data: Buffer, maxSeconds = 30, maxBytes = MAX_SPEAKING_BYTES): number {
   const fail = () => { throw new HttpException({ code: 'invalid_audio', message: `Bản thu phải là WAV PCM 16-bit, mono, 16 kHz, tối đa ${maxSeconds} giây.` }, 422); };
-  if (data.length > MAX_SPEAKING_BYTES) throw new HttpException({ code: 'audio_too_large', message: 'Bản thu vượt quá 2 MiB.' }, 413);
+  if (data.length > maxBytes) throw new HttpException({ code: 'audio_too_large', message: 'Bản thu vượt quá dung lượng cho phép.' }, 413);
   if (data.length < 44 || data.toString('ascii', 0, 4) !== 'RIFF' || data.toString('ascii', 8, 12) !== 'WAVE' || data.readUInt32LE(4) + 8 !== data.length) return fail();
   let format = false, samples: Buffer | undefined;
   let offset = 12;

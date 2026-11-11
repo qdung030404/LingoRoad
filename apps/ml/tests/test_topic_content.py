@@ -27,11 +27,12 @@ def test_content_scores_and_exact_evidence(monkeypatch):
     assert result["rubricVersion"] == "topic-content-v1"
     assert calls[0]["temperature"] == 0
 
-@pytest.mark.parametrize("change", [{"grammar": 101}, {"vocabulary": float("nan")},
-    {"improvements": [{"quote": "invented quote", "explanationVi": "x", "suggestion": "y"}]}, {"topic": "90"}])
+@pytest.mark.parametrize("change", [{"grammar": 101}, {"vocabulary": float("nan")}, {"topic": "90"}])
 def test_malformed_or_invented_feedback_is_unavailable(monkeypatch, change):
     fake_client(monkeypatch, {**valid(), **change})
-    assert content.evaluate("Introduce yourself", [], TEXT, 20)["status"] == "unavailable"
+    result = content.evaluate("Introduce yourself", [], TEXT, 20)
+    assert result["status"] == "unavailable"
+    assert result["errorCode"] == "content_invalid_response"
 
 def test_short_speech_and_missing_config_do_not_call_model(monkeypatch):
     def unexpected(): raise AssertionError("provider must not be called")
@@ -40,3 +41,11 @@ def test_short_speech_and_missing_config_do_not_call_model(monkeypatch):
     assert content.evaluate("Topic", [], TEXT, 5)["status"] == "insufficient_data"
     assert content.evaluate("Topic", [], "Hello", 20)["status"] == "insufficient_data"
     assert content.evaluate("Topic", [], TEXT, 20)["errorCode"] == "content_missing_config"
+
+
+def test_invalid_quote_is_omitted_without_discarding_valid_scores(monkeypatch):
+    fake_client(monkeypatch, {**valid(), "improvements": [{"quote": "invented quote", "explanationVi": "x", "suggestion": "y"}]})
+    result = content.evaluate("Introduce yourself", [], TEXT, 20)
+    assert result["status"] == "succeeded"
+    assert result["overall"] == 80
+    assert result["improvements"] == []

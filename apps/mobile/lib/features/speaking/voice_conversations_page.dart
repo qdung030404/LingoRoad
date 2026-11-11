@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
+import '../../shared/figma_widgets.dart';
 import '../learning/learning_widgets.dart';
 import 'speaking_controller.dart';
 import 'speaking_repository.dart';
 import 'voice_conversation_page.dart';
-import 'conversation_message.dart';
+import 'conversation_history_chat.dart';
+import 'conversation_assessment.dart';
 
 class VoiceConversationsPage extends StatefulWidget {
-  const VoiceConversationsPage({super.key, required this.controller});
+  const VoiceConversationsPage({
+    super.key,
+    required this.controller,
+    this.historyOnly = false,
+  });
+  final bool historyOnly;
   final SpeakingController controller;
   @override
   State<VoiceConversationsPage> createState() => _VoiceConversationsPageState();
@@ -29,12 +36,13 @@ class _VoiceConversationsPageState extends State<VoiceConversationsPage> {
   @override
   void initState() {
     super.initState();
-    topics = loadTopics();
+    viewingHistory = widget.historyOnly;
+    topics = widget.historyOnly ? Future.value({}) : loadTopics();
     history = loadHistory();
   }
 
   void reload() => setState(() {
-    topics = loadTopics();
+    if (!widget.historyOnly) topics = loadTopics();
     history = loadHistory();
   });
 
@@ -65,122 +73,147 @@ class _VoiceConversationsPageState extends State<VoiceConversationsPage> {
     appBar: AppBar(
       title: Text(viewingHistory ? 'Lịch sử hội thoại' : 'Hội thoại AI'),
       actions: [
-        IconButton(
-          tooltip: viewingHistory ? 'Chọn chủ đề' : 'Lịch sử hội thoại',
-          icon: Icon(
-            viewingHistory ? Icons.chat_bubble_outline : Icons.history,
+        if (!widget.historyOnly)
+          IconButton(
+            tooltip: viewingHistory ? 'Chọn chủ đề' : 'Lịch sử hội thoại',
+            icon: Icon(
+              viewingHistory ? Icons.chat_bubble_outline : Icons.history,
+            ),
+            onPressed: () => setState(() => viewingHistory = !viewingHistory),
           ),
-          onPressed: () => setState(() => viewingHistory = !viewingHistory),
-        ),
       ],
     ),
-    body: FutureBuilder<Json>(
-      future: viewingHistory ? history : topics,
-      builder: (context, snapshot) {
-        if (snapshot.hasError || snapshot.data?['loadError'] == true) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Chưa tải được hội thoại.'),
-                TextButton(onPressed: reload, child: const Text('Thử lại')),
-              ],
-            ),
-          );
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        final data = snapshot.data!;
-        final items = speakingItems(data['items']);
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (!viewingHistory) ...[
-              learningHeading('Bạn muốn trò chuyện về điều gì?', size: 24),
-              const SizedBox(height: 8),
-              learningBody(
-                'AI hỏi từng câu ngắn. Bạn trả lời bằng tiếng Anh và có thể yêu cầu giải thích tiếng Việt.',
-              ),
-              const SizedBox(height: 16),
-              if (data['enabled'] != true)
-                const Text(
-                  'Hội thoại AI đang tạm dừng. Bạn vẫn xem được lịch sử.',
-                ),
+    body: buildList(),
+  );
+
+  Widget buildList() => FutureBuilder<Json>(
+    future: viewingHistory ? history : topics,
+    builder: (context, snapshot) {
+      if (!widget.controller.active) {
+        return const Center(child: Text('Phiên đăng nhập đã thay đổi.'));
+      }
+      if (snapshot.hasError || snapshot.data?['loadError'] == true) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Chưa tải được hội thoại.'),
+              TextButton(onPressed: reload, child: const Text('Thử lại')),
             ],
-            if (viewingHistory && items.isEmpty)
-              const Text('Chưa có phiên hội thoại nào.'),
-            for (final item in items)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: LearningCard(
-                  children: [
-                    learningHeading(
-                      viewingHistory
-                          ? ((item['topicSnapshot'] as Map?)?['text']
-                                    ?.toString() ??
-                                'Hội thoại AI')
-                          : item['text'].toString(),
-                      size: 20,
-                    ),
-                    if (viewingHistory)
-                      learningBody(
-                        conversationStatus(item['status']?.toString()),
-                      ),
-                    if (!viewingHistory)
-                      for (final hint in item['hints'] as List? ?? [])
-                        learningBody('• $hint', size: 14),
-                    FilledButton(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.grey900,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(48),
-                      ),
-                      onPressed:
-                          widget.controller.active &&
-                              (viewingHistory || data['enabled'] == true)
-                          ? () => open(item)
-                          : null,
-                      child: Text(
-                        viewingHistory ? 'Xem hội thoại' : 'Chọn chủ đề',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (viewingHistory && data['nextCursor'] != null)
-              TextButton(
-                onPressed: () async {
-                  try {
-                    final next = await repository.conversations(
-                      cursor: data['nextCursor'] as String,
-                    );
-                    if (mounted && widget.controller.active) {
-                      setState(() {
-                        history = Future.value({
-                          ...next,
-                          'items': [...items, ...speakingItems(next['items'])],
-                        });
-                      });
-                    }
-                  } catch (_) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Chưa tải được trang tiếp. Hãy thử lại.',
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                },
-                child: const Text('Xem thêm'),
+          ),
+        );
+      }
+      if (!snapshot.hasData) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      final data = snapshot.data!;
+      final items = speakingItems(data['items']);
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (!viewingHistory) ...[
+            learningHeading('Bạn muốn trò chuyện về điều gì?', size: 24),
+            const SizedBox(height: 8),
+            learningBody(
+              'Chọn chủ đề để xem hướng dẫn và chuẩn bị trước khi trò chuyện.',
+            ),
+            const SizedBox(height: 16),
+            if (data['enabled'] != true)
+              const Text(
+                'Hội thoại AI đang tạm dừng. Bạn vẫn xem được lịch sử.',
               ),
           ],
-        );
-      },
-    ),
+          if (viewingHistory && items.isEmpty)
+            const Text('Chưa có phiên hội thoại nào.'),
+          for (final item in items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: !viewingHistory
+                  ? FigmaCard(
+                      padding: EdgeInsets.zero,
+                      child: Material(
+                        color: Colors.transparent,
+                        borderRadius: BorderRadius.circular(16),
+                        clipBehavior: Clip.antiAlias,
+                        child: ListTile(
+                          key: ValueKey('conversation-topic-${item['id']}'),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          title: Text(
+                            item['title']?.toString() ??
+                                item['text'].toString(),
+                            style: designHeading(18),
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.grey800,
+                          ),
+                          onTap: widget.controller.active
+                              ? () => open(item)
+                              : null,
+                        ),
+                      ),
+                    )
+                  : LearningCard(
+                      children: [
+                        learningHeading(
+                          (item['topicSnapshot'] as Map?)?['text']
+                                  ?.toString() ??
+                              'Hội thoại AI',
+                          size: 20,
+                        ),
+                        learningBody(
+                          conversationStatus(item['status']?.toString()),
+                        ),
+                        if (conversationGradeStatus(item['assessmentStatus'])
+                            case final grade?)
+                          learningBody(grade, size: 14),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.grey900,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(48),
+                          ),
+                          onPressed: widget.controller.active
+                              ? () => open(item)
+                              : null,
+                          child: const Text('Xem hội thoại'),
+                        ),
+                      ],
+                    ),
+            ),
+          if (viewingHistory && data['nextCursor'] != null)
+            TextButton(
+              onPressed: () async {
+                try {
+                  final next = await repository.conversations(
+                    cursor: data['nextCursor'] as String,
+                  );
+                  if (mounted && widget.controller.active) {
+                    setState(() {
+                      history = Future.value({
+                        ...next,
+                        'items': [...items, ...speakingItems(next['items'])],
+                      });
+                    });
+                  }
+                } catch (_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Chưa tải được trang tiếp. Hãy thử lại.'),
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Xem thêm'),
+            ),
+        ],
+      );
+    },
   );
 }
 
@@ -191,6 +224,16 @@ String conversationStatus(String? status) => switch (status) {
   'ENDED' => 'Đã kết thúc',
   'INTERRUPTED' => 'Phiên bị gián đoạn',
   _ => 'Đang cập nhật',
+};
+
+String? conversationGradeStatus(Object? status) => switch (status) {
+  'UNASSESSED' => 'Chưa chấm điểm',
+  'PROCESSING' => 'Đang chấm điểm',
+  'READY' => 'Đã chấm điểm',
+  'PARTIAL' => 'Đã chấm một phần',
+  'FAILED' => 'Chưa chấm được',
+  'UNKNOWN' => 'Lần chấm bị gián đoạn',
+  _ => null,
 };
 
 class _ConversationHistoryDetail extends StatefulWidget {
@@ -211,7 +254,7 @@ class _ConversationHistoryDetailState
   @override
   void initState() {
     super.initState();
-    detail = widget.controller.repository.conversation(widget.id);
+    detail = widget.controller.repository.conversationSummary(widget.id);
   }
 
   @override
@@ -224,7 +267,9 @@ class _ConversationHistoryDetailState
           return Center(
             child: TextButton(
               onPressed: () => setState(() {
-                detail = widget.controller.repository.conversation(widget.id);
+                detail = widget.controller.repository.conversationSummary(
+                  widget.id,
+                );
               }),
               child: const Text('Tải lại hội thoại'),
             ),
@@ -235,11 +280,36 @@ class _ConversationHistoryDetailState
         }
         final row = snapshot.data!;
         final turns = speakingItems(row['turns']);
-        return ListView(
-          padding: const EdgeInsets.all(16),
+        final header = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             learningHeading((row['topicSnapshot'] as Map)['text'].toString()),
             learningBody(conversationStatus(row['status']?.toString())),
+            const SizedBox(height: 16),
+          ],
+        );
+        final chat = ConversationHistoryChat(
+          controller: widget.controller,
+          id: widget.id,
+        );
+        if (['ENDED', 'INTERRUPTED'].contains(row['status']) &&
+            (row['hasUserTurns'] == true ||
+                turns.any((turn) => turn['role'] == 'USER'))) {
+          return ConversationAssessment(
+            controller: widget.controller,
+            conversation: row,
+            fullPage: true,
+            resultHeader: header,
+            resultFooter: Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: chat,
+            ),
+          );
+        }
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            header,
             if (['CREATED', 'CONNECTING', 'ACTIVE'].contains(row['status']))
               TextButton(
                 onPressed: () async {
@@ -262,29 +332,7 @@ class _ConversationHistoryDetailState
                 },
                 child: const Text('Kết thúc phiên đang mở'),
               ),
-            if (turns.isEmpty)
-              const Text('Phiên này chưa ghi nhận lượt nói nào.'),
-            for (final turn in turns)
-              ConversationMessage(
-                key: ValueKey(turn['id']),
-                isUser: turn['role'] == 'USER',
-                text: turn['transcript'].toString(),
-                translationVi: turn['translationVi'] as String?,
-                onTranslate: turn['role'] == 'USER'
-                    ? null
-                    : () {
-                        if (!widget.controller.active) {
-                          throw const ApiFailure(
-                            'Phiên đăng nhập đã thay đổi.',
-                          );
-                        }
-                        return widget.controller.repository
-                            .translateConversationTurn(
-                              widget.id,
-                              turn['providerItemId'].toString(),
-                            );
-                      },
-              ),
+            chat,
           ],
         );
       },

@@ -115,7 +115,9 @@ class PracticeIntroPage extends StatelessWidget {
             children: [
               _row(
                 '${skill.source}/imgVuesaxBulkTimer',
-                speaking != null ? '30 giây–3 phút mỗi lượt' : 'Khoảng 10-15 phút',
+                speaking != null
+                    ? '30 giây–3 phút mỗi lượt'
+                    : 'Khoảng 10-15 phút',
               ),
               _row(
                 '${skill.source}/imgVuesaxBulkTask',
@@ -1038,7 +1040,10 @@ class _LiveSpeakingViewState extends State<_LiveSpeakingView>
           icon: const Icon(Icons.history),
           onPressed: locked
               ? null
-              : () => previewPush(context, SpeakingHistoryPage(controller: c)),
+              : () => previewPush(
+                  context,
+                  SpeakingHistoryPage(controller: c, mode: c.mode),
+                ),
         ),
         bottom: total == 0
             ? null
@@ -1104,16 +1109,40 @@ class _LiveSpeakingViewState extends State<_LiveSpeakingView>
                               child: Text(
                                 c.sentence,
                                 textAlign: TextAlign.center,
-                                style: designHeading(32, height: 1),
+                                style: designHeading(
+                                  c.isTopic ? 28 : 32,
+                                  height: 1.2,
+                                ),
                               ),
                             ),
                             if (c.isTopic && c.prompt?['hints'] is List) ...[
                               const SizedBox(height: 12),
-                              learningBody(
-                                'Nói bằng lời của bạn, tối đa 60 giây. Gợi ý',
+                              FigmaCard(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    learningHeading('Câu hỏi gợi ý', size: 18),
+                                    for (final hint
+                                        in c.prompt!['hints'] as List)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: learningBody(
+                                          '• $hint',
+                                          size: 15,
+                                        ),
+                                      ),
+                                    const Divider(
+                                      height: 24,
+                                      color: AppColors.grey100,
+                                    ),
+                                    learningBody(
+                                      'Tối đa 60 giây. Nói ít nhất 10 giây và khoảng 20 từ để nhận phản hồi nội dung.',
+                                      size: 13,
+                                    ),
+                                  ],
+                                ),
                               ),
-                              for (final hint in c.prompt!['hints'] as List)
-                                learningBody('• $hint'),
                             ],
                             const SizedBox(height: 12),
                             if (!c.recording &&
@@ -1186,9 +1215,13 @@ class _LiveSpeakingViewState extends State<_LiveSpeakingView>
                                       ),
                                     ],
                                   ),
-                                  TextButton(
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      minimumSize: const Size.fromHeight(48),
+                                    ),
                                     onPressed: locked ? null : record,
-                                    child: const Text('Ghi lại'),
+                                    icon: const Icon(Icons.mic_none, size: 20),
+                                    label: const Text('Ghi lại'),
                                   ),
                                 ],
                               ),
@@ -1372,16 +1405,20 @@ class _LiveSpeakingViewState extends State<_LiveSpeakingView>
         ),
         const SizedBox(height: 12),
       ],
-      OutlinedButton.icon(
-        onPressed: locked ? null : () => c.select(c.prompt!),
-        icon: const Icon(Icons.replay),
-        label: const Text('Luyện lại'),
-      ),
       SpeakingResult(
         result: c.result!,
+        repository: c.repository,
+        submissionId: c.submission?['id'] as String?,
         referenceText: c.sentence,
         audioPath: c.resultAudioPath(c.submission?['id'] as String?),
         isCurrent: () => c.active,
+      ),
+      const SizedBox(height: 16),
+      OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+        onPressed: locked ? null : () => c.select(c.prompt!),
+        icon: const Icon(Icons.replay),
+        label: const Text('Luyện lại'),
       ),
     ],
   );

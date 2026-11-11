@@ -19,13 +19,13 @@ class SpeakingController extends ChangeNotifier {
   final String accountId;
   final bool Function() isCurrent;
   bool _disposed = false, initialized = false, busy = false, recording = false;
-  bool loadingHistory = false, checking = false, enabled = true;
-  String? error, audioPath, _requestId, _submissionId, nextCursor;
+  bool checking = false, enabled = true;
+  String? error, audioPath, _requestId, _submissionId;
   Json? prompt, submission;
-  List<Json> prompts = [], history = [];
+  List<Json> prompts = [];
   int seconds = 0;
   String mode = 'READ_ALOUD';
-  String? historyMode;
+  String? _topicId;
   List<Json> gameProgress = [];
   int get maxSeconds => mode == 'TOPIC' ? 60 : 30;
   bool get isTopic => mode == 'TOPIC';
@@ -33,6 +33,7 @@ class SpeakingController extends ChangeNotifier {
     if (!active || busy || recording || processing) return;
     await discard();
     if (!active) return;
+    _topicId = null;
     mode = value;
     prompt = null;
     prompts = [];
@@ -99,6 +100,7 @@ class SpeakingController extends ChangeNotifier {
         final pending = jsonDecode(raw) as Map;
         _requestId = pending['clientRequestId'] as String;
         _submissionId = pending['submissionId'] as String?;
+        _topicId = pending['topicId'] as String?;
         mode = pending['mode']?.toString() ?? 'READ_ALOUD';
         prompt = {'id': pending['promptId']};
         await _lookupOrCreate(); // Metadata recovery only: never uploads audio.
@@ -117,6 +119,34 @@ class SpeakingController extends ChangeNotifier {
   }
 
   Future<void> loadPrompts() async {
+    final topicId = _topicId;
+    if (topicId != null) {
+      try {
+        final topic = await repository.conversationTopic(topicId);
+        if (!active) return;
+        final (items, available) = _topicPractice(topic, mode);
+        prompts = items;
+        enabled = available;
+      } on ApiFailure {
+        if (!active || submission == null) rethrow;
+        prompts = [];
+        enabled = false;
+      }
+      final id = prompt?['id'];
+      final match = prompts.where((item) => item['id'] == id).firstOrNull;
+      if (match != null) {
+        prompt = match;
+      } else if (id != null && submission?['promptSnapshot'] is Map) {
+        final snapshot = Map<String, dynamic>.from(
+          submission!['promptSnapshot'] as Map,
+        );
+        prompt = {...snapshot, 'id': id};
+        prompts = [prompt!];
+        enabled = false;
+      }
+      _changed();
+      return;
+    }
     final data = mode == 'READ_ALOUD'
         ? await repository.prompts()
         : await repository.promptsForMode(mode);
@@ -133,6 +163,39 @@ class SpeakingController extends ChangeNotifier {
     }
     enabled = data['enabled'] != false;
     _changed();
+  }
+
+  (List<Json>, bool) _topicPractice(Json topic, String mode) {
+    final practice = topic['practice'] as Map?;
+    final activity =
+        practice?[mode == 'READ_ALOUD' ? 'readAloud' : 'topic'] as Map?;
+    final items = mode == 'READ_ALOUD'
+        ? speakingItems(activity?['items'])
+        : activity?['prompt'] is Map
+        ? [Map<String, dynamic>.from(activity!['prompt'] as Map)]
+        : <Json>[];
+    return (items, activity?['enabled'] == true);
+  }
+
+  Future<bool> openTopicPractice(Json topic, String activity) async {
+    if (!active || busy || recording || processing) return false;
+    final (items, available) = _topicPractice(topic, activity);
+    if (!available || items.isEmpty) return false;
+    busy = true;
+    _changed();
+    try {
+      await discard();
+      if (!active) return false;
+      _topicId = topic['id'] as String;
+      mode = activity;
+      prompts = items;
+      prompt = items.first;
+      enabled = true;
+      return true;
+    } finally {
+      busy = false;
+      _changed();
+    }
   }
 
   /// An explicit practice entry starts over after a successful submission.
@@ -259,6 +322,7 @@ class SpeakingController extends ChangeNotifier {
         'submissionId': _submissionId,
         'promptId': prompt!['id'],
         'mode': mode,
+        if (_topicId != null) 'topicId': _topicId,
       }),
     );
   }
@@ -360,28 +424,6 @@ class SpeakingController extends ChangeNotifier {
       }
     } finally {
       checking = false;
-      _changed();
-    }
-  }
-
-  Future<void> loadHistory({bool more = false}) async {
-    if (!active || loadingHistory || (more && nextCursor == null)) return;
-    loadingHistory = true;
-    error = null;
-    _changed();
-    try {
-      final value = await repository.historyForMode(
-        cursor: more ? nextCursor : null,
-        mode: historyMode,
-      );
-      if (!active) return;
-      final rows = speakingItems(value['items']);
-      history = more ? [...history, ...rows] : rows;
-      nextCursor = value['nextCursor'] as String?;
-    } catch (e) {
-      if (active) error = _message(e);
-    } finally {
-      loadingHistory = false;
       _changed();
     }
   }

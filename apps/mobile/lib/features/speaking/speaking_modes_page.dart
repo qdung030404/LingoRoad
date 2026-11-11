@@ -31,9 +31,11 @@ class SpeakingModesPage extends StatefulWidget {
     super.key,
     required this.controller,
     required this.practicePage,
+    this.initialMode,
   });
   final SpeakingController controller;
   final Widget Function() practicePage;
+  final String? initialMode;
   @override
   State<SpeakingModesPage> createState() => _SpeakingModesPageState();
 }
@@ -45,8 +47,16 @@ class _SpeakingModesPageState extends State<SpeakingModesPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(c.initialize());
+      if (mounted) unawaited(loadInitialMode());
     });
+  }
+
+  Future<void> loadInitialMode() async {
+    await c.initialize();
+    final mode = widget.initialMode;
+    if (!mounted || !c.active || mode == null || c.processing) return;
+    await c.chooseMode(mode);
+    if (mounted && c.active) setState(() => choosing = false);
   }
 
   Future<void> enter(Json prompt) async {
@@ -74,7 +84,7 @@ class _SpeakingModesPageState extends State<SpeakingModesPage> {
         onPressed: c.busy || c.recording
             ? null
             : () {
-                if (choosing) {
+                if (choosing || widget.initialMode != null) {
                   Navigator.pop(context);
                 } else {
                   setState(() => choosing = true);
@@ -87,7 +97,13 @@ class _SpeakingModesPageState extends State<SpeakingModesPage> {
         icon: const Icon(Icons.history),
         onPressed: c.busy
             ? null
-            : () => previewPush(context, SpeakingHistoryPage(controller: c)),
+            : () => previewPush(
+                context,
+                SpeakingHistoryPage(
+                  controller: c,
+                  mode: widget.initialMode ?? (choosing ? null : c.mode),
+                ),
+              ),
       ),
       child: ListView(
         padding: const EdgeInsets.all(16),

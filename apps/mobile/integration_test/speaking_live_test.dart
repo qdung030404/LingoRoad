@@ -139,9 +139,12 @@ void main() {
           }
           expect(await File(audio).exists(), true);
         }
-        await tester.runAsync(c!.loadHistory);
-        expect(c!.history.length, 3);
-        expect(c!.history.every((row) => row['status'] == 'SUCCEEDED'), true);
+        final page = await tester.runAsync(
+          () => c!.repository.historyForMode(mode: 'READ_ALOUD'),
+        );
+        final history = speakingItems(page!['items']);
+        expect(history.length, 3);
+        expect(history.every((row) => row['status'] == 'SUCCEEDED'), true);
         await tester.runAsync(() async {
           final after = await api.request('GET', '/learning/progress');
           expect(

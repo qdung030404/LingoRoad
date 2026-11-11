@@ -73,6 +73,12 @@ model User {
   @@map("users")
 }
 
+enum VoiceHistoryStatus {
+  PENDING
+  SAVED
+  DISCARDED
+}
+
 model VoiceConversation {
   id String @id @default(uuid()) @db.Uuid
   userId String @map("user_id") @db.Uuid
@@ -85,10 +91,16 @@ model VoiceConversation {
   createdAt DateTime @default(now()) @map("created_at")
   startedAt DateTime? @map("started_at")
   endedAt DateTime? @map("ended_at")
+  historyStatus VoiceHistoryStatus @default(SAVED) @map("history_status")
+  assessmentStatus String @default("UNASSESSED") @map("assessment_status") @db.VarChar(30)
+  assessment Json? @db.JsonB
+  assessmentAudioHash String? @map("assessment_audio_hash") @db.VarChar(64)
+  assessmentStartedAt DateTime? @map("assessment_started_at")
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   turns VoiceConversationTurn[]
   @@unique([userId, clientRequestId])
   @@index([userId, createdAt, id])
+  @@index([historyStatus, endedAt])
   @@map("voice_conversations")
 }
 

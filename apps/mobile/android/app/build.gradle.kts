@@ -53,3 +53,8 @@ kotlin {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Match flutter_webrtc 1.6.3. The app taps its existing local audio track.
+    compileOnly("io.github.webrtc-sdk:android:150.7871.04")
+}

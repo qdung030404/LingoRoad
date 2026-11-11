@@ -1,3 +1,5 @@
+import 'package:mobile/features/speaking/speaking_repository.dart'
+    show ConversationSettings;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/api/api_client.dart';
@@ -9,12 +11,51 @@ import 'speaking_workflow_test.dart' show FakeSpeakingRepository, FakeRecorder;
 class ConversationRepository extends FakeSpeakingRepository {
   bool available = true;
   bool offlineHistory = false;
+  int preparationCalls = 0, createCalls = 0;
+  @override
+  Future<Json> conversationTopic(String id) async {
+    preparationCalls++;
+    return {
+      'id': id,
+      'text': 'Topic 0',
+      'enabled': available,
+      'hints': ['What is your name?'],
+      'preparation': {
+        'goal': 'Giới thiệu bản thân.',
+        'vocabulary': [
+          {
+            'word': 'hometown',
+            'meaningVi': 'quê quán',
+            'example': 'My hometown is Hanoi.',
+          },
+        ],
+        'phrases': [
+          {'text': 'My name is Linh.', 'meaningVi': 'Tôi tên là Linh.'},
+        ],
+      },
+    };
+  }
+
+  @override
+  Future<Json> createConversation(
+    String topicId,
+    String requestId, {
+    ConversationSettings? settings,
+  }) async {
+    createCalls++;
+    return {};
+  }
+
   @override
   Future<Json> conversationTopics() async => {
     'enabled': available,
     'items': [
       for (var i = 0; i < 6; i++)
-        {'id': 'topic-$i', 'text': 'Topic $i', 'hints': <String>[]},
+        {
+          'id': 'topic-$i',
+          'text': 'Topic $i',
+          'hints': ['What is your name?'],
+        },
     ],
   };
   @override
@@ -77,6 +118,10 @@ void main() {
       expect(find.text('My family'), findsOneWidget);
       await tester.tap(find.text('Xem hội thoại'));
       await tester.pumpAndSettle();
+      expect(find.text('I live with my parents.'), findsNothing);
+      await tester.ensureVisible(find.text('Lịch sử chat'));
+      await tester.tap(find.text('Lịch sử chat'));
+      await tester.pumpAndSettle();
       expect(find.text('I live with my parents.'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       controller.dispose();
@@ -88,18 +133,42 @@ void main() {
   ) async {
     final repository = ConversationRepository()..available = false;
     final controller = await open(tester, repository);
+    await tester.tap(find.text('Topic 0'));
+    await tester.pumpAndSettle();
     expect(
       tester
           .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Chọn chủ đề').first,
+            find.widgetWithText(FilledButton, 'Bắt đầu hội thoại'),
           )
           .onPressed,
       isNull,
     );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Lịch sử hội thoại'));
     await tester.pumpAndSettle();
     expect(find.text('Xem hội thoại'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
+    controller.dispose();
+  });
+
+  testWidgets('topic names open guidance on demand without allocating a call', (
+    tester,
+  ) async {
+    final repository = ConversationRepository();
+    final controller = await open(tester, repository);
+    expect(find.text('What is your name?'), findsNothing);
+    expect(find.text('Chọn chủ đề'), findsNothing);
+    expect(repository.preparationCalls, 0);
+    await tester.tap(find.text('Topic 0'));
+    await tester.pumpAndSettle();
+    expect(find.text('Chuẩn bị hội thoại'), findsOneWidget);
+    expect(find.text('hometown'), findsOneWidget);
+    expect(find.text('Bắt đầu hội thoại'), findsOneWidget);
+    expect(repository.preparationCalls, 1);
+    expect(repository.createCalls, 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
     controller.dispose();
   });
 

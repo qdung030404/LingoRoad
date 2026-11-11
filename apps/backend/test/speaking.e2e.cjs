@@ -199,11 +199,23 @@ describe('Speaking read aloud persisted workflow', () => {
     const history = (await api(a, 'get', '/speaking/history?mode=TOPIC').expect(200)).body.data.items;
     assert.ok(history.every(item => item.promptSnapshot.mode === 'TOPIC'));
     contentFailure = true;
+    let done;
     try {
-      const done = (await upload(a, (await create(topics[0])).id, wav(15)).expect(200)).body.data;
+      done = (await upload(a, (await create(topics[0])).id, wav(15)).expect(200)).body.data;
       assert.equal(done.status, 'SUCCEEDED'); assert.equal(done.result.accuracy, 80);
       assert.equal(done.result.content.status, 'unavailable');
+      assert.equal(done.result.content.errorCode, 'content_service_unavailable');
     } finally { contentFailure = false; }
+    const beforeRetry = { speech: topicCalls, content: contentCalls };
+    const path = '/speaking/submissions/' + done.id + '/content';
+    await api(b, 'post', path).expect(404);
+    const requests = await Promise.all([api(a, 'post', path).expect(201), api(a, 'post', path).expect(201)]);
+    assert.ok(requests.some(response => response.body.data.result.content.status === 'succeeded'));
+    assert.equal(topicCalls, beforeRetry.speech);
+    assert.equal(contentCalls, beforeRetry.content + 1);
+    const persisted = await read(done.id);
+    assert.equal(persisted.result.content.overall, 80);
+    assert.equal(persisted.result.accuracy, done.result.accuracy);
   });
   it('enforces game locks per account and preserves best results concurrently', async () => {
     const game = (await api(a, 'get', '/speaking/game/progress').expect(200)).body.data.items;

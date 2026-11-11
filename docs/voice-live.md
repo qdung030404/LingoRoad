@@ -39,7 +39,11 @@ Migration `20261110000000_voice_conversations` bổ sung hai bảng phiên và l
 
 Mỗi tài khoản có tối đa một phiên đang mở và 10 phiên đã kết nối trong ngày UTC. Triển khai ban đầu chạy một backend instance sở hữu các socket. Khi backend khởi động lại, phiên đang mở chuyển sang `INTERRUPTED`; mở lịch sử chỉ tra cứu dữ liệu, lượt luyện mới tạo phiên mới.
 
-Đã kiểm tra backend build, unit test và API/database với guard thay thế trong môi trường kiểm thử. Luồng auth hiện hữu giữ nguyên guard Firebase của app chính. Cần người dùng đăng nhập trên MuMu để nghiệm thu cuộc gọi qua app chính. Phần giữ PCM riêng cho chấm phát âm, đánh giá sau hội thoại và kết quả điểm vẫn đang chờ triển khai.
+Sau khi kết thúc, app có nút Chấm điểm hội thoại. Android lấy PCM từ local microphone track WebRTC và chọn các đoạn theo VAD, chuyển thành WAV mono 16 kHz PCM16 trong cache riêng. Khoảng chờ AI được loại khỏi bản thu, các lượt nói ghép với khoảng cách 250 ms. Đánh giá phát âm dùng Speech SDK liên tục với accuracy, fluency, prosody và chi tiết từng từ. Điểm tổng giữ tỷ lệ 40/25/25 chia 90. Đánh giá nội dung dùng riêng transcript USER, lời AI làm ngữ cảnh. Kết quả thiếu tiêu chí giữ giá trị null.
+
+Migration `20261110020000_voice_assessment` bổ sung trạng thái, JSON kết quả và hash audio. `PUT /speaking/conversations/:id/assessment/audio` nhận WAV tối đa 180 giây, 6 MiB trong bộ nhớ, claim nguyên tử rồi trả trạng thái PROCESSING. Client tra cứu bằng GET detail. Gửi cùng audio trả lại trạng thái đã lưu, audio khác trả conflict. `POST /speaking/conversations/:id/assessment` cho phép chấm nội dung của phiên cũ đã mất bản thu. Backend khởi động lại hoặc lần chấm quá 240 giây chuyển UNKNOWN, không tự gửi chấm lại.
+
+File tạm được dọn khi nhận kết quả, bắt đầu cuộc gọi mới, rời phiên, đổi tài khoản hoặc khởi động app. Không lưu audio trên server. Phiên cũ chỉ có transcript có thể chấm nội dung. Tin nhắn mới tự cuộn xuống cuối hội thoại. Kiểm thử tự động dùng provider giả, API/database dùng guard thay thế. Test `integration_test/conversation_audio_test.dart` kiểm chứng micro WebRTC, định dạng WAV và dọn file trên MuMu bằng kết nối loopback, không gọi provider. Chất lượng phát âm và tiếng vọng vẫn cần nghiệm thu giọng người thật.
 
 Rollback bằng `VOICE_LIVE_ENABLED=false`, khởi động lại backend. Lịch sử vẫn đọc được. Credentials được giữ trong file ngoài repo, transcript chỉ lưu trong database và không đưa vào log.
 
@@ -65,3 +69,8 @@ Tài liệu tham chiếu của Microsoft
 
 - https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live-webrtc
 - https://learn.microsoft.com/en-us/azure/ai-services/speech-service/voice-live-how-to
+
+
+## Kết quả hội thoại
+
+Màn kết quả hiển thị điểm tổng của toàn bộ câu trả lời. Các tiêu chí phát âm tổng hợp theo thời lượng lời nói được dịch vụ nhận diện, giữ tỷ lệ 40/25/25 chia 90. Các lượt hỏi–đáp tách riêng để đọc và chạm trực tiếp vào từ xem âm tiết, âm vị, loại lỗi. Nội dung được chấm trên toàn bộ transcript USER với câu hỏi AI làm ngữ cảnh. Lượt nhận diện rỗng được bỏ qua trước khi gửi chấm và khi hiển thị. Gợi ý có trích dẫn không khớp bị loại riêng, điểm hợp lệ vẫn được giữ. Nút chấm lại nội dung sử dụng điểm phát âm đã lưu.
