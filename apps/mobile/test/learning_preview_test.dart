@@ -32,12 +32,19 @@ class _LogoutApi extends FakeApi {
     String path, {
     Json? data,
     bool auth = true,
+    Duration? receiveTimeout,
   }) async {
     if (path == '/auth/logout') {
       logoutCalls++;
       if (offline) throw const ApiFailure('Offline');
     }
-    return super.request(method, path, data: data, auth: auth);
+    return super.request(
+      method,
+      path,
+      data: data,
+      auth: auth,
+      receiveTimeout: receiveTimeout,
+    );
   }
 }
 
@@ -359,6 +366,39 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  test('writing drafts and scores are stored per account', () async {
+    final first = PreviewModel(accountId: 'first');
+    final second = PreviewModel(accountId: 'second');
+    final reopened = PreviewModel(accountId: 'first');
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    addTearDown(reopened.dispose);
+
+    await first.restore();
+    await first.saveItemDraft('writing-item', 'My private draft.', 0);
+    await first.saveScore('writing-item', 7.5, 0);
+
+    await second.restore();
+    expect(second.getDraft('writing-item', 0), isEmpty);
+    expect(second.getScore('writing-item', 0), 0);
+
+    await reopened.restore();
+    expect(reopened.getDraft('writing-item', 0), 'My private draft.');
+    expect(reopened.getScore('writing-item', 0), 7.5);
+  });
+
+  testWidgets('signed-in writing uses the active session API', (tester) async {
+    final api = FakeApi(signedIn: true, completed: true);
+    await tester.pumpWidget(MyApp(session: SessionController(api)));
+    await tester.pumpAndSettle();
+    await tap(tester, find.byKey(const Key('previewTab3')));
+    await tap(tester, find.text('Viết').first);
+
+    expect(find.text('Ngân hàng Đề Luyện Viết (CEFR)'), findsOneWidget);
+    expect(api.requestedPaths, contains('/api/v1/assessment/writing/items'));
+  });
+
   testWidgets('guest avatar logout returns to welcome without signing in', (
     tester,
   ) async {
@@ -385,6 +425,11 @@ void main() {
     await capture(tester, 'practice');
     for (final skill in PracticeSkill.values) {
       await tap(tester, find.text(skill.label).first);
+      if (skill == PracticeSkill.writing) {
+        expect(find.text('Ngân hàng Đề Luyện Viết (CEFR)'), findsOneWidget);
+        await capture(tester, skill.source);
+        continue;
+      }
       await tap(tester, find.text(skill.title));
       expect(find.text(skill.title), findsOneWidget);
       await capture(tester, skill.source);

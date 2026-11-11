@@ -146,6 +146,27 @@ void main() {
       expect(find.text('Câu 2/5'), findsOneWidget);
     },
   );
+  testWidgets('ResultPage shows provisional result and unassessed skills', (
+    tester,
+  ) async {
+    final session = SessionController(FakeApi(signedIn: true, completed: true));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ResultPage(session: session, sessionId: 'sess-1'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.textContaining('CEFR B1'), 200);
+    expect(find.textContaining('CEFR B1'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Viết'), 250);
+    expect(find.text('Chưa đánh giá'), findsNWidgets(2));
+    await tester.ensureVisible(find.text('Xem lại bài làm'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xem lại bài làm'));
+    await tester.pumpAndSettle();
+    expect(find.text('Xem lại bài làm'), findsOneWidget);
+  });
+
   testWidgets(
     'Completed startup opens Home and account menu retains the placement result',
     (tester) async {
@@ -160,9 +181,23 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('accountPlacementResult')));
       await tester.pumpAndSettle();
-      await tester.scrollUntilVisible(find.textContaining('CEFR B1'), 200);
+      final resultScroll = find
+          .descendant(
+            of: find.byType(ResultPage),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.textContaining('CEFR B1'),
+        200,
+        scrollable: resultScroll,
+      );
       expect(find.textContaining('CEFR B1'), findsOneWidget);
-      await tester.scrollUntilVisible(find.text('Viết'), 250);
+      await tester.scrollUntilVisible(
+        find.text('Viết'),
+        250,
+        scrollable: resultScroll,
+      );
       expect(find.text('Chưa đánh giá'), findsNWidgets(2));
       await tester.ensureVisible(find.text('Xem lại bài làm'));
       await tester.pumpAndSettle();

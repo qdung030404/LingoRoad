@@ -14,27 +14,35 @@ Future<T?> previewPush<T>(BuildContext context, Widget page) =>
     Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page));
 
 class PreviewSurface extends StatelessWidget {
-  const PreviewSurface({super.key, required this.child});
+  const PreviewSurface({
+    super.key,
+    required this.child,
+    this.showSampleLabel = true,
+  });
   final Widget child;
+  final bool showSampleLabel;
+
   @override
-  Widget build(BuildContext context) => Stack(
-    children: [
-      child,
-      Positioned(
-        top: MediaQuery.paddingOf(context).top + 5,
-        right: 16,
-        child: IgnorePointer(
-          child: Material(
-            color: Colors.transparent,
-            child: Text(
-              'Dữ liệu mẫu',
-              style: designText(10, color: AppColors.grey800),
+  Widget build(BuildContext context) => !showSampleLabel
+      ? child
+      : Stack(
+          children: [
+            child,
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 5,
+              right: 16,
+              child: IgnorePointer(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Text(
+                    'Dữ liệu mẫu',
+                    style: designText(10, color: AppColors.grey800),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ),
-      ),
-    ],
-  );
+          ],
+        );
 }
 
 class LearningCard extends StatelessWidget {

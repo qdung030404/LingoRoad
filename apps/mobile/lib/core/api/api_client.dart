@@ -42,7 +42,7 @@ class ApiClient {
            dio ??
            Dio(
              BaseOptions(
-               connectTimeout: const Duration(seconds: 10),
+               connectTimeout: const Duration(seconds: 15),
                receiveTimeout: const Duration(seconds: 20),
              ),
            );
@@ -60,7 +60,14 @@ class ApiClient {
     String path, {
     Json? data,
     bool auth = true,
-  }) => _request(method, path, data: data, auth: auth);
+    Duration? receiveTimeout,
+  }) => _request(
+    method,
+    path,
+    data: data,
+    auth: auth,
+    receiveTimeout: receiveTimeout,
+  );
 
   Future<Json> multipartRequest(
     String method,
@@ -74,6 +81,7 @@ class ApiClient {
     Json? data,
     bool auth = true,
     Future<FormData> Function()? multipart,
+    Duration? receiveTimeout,
   }) async {
     final epoch = _sessionEpoch;
     String? sentToken;
@@ -92,6 +100,7 @@ class ApiClient {
         auth ? sentToken : null,
         multipart: multipart,
         epoch: epoch,
+        receiveTimeout: receiveTimeout,
       );
       _checkSession(epoch);
       return result;
@@ -108,6 +117,7 @@ class ApiClient {
           accessToken,
           multipart: multipart,
           epoch: epoch,
+          receiveTimeout: receiveTimeout,
         );
         _checkSession(epoch);
         return result;
@@ -128,6 +138,7 @@ class ApiClient {
     String? token, {
     Future<FormData> Function()? multipart,
     required int epoch,
+    Duration? receiveTimeout,
   }) async {
     try {
       final bodyData = multipart == null ? data : await multipart();
@@ -137,9 +148,13 @@ class ApiClient {
         data: bodyData,
         options: Options(
           method: method,
-          receiveTimeout: multipart == null
-              ? null
-              : Duration(seconds: path.startsWith('/speaking/') ? 135 : 65),
+          receiveTimeout:
+              receiveTimeout ??
+              (multipart == null
+                  ? null
+                  : Duration(
+                      seconds: path.startsWith('/speaking/') ? 135 : 65,
+                    )),
           headers: token == null ? null : {'Authorization': 'Bearer $token'},
         ),
       );
@@ -153,6 +168,14 @@ class ApiClient {
     } on DioException catch (e) {
       if (e.response != null) {
         throw _failure(e.response!.data, e.response!.statusCode);
+      }
+      if (e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.connectionTimeout) {
+        throw const ApiFailure(
+          'Hệ thống AI xử lý phản hồi quá thời gian chờ (timeout). Vui lòng thử lại.',
+          code: 'TIMEOUT',
+        );
       }
       throw const ApiFailure(
         'Không thể kết nối máy chủ. Kiểm tra mạng và thử lại.',

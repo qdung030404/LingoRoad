@@ -15,9 +15,16 @@ class _PendingLoginApi extends FakeApi {
     String path, {
     Json? data,
     bool auth = true,
+    Duration? receiveTimeout,
   }) => path == '/auth/login'
       ? login.future
-      : super.request(method, path, data: data, auth: auth);
+      : super.request(
+          method,
+          path,
+          data: data,
+          auth: auth,
+          receiveTimeout: receiveTimeout,
+        );
 }
 
 void main() {

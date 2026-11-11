@@ -51,7 +51,10 @@ class DemoShell extends StatelessWidget {
                 session.error ?? 'Không tải được dữ liệu.',
                 onRetry: session.initialize,
               ),
-              TextButton(onPressed: session.logout, child: const Text('Đăng xuất')),
+              TextButton(
+                onPressed: session.logout,
+                child: const Text('Đăng xuất'),
+              ),
             ],
           ),
         );

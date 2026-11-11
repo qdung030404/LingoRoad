@@ -9,6 +9,7 @@ import 'learning_widgets.dart';
 import 'preview_model.dart';
 import 'lesson_pages.dart';
 import 'practice_pages.dart';
+import 'writing_evaluation_service.dart';
 import 'home_dashboard.dart';
 import 'word_collection_pages.dart';
 import 'word_library.dart';
@@ -51,6 +52,9 @@ class LearningPreview extends StatefulWidget {
 
 class _LearningPreviewState extends State<LearningPreview>
     with WidgetsBindingObserver {
+  late final WritingEvaluationService? writing = widget.account == null
+      ? null
+      : WritingEvaluationService(client: widget.account!.api);
   late final SpeakingController? speaking = widget.account == null
       ? null
       : SpeakingController(
@@ -774,9 +778,9 @@ class _LearningPreviewState extends State<LearningPreview>
         controller: learning!,
         kinds: [skill == PracticeSkill.reading ? 'READING' : 'LISTENING'],
       )
+    else if (skill == PracticeSkill.writing)
+      WritingPracticeSection(model: model, evaluationService: writing)
     else ...[
-      if (learning != null && skill != PracticeSkill.speaking)
-        learningBody('Bản xem trước · chưa lưu kết quả Viết.'),
       Row(
         children: [
           Expanded(child: learningHeading('Chặng 1')),
@@ -797,9 +801,10 @@ class _LearningPreviewState extends State<LearningPreview>
               ? 'Luyện tập với thông tin về tên, tuổi, nơi sống và nghề nghiệp.'
               : 'Luyện tập từ vựng và cấu trúc về gia đình và các mối quan hệ.',
           i,
-          () {
-            previewPush(context, PracticeIntroPage(skill: skill, model: model));
-          },
+          () => previewPush(
+            context,
+            PracticeIntroPage(skill: skill, model: model),
+          ),
         ),
         const SizedBox(height: 12),
       ],

@@ -31,6 +31,7 @@ class SpeakingAppApi extends FakeApi {
     String path, {
     Json? data,
     bool auth = true,
+    Duration? receiveTimeout,
   }) async {
     if (method == 'POST' && path == '/speaking/conversations') {
       conversationCreates++;
@@ -69,7 +70,13 @@ class SpeakingAppApi extends FakeApi {
         },
       };
     }
-    return super.request(method, path, data: data, auth: auth);
+    return super.request(
+      method,
+      path,
+      data: data,
+      auth: auth,
+      receiveTimeout: receiveTimeout,
+    );
   }
 }
 

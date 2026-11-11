@@ -5,6 +5,26 @@ from lingoroad_ml.llm.advisor import build_messages
 from lingoroad_ml.llm.awe import parse_awe_response
 from lingoroad_ml.serving import llm_routes
 
+
+@pytest.fixture(autouse=True)
+def isolate_llm_env(monkeypatch):
+    llm_routes._client.cache_clear()
+    monkeypatch.delenv("AZURE_OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_ENDPOINT", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_DEPLOYMENT_NAME", raising=False)
+    monkeypatch.delenv("AZURE_OPENAI_API_VERSION", raising=False)
+
+
+def test_client_prefers_azure_openai_when_configured(monkeypatch):
+    llm_routes._client.cache_clear()
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "azure-mock-key")
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://mock-openai.openai.azure.com/")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-mock-key")
+
+    client = llm_routes._client()
+    assert client.api_key == "azure-mock-key"
+    assert "mock-openai.openai.azure.com" in str(client.base_url)
+
 def test_messages_include_path_and_context_in_vietnamese_frame():
     msgs = build_messages("Tại sao học present perfect?",
                           [{"code": "pp", "name": "Present Perfect",

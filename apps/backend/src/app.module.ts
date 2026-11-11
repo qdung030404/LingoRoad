@@ -9,6 +9,7 @@ import { MlModule } from './modules/ml/ml.module';
 import { PlacementModule } from './modules/placement/placement.module';
 import { LearningModule } from './modules/learning/learning.module';
 import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
+import { AssessmentModule } from './modules/assessment/assessment.module';
 import { HealthController } from './health.controller';
 import { SpeakingModule } from './modules/speaking/speaking.module';
 
@@ -39,6 +40,7 @@ import { SpeakingModule } from './modules/speaking/speaking.module';
     LearningModule,
     VocabularyModule,
     SpeakingModule,
+    AssessmentModule,
   ],
 })
 export class AppModule {}
