@@ -12,13 +12,13 @@ class WelcomePage extends StatefulWidget {
   const WelcomePage({
     super.key,
     required this.onEmail,
-    this.onGoogle,
-    this.isGoogleLoading = false,
     this.onLogout,
+    this.onGoogle,
+    this.authBusy = false,
   });
+  final bool authBusy;
   final VoidCallback onEmail;
   final VoidCallback? onGoogle;
-  final bool isGoogleLoading;
   final Future<void> Function()? onLogout;
   @override
   State<WelcomePage> createState() => _WelcomePageState();
@@ -138,12 +138,21 @@ class _WelcomePageState extends State<WelcomePage> {
                               backgroundColor: Colors.white,
                               foregroundColor: AppColors.grey900,
                             ),
-                            onPressed: () => Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) =>
-                                    LearningPreview(onLogout: widget.onLogout),
-                              ),
-                            ),
+                            onPressed: () async {
+                              final signIn = await Navigator.of(context)
+                                  .push<bool>(
+                                    MaterialPageRoute<bool>(
+                                      builder: (guestContext) =>
+                                          LearningPreview(
+                                            onLogout: widget.onLogout,
+                                            onSignIn: () => Navigator.of(
+                                              guestContext,
+                                            ).pop(true),
+                                          ),
+                                    ),
+                                  );
+                              if (signIn == true && mounted) widget.onEmail();
+                            },
                             child: Text(
                               'Khám phá giao diện',
                               style: designText(12, weight: FontWeight.w500),
@@ -257,20 +266,27 @@ class _WelcomePageState extends State<WelcomePage> {
                                     label: 'Tiếp tục với Apple',
                                     icon: 'apple/imgLogos',
                                     dark: true,
-                                    onPressed: () => _emailNotice(context),
+                                    onPressed: widget.authBusy
+                                        ? null
+                                        : () => _emailNotice(context),
                                   ),
                                   const SizedBox(height: 12),
                                   _SocialButton(
                                     label: 'Tiếp tục với Google',
                                     icon: 'google/imgLogos',
-                                    isLoading: widget.isGoogleLoading,
-                                    onPressed: widget.onGoogle ?? () => _emailNotice(context),
+                                    isLoading: widget.authBusy,
+                                    onPressed: widget.authBusy
+                                        ? null
+                                        : widget.onGoogle ??
+                                              () => _emailNotice(context),
                                   ),
                                   const SizedBox(height: 12),
                                   _SocialButton(
                                     label: 'Tiếp tục với Email',
                                     muted: true,
-                                    onPressed: widget.onEmail,
+                                    onPressed: widget.authBusy
+                                        ? null
+                                        : widget.onEmail,
                                   ),
                                   const SizedBox(height: 24),
                                   const TermsCaption(),
@@ -331,7 +347,7 @@ class _SocialButton extends StatelessWidget {
   });
   final String label;
   final String? icon;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool dark, muted, isLoading;
   @override
   Widget build(BuildContext context) => SizedBox(

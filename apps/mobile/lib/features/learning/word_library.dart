@@ -24,7 +24,12 @@ class WordDeck {
 /// UI demo state, isolated from assessment scores and backend learning records.
 /// Ratings are manual labels; this is not a spaced-repetition scheduler.
 class WordLibrary extends ChangeNotifier {
+  WordLibrary({String? accountId})
+    : _storageKey = accountId == null
+          ? storageKey
+          : '$storageKey.user.$accountId';
   static const storageKey = 'lingoroad.uiPreview.wordLibrary.v1';
+  final String _storageKey;
   final List<WordDeck> decks = List.of(sampleWordDecks);
   final Map<String, String> ratings = {};
   bool _disposed = false;
@@ -43,7 +48,7 @@ class WordLibrary extends ChangeNotifier {
 
   Future<void> restore() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(storageKey);
+    final raw = prefs.getString(_storageKey);
     if (raw != null) {
       final json = jsonDecode(raw) as Map<String, dynamic>;
       ratings.addAll(Map<String, String>.from(json['ratings'] as Map));
@@ -78,7 +83,7 @@ class WordLibrary extends ChangeNotifier {
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-      storageKey,
+      _storageKey,
       jsonEncode({
         'ratings': ratings,
         'decks': decks

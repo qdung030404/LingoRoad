@@ -1,26 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'core/api/api_client.dart';
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/session_controller.dart';
 import 'features/demo_shell.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart'; // File do flutterfire configure vừa tạo
+import 'core/auth/firebase_identity.dart';
+import 'features/speaking/speaking_recorder.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    await GoogleSignIn.instance.initialize(
-      serverClientId: AppConfig.googleServerClientId,
-    );
-  } catch (e) {
-    debugPrint('Firebase/GoogleSignIn initialization skipped or failed: $e');
-  }
-
+  await cleanStaleSpeakingAudio();
   runApp(const MyApp());
 }
 
@@ -35,7 +24,11 @@ class _MyAppState extends State<MyApp> {
   late final SessionController session =
       widget.session ??
       SessionController(
-        ApiClient(config: AppConfig(), store: SecureTokenStore()),
+        ApiClient(
+          config: AppConfig(),
+          store: SecureTokenStore(),
+          identity: FirebaseIdentity(),
+        ),
       );
   @override
   void initState() {

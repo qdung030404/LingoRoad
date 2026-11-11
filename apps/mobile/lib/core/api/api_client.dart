@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/app_config.dart';
+import '../auth/auth_identity.dart';
 
 typedef Json = Map<String, dynamic>;
 
@@ -32,20 +33,26 @@ class SecureTokenStore implements TokenStore {
 }
 
 class ApiClient {
-  ApiClient({required this.config, required this.store, Dio? dio})
-    : dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              connectTimeout: const Duration(seconds: 15),
-              receiveTimeout: const Duration(seconds: 20),
-            ),
-          );
+  ApiClient({
+    required this.config,
+    required this.store,
+    Dio? dio,
+    this.identity,
+  }) : dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 15),
+               receiveTimeout: const Duration(seconds: 20),
+             ),
+           );
   final AppConfig config;
   final TokenStore store;
   final Dio dio;
+  final AuthIdentity? identity;
   String? accessToken;
   Future<void>? _refreshing;
+  int _sessionEpoch = 0;
   void Function()? onUnauthorized;
 
   Future<Json> request(
@@ -54,29 +61,68 @@ class ApiClient {
     Json? data,
     bool auth = true,
     Duration? receiveTimeout,
+  }) => _request(
+    method,
+    path,
+    data: data,
+    auth: auth,
+    receiveTimeout: receiveTimeout,
+  );
+
+  Future<Json> multipartRequest(
+    String method,
+    String path, {
+    required Future<FormData> Function() factory,
+  }) => _request(method, path, multipart: factory);
+
+  Future<Json> _request(
+    String method,
+    String path, {
+    Json? data,
+    bool auth = true,
+    Future<FormData> Function()? multipart,
+    Duration? receiveTimeout,
   }) async {
-    final sentToken = accessToken;
+    final epoch = _sessionEpoch;
+    String? sentToken;
     try {
-      return await _send(
+      if (auth && identity != null) {
+        final token = await identity!.idToken();
+        _checkSession(epoch);
+        accessToken = token;
+      }
+      sentToken = accessToken;
+      _checkSession(epoch);
+      final result = await _send(
         method,
         path,
         data,
         auth ? sentToken : null,
+        multipart: multipart,
+        epoch: epoch,
         receiveTimeout: receiveTimeout,
       );
+      _checkSession(epoch);
+      return result;
     } on ApiFailure catch (e) {
       if (!auth || !e.unauthorized) rethrow;
+      if (epoch != _sessionEpoch) rethrow;
       try {
         if (accessToken == sentToken) await refresh();
-        return await _send(
+        _checkSession(epoch);
+        final result = await _send(
           method,
           path,
           data,
           accessToken,
+          multipart: multipart,
+          epoch: epoch,
           receiveTimeout: receiveTimeout,
         );
+        _checkSession(epoch);
+        return result;
       } on ApiFailure catch (retryError) {
-        if (retryError.unauthorized) {
+        if (retryError.unauthorized && epoch == _sessionEpoch) {
           await clearSession();
           onUnauthorized?.call();
         }
@@ -90,16 +136,26 @@ class ApiClient {
     String path,
     Json? data,
     String? token, {
+    Future<FormData> Function()? multipart,
+    required int epoch,
     Duration? receiveTimeout,
   }) async {
     try {
+      final bodyData = multipart == null ? data : await multipart();
+      _checkSession(epoch);
       final response = await dio.request<dynamic>(
         config.resolve(path).toString(),
-        data: data,
+        data: bodyData,
         options: Options(
           method: method,
+          receiveTimeout:
+              receiveTimeout ??
+              (multipart == null
+                  ? null
+                  : Duration(
+                      seconds: path.startsWith('/speaking/') ? 135 : 65,
+                    )),
           headers: token == null ? null : {'Authorization': 'Bearer $token'},
-          receiveTimeout: receiveTimeout,
         ),
       );
       final body = response.data;
@@ -147,12 +203,32 @@ class ApiClient {
 
   Future<void> refresh() {
     if (_refreshing != null) return _refreshing!;
-    final pending = _refresh();
+    final pending = _refresh(_sessionEpoch);
     _refreshing = pending;
-    return pending.whenComplete(() => _refreshing = null);
+    return pending.whenComplete(() {
+      if (identical(_refreshing, pending)) _refreshing = null;
+    });
   }
 
-  Future<void> _refresh() async {
+  void _checkSession(int epoch) {
+    if (epoch != _sessionEpoch) {
+      throw const ApiFailure(
+        'Phiên đăng nhập đã thay đổi.',
+        code: 'AUTH_SESSION_CHANGED',
+      );
+    }
+  }
+
+  Future<void> _refresh(int epoch) async {
+    if (identity != null) {
+      final token = await identity!.idToken(forceRefresh: true);
+      _checkSession(epoch);
+      accessToken = token;
+      if (accessToken == null) {
+        throw const ApiFailure('Vui lòng đăng nhập lại.', status: 401);
+      }
+      return;
+    }
     final token = await store.read();
     if (token == null) {
       throw const ApiFailure('Vui lòng đăng nhập lại.', status: 401);
@@ -163,11 +239,18 @@ class ApiClient {
       data: {'refreshToken': token},
       auth: false,
     );
+    _checkSession(epoch);
     await acceptTokens(tokens);
   }
 
   Future<void> clearSession() async {
+    _sessionEpoch++;
     accessToken = null;
-    await store.clear();
+    _refreshing = null;
+    try {
+      await identity?.signOut();
+    } finally {
+      await store.clear();
+    }
   }
 }

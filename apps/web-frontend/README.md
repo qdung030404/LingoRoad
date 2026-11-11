@@ -47,4 +47,3 @@ npm run web:dev
 ```
 
 Mở trình duyệt tại địa chỉ: `http://localhost:3001`
-

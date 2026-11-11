@@ -66,4 +66,3 @@ PRD định nghĩa các yêu cầu cho việc tổng hợp điểm số từ 4 k
 
 ### 6.3. Tự động liên kết Lộ trình học (Curriculum Bridge)
 - Khi xác định được kỹ năng yếu nhất, phát sự kiện `cefr.assessment_completed` để Curriculum Engine điều chỉnh trọng số các bài học trong `LearningPath`.
-

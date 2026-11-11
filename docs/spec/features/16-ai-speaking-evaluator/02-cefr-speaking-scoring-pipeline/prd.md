@@ -1,3 +1,5 @@
+> Cập nhật phạm vi 08/11/2026: triển khai hiện tại là **luyện đọc câu bằng Azure**, theo [đặc tả read-aloud](read-aloud-v1.md). Phần nói tự do, Whisper/acoustic rubric và ánh xạ CEFR bên dưới là đề xuất cho giai đoạn sau, chưa được kiểm chứng hoặc nghiệm thu. Không dùng ngưỡng WPM để suy ra CEFR của người học.
+
 # Product Requirements Document (PRD) - CEFR Speaking Scoring Pipeline
 
 ## Mission (Sứ mệnh)
@@ -46,4 +48,3 @@ PRD định nghĩa tiêu chuẩn và quy trình chấm điểm bài thi Nói (Sp
 2. Ứng dụng tải file âm thanh lên hệ thống.
 3. Pipeline AI chuyển âm thanh thành văn bản (STT), phân tích nhịp điệu và gửi bản phiên âm cho LLM chấm điểm.
 4. Học viên nhận bảng điểm chi tiết, xem lại bản phiên âm có đánh dấu những chỗ phát âm sai hoặc khoảng lặng quá lâu, cùng lời khuyên cải thiện bằng tiếng Việt.
-

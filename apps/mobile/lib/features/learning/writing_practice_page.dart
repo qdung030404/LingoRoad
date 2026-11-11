@@ -346,6 +346,7 @@ class _WritingPracticeSectionState extends State<WritingPracticeSection> {
                       WritingReviewPage(
                         model: widget.model,
                         items: [item],
+                        evaluationService: service,
                       ),
                     );
                     if (mounted) setState(() {});
@@ -374,6 +375,7 @@ class WritingPracticeListPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PreviewSurface(
+    showSampleLabel: false,
     child: FigmaPage(
       titleStyle: designHeading(18),
       title: 'Đề Luyện Viết (CEFR)',

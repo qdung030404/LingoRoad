@@ -176,4 +176,3 @@ model User {
 | **A. Firebase ID Token Verification (Được chọn)** | Client tận dụng Firebase SDK chính chủ (Flutter, Web), Backend chỉ cần 1 bước verify qua Admin SDK, bảo mật tuyệt đối, làm chủ DB. | Phụ thuộc vào việc cấu hình Firebase Project. | **Chọn**. Tối ưu nhất về bảo mật và tương thích với kiến trúc NestJS hiện có. |
 | **B. Google OAuth2 Authorization Code** | Không phụ thuộc Firebase, chỉ dùng Google Cloud Console. | Client mobile phải mở Custom Tab/WebView, luồng trao đổi code phức tạp, khó xử lý đăng nhập đa nền tảng. | Loại bỏ. Trải nghiệm mobile kém mượt mà hơn Firebase SDK. |
 | **C. Chuyển toàn bộ Auth sang Firebase (Bỏ JWT nội bộ)** | Không cần tự quản lý `RefreshSession` và phát hành JWT. | Mất quyền kiểm soát phiên, phụ thuộc hoàn toàn vào Firebase Rules, khó tích hợp với hệ thống microservices/database nội bộ. | Loại bỏ. Không phù hợp định hướng kiểm soát dữ liệu. |
-

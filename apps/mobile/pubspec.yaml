@@ -38,10 +38,13 @@ dependencies:
   dio: ^5.9.0
   flutter_secure_storage: ^10.0.0
   audioplayers: ^6.5.0
+  record: 7.1.2
+  path_provider: ^2.1.5
   flutter_svg: ^2.3.0
   firebase_core: ^5.1.0
   firebase_auth: ^7.0.1
   google_sign_in: ^7.2.0
+  flutter_webrtc: 1.6.3
 
 dev_dependencies:
   flutter_test:

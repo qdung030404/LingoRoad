@@ -1,3 +1,5 @@
+> Cập nhật phạm vi 08/11/2026: triển khai hiện tại là **luyện đọc câu bằng Azure**, theo [đặc tả read-aloud](read-aloud-v1.md). Phần nói tự do, Whisper/acoustic rubric và ánh xạ CEFR bên dưới là đề xuất cho giai đoạn sau, chưa được kiểm chứng hoặc nghiệm thu. Không dùng ngưỡng WPM để suy ra CEFR của người học.
+
 # Task: Implement CEFR Speaking Scoring Pipeline
 
 ## Mission (Sứ mệnh)
@@ -51,4 +53,3 @@ Triển khai Pipeline Chấm bài Nói tự do chuẩn CEFR (`POST /ml/speech/ev
 - [ ] Tạo DTOs trong NestJS ML module (`CefrSpeakingEvaluationResultDto`).
 - [ ] Viết UseCase gọi sang ML Service và lưu bản ghi vào `mock_submissions`.
 - [ ] Viết Unit Test kiểm thử luồng trích xuất đặc trưng âm học.
-

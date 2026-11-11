@@ -94,13 +94,12 @@ export interface DraftFeedbackDto {
 ### Kịch bản 1: Nhận gợi ý ý tưởng hợp lệ
 - **Given**: Học viên yêu cầu gợi ý cho đề bài Viết luận B2 về chủ đề "Remote Working".
 - **When**: Gọi `POST /api/v1/practice/ai/brainstorm`.
-- **Then**: 
+- **Then**:
   - Trả về mã 200 OK trong < 2.5 giây.
   - Payload chứa tối thiểu 2 ý tưởng chính và 3 từ vựng học thuật B2 kèm ví dụ.
 
 ### Kịch bản 2: Vượt quá hạn ngạch gọi hỗ trợ trong phiên
 - **Given**: Học viên đã gọi kiểm tra đoạn văn 5 lần trong cùng một `sessionId`.
 - **When**: Học viên bấm kiểm tra lần thứ 6.
-- **Then**: 
+- **Then**:
   - Hệ thống từ chối với status 429 và thông điệp tiếng Việt: "Bạn đã dùng hết lượt gợi ý cho bài tập này. Hãy tự tin hoàn thành bài viết của mình nhé!".
-

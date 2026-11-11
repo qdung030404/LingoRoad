@@ -53,9 +53,8 @@ export interface CefrWritingEvaluationResultDto {
 ### Kịch bản: Chấm bài viết luận Task 2 đạt trình độ B2
 - **Given**: Thí sinh nộp bài luận 250 từ về chủ đề môi trường.
 - **When**: Dịch vụ `POST /ml/awe/evaluate-cefr` xử lý bài viết.
-- **Then**: 
+- **Then**:
   - Trả về điểm 4 tiêu chí trong khoảng 3.0 đến 4.0.
   - Điểm quy đổi thang 10 nằm trong khoảng 6.0 đến 8.0.
   - Trường `estimatedCefr` trả về đúng chuỗi `'B2'`.
   - Trả về danh sách câu sửa lỗi và nhận xét tổng kết bằng tiếng Việt.
-

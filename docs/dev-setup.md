@@ -67,8 +67,8 @@ npm run start:dev
 npm run backend:dev
 ```
 
-> 🚀 **Backend API hoạt động tại:** `http://localhost:3000`  
-> 🧪 **Kiểm thử API với Postman Collection (tại thư mục gốc repo):** 
+> 🚀 **Backend API hoạt động tại:** `http://localhost:3000`
+> 🧪 **Kiểm thử API với Postman Collection (tại thư mục gốc repo):**
 > - **Xác thực & Quản lý phiên:** Nhập file `LingoRoad_Auth_API.postman_collection.json` để test `Register`, `Login`, `Refresh Token`, `Logout`, `Change Password`.
 > - **Kiểm tra trình độ thích ứng (Placement Test):** Nhập file `LingoRoad_Placement_API.postman_collection.json` để test `GET /placement/status`, `POST /placement/start`, `POST /placement/:sessionId/answer` (thuật toán CAT IRT), `GET /placement/:sessionId/result`.
 
@@ -97,7 +97,7 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn lingoroad_ml.serving.app:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-> 🧠 **AI/ML Service hoạt động tại:** `http://localhost:8001`  
+> 🧠 **AI/ML Service hoạt động tại:** `http://localhost:8001`
 > 📖 **Swagger API Docs:** `http://localhost:8001/docs`
 
 ---

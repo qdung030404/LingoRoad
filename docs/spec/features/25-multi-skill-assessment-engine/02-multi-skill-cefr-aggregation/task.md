@@ -50,4 +50,3 @@ Triển khai Service Tổng hợp điểm 4 kỹ năng và Báo cáo chẩn đo�
 - [ ] Thêm phương thức `aggregateAndComplete(sessionId)` vào MockExamRepository.
 - [ ] Lắng nghe sự kiện `mock_exam.evaluation_finished` để tự động kích hoạt tính điểm.
 - [ ] Viết Unit Test kiểm tra tính chính xác của thuật toán quy đổi điểm và làm tròn 0.5.
-

@@ -61,4 +61,3 @@ PRD định nghĩa các yêu cầu cho Trợ lý Học tập AI tương tác (AI
 
 ### 6.3. Tích hợp Trực tiếp với FSRS Engine
 - Trả về payload từ vựng ở định dạng chuẩn để client có thể gọi ngay `POST /vocabulary/saved-words` mà không cần nhập thủ công nghĩa hay ví dụ.
-

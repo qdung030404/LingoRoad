@@ -11,11 +11,13 @@ build/
 out/
 
 # Environment Variables
+/config/local/
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+lingoroad-speech.env
 
 # Logs
 npm-debug.log*
@@ -71,3 +73,9 @@ opencode.json
 /.gitnexus/
 CLAUDE.md
 AGENTS.md
+
+# Local Firebase configuration and Admin credentials
+/google-services.json
+**/firebase-config.local.json
+**/*firebase-adminsdk*.json
+firebase-debug.log*

@@ -20,7 +20,7 @@ export const MethodologySection: React.FC = () => {
   return (
     <section id="methodology" className="scroll-mt-20 bg-slateDark-25/50 py-20 lg:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        
+
         {/* Section Heading */}
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-brand-800">
@@ -70,7 +70,7 @@ export const MethodologySection: React.FC = () => {
         {/* View Mode 1: Dành cho người dùng phổ thông (Learner View) */}
         {viewMode === 'learner' && (
           <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-2">
-            
+
             {/* Card 1: CAT Test */}
             <div className="group rounded-2xl border border-slateDark-200 bg-white p-7 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-brand-400 hover:shadow-md">
               <div className="flex items-center justify-between">
@@ -86,8 +86,8 @@ export const MethodologySection: React.FC = () => {
                 1. Đo trình độ chuẩn xác chỉ sau 15 câu hỏi
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-slateDark-700">
-                Thay vì phải còng lưng làm đề thi thử 50-100 câu dài 2 tiếng, hệ thống tự động điều chỉnh theo bạn: 
-                <strong> Bạn làm đúng, câu sau sẽ khó hơn; làm sai, câu sau sẽ dễ lại</strong>. 
+                Thay vì phải còng lưng làm đề thi thử 50-100 câu dài 2 tiếng, hệ thống tự động điều chỉnh theo bạn:
+                <strong> Bạn làm đúng, câu sau sẽ khó hơn; làm sai, câu sau sẽ dễ lại</strong>.
                 Chỉ sau 10-15 phút là biết ngay bạn đang ở trình độ nào (từ A1 đến C2) mà không cảm thấy nản lòng.
               </p>
 
@@ -122,8 +122,8 @@ export const MethodologySection: React.FC = () => {
                 2. Nhắc ôn từ vựng đúng thời điểm sắp quên
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-slateDark-700">
-                Bộ não con người thường quên tới 70% từ mới sau vài ngày nếu không ôn. 
-                LingoRoad theo dõi độ bền trí nhớ của từng từ và <strong>chỉ nhắc bạn ôn lại ngay lúc bạn chuẩn bị quên</strong>. 
+                Bộ não con người thường quên tới 70% từ mới sau vài ngày nếu không ôn.
+                LingoRoad theo dõi độ bền trí nhớ của từng từ và <strong>chỉ nhắc bạn ôn lại ngay lúc bạn chuẩn bị quên</strong>.
                 Nhờ vậy, bạn không cần chép phạt hàng trăm lần mà vẫn nhớ từ vựng như in.
               </p>
 
@@ -158,8 +158,8 @@ export const MethodologySection: React.FC = () => {
                 3. Học từ gốc đến ngọn, nói không với hổng kiến thức
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-slateDark-700">
-                Toàn bộ bài học được thiết kế như cây kỹ năng mở khóa từng ải. 
-                Bạn chỉ chuyển sang các cấu trúc ngữ pháp phức tạp khi đã nắm vững kiến thức căn bản làm nền móng. 
+                Toàn bộ bài học được thiết kế như cây kỹ năng mở khóa từng ải.
+                Bạn chỉ chuyển sang các cấu trúc ngữ pháp phức tạp khi đã nắm vững kiến thức căn bản làm nền móng.
                 <strong> Không bao giờ rơi vào cảm giác &quot;chưa biết đi đã phải học chạy&quot;</strong>.
               </p>
 
@@ -194,8 +194,8 @@ export const MethodologySection: React.FC = () => {
                 4. Gia sư AI chỉ rõ lý do vì sao bạn làm sai
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-slateDark-700">
-                Khi làm sai, các app khác chỉ báo &quot;Đáp án đúng là B&quot; khiến bạn không hiểu vì sao. 
-                Tại LingoRoad, trợ lý AI đóng vai trò như một giáo viên tận tâm: 
+                Khi làm sai, các app khác chỉ báo &quot;Đáp án đúng là B&quot; khiến bạn không hiểu vì sao.
+                Tại LingoRoad, trợ lý AI đóng vai trò như một giáo viên tận tâm:
                 <strong> Chỉ ra vì sao bạn chọn nhầm, dịch nghĩa dễ hiểu và cho bạn một câu tương tự để sửa ngay tại chỗ</strong>.
               </p>
 
@@ -221,7 +221,7 @@ export const MethodologySection: React.FC = () => {
         {/* View Mode 2: Dành cho Chuyên gia & Đồ án (Academic View) */}
         {viewMode === 'academic' && (
           <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-2">
-            
+
             {/* Academic Card 1 */}
             <div className="rounded-2xl border border-slateDark-200 bg-white p-7 shadow-sm">
               <div className="flex items-center gap-3">

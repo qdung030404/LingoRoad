@@ -67,4 +67,3 @@ Nếu có sự cố hoặc người dùng chủ động bỏ thi: `ABANDONED`.
 ### 6.3. Cơ chế Nộp bài Bất đồng bộ (Async Queue)
 - Khi nộp bài Writing và file ghi âm Speaking, backend ghi nhận trạng thái `SUBMITTED` và đẩy tác vụ chấm điểm vào hàng đợi (BullMQ / In-memory queue).
 - Hệ thống gửi thông báo WebSocket / Push Notification khi AI hoàn thành chấm điểm.
-

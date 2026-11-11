@@ -76,7 +76,7 @@ export interface PracticeFeedbackDto {
 ### Kịch bản 1: Kiểm tra đáp án đúng
 - **Given**: Người học đang làm bài đọc B1 và chọn đáp án chính xác "C".
 - **When**: Gọi API `POST /api/v1/practice/sessions/:sessionId/check`.
-- **Then**: 
+- **Then**:
   - Trả về status 200 OK với `isCorrect = true`.
   - Trả về đầy đủ trường `explanation` giải thích lý do vì sao đáp án C đúng.
   - Cập nhật số câu đúng trong session.
@@ -87,4 +87,3 @@ export interface PracticeFeedbackDto {
 - **Then**:
   - Trả về `isCorrect = false`, `correctOption = "B"`.
   - Trả về toàn bộ `transcript` bài nghe có đánh dấu đoạn thông tin chứa đáp án đúng.
-

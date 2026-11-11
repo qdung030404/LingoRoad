@@ -14,10 +14,35 @@ Future<T?> previewPush<T>(BuildContext context, Widget page) =>
     Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => page));
 
 class PreviewSurface extends StatelessWidget {
-  const PreviewSurface({super.key, required this.child});
+  const PreviewSurface({
+    super.key,
+    required this.child,
+    this.showSampleLabel = true,
+  });
   final Widget child;
+  final bool showSampleLabel;
+
   @override
-  Widget build(BuildContext context) => child;
+  Widget build(BuildContext context) => !showSampleLabel
+      ? child
+      : Stack(
+          children: [
+            child,
+            Positioned(
+              top: MediaQuery.paddingOf(context).top + 5,
+              right: 16,
+              child: IgnorePointer(
+                child: Material(
+                  color: Colors.transparent,
+                  child: Text(
+                    'Dữ liệu mẫu',
+                    style: designText(10, color: AppColors.grey800),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
 }
 
 class LearningCard extends StatelessWidget {
@@ -112,8 +137,9 @@ class LearningPill extends StatelessWidget {
 }
 
 class PreviewLevelBadge extends StatelessWidget {
-  const PreviewLevelBadge({super.key, this.onTap});
+  const PreviewLevelBadge({super.key, this.onTap, this.label = 'A1'});
   final VoidCallback? onTap;
+  final String label;
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
@@ -129,7 +155,7 @@ class PreviewLevelBadge extends StatelessWidget {
         borderRadius: const BorderRadius.all(Radius.circular(AppRadius.xs)),
       ),
       child: Text(
-        'A1',
+        label,
         maxLines: 1,
         softWrap: false,
         style: designText(14, color: AppColors.primary500),

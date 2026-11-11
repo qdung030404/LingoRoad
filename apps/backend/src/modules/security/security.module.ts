@@ -4,10 +4,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PasswordService } from './password.service';
 import { TokenService } from './token.service';
 import { FirebaseAdminService } from './firebase-admin.service';
+import { FirebaseAuthModule } from '../auth/firebase/firebase-auth.module';
 
 @Global()
 @Module({
   imports: [
+    FirebaseAuthModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({

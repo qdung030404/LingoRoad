@@ -97,4 +97,3 @@ PRD này định nghĩa các yêu cầu nghiệp vụ, trải nghiệm người 
 - Độ trễ phản hồi trung bình (p50) < 150ms, (p95) < 250ms.
 - 0 sự cố liên quan đến giả mạo danh tính hoặc tấn công replay token Firebase.
 - Tỷ lệ hoàn tất phiên đăng nhập Google phía client đạt ≥ 98%.
-

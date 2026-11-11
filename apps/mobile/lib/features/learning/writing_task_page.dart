@@ -199,6 +199,7 @@ class _WritingTaskPageState extends State<WritingTaskPage> {
       if (didPop) save();
     },
     child: PreviewSurface(
+      showSampleLabel: false,
       child: FigmaPage(
         titleStyle: designHeading(18),
         title: 'Luyện Viết',
@@ -517,6 +518,7 @@ class _WritingTaskPageState extends State<WritingTaskPage> {
                     WritingReviewPage(
                       model: widget.model,
                       items: [widget.item],
+                      evaluationService: service,
                     ),
                   ),
                   icon: const Icon(Icons.history, size: 16),

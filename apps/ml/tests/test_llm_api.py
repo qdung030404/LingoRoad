@@ -153,4 +153,3 @@ def test_llm_awe_truncated_json_raises_502(monkeypatch):
         ))
     assert excinfo.value.status_code == 502
     assert "malformed or truncated JSON response" in excinfo.value.detail
-

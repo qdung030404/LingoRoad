@@ -3,9 +3,9 @@ import '../shared/figma_widgets.dart';
 import 'auth/auth_page.dart';
 import 'auth/session_controller.dart';
 import 'common.dart';
-import 'learning/learning_preview.dart';
 import 'placement/placement_pages.dart';
 import 'profile/profile_page.dart';
+import 'learning/learning_preview.dart';
 
 class DemoShell extends StatelessWidget {
   const DemoShell({super.key, required this.session});
@@ -51,6 +51,10 @@ class DemoShell extends StatelessWidget {
                 session.error ?? 'Không tải được dữ liệu.',
                 onRetry: session.initialize,
               ),
+              TextButton(
+                onPressed: session.logout,
+                child: const Text('Đăng xuất'),
+              ),
             ],
           ),
         );
@@ -78,7 +82,11 @@ class _AccountNavigatorState extends State<_AccountNavigator> {
         key: navigatorKey,
         onGenerateRoute: (_) => MaterialPageRoute<void>(
           builder: (_) => session.placement['status'] == 'COMPLETED'
-              ? LearningPreview(onLogout: session.logout)
+              ? LearningPreview(
+                  key: ValueKey(session.user?['id']),
+                  account: session,
+                  onLogout: session.logout,
+                )
               : PlacementHome(session: session),
         ),
       ),

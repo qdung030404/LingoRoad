@@ -28,4 +28,3 @@ export default function LandingPage(): React.ReactElement {
     </div>
   );
 }
-

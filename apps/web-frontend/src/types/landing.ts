@@ -41,4 +41,3 @@ export interface CatQuestionSimulation {
   correctAnswerIndex: number;
   explanation: string;
 }
-

@@ -115,4 +115,3 @@ model AssessmentItem {
 
 - **Ngăn chặn lộ đáp án**: Khi client gọi API lấy câu hỏi làm bài, Backend Interceptor/Mapper bắt buộc phải lọc bỏ `correctOption`, `explanation` và `transcript`.
 - Chỉ khi người dùng nộp bài (ở chế độ Practice Mode), endpoint kiểm tra kết quả mới trả về `explanation` và `transcript`.
-

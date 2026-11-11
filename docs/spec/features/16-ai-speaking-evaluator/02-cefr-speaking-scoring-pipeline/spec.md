@@ -1,3 +1,5 @@
+> Cập nhật phạm vi 08/11/2026: triển khai hiện tại là **luyện đọc câu bằng Azure**, theo [đặc tả read-aloud](read-aloud-v1.md). Phần nói tự do, Whisper/acoustic rubric và ánh xạ CEFR bên dưới là đề xuất cho giai đoạn sau, chưa được kiểm chứng hoặc nghiệm thu. Không dùng ngưỡng WPM để suy ra CEFR của người học.
+
 # Feature Specification: CEFR Speaking Scoring Pipeline
 
 ## Mission (Sứ mệnh)
@@ -59,10 +61,9 @@ export interface CefrSpeakingEvaluationResultDto {
 ### Kịch bản: Đánh giá bài nói Part 2 đạt mức B1
 - **Given**: Thí sinh ghi âm bài nói 45 giây với tốc độ 110 WPM, phát âm rõ ràng nhưng mắc một vài lỗi chia thì.
 - **When**: Dịch vụ `POST /ml/speech/evaluate-cefr` hoàn tất xử lý.
-- **Then**: 
+- **Then**:
   - Điểm Fluency đạt 3.0 - 3.5.
   - Điểm Grammar đạt 2.5 - 3.0.
   - Điểm Overall quy đổi thang 10 nằm trong khoảng 5.0 - 5.5.
   - Trường `estimatedCefr` trả về `'B1'`.
   - Trả về bản transcript có đánh dấu từ phát âm chưa chuẩn và nhận xét bằng tiếng Việt.
-

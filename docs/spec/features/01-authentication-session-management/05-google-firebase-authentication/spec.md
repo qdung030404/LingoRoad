@@ -218,4 +218,3 @@ x-device-id: <uuid-hoặc-chuỗi-định-danh-thiết-bị-client> (Tùy chọn
 - [x] Cố gắng liên kết Google với tài khoản `ADMIN`: API phản hồi HTTP `403 Forbidden` (`AUTH_ADMIN_GOOGLE_LINK_RESTRICTED`).
 - [x] Không có bất kỳ dữ liệu nhạy cảm nào của Firebase Credentials bị lộ ra ngoài log console hoặc client response.
 - [x] Client Mobile (Flutter) xử lý luồng xác thực trơn tru: có loading indicator, xử lý khi hủy (`canceled`), kiểm tra `idToken` an toàn và điều hướng chính xác.
-

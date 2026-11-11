@@ -26,7 +26,7 @@ RFC định nghĩa thiết kế Prompt Engineering, cấu trúc Schema JSON đ�
 
 ### 3.1. System Prompt Template Mới
 ```python
-SYSTEM_CEFR_AWE = """You are an official CEFR English Writing Examiner. 
+SYSTEM_CEFR_AWE = """You are an official CEFR English Writing Examiner.
 Evaluate the learner's essay on the 4 CEFR writing criteria, each scored 1.0 to 5.0 (step 0.5):
 1. Content: Relevance, task completion, idea development.
 2. Communicative Achievement: Register (formal/informal), conventions of the task type.
@@ -70,4 +70,3 @@ Return strict JSON:
   }
   ```
 - **Response**: Trả về payload JSON khớp với schema trên trong < 3 giây.
-

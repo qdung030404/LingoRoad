@@ -1,5 +1,6 @@
 import asyncio
 import hmac
+import importlib.util
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,6 +15,7 @@ from pydantic import BaseModel
 from lingoroad_ml.cat import select_next
 from lingoroad_ml.irt import eap_estimate
 from lingoroad_ml.serving import kt_routes, llm_routes, speech_routes
+from lingoroad_ml.speech import azure
 
 
 def _required_models() -> set[str]:
@@ -100,6 +102,10 @@ def ready():
     kt_checkpoint = Path(
         os.environ.get("QG_KT_CHECKPOINT", "checkpoints/saint_plus.pt")
     )
+    try:
+        topic_sdk = importlib.util.find_spec("azure.cognitiveservices.speech") is not None
+    except ModuleNotFoundError:
+        topic_sdk = False
     components = {
         "cat": "ready",
         "llm": "ready" if (os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")) else "missing_config",
@@ -109,13 +115,18 @@ def ready():
             if speech_routes._whisper.cache_info().currsize > 0
             else "cold"
         ),
+        "speech_azure": azure.readiness(),
+        "speech_topic": "ready" if topic_sdk and azure.readiness() == "ready" else "missing_config",
+        "speaking_content": "ready" if os.environ.get("SPEAKING_CONTENT_MODEL") and
+            (os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")) else "missing_config",
         "kt": "ready" if kt_checkpoint.exists() else "missing_artifact",
     }
     acceptable = {"ready", "cold"}
     required = _required_models()
     is_ready = all(components.get(name) in acceptable for name in required)
     return JSONResponse(
-        {"status": "ready" if is_ready else "not_ready", "components": components},
+        {"status": "ready" if is_ready else "not_ready", "components": components,
+         "speakingProfiles": sorted(azure.PROFILES | ({"topic-speaking-v1"} if topic_sdk else set()))},
         status_code=200 if is_ready else 503,
     )
 

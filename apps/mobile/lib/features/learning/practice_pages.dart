@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
@@ -8,9 +9,18 @@ import 'learning_widgets.dart';
 import 'preview_model.dart';
 import 'sample_audio.dart';
 import 'preview_waveform.dart';
+import '../speaking/speaking_controller.dart';
+import '../speaking/speaking_repository.dart';
+import '../speaking/speaking_pages.dart'
+    show SpeakingHistoryPage, SpeakingResult;
+import '../speaking/recording_waveform.dart';
+import '../speaking/speaking_modes_page.dart';
 import 'writing_practice_page.dart';
 
 export 'writing_practice_page.dart';
+
+Widget _speakingSurface(Widget child, SpeakingController? speaking) =>
+    speaking == null ? PreviewSurface(child: child) : child;
 
 Widget previewFlag(BuildContext context) => IconButton(
   tooltip: 'Báo vấn đề',
@@ -26,42 +36,102 @@ class PracticeIntroPage extends StatelessWidget {
     super.key,
     required this.skill,
     required this.model,
+    this.speaking,
   });
   final PracticeSkill skill;
   final PreviewModel model;
+  final SpeakingController? speaking;
   @override
-  Widget build(BuildContext context) => PreviewSurface(
-    child: FigmaPage(
+  Widget build(BuildContext context) => speaking == null
+      ? _build(context)
+      : AnimatedBuilder(
+          animation: speaking!,
+          builder: (context, _) => _build(context),
+        );
+  Widget _build(BuildContext context) => _speakingSurface(
+    FigmaPage(
       titleStyle: designHeading(18),
       title: 'Bài tập',
+      trailing: speaking == null
+          ? null
+          : IconButton(
+              tooltip: 'Lịch sử Speaking',
+              icon: const Icon(Icons.history),
+              onPressed: speaking!.busy
+                  ? null
+                  : () => previewPush(
+                      context,
+                      SpeakingHistoryPage(controller: speaking!),
+                    ),
+            ),
       bottom: CustomAppButton(
-        text: 'Bắt đầu',
-        onPressed: () => previewPush(context, switch (skill) {
-          PracticeSkill.speaking => MicrophonePreviewPage(model: model),
-          PracticeSkill.writing => WritingPracticeListPage(model: model),
-          _ => PreviewQuizPage(
-            model: model,
-            kind: skill == PracticeSkill.listening ? 'listening' : 'reading',
-          ),
-        }),
+        text: speaking?.busy == true ? 'Đang tải…' : 'Bắt đầu',
+        onPressed: speaking?.busy == true
+            ? null
+            : () async {
+                final controller = speaking;
+                if (controller != null) {
+                  await previewPush(
+                    context,
+                    SpeakingModesPage(
+                      controller: controller,
+                      practicePage: () => MicrophonePreviewPage(
+                        model: model,
+                        speaking: controller,
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                if (!context.mounted) return;
+                previewPush(context, switch (skill) {
+                  PracticeSkill.speaking => MicrophonePreviewPage(
+                    model: model,
+                    speaking: speaking,
+                  ),
+                  PracticeSkill.writing => WritingPracticeListPage(
+                    model: model,
+                  ),
+                  _ => PreviewQuizPage(
+                    model: model,
+                    kind: skill == PracticeSkill.listening
+                        ? 'listening'
+                        : 'reading',
+                  ),
+                });
+              },
       ),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          learningHeading(skill.title, size: 28),
+          learningHeading(
+            speaking != null ? 'Luyện nói mỗi ngày' : skill.title,
+            size: 28,
+          ),
           const SizedBox(height: 16),
-          learningBody(skill.description),
+          learningBody(
+            speaking != null
+                ? 'Luyện đọc, nói theo chủ đề và vượt thử thách phát âm cùng lingoRoad.'
+                : skill.description,
+          ),
           const SizedBox(height: 32),
           LearningCard(
             gap: 24,
             children: [
-              _row('${skill.source}/imgVuesaxBulkTimer', 'Khoảng 10-15 phút'),
+              _row(
+                '${skill.source}/imgVuesaxBulkTimer',
+                speaking != null
+                    ? '30 giây–3 phút mỗi lượt'
+                    : 'Khoảng 10-15 phút',
+              ),
               _row(
                 '${skill.source}/imgVuesaxBulkTask',
                 skill == PracticeSkill.writing
                     ? 'Làm xong 2 bài viết'
                     : skill == PracticeSkill.speaking
-                    ? 'Làm xong 5 câu'
+                    ? (speaking == null
+                          ? 'Làm xong 5 câu'
+                          : 'Bốn chế độ luyện nói')
                     : 'Làm xong 5 câu',
               ),
               _row(
@@ -75,7 +145,10 @@ class PracticeIntroPage extends StatelessWidget {
                   PracticeSkill.listening => 'Được nghe lại 2 lần mỗi câu',
                   PracticeSkill.reading => 'Đọc đoạn văn và trả lời câu hỏi',
                   PracticeSkill.writing => 'Viết câu và kiểm tra lỗi',
-                  PracticeSkill.speaking => 'Bản thu mẫu và phản hồi minh họa',
+                  PracticeSkill.speaking =>
+                    speaking == null
+                        ? 'Bản thu mẫu và phản hồi minh họa'
+                        : 'Ghi âm và nhận phản hồi phát âm',
                 },
               ),
             ],
@@ -83,6 +156,7 @@ class PracticeIntroPage extends StatelessWidget {
         ],
       ),
     ),
+    speaking,
   );
   Widget _row(String icon, String text) => Row(
     children: [
@@ -371,24 +445,45 @@ class QuizSummaryPage extends StatelessWidget {
 }
 
 class MicrophonePreviewPage extends StatelessWidget {
-  const MicrophonePreviewPage({super.key, required this.model});
+  const MicrophonePreviewPage({super.key, required this.model, this.speaking});
   final PreviewModel model;
+  final SpeakingController? speaking;
   @override
-  Widget build(BuildContext context) => PreviewSurface(
-    child: FigmaPage(
+  Widget build(BuildContext context) => _speakingSurface(
+    FigmaPage(
       titleStyle: designHeading(18),
       title: 'Luyện Nói',
       bottom: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           CustomAppButton(
-            text: 'Tiếp tục với bản mẫu',
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => SpeakingPreviewPage(model: model),
-              ),
-            ),
+            text: speaking == null
+                ? 'Tiếp tục với bản mẫu'
+                : 'Cho phép dùng micro',
+            onPressed: () async {
+              final c = speaking;
+              if (c != null) {
+                if (!await c.recorder.hasPermission()) {
+                  if (context.mounted) {
+                    previewMessage(
+                      context,
+                      'Chưa có quyền micro. Cho phép micro trong cài đặt rồi thử lại.',
+                    );
+                  }
+                  return;
+                }
+                if (!c.active || !context.mounted) return;
+                if (c.prompt == null) await c.select(c.prompts.first);
+              }
+              if (!context.mounted) return;
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) =>
+                      SpeakingPreviewPage(model: model, speaking: speaking),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
           CustomAppButton(
@@ -425,14 +520,20 @@ class MicrophonePreviewPage extends StatelessWidget {
           ),
           const SizedBox(height: 28),
           Text(
-            'Bản xem trước dùng bản thu mẫu. Micro của thiết bị không được sử dụng.',
+            speaking == null
+                ? 'Bản xem trước dùng bản thu mẫu. Micro của thiết bị không được sử dụng.'
+                : 'Micro chỉ được sử dụng khi bạn chạm nút ghi âm. Bạn có thể nghe lại trước khi nộp.',
             textAlign: TextAlign.center,
             style: designText(18, color: AppColors.grey800, height: 1.5),
           ),
           const SizedBox(height: 24),
           for (final s in [
-            'Chỉ ghi âm khi bạn chạm nút trong bản chính thức',
-            'Phản hồi bên dưới là dữ liệu minh họa',
+            speaking == null
+                ? 'Chỉ ghi âm khi bạn chạm nút trong bản chính thức'
+                : 'Chỉ ghi âm khi bạn chạm nút micro',
+            speaking == null
+                ? 'Phản hồi bên dưới là dữ liệu minh họa'
+                : 'Chấm phát âm và lưu kết quả theo tài khoản',
           ])
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -448,14 +549,16 @@ class MicrophonePreviewPage extends StatelessWidget {
         ],
       ),
     ),
+    speaking,
   );
 }
 
 enum _SpeakingStage { ready, recording, recorded, feedback }
 
 class SpeakingPreviewPage extends StatefulWidget {
-  const SpeakingPreviewPage({super.key, required this.model});
+  const SpeakingPreviewPage({super.key, required this.model, this.speaking});
   final PreviewModel model;
+  final SpeakingController? speaking;
   @override
   State<SpeakingPreviewPage> createState() => _SpeakingPreviewPageState();
 }
@@ -534,196 +637,198 @@ class _SpeakingPreviewPageState extends State<SpeakingPreviewPage>
   }
 
   @override
-  Widget build(BuildContext context) => PreviewSurface(
-    child: FigmaPage(
-      titleStyle: designHeading(18),
-      title: 'Luyện Nói',
-      trailing: previewFlag(context),
-      bottom: stage == _SpeakingStage.feedback
-          ? CustomAppButton(
-              text: index == 4 ? 'Hoàn thành' : 'Câu tiếp',
-              onPressed: next,
-              borderRadius: AppRadius.tagRadius,
-            )
-          : PreviewToolbar(
-              index: index,
-              total: 5,
-              onBack: index == 0 || stage == _SpeakingStage.recording
-                  ? null
-                  : () => setState(() {
-                      index--;
-                      stage = _SpeakingStage.ready;
-                    }),
-              onNext: stage == _SpeakingStage.recording
-                  ? null
-                  : (index >= 3 && stage == _SpeakingStage.ready
-                        ? record
-                        : next),
-              nextLabel: index >= 3 && stage == _SpeakingStage.ready
-                  ? 'Bắt đầu'
-                  : 'Tiếp theo',
-            ),
-      child: stage == _SpeakingStage.feedback
-          ? feedback()
-          : LayoutBuilder(
-              builder: (context, bounds) => SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: bounds.maxHeight),
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          PreviewProgress(
-                            index: index,
-                            total: 5,
-                            label: 'Câu ${index + 1}/5',
-                          ),
-                          FigmaCard(
-                            child: Text(
-                              prompts[index],
-                              textAlign: TextAlign.center,
-                              style: designHeading(32, height: 1),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          if (index < 3 && stage == _SpeakingStage.ready)
-                            Center(
-                              child: SampleAudio(
-                                key: ValueKey('sample-$index'),
-                                asset: 'speak${index + 1}',
-                              ),
-                            ),
-                          if (index >= 3 &&
-                              stage != _SpeakingStage.recorded) ...[
-                            const SizedBox(height: 24),
-                            Center(
-                              child: _PreparationClock(
-                                recording: stage == _SpeakingStage.recording,
-                                seconds: seconds,
-                              ),
-                            ),
-                            if (stage == _SpeakingStage.ready) ...[
-                              const SizedBox(height: 24),
-                              learningHeading('Gợi ý từ', size: 18),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  for (final t in [
-                                    'wake up',
-                                    'go to work',
-                                    'in the evening',
-                                  ])
-                                    LearningPill(t),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              learningBody('Cấu trúc: First...Then..Finally'),
-                            ],
-                          ],
-                          if (stage == _SpeakingStage.recorded) ...[
-                            const SizedBox(height: 12),
-                            LearningCard(
+  Widget build(BuildContext context) => widget.speaking != null
+      ? _LiveSpeakingView(controller: widget.speaking!)
+      : PreviewSurface(
+          child: FigmaPage(
+            titleStyle: designHeading(18),
+            title: 'Luyện Nói',
+            trailing: previewFlag(context),
+            bottom: stage == _SpeakingStage.feedback
+                ? CustomAppButton(
+                    text: index == 4 ? 'Hoàn thành' : 'Câu tiếp',
+                    onPressed: next,
+                    borderRadius: AppRadius.tagRadius,
+                  )
+                : PreviewToolbar(
+                    index: index,
+                    total: 5,
+                    onBack: index == 0 || stage == _SpeakingStage.recording
+                        ? null
+                        : () => setState(() {
+                            index--;
+                            stage = _SpeakingStage.ready;
+                          }),
+                    onNext: stage == _SpeakingStage.recording
+                        ? null
+                        : (index >= 3 && stage == _SpeakingStage.ready
+                              ? record
+                              : next),
+                    nextLabel: index >= 3 && stage == _SpeakingStage.ready
+                        ? 'Bắt đầu'
+                        : 'Tiếp theo',
+                  ),
+            child: stage == _SpeakingStage.feedback
+                ? feedback()
+                : LayoutBuilder(
+                    builder: (context, bounds) => SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: bounds.maxHeight,
+                        ),
+                        child: IntrinsicHeight(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                learningHeading('Bản ghi mẫu', size: 18),
-                                SampleAudio(
-                                  key: ValueKey('record-$index'),
-                                  asset: 'speak${index + 1}',
-                                  player: true,
+                                PreviewProgress(
+                                  index: index,
+                                  total: 5,
+                                  label: 'Câu ${index + 1}/5',
                                 ),
-                                TextButton(
-                                  onPressed: record,
-                                  child: const Text('Ghi lại'),
+                                FigmaCard(
+                                  child: Text(
+                                    prompts[index],
+                                    textAlign: TextAlign.center,
+                                    style: designHeading(32, height: 1),
+                                  ),
                                 ),
-                              ],
-                            ),
-                            learningBody(
-                              'Đang dùng bản thu mẫu; chưa thu âm giọng của bạn.',
-                              size: 12,
-                            ),
-                          ],
-                          const Spacer(),
-                          const SizedBox(height: 32),
-                          if (stage != _SpeakingStage.recorded &&
-                              !(index >= 3 &&
-                                  stage == _SpeakingStage.ready)) ...[
-                            if (stage == _SpeakingStage.recording) ...[
-                              const PreviewWaveform(),
-                              const SizedBox(height: 24),
-                            ],
-                            Center(
-                              child: Tooltip(
-                                message: stage == _SpeakingStage.recording
-                                    ? 'Dừng mô phỏng'
-                                    : 'Bắt đầu mô phỏng ghi âm',
-                                child: InkWell(
-                                  key: const Key('previewRecord'),
-                                  onTap: stage == _SpeakingStage.recording
-                                      ? stop
-                                      : record,
-                                  borderRadius: AppRadius.buttonRadius,
-                                  child: Container(
-                                    width: 96,
-                                    height: 96,
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: stage == _SpeakingStage.recording
-                                          ? AppColors.grey900
-                                          : Colors.white,
-                                      border: Border.all(
-                                        color: AppColors.grey900,
-                                        width: 2,
+                                const SizedBox(height: 12),
+                                if (index < 3 && stage == _SpeakingStage.ready)
+                                  Center(
+                                    child: SampleAudio(
+                                      key: ValueKey('sample-$index'),
+                                      asset: 'speak${index + 1}',
+                                    ),
+                                  ),
+                                if (index >= 3 &&
+                                    stage != _SpeakingStage.recorded) ...[
+                                  const SizedBox(height: 24),
+                                  Center(
+                                    child: _PreparationClock(
+                                      recording:
+                                          stage == _SpeakingStage.recording,
+                                      seconds: seconds,
+                                    ),
+                                  ),
+                                  if (stage == _SpeakingStage.ready) ...[
+                                    const SizedBox(height: 24),
+                                    learningHeading('Gợi ý từ', size: 18),
+                                    const SizedBox(height: 12),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        for (final t in [
+                                          'wake up',
+                                          'go to work',
+                                          'in the evening',
+                                        ])
+                                          LearningPill(t),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    learningBody(
+                                      'Cấu trúc: First...Then..Finally',
+                                    ),
+                                  ],
+                                ],
+                                if (stage == _SpeakingStage.recorded) ...[
+                                  const SizedBox(height: 12),
+                                  LearningCard(
+                                    children: [
+                                      learningHeading('Bản ghi mẫu', size: 18),
+                                      SampleAudio(
+                                        key: ValueKey('record-$index'),
+                                        asset: 'speak${index + 1}',
+                                        player: true,
+                                      ),
+                                      TextButton(
+                                        onPressed: record,
+                                        child: const Text('Ghi lại'),
+                                      ),
+                                    ],
+                                  ),
+                                  learningBody(
+                                    'Đang dùng bản thu mẫu; chưa thu âm giọng của bạn.',
+                                    size: 12,
+                                  ),
+                                ],
+                                const Spacer(),
+                                const SizedBox(height: 32),
+                                if (stage != _SpeakingStage.recorded &&
+                                    !(index >= 3 &&
+                                        stage == _SpeakingStage.ready)) ...[
+                                  if (stage == _SpeakingStage.recording) ...[
+                                    const PreviewWaveform(),
+                                    const SizedBox(height: 24),
+                                  ],
+                                  Center(
+                                    child: Tooltip(
+                                      message: stage == _SpeakingStage.recording
+                                          ? 'Dừng mô phỏng'
+                                          : 'Bắt đầu mô phỏng ghi âm',
+                                      child: InkWell(
+                                        key: const Key('previewRecord'),
+                                        onTap: stage == _SpeakingStage.recording
+                                            ? stop
+                                            : record,
+                                        borderRadius: AppRadius.buttonRadius,
+                                        child: Container(
+                                          width: 96,
+                                          height: 96,
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color:
+                                                stage ==
+                                                    _SpeakingStage.recording
+                                                ? AppColors.grey900
+                                                : Colors.white,
+                                            border: Border.all(
+                                              color: AppColors.grey900,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: FigmaAsset(
+                                            stage == _SpeakingStage.recording
+                                                ? 'speaking-recording/imgVuesaxOutlinePause'
+                                                : 'speaking/imgVuesaxOutlineMicrophone2',
+                                            size:
+                                                stage ==
+                                                    _SpeakingStage.recording
+                                                ? 40
+                                                : 32,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                    child: FigmaAsset(
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    stage == _SpeakingStage.recording
+                                        ? 'Chạm để dừng'
+                                        : 'Chạm để bắt đầu ghi âm',
+                                    textAlign: TextAlign.center,
+                                    style: designText(
                                       stage == _SpeakingStage.recording
-                                          ? 'speaking-recording/imgVuesaxOutlinePause'
-                                          : 'speaking/imgVuesaxOutlineMicrophone2',
-                                      size: stage == _SpeakingStage.recording
-                                          ? 40
-                                          : 32,
+                                          ? 20
+                                          : 24,
+                                      weight: FontWeight.w600,
                                     ),
                                   ),
-                                ),
-                              ),
+                                  const SizedBox(height: 4),
+                                ],
+                              ],
                             ),
-                            const SizedBox(height: 24),
-                            Text(
-                              stage == _SpeakingStage.recording
-                                  ? 'Chạm để dừng'
-                                  : 'Chạm để bắt đầu ghi âm',
-                              textAlign: TextAlign.center,
-                              style: designText(
-                                stage == _SpeakingStage.recording ? 20 : 24,
-                                weight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            if (stage == _SpeakingStage.ready)
-                              TextButton(
-                                onPressed: next,
-                                child: Text(
-                                  'Không tiện nói lúc này',
-                                  style: designText(
-                                    18,
-                                    color: const Color(0xFFDE1B0C),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ),
-    ),
-  );
+          ),
+        );
   Widget feedback() => ListView(
     padding: const EdgeInsets.all(16),
     children: [
@@ -758,6 +863,567 @@ class _SpeakingPreviewPageState extends State<SpeakingPreviewPage>
       learningBody(
         'Phản hồi mẫu, không phân tích giọng nói của bạn. Nếu hệ thống nghe sai, đánh giá có thể lệch.',
         size: 16,
+      ),
+    ],
+  );
+}
+
+/// The original speaking layout, backed by real submissions for signed-in users.
+class _LiveSpeakingView extends StatefulWidget {
+  const _LiveSpeakingView({required this.controller});
+  final SpeakingController controller;
+  @override
+  State<_LiveSpeakingView> createState() => _LiveSpeakingViewState();
+}
+
+class _LiveSpeakingViewState extends State<_LiveSpeakingView>
+    with WidgetsBindingObserver {
+  SpeakingController get c => widget.controller;
+  final player = AudioPlayer();
+  late final amplitudes = c.recorder.amplitudes;
+  final subscriptions = <StreamSubscription<dynamic>>[];
+  bool playing = false;
+  Duration position = Duration.zero, duration = Duration.zero;
+  int get index {
+    final found = c.prompts.indexWhere((p) => p['id'] == c.prompt?['id']);
+    return found < 0 ? 0 : found;
+  }
+
+  int get total => c.prompts.length;
+  bool get feedback => c.status == 'SUCCEEDED' && c.result != null;
+  int? get gameStars {
+    final score = c.result?['overall'];
+    if (score is! num || !score.isFinite) return null;
+    if (score >= 90) return 3;
+    if (score >= 80) return 2;
+    if (score >= 60) return 1;
+    return 0;
+  }
+
+  bool get locked => c.busy || c.recording || c.processing || !c.active;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    subscriptions.add(
+      player.onPlayerStateChanged.listen((state) {
+        if (mounted) setState(() => playing = state == PlayerState.playing);
+      }),
+    );
+    subscriptions.add(
+      player.onPositionChanged.listen((value) {
+        if (mounted) setState(() => position = value);
+      }),
+    );
+    subscriptions.add(
+      player.onDurationChanged.listen((value) {
+        if (mounted) setState(() => duration = value);
+      }),
+    );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await c.initialize();
+      if (!mounted || !c.active || c.prompts.isEmpty) return;
+      if (c.prompt == null) await c.select(c.prompts.first);
+      if (c.submission != null) await c.check();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      unawaited(player.stop());
+      unawaited(c.stop());
+    } else if (c.submission != null) {
+      unawaited(c.check());
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    for (final subscription in subscriptions) {
+      unawaited(subscription.cancel());
+    }
+    unawaited(player.dispose());
+    unawaited(c.endSession());
+    super.dispose();
+  }
+
+  Future<void> record() async {
+    await player.stop();
+    position = duration = Duration.zero;
+    await c.start();
+  }
+
+  Future<void> play() async {
+    final path = c.audioPath;
+    if (path == null) return;
+    try {
+      if (playing) {
+        await player.pause();
+      } else {
+        await player.play(DeviceFileSource(path));
+      }
+    } catch (_) {
+      if (mounted) {
+        previewMessage(context, 'Không phát được bản thu. Vui lòng ghi lại.');
+      }
+    }
+  }
+
+  Future<void> submit() async {
+    await player.stop();
+    await c.send(newAttempt: c.terminal);
+  }
+
+  Future<void> move(int offset) async {
+    if (locked) return;
+    await player.stop();
+    final target = index + offset;
+    if (target >= total) {
+      await c.finishPractice();
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+    if (target >= 0) {
+      if (c.mode == 'TONGUE_TWISTER') {
+        try {
+          await c.refreshGameProgress();
+        } catch (_) {
+          if (mounted) {
+            previewMessage(context, 'Chưa tải được thành tích. Hãy thử lại.');
+          }
+          return;
+        }
+        if (!c.gameProgress.any(
+          (item) =>
+              item['id'] == c.prompts[target]['id'] && item['unlocked'] == true,
+        )) {
+          if (mounted) {
+            previewMessage(
+              context,
+              'Đạt 60 điểm và đọc đủ 80% để mở màn tiếp.',
+            );
+          }
+          return;
+        }
+      }
+      await c.select(c.prompts[target]);
+    }
+  }
+
+  String? get sample {
+    if (c.prompt?['sampleAsset'] is String) {
+      return c.prompt!['sampleAsset'] as String;
+    }
+    const sentences = [
+      'I have lived here for five years',
+      'My name is Anna',
+      'I am a student from Hanoi',
+    ];
+    final found = sentences.indexOf(c.sentence);
+    return found < 0 ? null : 'speak${found + 1}';
+  }
+
+  String time(Duration value) =>
+      '${value.inMinutes.toString().padLeft(2, '0')}:${(value.inSeconds % 60).toString().padLeft(2, '0')}';
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: c,
+    builder: (context, _) => PopScope(
+      canPop: !c.busy,
+      child: FigmaPage(
+        titleStyle: designHeading(18),
+        title: 'Luyện Nói',
+        leading: IconButton(
+          tooltip: 'Quay lại',
+          onPressed: c.busy ? null : () => Navigator.pop(context),
+          icon: const Icon(Icons.chevron_left),
+        ),
+        trailing: IconButton(
+          tooltip: 'Lịch sử Speaking',
+          icon: const Icon(Icons.history),
+          onPressed: locked
+              ? null
+              : () => previewPush(
+                  context,
+                  SpeakingHistoryPage(controller: c, mode: c.mode),
+                ),
+        ),
+        bottom: total == 0
+            ? null
+            : feedback
+            ? CustomAppButton(
+                text: index == total - 1 ? 'Hoàn thành' : 'Câu tiếp',
+                onPressed: locked ? null : () => move(1),
+                borderRadius: AppRadius.tagRadius,
+              )
+            : PreviewToolbar(
+                index: index,
+                total: total,
+                onBack: locked || index == 0 ? null : () => move(-1),
+                onNext: locked || !c.enabled || c.serviceUnavailable
+                    ? null
+                    : c.audioPath == null
+                    ? record
+                    : submit,
+                nextLabel: c.busy || c.processing
+                    ? 'Đang chấm…'
+                    : c.audioPath == null
+                    ? 'Bắt đầu'
+                    : c.terminal
+                    ? 'Nộp lần mới'
+                    : 'Nộp bản thu',
+              ),
+        child: total == 0
+            ? Center(
+                child: c.busy
+                    ? const CircularProgressIndicator()
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(c.error ?? 'Chưa có câu luyện được mở.'),
+                          TextButton(
+                            onPressed: c.initialized
+                                ? c.loadPrompts
+                                : c.initialize,
+                            child: const Text('Thử lại'),
+                          ),
+                        ],
+                      ),
+              )
+            : feedback
+            ? result()
+            : LayoutBuilder(
+                builder: (context, bounds) => SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: bounds.maxHeight),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            PreviewProgress(
+                              index: index,
+                              total: total,
+                              label:
+                                  '${c.isTopic ? 'Chủ đề' : 'Câu'} ${index + 1}/$total',
+                            ),
+                            FigmaCard(
+                              child: Text(
+                                c.sentence,
+                                textAlign: TextAlign.center,
+                                style: designHeading(
+                                  c.isTopic ? 28 : 32,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ),
+                            if (c.isTopic && c.prompt?['hints'] is List) ...[
+                              const SizedBox(height: 12),
+                              FigmaCard(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    learningHeading('Câu hỏi gợi ý', size: 18),
+                                    for (final hint
+                                        in c.prompt!['hints'] as List)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: learningBody(
+                                          '• $hint',
+                                          size: 15,
+                                        ),
+                                      ),
+                                    const Divider(
+                                      height: 24,
+                                      color: AppColors.grey100,
+                                    ),
+                                    learningBody(
+                                      'Tối đa 60 giây. Nói ít nhất 10 giây và khoảng 20 từ để nhận phản hồi nội dung.',
+                                      size: 13,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
+                            if (!c.recording &&
+                                c.audioPath == null &&
+                                sample != null)
+                              Center(
+                                child: SampleAudio(
+                                  key: ValueKey('sample-$index'),
+                                  asset: sample!,
+                                ),
+                              ),
+                            if (c.audioPath != null) ...[
+                              LearningCard(
+                                children: [
+                                  learningHeading('Bản ghi của bạn', size: 18),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        key: const Key('speakingPlayback'),
+                                        tooltip: 'Nghe bản thu của bạn',
+                                        onPressed: c.busy ? null : play,
+                                        icon: playing
+                                            ? const Icon(Icons.pause)
+                                            : const FigmaAsset(
+                                                'speaking-recorded/imgVuesaxLinearPlay',
+                                                size: 20,
+                                              ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          children: [
+                                            LinearProgressIndicator(
+                                              value:
+                                                  duration.inMilliseconds == 0
+                                                  ? 0
+                                                  : (position.inMilliseconds /
+                                                            duration
+                                                                .inMilliseconds)
+                                                        .clamp(0, 1),
+                                              minHeight: 4,
+                                              color: AppColors.primary500,
+                                              backgroundColor:
+                                                  AppColors.grey200,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
+                                              children: [
+                                                Text(
+                                                  time(position),
+                                                  style: designText(
+                                                    12,
+                                                    color: AppColors.grey600,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  time(duration),
+                                                  style: designText(
+                                                    12,
+                                                    color: AppColors.grey600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      minimumSize: const Size.fromHeight(48),
+                                    ),
+                                    onPressed: locked ? null : record,
+                                    icon: const Icon(Icons.mic_none, size: 20),
+                                    label: const Text('Ghi lại'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                            if (c.busy || c.processing) ...[
+                              const SizedBox(height: 24),
+                              LearningCard(
+                                children: [
+                                  Row(
+                                    children: [
+                                      const SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 3,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Đang chấm phát âm',
+                                              style: designHeading(18),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              'Đang phân tích bản thu của bạn. Kết quả sẽ hiện tại đây.',
+                                              style: designText(
+                                                14,
+                                                height: 1.5,
+                                                color: AppColors.grey800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ],
+                            if (c.error != null) learningBody(c.error!),
+                            if (c.status == 'FAILED' ||
+                                c.status == 'UNKNOWN') ...[
+                              const SizedBox(height: 16),
+                              learningBody(
+                                speakingErrorMessage(
+                                  c.submission?['errorCode']?.toString(),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: c.checking ? null : c.check,
+                                child: const Text('Kiểm tra trạng thái'),
+                              ),
+                            ],
+                            const Spacer(flex: 2),
+                            const SizedBox(height: 32),
+                            if (c.audioPath == null &&
+                                !c.busy &&
+                                !c.processing) ...[
+                              if (c.recording) ...[
+                                RecordingWaveform(amplitudes: amplitudes),
+                                const SizedBox(height: 24),
+                                Center(
+                                  child: Text(
+                                    'Đang thu âm · ${c.seconds.toString().padLeft(2, '0')} / ${c.maxSeconds} giây',
+                                    style: designText(
+                                      14,
+                                      color: AppColors.primary700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                              Center(
+                                child: Tooltip(
+                                  message: c.recording
+                                      ? 'Dừng ghi âm'
+                                      : 'Bắt đầu ghi âm',
+                                  child: InkWell(
+                                    key: const Key('previewRecord'),
+                                    onTap: !c.active || !c.enabled
+                                        ? null
+                                        : c.recording
+                                        ? c.stop
+                                        : record,
+                                    borderRadius: AppRadius.buttonRadius,
+                                    child: AnimatedContainer(
+                                      duration:
+                                          MediaQuery.disableAnimationsOf(
+                                            context,
+                                          )
+                                          ? Duration.zero
+                                          : const Duration(milliseconds: 180),
+                                      width: 96,
+                                      height: 96,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: c.recording
+                                            ? AppColors.primary700
+                                            : Colors.white,
+                                        boxShadow: c.recording
+                                            ? [
+                                                const BoxShadow(
+                                                  color: AppColors.primary100,
+                                                  spreadRadius: 8,
+                                                ),
+                                              ]
+                                            : [],
+                                        border: Border.all(
+                                          color: c.recording
+                                              ? AppColors.primary700
+                                              : AppColors.grey900,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      child: c.recording
+                                          ? const Icon(
+                                              Icons.stop_rounded,
+                                              size: 40,
+                                              color: Colors.white,
+                                            )
+                                          : const FigmaAsset(
+                                              'speaking/imgVuesaxOutlineMicrophone2',
+                                              size: 32,
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                c.recording
+                                    ? 'Chạm để dừng'
+                                    : 'Chạm để bắt đầu ghi âm',
+                                textAlign: TextAlign.center,
+                                style: designText(
+                                  c.recording ? 20 : 24,
+                                  weight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                            const Spacer(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    ),
+  );
+  Widget result() => ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      PreviewProgress(
+        index: index,
+        total: total,
+        label: 'Xem lại câu ${index + 1}/$total',
+      ),
+      const SizedBox(height: 16),
+      if (c.mode == 'TONGUE_TWISTER') ...[
+        LearningCard(
+          children: [
+            learningHeading(
+              gameStars == null ? 'Chưa đủ dữ liệu xếp sao' : '$gameStars sao',
+            ),
+            learningBody(
+              c.result?['overall'] is num &&
+                      (c.result!['overall'] as num) >= 60 &&
+                      (c.result?['completeness'] as num? ?? 0) >= 80
+                  ? 'Đã vượt màn. Bạn có thể luyện lại để cải thiện thành tích.'
+                  : 'Đạt 60 điểm và đọc đủ ít nhất 80% để mở màn tiếp.',
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+      ],
+      SpeakingResult(
+        result: c.result!,
+        repository: c.repository,
+        submissionId: c.submission?['id'] as String?,
+        referenceText: c.sentence,
+        audioPath: c.resultAudioPath(c.submission?['id'] as String?),
+        isCurrent: () => c.active,
+      ),
+      const SizedBox(height: 16),
+      OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+        onPressed: locked ? null : () => c.select(c.prompt!),
+        icon: const Icon(Icons.replay),
+        label: const Text('Luyện lại'),
       ),
     ],
   );

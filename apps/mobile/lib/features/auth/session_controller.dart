@@ -1,117 +1,91 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 import '../../core/api/api_client.dart';
 
 enum SessionStage { loading, signedOut, onboarding, ready, error }
 
-typedef GoogleTokenProvider = Future<String?> Function();
-typedef SocialSignOut = Future<void> Function();
-
 class SessionController extends ChangeNotifier {
-  SessionController(
-    this.api, {
-    GoogleTokenProvider? googleTokenProvider,
-    SocialSignOut? socialSignOut,
-  })  : _googleTokenProvider =
-            googleTokenProvider ?? _defaultGoogleTokenProvider,
-        _socialSignOut = socialSignOut ?? _defaultSocialSignOut {
+  SessionController(this.api) {
     api.onUnauthorized = () {
+      _epoch++;
       user = null;
       placement = {};
+      placementResult = null;
       stage = SessionStage.signedOut;
       notifyListeners();
     };
   }
 
-  static Future<String?> _defaultGoogleTokenProvider() async {
-    final GoogleSignInAccount googleUser =
-        await GoogleSignIn.instance.authenticate();
-    final GoogleSignInAuthentication googleAuth = googleUser.authentication;
-    final String? idToken = googleAuth.idToken;
-    if (idToken == null || idToken.isEmpty) {
-      throw const ApiFailure(
-        'Không nhận được Google ID Token từ thiết bị. Vui lòng thử lại.',
-      );
-    }
-    final AuthCredential credential = GoogleAuthProvider.credential(
-      idToken: idToken,
-    );
-    final UserCredential userCredential =
-        await FirebaseAuth.instance.signInWithCredential(credential);
-    return userCredential.user?.getIdToken();
-  }
-
-  static Future<void> _defaultSocialSignOut() async {
-    await Future.wait([
-      FirebaseAuth.instance.signOut(),
-      GoogleSignIn.instance.signOut(),
-    ]);
-  }
-
   final ApiClient api;
-  final GoogleTokenProvider _googleTokenProvider;
-  final SocialSignOut _socialSignOut;
   SessionStage stage = SessionStage.loading;
   bool isAuthenticatingGoogle = false;
   Json? user;
   Json placement = {};
+  Json? placementResult;
+  bool _disposed = false;
+  int _epoch = 0;
+  StreamSubscription<String?>? _authChanges;
   String? error;
   Json get profile => (user?['profile'] as Map?)?.cast<String, dynamic>() ?? {};
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _epoch++;
+    _authChanges?.cancel();
+    super.dispose();
+  }
+
   Future<void> authenticateWithGoogle() async {
-    if (isAuthenticatingGoogle || stage == SessionStage.loading) return;
+    if (_disposed || isAuthenticatingGoogle || stage == SessionStage.loading) {
+      return;
+    }
     isAuthenticatingGoogle = true;
     error = null;
     notifyListeners();
 
     try {
-      // 1. Lấy Firebase ID Token từ Google Auth Provider
-      final String? idToken = await _googleTokenProvider();
-
-      if (idToken == null) {
-        throw const ApiFailure('Không thể lấy Firebase ID Token');
-      }
-
-      // 2. Gửi Firebase ID Token lên Backend NestJS của LingoRoad
-      final tokens = await api.request(
-        'POST',
-        '/auth/google',
-        data: {'idToken': idToken},
-        auth: false,
-      );
-
-      // 3. Lưu phiên đăng nhập nội bộ của LingoRoad và tải thông tin tài khoản
-      await api.acceptTokens(tokens);
-      isAuthenticatingGoogle = false;
-      await initialize();
-    } on GoogleSignInException catch (e) {
-      isAuthenticatingGoogle = false;
-      if (e.code == GoogleSignInExceptionCode.canceled) {
-        notifyListeners();
-        return;
-      }
-      error = e.description ?? 'Đăng nhập Google thất bại';
-      notifyListeners();
-    } on FirebaseAuthException catch (e) {
-      isAuthenticatingGoogle = false;
-      error = e.message ?? 'Đăng nhập Firebase thất bại';
-      notifyListeners();
+      await signInWithGoogle();
     } on ApiFailure catch (e) {
-      isAuthenticatingGoogle = false;
-      error = e.message;
-      notifyListeners();
-    } catch (e) {
-      isAuthenticatingGoogle = false;
+      if (!_disposed && e.code != 'AUTH_CANCELLED') error = e.message;
+    } catch (_) {
+      if (_disposed) return;
       error = 'Đăng nhập Google thất bại. Vui lòng thử lại.';
+    } finally {
+      isAuthenticatingGoogle = false;
       notifyListeners();
     }
   }
+
   Future<void> initialize() async {
+    final epoch = ++_epoch;
     stage = SessionStage.loading;
     error = null;
     notifyListeners();
     try {
-      if (api.accessToken == null) {
+      if (api.identity != null) {
+        await api.identity!.initialize();
+        if (_disposed || epoch != _epoch) return;
+        _authChanges ??= api.identity!.userChanges.listen((uid) {
+          if (uid == null && user != null) {
+            _epoch++;
+            user = null;
+            placement = {};
+            placementResult = null;
+            stage = SessionStage.signedOut;
+            notifyListeners();
+          }
+        });
+        if (!api.identity!.signedIn) {
+          stage = SessionStage.signedOut;
+          notifyListeners();
+          return;
+        }
+      } else if (api.accessToken == null) {
         if (await api.store.read() == null) {
           stage = SessionStage.signedOut;
           notifyListeners();
@@ -119,17 +93,22 @@ class SessionController extends ChangeNotifier {
         }
         await api.refresh();
       }
-      await loadAccount();
+      if (_disposed || epoch != _epoch) return;
+      await loadAccount(epoch: epoch);
     } on ApiFailure catch (e) {
+      if (_disposed || epoch != _epoch) return;
       if (e.unauthorized) {
         await api.clearSession();
         stage = SessionStage.signedOut;
       } else {
         error = e.message;
-        stage = SessionStage.error;
+        stage = e.code == 'AUTH_CONFIGURATION'
+            ? SessionStage.signedOut
+            : SessionStage.error;
       }
       notifyListeners();
     } catch (_) {
+      if (_disposed || epoch != _epoch) return;
       error = 'Không đọc được phiên đăng nhập. Vui lòng thử lại.';
       stage = SessionStage.error;
       notifyListeners();
@@ -141,6 +120,15 @@ class SessionController extends ChangeNotifier {
     required String password,
     String? name,
   }) async {
+    if (api.identity != null) {
+      await api.identity!.authenticate(
+        email: email,
+        password: password,
+        name: name,
+      );
+      await initialize();
+      return;
+    }
     final tokens = await api.request(
       'POST',
       name == null ? '/auth/login' : '/auth/register',
@@ -155,9 +143,35 @@ class SessionController extends ChangeNotifier {
     await initialize();
   }
 
-  Future<void> loadAccount() async {
-    user = await api.request('GET', '/auth/me');
-    placement = await api.request('GET', '/placement/status');
+  Future<void> signInWithGoogle() async {
+    if (api.identity == null) {
+      throw const ApiFailure('Google yêu cầu cấu hình Firebase.');
+    }
+    await api.identity!.signInWithGoogle();
+    await initialize();
+  }
+
+  Future<void> resetPassword(String email) async {
+    if (api.identity == null) {
+      throw const ApiFailure('Khôi phục mật khẩu yêu cầu cấu hình Firebase.');
+    }
+    await api.identity!.resetPassword(email);
+  }
+
+  Future<void> loadAccount({int? epoch}) async {
+    final expected = epoch ?? _epoch;
+    final account = await api.request('GET', '/auth/me');
+    final assessment = await api.request('GET', '/placement/status');
+    final result = assessment['status'] == 'COMPLETED'
+        ? await api.request(
+            'GET',
+            '/placement/${assessment['currentSessionId']}/result',
+          )
+        : null;
+    if (_disposed || expected != _epoch) return;
+    user = account;
+    placement = assessment;
+    placementResult = result;
     stage = profile['onboardingCompletedAt'] == null
         ? SessionStage.onboarding
         : SessionStage.ready;
@@ -166,7 +180,10 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> saveProfile(Json updates) async {
-    user = await api.request('PATCH', '/auth/me', data: updates);
+    final epoch = _epoch;
+    final account = await api.request('PATCH', '/auth/me', data: updates);
+    if (_disposed || epoch != _epoch) return;
+    user = account;
     stage = profile['onboardingCompletedAt'] == null
         ? SessionStage.onboarding
         : SessionStage.ready;
@@ -174,12 +191,24 @@ class SessionController extends ChangeNotifier {
   }
 
   Future<void> refreshPlacement() async {
-    placement = await api.request('GET', '/placement/status');
+    final epoch = _epoch;
+    final assessment = await api.request('GET', '/placement/status');
+    final result = assessment['status'] == 'COMPLETED'
+        ? await api.request(
+            'GET',
+            '/placement/${assessment['currentSessionId']}/result',
+          )
+        : null;
+    if (_disposed || epoch != _epoch) return;
+    placement = assessment;
+    placementResult = result;
     notifyListeners();
   }
 
   Future<void> logout() async {
+    _epoch++;
     try {
+      if (api.identity != null) return;
       final token = await api.store.read();
       if (token != null) {
         await api.request(
@@ -192,15 +221,14 @@ class SessionController extends ChangeNotifier {
       // Local logout remains available without a network connection.
     } finally {
       try {
-        await _socialSignOut();
-      } catch (_) {
-        // Firebase/Google logout failures shouldn't prevent local logout.
+        await api.clearSession();
+      } finally {
+        user = null;
+        placement = {};
+        placementResult = null;
+        stage = SessionStage.signedOut;
+        notifyListeners();
       }
-      await api.clearSession();
-      user = null;
-      placement = {};
-      stage = SessionStage.signedOut;
-      notifyListeners();
     }
   }
 }

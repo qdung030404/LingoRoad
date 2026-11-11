@@ -1,6 +1,6 @@
 # Báo cáo Trạng thái First Demo, Audit Figma UI & Tiến độ CAT-DKT
 
-> **Tài liệu kiểm kê & nghiệm thu kỹ thuật (Technical Audit & Demo Snapshot)**  
+> **Tài liệu kiểm kê & nghiệm thu kỹ thuật (Technical Audit & Demo Snapshot)**
 > Ghi nhận trạng thái First Demo (22/10/2026), đối chiếu thiết kế Figma, tiến độ CAT-DKT và hướng dẫn kiểm thử cục bộ.
 
 ---
@@ -253,4 +253,3 @@ Mobile hiện có một widget smoke test tăng bộ đếm. Backend có script 
 - [Quy chuẩn phát triển](Development%20Conventions.md) và [hướng dẫn dự án](../.agents/AGENTS.md).
 
 Các tài liệu kiến trúc/đặc tả mô tả cả mục tiêu tương lai. Khi xác định chức năng đang có, đối chiếu thêm controller, use case, schema, entrypoint mobile và báo cáo thực nghiệm trong checkout hiện tại.
-

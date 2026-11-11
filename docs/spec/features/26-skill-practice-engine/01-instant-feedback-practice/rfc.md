@@ -117,4 +117,3 @@ eventEmitter.emit('practice.answer_submitted', {
 Sự kiện này được lắng nghe bởi:
 1. `KnowledgeTracingListener`: Cập nhật xác suất nắm vững kiến thức (BKT / DKT).
 2. `StreakRewardListener`: Cập nhật tiến độ học tập hàng ngày của người dùng.
-

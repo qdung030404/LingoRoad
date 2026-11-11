@@ -1,6 +1,15 @@
 # 🌟 LingoRoad - Adaptive & Personalized English Learning Platform
 
-> **Đồ án Tốt nghiệp (Graduation Thesis)**  
+## Trạng thái tích hợp — 05/11/2026
+
+Đã có Firebase Authentication email/Google, onboarding/placement, bài học Đọc/Nghe có lưu lượt làm bài, kế hoạch ngày/tiến độ và bộ từ cá nhân/ôn tập theo tài khoản. Nhánh tích hợp kết hợp backend, Flutter và các thay đổi ML/landing page từ main.
+
+Các mô tả CAT–DKT, FSRS, đánh giá Nói/Viết và tối ưu lộ trình bên dưới là mục tiêu kiến trúc/nghiên cứu; chưa đồng nghĩa các luồng này đã tích hợp và nghiệm thu trên app. Placement hiện có 10 câu Đọc/Nghe và kết quả tạm tính. Nói/Viết trên mobile vẫn là preview. Backend đã được nghiệm thu local; iOS và triển khai cloud có gate riêng.
+
+Tài liệu thực thi: [Firebase auth](docs/firebase-auth-setup.md), [bài học](docs/learning-workflow.md), [kế hoạch ngày](docs/daily-progress.md), [từ vựng](docs/vocabulary-workflow.md). Tài liệu đặc tả mới của nhóm được giữ trong [docs/spec/features](docs/spec/features).
+
+
+> **Đồ án Tốt nghiệp (Graduation Thesis)**
 > Nền tảng học tiếng Anh thích ứng thông minh ứng dụng **Học máy (Machine Learning)**, **Lý thuyết Khảo thí Hiện đại (Item Response Theory)** và **Mô hình Sư phạm Cá nhân hóa**.
 
 ---

@@ -5,7 +5,7 @@ ALTER TABLE "users" ALTER COLUMN "password_hash" DROP NOT NULL;
 
 ALTER TABLE "users" ADD COLUMN "avatar_url" VARCHAR(500),
 ADD COLUMN "provider" "AuthProvider" NOT NULL DEFAULT 'LOCAL',
-ADD COLUMN "firebase_uid" VARCHAR(128);
+ADD COLUMN IF NOT EXISTS "firebase_uid" VARCHAR(128);
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_firebase_uid_key" ON "users"("firebase_uid");
+CREATE UNIQUE INDEX IF NOT EXISTS "users_firebase_uid_key" ON "users"("firebase_uid");

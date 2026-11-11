@@ -1,3 +1,5 @@
+> Cập nhật phạm vi 08/11/2026: triển khai hiện tại là **luyện đọc câu bằng Azure**, theo [đặc tả read-aloud](read-aloud-v1.md). Phần nói tự do, Whisper/acoustic rubric và ánh xạ CEFR bên dưới là đề xuất cho giai đoạn sau, chưa được kiểm chứng hoặc nghiệm thu. Không dùng ngưỡng WPM để suy ra CEFR của người học.
+
 # Request for Comments (RFC) - CEFR Speaking Scoring Pipeline Architecture
 
 ## Mission (Sứ mệnh)
@@ -91,4 +93,3 @@ Tỷ lệ thời gian im lặng bất thường (> 0.8 giây) trên tổng thờ
   - `prompt`: Đề bài nói.
   - `targetCefr`: Bậc CEFR mục tiêu.
 - **Response**: Trả về điểm 4 tiêu chí, điểm scale 10.0, transcript có đánh dấu từ phát âm sai và lời khuyên bằng tiếng Việt.
-

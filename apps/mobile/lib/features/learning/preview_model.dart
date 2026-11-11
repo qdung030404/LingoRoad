@@ -5,8 +5,12 @@ import 'writing_evaluation_service.dart';
 
 /// Isolated, local preview data. Never writes assessment or account records.
 class PreviewModel extends ChangeNotifier {
+  PreviewModel({String? accountId, int initialDailyMinutes = 10})
+    : _prefix = accountId == null ? prefix : '${prefix}user.$accountId.',
+      dailyMinutes = initialDailyMinutes;
   static const prefix = 'lingoroad.uiPreview.';
-  int dailyMinutes = 10;
+  final String _prefix;
+  int dailyMinutes;
   Set<String> focus = {'Đọc: Ngữ pháp', 'Nghe'};
   Set<String> completed = {};
   final drafts = ['', ''];
@@ -28,22 +32,23 @@ class PreviewModel extends ChangeNotifier {
 
   Future<void> restore() async {
     _prefs = await SharedPreferences.getInstance();
-    dailyMinutes = _prefs!.getInt('${prefix}minutes') ?? 10;
-    focus = (_prefs!.getStringList('${prefix}focus') ?? focus.toList()).toSet();
-    completed = (_prefs!.getStringList('${prefix}completed') ?? []).toSet();
+    dailyMinutes = _prefs!.getInt('${_prefix}minutes') ?? dailyMinutes;
+    focus = (_prefs!.getStringList('${_prefix}focus') ?? focus.toList())
+        .toSet();
+    completed = (_prefs!.getStringList('${_prefix}completed') ?? []).toSet();
     for (var i = 0; i < 2; i++) {
-      drafts[i] = _prefs!.getString('${prefix}draft$i') ?? '';
+      drafts[i] = _prefs!.getString('${_prefix}draft$i') ?? '';
     }
     final allKeys = _prefs!.getKeys();
     for (final k in allKeys) {
-      if (k.startsWith('${prefix}draft_')) {
-        final itemId = k.replaceFirst('${prefix}draft_', '');
+      if (k.startsWith('${_prefix}draft_')) {
+        final itemId = k.replaceFirst('${_prefix}draft_', '');
         itemDrafts[itemId] = _prefs!.getString(k) ?? '';
-      } else if (k.startsWith('${prefix}score_')) {
-        final itemId = k.replaceFirst('${prefix}score_', '');
+      } else if (k.startsWith('${_prefix}score_')) {
+        final itemId = k.replaceFirst('${_prefix}score_', '');
         itemScores[itemId] = _prefs!.getDouble(k) ?? 0.0;
-      } else if (k.startsWith('${prefix}eval_')) {
-        final itemId = k.replaceFirst('${prefix}eval_', '');
+      } else if (k.startsWith('${_prefix}eval_')) {
+        final itemId = k.replaceFirst('${_prefix}eval_', '');
         final jsonStr = _prefs!.getString(k);
         if (jsonStr != null && jsonStr.isNotEmpty) {
           try {
@@ -67,19 +72,19 @@ class PreviewModel extends ChangeNotifier {
       final cefr = score >= 9.5
           ? 'C2'
           : score >= 8.5
-              ? 'C1'
-              : score > 6.5
-                  ? 'B2'
-                  : score >= 5.0
-                      ? 'B1'
-                      : score >= 3.0
-                          ? 'A2'
-                          : 'A1';
+          ? 'C1'
+          : score > 6.5
+          ? 'B2'
+          : score >= 5.0
+          ? 'B1'
+          : score >= 3.0
+          ? 'A2'
+          : 'A1';
       final status = score >= 8.5
           ? LevelEvaluationStatus.exceedsExpectations
           : score >= 6.0
-              ? LevelEvaluationStatus.meetsExpectations
-              : LevelEvaluationStatus.needsImprovement;
+          ? LevelEvaluationStatus.meetsExpectations
+          : LevelEvaluationStatus.needsImprovement;
       return WritingEvaluationResult(
         levelEvaluation: LevelEvaluation(
           status: status,
@@ -102,15 +107,18 @@ class PreviewModel extends ChangeNotifier {
     return null;
   }
 
-  Future<void> saveEvaluation(String key, WritingEvaluationResult result) async {
+  Future<void> saveEvaluation(
+    String key,
+    WritingEvaluationResult result,
+  ) async {
     itemEvaluations[key] = result;
-    await _prefs?.setString('${prefix}eval_$key', jsonEncode(result.toJson()));
+    await _prefs?.setString('${_prefix}eval_$key', jsonEncode(result.toJson()));
     notifyListeners();
   }
 
   Future<void> clearEvaluation(String key) async {
     itemEvaluations.remove(key);
-    await _prefs?.remove('${prefix}eval_$key');
+    await _prefs?.remove('${_prefix}eval_$key');
     notifyListeners();
   }
 
@@ -121,7 +129,7 @@ class PreviewModel extends ChangeNotifier {
     if (fallbackIndex != null &&
         fallbackIndex >= 0 &&
         fallbackIndex < drafts.length) {
-      final fallbackKey = '${prefix}score$fallbackIndex';
+      final fallbackKey = '${_prefix}score$fallbackIndex';
       if (_prefs?.containsKey(fallbackKey) ?? false) {
         return _prefs!.getDouble(fallbackKey) ?? 0.0;
       }
@@ -131,9 +139,9 @@ class PreviewModel extends ChangeNotifier {
 
   Future<void> saveScore(String key, double score, [int? fallbackIndex]) async {
     itemScores[key] = score;
-    await _prefs?.setDouble('${prefix}score_$key', score);
+    await _prefs?.setDouble('${_prefix}score_$key', score);
     if (fallbackIndex != null && fallbackIndex >= 0) {
-      await _prefs?.setDouble('${prefix}score$fallbackIndex', score);
+      await _prefs?.setDouble('${_prefix}score$fallbackIndex', score);
     }
     notifyListeners();
   }
@@ -150,14 +158,18 @@ class PreviewModel extends ChangeNotifier {
     return '';
   }
 
-  Future<void> saveItemDraft(String key, String text, [int? fallbackIndex]) async {
+  Future<void> saveItemDraft(
+    String key,
+    String text, [
+    int? fallbackIndex,
+  ]) async {
     itemDrafts[key] = text;
-    await _prefs?.setString('${prefix}draft_$key', text);
+    await _prefs?.setString('${_prefix}draft_$key', text);
     if (fallbackIndex != null &&
         fallbackIndex >= 0 &&
         fallbackIndex < drafts.length) {
       drafts[fallbackIndex] = text;
-      await _prefs?.setString('${prefix}draft$fallbackIndex', text);
+      await _prefs?.setString('${_prefix}draft$fallbackIndex', text);
     }
     notifyListeners();
   }
@@ -166,20 +178,20 @@ class PreviewModel extends ChangeNotifier {
     if (![5, 10, 20].contains(minutes) || skills.isEmpty) return;
     dailyMinutes = minutes;
     focus = Set.of(skills);
-    await _prefs?.setInt('${prefix}minutes', minutes);
-    await _prefs?.setStringList('${prefix}focus', skills.toList());
+    await _prefs?.setInt('${_prefix}minutes', minutes);
+    await _prefs?.setStringList('${_prefix}focus', skills.toList());
     notifyListeners();
   }
 
   Future<void> saveDraft(int index, String text) async {
     drafts[index] = text;
-    await _prefs?.setString('${prefix}draft$index', text);
+    await _prefs?.setString('${_prefix}draft$index', text);
     notifyListeners();
   }
 
   Future<void> finish(String lesson) async {
     completed.add(lesson);
-    await _prefs?.setStringList('${prefix}completed', completed.toList());
+    await _prefs?.setStringList('${_prefix}completed', completed.toList());
     notifyListeners();
   }
 }

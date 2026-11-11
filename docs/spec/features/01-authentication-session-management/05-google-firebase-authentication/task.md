@@ -130,4 +130,3 @@ Kế hoạch phân rã các đầu việc kỹ thuật chi tiết theo từng b�
 - [x] Tích hợp Client Flutter hoàn chỉnh với Firebase Core, Firebase Auth, Google Sign-In và xử lý đầy đủ các trạng thái loading/canceled/error.
 - [x] Chặn rò rỉ Firebase credentials: Đã đưa `google-services.json` vào `.gitignore` và cung cấp `google-services.json.example`.
 - [x] Toàn bộ Mobile Unit & Widget Test chạy pass 100%, `flutter analyze` sạch không lỗi.
-

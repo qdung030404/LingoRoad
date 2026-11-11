@@ -46,4 +46,3 @@ PRD định nghĩa tiêu chuẩn đánh giá bài viết tự động (Automated
 2. Hệ thống chuyển văn bản sang dịch vụ AI (`apps/ml`).
 3. LLM phân tích văn bản theo Rubric CEFR và trả về điểm số 4 tiêu chí kèm danh sách các lỗi câu cụ thể.
 4. Học viên nhận bảng điểm thành phần, điểm quy đổi thang 10 và xem phần sửa lỗi trực tiếp trên từng câu văn của mình.
-

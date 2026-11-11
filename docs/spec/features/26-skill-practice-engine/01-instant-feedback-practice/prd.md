@@ -65,4 +65,3 @@ PRD định nghĩa các yêu cầu nghiệp vụ cho Chế độ Luyện tập T
 
 ### 6.3. Tích hợp Cập nhật Knowledge Tracing (BKT)
 - Mỗi câu trả lời trong phiên luyện tập vẫn được gửi sự kiện sang `KnowledgeTracingService` để cập nhật độ thành thạo kỹ năng (`masteryScore`), giúp hệ thống tự động nhận biết người học đã tiến bộ hay chưa.
-

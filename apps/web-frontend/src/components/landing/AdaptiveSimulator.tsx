@@ -104,7 +104,7 @@ export const AdaptiveSimulator: React.FC = () => {
   return (
     <section id="simulator" className="scroll-mt-20 bg-white py-20 lg:py-28">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        
+
         {/* Title */}
         <div className="mx-auto max-w-3xl text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-brand-700 border border-brand-200">
@@ -148,7 +148,7 @@ export const AdaptiveSimulator: React.FC = () => {
         {/* Tab 1: CAT Simulator */}
         {activeTab === 'cat' && (
           <div className="mt-12 grid grid-cols-1 gap-8 lg:grid-cols-12">
-            
+
             {/* Interactive Question Card */}
             <div className="rounded-2xl border border-slateDark-200 bg-slateDark-25/50 p-6 sm:p-8 lg:col-span-8 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slateDark-200 pb-4">
@@ -175,7 +175,7 @@ export const AdaptiveSimulator: React.FC = () => {
                 {currentQuestion.options.map((option: string, idx: number) => {
                   let optionClass =
                     'border-slateDark-200 bg-white hover:border-brand-400 hover:bg-brand-25/20 text-slateDark-800';
-                  
+
                   if (selectedOption === idx) {
                     optionClass = 'border-brand-500 bg-brand-50 text-brand-900 font-semibold ring-2 ring-brand-300';
                   }

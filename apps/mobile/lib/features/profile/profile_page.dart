@@ -3,6 +3,7 @@ import '../../shared/app_text_field.dart';
 import '../auth/session_controller.dart';
 import '../common.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/figma_dropdown.dart';
 
 const learningPurposes = {
   'EXAM': 'Thi chứng chỉ',
@@ -63,6 +64,26 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> resetPassword() async {
+    setState(() {
+      busy = true;
+      error = null;
+      notice = null;
+    });
+    try {
+      await widget.session.resetPassword(
+        widget.session.user!['email'] as String,
+      );
+      if (mounted) {
+        setState(() => notice = 'Kiểm tra email để đặt lại mật khẩu.');
+      }
+    } catch (e) {
+      if (mounted) setState(() => error = errorMessage(e));
+    } finally {
+      if (mounted) setState(() => busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) => FigmaPage(
     title: widget.onboarding ? 'Mục tiêu của bạn' : 'Hồ sơ của tôi',
@@ -83,18 +104,11 @@ class _ProfilePageState extends State<ProfilePage> {
             validator: requiredName,
             enabled: !busy,
           ),
-          DropdownButtonFormField<String>(
+          FigmaDropdown(
             key: const Key('learningPurpose'),
-            initialValue: purpose,
-            decoration: const InputDecoration(
-              labelText: 'Bạn học tiếng Anh để làm gì?',
-            ),
-            isExpanded: true,
-            items: learningPurposes.entries
-                .map(
-                  (e) => DropdownMenuItem(value: e.key, child: Text(e.value)),
-                )
-                .toList(),
+            label: 'Bạn học tiếng Anh để làm gì?',
+            value: purpose,
+            items: learningPurposes,
             onChanged: busy ? null : (value) => setState(() => purpose = value),
             validator: (value) => value == null ? 'Chọn mục đích học.' : null,
           ),
@@ -112,20 +126,14 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
             ],
           ),
-          DropdownButtonFormField<String>(
-            initialValue: level,
-            decoration: const InputDecoration(
-              labelText: 'Trình độ tự đánh giá',
-            ),
-            items: ['UNKNOWN', 'A1', 'A2', 'B1', 'B2']
-                .map(
-                  (value) => DropdownMenuItem(
-                    value: value,
-                    child: Text(value == 'UNKNOWN' ? 'Chưa biết' : value),
-                  ),
-                )
-                .toList(),
-            onChanged: busy ? null : (value) => setState(() => level = value!),
+          FigmaDropdown(
+            label: 'Trình độ tự đánh giá',
+            value: level,
+            items: {
+              for (final value in ['UNKNOWN', 'A1', 'A2', 'B1', 'B2'])
+                value: value == 'UNKNOWN' ? 'Chưa biết' : value,
+            },
+            onChanged: busy ? null : (value) => setState(() => level = value),
           ),
           if (error != null) ErrorNotice(error!),
           if (notice != null) Text(notice!, semanticsLabel: notice),
@@ -136,12 +144,21 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
           if (!widget.onboarding) ...[
             TextButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => ChangePasswordPage(session: widget.session),
-                ),
+              onPressed: busy
+                  ? null
+                  : widget.session.api.identity != null
+                  ? resetPassword
+                  : () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) =>
+                            ChangePasswordPage(session: widget.session),
+                      ),
+                    ),
+              child: Text(
+                widget.session.api.identity != null
+                    ? 'Đặt lại mật khẩu qua email'
+                    : 'Đổi mật khẩu',
               ),
-              child: const Text('Đổi mật khẩu'),
             ),
             TextButton(
               onPressed: busy

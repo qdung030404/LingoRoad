@@ -108,4 +108,3 @@ def test_gemini_embed_model_selection(monkeypatch):
     monkeypatch.setenv("EMBEDDING_MODEL", "custom-embed-v1")
     rag.gemini_embed(["hello"])
     assert recorded_calls[-1] == "custom-embed-v1"
-

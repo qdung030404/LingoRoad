@@ -18,6 +18,7 @@ import {
   SpeechScoreResponse,
 } from './interfaces/ml-client.interface';
 import { InProcessCatFallback } from './fallbacks/in-process-cat.fallback';
+import { ReadAloudResult } from '../speaking/speaking.dto';
 
 @Injectable()
 export class MlClientService {
@@ -25,12 +26,17 @@ export class MlClientService {
   private readonly baseUrl: string;
   private readonly internalToken: string;
   private readonly defaultTimeoutMs: number;
+  readonly speakingProfile: string;
 
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly inProcessCatFallback: InProcessCatFallback,
   ) {
+    this.speakingProfile = this.configService.get<string>('SPEAKING_SCORING_PROFILE', 'read-aloud-v2');
+    if (!['read-aloud-v1', 'read-aloud-v2'].includes(this.speakingProfile)) {
+      throw new Error('Invalid SPEAKING_SCORING_PROFILE');
+    }
     this.baseUrl = this.configService.get<string>(
       'ML_SERVICE_URL',
       'http://localhost:8001',
@@ -141,6 +147,55 @@ export class MlClientService {
       ),
     );
     return res.data;
+  }
+
+  async scoreTopic(audio: Buffer): Promise<Record<string, any>> {
+    const form = new FormData();
+    form.append('file', audio, { filename: 'recording.wav', contentType: 'audio/wav' });
+    form.append('prompt_text', '');
+    const response = await firstValueFrom(this.httpService.post(
+      `${this.baseUrl}/speech/topic/score`, form, { headers: this.getHeaders(form.getHeaders()),
+        timeout: 90000, maxBodyLength: 3 * 1024 * 1024, maxRedirects: 0 }));
+    return response.data;
+  }
+
+  async scoreTopicContent(topic: string, hints: string[], transcript: string, durationSeconds: number): Promise<Record<string, any>> {
+    const response = await firstValueFrom(this.httpService.post(`${this.baseUrl}/speech/topic/content`,
+      { topic, hints, transcript, durationSeconds }, { headers: this.getHeaders(), timeout: 30000, maxRedirects: 0 }));
+    return response.data;
+  }
+
+  async translateConversation(text: string): Promise<string> {
+    const response = await firstValueFrom(this.httpService.post(`${this.baseUrl}/speech/conversation/translate`,
+      { text }, { headers: this.getHeaders(), timeout: 30000, maxRedirects: 0 }));
+    const translated = response.data?.translationVi;
+    if (typeof translated !== 'string' || !translated.trim() || translated.length > 24000) throw new Error('Invalid translation');
+    return translated.trim();
+  }
+
+  async scoreConversationAudio(audio: Buffer): Promise<Record<string, any>> {
+    const response = await firstValueFrom(this.httpService.post(
+      `${this.baseUrl}/speech/conversation/score`, audio,
+      { headers: this.getHeaders({ 'Content-Type': 'audio/wav' }), timeout: 210000,
+        maxBodyLength: 6 * 1024 * 1024, maxRedirects: 0 }));
+    return response.data;
+  }
+
+  async scoreConversationContent(topic: string, turns: { itemId: string; role: string; transcript: string }[]): Promise<Record<string, any>> {
+    const response = await firstValueFrom(this.httpService.post(
+      `${this.baseUrl}/speech/conversation/content`, { topic, turns, perTurn: true },
+      { headers: this.getHeaders(), timeout: 240000, maxRedirects: 0 }));
+    return response.data;
+  }
+
+  async scoreReadAloud(audio: Buffer, promptText: string, profile = this.speakingProfile): Promise<ReadAloudResult> {
+    const form = new FormData();
+    form.append('file', audio, { filename: 'recording.wav', contentType: 'audio/wav' });
+    form.append('prompt_text', promptText);
+    const response = await firstValueFrom(this.httpService.post<ReadAloudResult>(
+      `${this.baseUrl}/speech/read-aloud/score`, form, { headers: this.getHeaders({ ...form.getHeaders(), 'x-speaking-profile': profile }),
+        timeout: 50000, maxBodyLength: 3 * 1024 * 1024, maxRedirects: 0 }));
+    return response.data;
   }
 
   /**

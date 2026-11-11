@@ -15,7 +15,7 @@ export const FaqSection: React.FC = () => {
   return (
     <section id="faq" className="scroll-mt-20 bg-slateDark-25/40 py-20 lg:py-28">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        
+
         {/* Title */}
         <div className="text-center">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-100 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-brand-800">

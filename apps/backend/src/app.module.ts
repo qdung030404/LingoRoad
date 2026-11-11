@@ -7,8 +7,11 @@ import { SecurityModule } from './modules/security/security.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MlModule } from './modules/ml/ml.module';
 import { PlacementModule } from './modules/placement/placement.module';
+import { LearningModule } from './modules/learning/learning.module';
+import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
 import { HealthController } from './health.controller';
+import { SpeakingModule } from './modules/speaking/speaking.module';
 
 @Module({
   controllers: [HealthController],
@@ -34,6 +37,9 @@ import { HealthController } from './health.controller';
     AuthModule,
     MlModule,
     PlacementModule,
+    LearningModule,
+    VocabularyModule,
+    SpeakingModule,
     AssessmentModule,
   ],
 })

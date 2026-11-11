@@ -53,4 +53,3 @@ Triển khai API Luyện tập kỹ năng có phản hồi tức thì (`POST /ap
 - [ ] Xây dựng `CheckPracticeAnswerUseCase` với logic trả về explanation và transcript.
 - [ ] Tích hợp EventEmitter phát sự kiện cập nhật Knowledge Tracing.
 - [ ] Viết Unit Test cho UseCase kiểm tra câu trả lời đúng/sai.
-

@@ -1,5 +1,42 @@
 import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/core/config/app_config.dart';
+import 'package:mobile/core/auth/auth_identity.dart';
+
+class FakeAuthIdentity implements AuthIdentity {
+  FakeAuthIdentity({this.onGoogle});
+  final Future<void> Function()? onGoogle;
+  bool active = false;
+  @override
+  bool get signedIn => active;
+  @override
+  Stream<String?> get userChanges => const Stream.empty();
+  @override
+  Future<void> initialize() async {}
+  @override
+  Future<String?> idToken({bool forceRefresh = false}) async =>
+      active ? 'firebase-id-token' : null;
+  @override
+  Future<void> authenticate({
+    required String email,
+    required String password,
+    String? name,
+  }) async {
+    active = true;
+  }
+
+  @override
+  Future<void> signInWithGoogle() async {
+    await onGoogle?.call();
+    active = true;
+  }
+
+  @override
+  Future<void> resetPassword(String email) async {}
+  @override
+  Future<void> signOut() async {
+    active = false;
+  }
+}
 
 class MemoryTokenStore implements TokenStore {
   MemoryTokenStore([this.token]);
@@ -57,6 +94,7 @@ class FakeApi extends ApiClient {
     bool signedIn = false,
     bool onboarding = false,
     bool completed = false,
+    super.identity,
   }) : super(
          config: AppConfig(),
          store: MemoryTokenStore(signedIn ? 'refresh' : null),
@@ -75,6 +113,7 @@ class FakeApi extends ApiClient {
   int index = 0;
   bool failAnswer = false;
   final List<Json> submitted = [];
+  final List<String> requestedPaths = [];
   @override
   Future<Json> request(
     String method,
@@ -83,6 +122,7 @@ class FakeApi extends ApiClient {
     bool auth = true,
     Duration? receiveTimeout,
   }) async {
+    requestedPaths.add(path);
     if (path == '/auth/login' ||
         path == '/auth/register' ||
         path == '/auth/google') {

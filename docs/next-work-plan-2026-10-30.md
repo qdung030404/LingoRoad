@@ -37,6 +37,8 @@ Deadline 21–24/10 trên bảng là các mốc đã qua; kế hoạch này khô
 
 ### Bước 1 — Khép kín tài khoản và điều hướng
 
+**Cập nhật 31/10:** nhóm chọn Firebase Authentication cho email và Google. Đã triển khai SDK Flutter, xác minh ID token bằng Admin SDK phía NestJS, ánh xạ UID với UUID PostgreSQL, khôi phục phiên và điều hướng sau placement vào Home. Dữ liệu mẫu trên máy được tách theo tài khoản. Project thật `lingoroad-fdd48` đã cấu hình; đăng ký email và xác minh token qua API cloud đã đạt, Google Sign-In trên bản release MuMu đã vào đúng onboarding và giữ phiên sau khi khởi động lại. Backend vẫn chạy local với database `_test`; gửi thư khôi phục thật và iOS chưa nghiệm thu. Chi tiết cấu hình và kiểm thử: [Firebase auth](firebase-auth-setup.md). Các dòng nghiệm thu dưới đây vẫn là tiêu chí hoàn thành, không phải xác nhận toàn bộ đã đạt.
+
 **Phụ thuộc:** phạm vi từ bước 0. **Đầu ra:** luồng tài khoản thật tới điểm bắt đầu học.
 
 - Nghiệm thu đăng ký/đăng nhập email, onboarding, sửa hồ sơ, refresh phiên, lỗi mạng và đăng xuất.

@@ -4,13 +4,9 @@ Flutter **3.44.6**, Dart **3.12.2**. Luồng chạy với API thật: tài kho�
 
 ## Cấu hình Firebase (`google-services.json`)
 
-Ứng dụng yêu cầu tệp cấu hình Firebase tại:
-`apps/mobile/android/app/google-services.json`
+Project chung của nhóm là `lingoroad-7fb29`, được cấu hình trong `lib/firebase_options.dart`. Firebase và Google Sign-In chỉ được khởi tạo trong `FirebaseIdentity`. Có thể ghi đè bằng `firebase-config.local.json` (truyền qua `--dart-define-from-file`) để chạy emulator hoặc môi trường khác; các giá trị Firebase và Web OAuth Client ID phải thuộc cùng project.
 
-- **Chạy nhanh / CI:** Gradle tự động sao chép từ `google-services.json.example` nếu chưa có tệp này, hoặc có thể copy thủ công:
-  ```powershell
-  Copy-Item android/app/google-services.json.example android/app/google-services.json
-  ```
+- **Chạy nhanh / CI:** dùng cấu hình Auth Emulator theo hướng dẫn Firebase trong repo. Gradle không tự sao chép `google-services.json.example`; file mẫu không dùng để đăng nhập thật.
 - **Kiểm thử Google Sign-In thật:**
   1. Lấy SHA-1 debug: `cd android && ./gradlew signingReport`
   2. Đăng ký Android app package `com.example.mobile` trên Firebase Console kèm mã SHA-1.

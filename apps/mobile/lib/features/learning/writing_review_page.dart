@@ -85,6 +85,7 @@ class WritingResultPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PreviewSurface(
+    showSampleLabel: false,
     child: FigmaPage(
       titleStyle: designHeading(18),
       title: 'Kết quả',
@@ -233,6 +234,7 @@ class _WritingReviewPageState extends State<WritingReviewPage> {
 
   @override
   Widget build(BuildContext context) => PreviewSurface(
+    showSampleLabel: false,
     child: FigmaPage(
       titleStyle: designHeading(18),
       title: _items.length > 1

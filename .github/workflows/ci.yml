@@ -42,10 +42,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -67,11 +67,21 @@ jobs:
           npm run test
 
       - name: Validate Demo Content and HTTP E2E
+        env:
+          AUTH_PROVIDER: legacy
         run: |
           cd apps/backend
           npx ts-node prisma/demo-content/validate.spec.ts
           npx prisma migrate deploy
           npm run test:e2e -- --runInBand
+
+      - name: Firebase Auth and Learning HTTP E2E
+        env:
+          AUTH_PROVIDER: firebase
+          FIREBASE_PROJECT_ID: demo-lingoroad
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+        run: |
+          npx --yes firebase-tools@14.20.0 emulators:exec --only auth --project demo-lingoroad "npm run test:firebase:e2e --workspace apps/backend && npm run test:learning:e2e --workspace apps/backend && npm run test:daily:e2e --workspace apps/backend && npm run test:vocabulary:e2e --workspace apps/backend"
 
   # ==========================================
   # JOB 2: AI / ML Service CI (FastAPI + PyTorch)
@@ -116,11 +126,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Prepare Google Services Configuration for CI
-        run: |
-          cp -fv apps/mobile/android/app/google-services.json.example apps/mobile/android/app/google-services.json
-          ls -la apps/mobile/android/app/google-services.json
-
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -153,8 +158,6 @@ jobs:
       - name: Build Android APK (Test Build Verification)
         run: |
           cd apps/mobile
-          cp -fv android/app/google-services.json.example android/app/google-services.json
-          ls -la android/app/google-services.json
           flutter build apk --debug
 
       - name: Upload Debug APK Artifact

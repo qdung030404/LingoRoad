@@ -144,6 +144,7 @@ class _WritingPreviewPageState extends State<WritingPreviewPage> {
 
   @override
   Widget build(BuildContext context) => PreviewSurface(
+    showSampleLabel: false,
     child: FigmaPage(
       titleStyle: designHeading(18),
       title: 'Luyện Viết',

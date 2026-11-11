@@ -7,36 +7,189 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  LEARNER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum CefrLevel {
+  A1
+  A2
+  B1
+  B2
+  C1
+  C2
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  APPLE
+}
+
+enum LearningPurpose {
+  EXAM
+  WORK
+  DAILY_COMMUNICATION
+  STUDY
+}
+
+enum AssessmentSkill {
+  READING
+  LISTENING
+  WRITING
+  SPEAKING
+}
+
 model User {
-  id                String             @id @default(uuid()) @db.Uuid
-  email             String             @unique @db.VarChar(255)
-  passwordHash      String?            @map("password_hash") @db.VarChar(255)
-  name              String             @db.VarChar(100)
-  avatarUrl         String?            @map("avatar_url") @db.VarChar(500)
-  provider          AuthProvider       @default(LOCAL)
-  firebaseUid       String?            @unique @map("firebase_uid") @db.VarChar(128)
-  role              UserRole           @default(LEARNER)
-  status            UserStatus         @default(ACTIVE)
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
-  placementSessions PlacementSession[]
-  refreshSessions   RefreshSession[]
+  id           String         @id @default(uuid()) @db.Uuid
+  email        String         @unique @db.VarChar(255)
+  passwordHash String?        @map("password_hash") @db.VarChar(255)
+  firebaseUid  String?        @unique @map("firebase_uid") @db.VarChar(128)
+  avatarUrl    String?        @map("avatar_url") @db.VarChar(500)
+  provider     AuthProvider   @default(LOCAL)
+  name         String         @db.VarChar(100)
+  role         UserRole       @default(LEARNER)
+  status       UserStatus     @default(ACTIVE)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
   profile           UserProfile?
+  refreshSessions   RefreshSession[]
+  placementSessions PlacementSession[]
+  learningAttempts  LearningAttempt[]
+  dayPlans          LearningDayPlan[]
+  activitySessions  LearningActivitySession[]
+  vocabularyDecks VocabularyDeck[]
+  vocabularyReviews VocabularyReviewAttempt[]
+  vocabularyReceipts VocabularyCommandReceipt[]
+  speakingSubmissions SpeakingSubmission[]
+  voiceConversations VoiceConversation[]
 
   @@map("users")
 }
 
+enum VoiceHistoryStatus {
+  PENDING
+  SAVED
+  DISCARDED
+}
+
+model VoiceConversation {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  clientRequestId String @map("client_request_id") @db.Uuid
+  activeUserId String? @unique @map("active_user_id") @db.Uuid
+  topicId String @map("topic_id") @db.Uuid
+  topicSnapshot Json @map("topic_snapshot") @db.JsonB
+  status String @default("CREATED") @db.VarChar(30)
+  endReason String? @map("end_reason") @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  startedAt DateTime? @map("started_at")
+  endedAt DateTime? @map("ended_at")
+  historyStatus VoiceHistoryStatus @default(SAVED) @map("history_status")
+  assessmentStatus String @default("UNASSESSED") @map("assessment_status") @db.VarChar(30)
+  assessment Json? @db.JsonB
+  assessmentAudioHash String? @map("assessment_audio_hash") @db.VarChar(64)
+  assessmentStartedAt DateTime? @map("assessment_started_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  turns VoiceConversationTurn[]
+  @@unique([userId, clientRequestId])
+  @@index([userId, createdAt, id])
+  @@index([historyStatus, endedAt])
+  @@map("voice_conversations")
+}
+
+model VoiceConversationTurn {
+  id String @id @default(uuid()) @db.Uuid
+  conversationId String @map("conversation_id") @db.Uuid
+  providerItemId String @map("provider_item_id") @db.VarChar(200)
+  sequence Int
+  role String @db.VarChar(20)
+  transcript String @db.Text
+  translationVi String? @map("translation_vi") @db.Text
+  interrupted Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  conversation VoiceConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  @@unique([conversationId, providerItemId])
+  @@index([conversationId, sequence])
+  @@map("voice_conversation_turns")
+}
+
+enum SpeakingStatus {
+  CREATED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  UNKNOWN
+}
+
+enum SpeakingMode {
+  READ_ALOUD
+  TOPIC
+  TONGUE_TWISTER
+}
+
+model SpeakingPrompt {
+  mode SpeakingMode @default(READ_ALOUD)
+  title String @default("")
+  difficulty Int @default(1)
+  maxDurationSeconds Int @default(30) @map("max_duration_seconds")
+  hints Json @default("[]")
+  sampleAsset String? @map("sample_asset")
+  id String @id @default(uuid()) @db.Uuid
+  code String @unique @db.VarChar(100)
+  text String @db.Text
+  contentVersion Int @default(1) @map("content_version")
+  sortOrder Int @map("sort_order")
+  published Boolean @default(true)
+  @@index([mode, sortOrder])
+  submissions SpeakingSubmission[]
+  @@map("speaking_prompts")
+}
+
+model SpeakingSubmission {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  promptId String @map("prompt_id") @db.Uuid
+  clientRequestId String @map("client_request_id") @db.Uuid
+  promptSnapshot Json @map("prompt_snapshot") @db.JsonB
+  audioHash String? @map("audio_hash") @db.VarChar(64)
+  status SpeakingStatus @default(CREATED)
+  result Json? @db.JsonB
+  errorCode String? @map("error_code") @db.VarChar(100)
+  adapterVersion String? @map("adapter_version") @db.VarChar(100)
+  processingAt DateTime? @map("processing_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt SpeakingPrompt @relation(fields: [promptId], references: [id], onDelete: Restrict)
+  @@unique([userId, clientRequestId])
+  @@index([userId, createdAt, id])
+  @@index([status, processingAt])
+  @@map("speaking_submissions")
+}
+
 model UserProfile {
-  id                    String           @id @default(uuid()) @db.Uuid
-  userId                String           @unique @map("user_id") @db.Uuid
-  targetCefr            CefrLevel        @default(B1) @map("target_cefr")
-  dailyGoalMinutes      Int              @default(10) @map("daily_goal_minutes")
-  learningPurpose       LearningPurpose? @map("learning_purpose")
-  selfAssessedCefr      CefrLevel?       @map("self_assessed_cefr")
-  onboardingCompletedAt DateTime?        @map("onboarding_completed_at")
-  reminderEnabled       Boolean          @default(true) @map("reminder_enabled")
-  updatedAt             DateTime         @updatedAt @map("updated_at")
-  user                  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @unique @map("user_id") @db.Uuid
+  targetCefr       CefrLevel @default(B1) @map("target_cefr")
+  dailyGoalMinutes Int       @default(10) @map("daily_goal_minutes")
+  preferredKinds LearningKind[] @default([GRAMMAR, VOCABULARY, READING, LISTENING]) @map("preferred_kinds")
+  preferencesVersion Int @default(0) @map("preferences_version")
+  learningPurpose LearningPurpose? @map("learning_purpose")
+  selfAssessedCefr CefrLevel? @map("self_assessed_cefr")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+  reminderEnabled  Boolean   @default(true) @map("reminder_enabled")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
 }
@@ -50,32 +203,57 @@ model RefreshSession {
   expiresAt        DateTime @map("expires_at")
   isRevoked        Boolean  @default(false) @map("is_revoked")
   createdAt        DateTime @default(now()) @map("created_at")
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isRevoked])
   @@index([tokenHash])
   @@map("refresh_sessions")
 }
 
+enum SessionStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum ItemType {
+  MULTIPLE_CHOICE
+  CLOZE
+  SENTENCE_REORDER
+  MATCHING
+  GAP_FILL
+  ESSAY
+  SPEAKING_PROMPT
+}
+
+enum ItemUsageScope {
+  PLACEMENT
+  MOCK_EXAM
+  PRACTICE
+  ALL
+}
+
 model PlacementSession {
-  id               String               @id @default(uuid()) @db.Uuid
-  userId           String               @map("user_id") @db.Uuid
-  status           SessionStatus        @default(IN_PROGRESS)
-  currentItemIndex Int                  @default(0) @map("current_item_index")
-  totalItems       Int                  @default(10) @map("total_items")
-  testVersion      String               @default("READING_LISTENING_V1") @map("test_version")
-  bankVersion      String               @default("demo-v1") @map("bank_version")
-  currentItemId    String?              @map("current_item_id") @db.Uuid
-  version          Int                  @default(0)
-  skillResults     Json?                @map("skill_results")
-  correctCount     Int                  @default(0) @map("correct_count")
-  estimatedCefr    CefrLevel?           @map("estimated_cefr")
-  confidenceScore  Float?               @map("confidence_score")
-  startedAt        DateTime             @default(now()) @map("started_at")
-  completedAt      DateTime?            @map("completed_at")
-  responses        AssessmentResponse[]
-  currentItem      AssessmentItem?      @relation(fields: [currentItemId], references: [id], onDelete: Restrict)
-  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String        @id @default(uuid()) @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  status           SessionStatus @default(IN_PROGRESS)
+  currentItemIndex Int           @default(0) @map("current_item_index")
+  totalItems       Int           @default(10) @map("total_items")
+  testVersion      String        @default("READING_LISTENING_V1") @map("test_version")
+  bankVersion      String        @default("demo-v1") @map("bank_version")
+  currentItemId    String?       @map("current_item_id") @db.Uuid
+  version          Int           @default(0)
+  skillResults     Json?         @map("skill_results") @db.JsonB
+  correctCount     Int           @default(0) @map("correct_count")
+  estimatedCefr    CefrLevel?    @map("estimated_cefr")
+  confidenceScore  Float?        @map("confidence_score")
+  startedAt        DateTime      @default(now()) @map("started_at")
+  completedAt      DateTime?     @map("completed_at")
+
+  responses AssessmentResponse[]
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentItem AssessmentItem? @relation(fields: [currentItemId], references: [id], onDelete: Restrict)
 
   @@index([userId, status])
   @@map("placement_sessions")
@@ -135,81 +313,244 @@ model AssessmentItem {
 }
 
 model AssessmentResponse {
-  id             String           @id @default(uuid()) @db.Uuid
-  sessionId      String           @map("session_id") @db.Uuid
-  itemId         String           @map("item_id") @db.Uuid
-  itemIndex      Int              @map("item_index")
-  selectedOption String           @map("selected_option") @db.VarChar(500)
-  isCorrect      Boolean          @map("is_correct")
-  responseTimeMs Int?             @map("response_time_ms")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  item           AssessmentItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  session        PlacementSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  id             String   @id @default(uuid()) @db.Uuid
+  sessionId      String   @map("session_id") @db.Uuid
+  itemId         String   @map("item_id") @db.Uuid
+  itemIndex      Int      @map("item_index")
+  selectedOption String   @map("selected_option") @db.VarChar(500)
+  isCorrect      Boolean  @map("is_correct")
+  responseTimeMs Int?     @map("response_time_ms")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  session PlacementSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  item    AssessmentItem   @relation(fields: [itemId], references: [id], onDelete: Restrict)
 
   @@unique([sessionId, itemIndex])
   @@unique([sessionId, itemId])
   @@map("assessment_responses")
 }
 
-enum UserRole {
-  LEARNER
-  ADMIN
-}
-
-enum UserStatus {
-  ACTIVE
-  SUSPENDED
-  DELETED
-}
-
-enum CefrLevel {
-  A1
-  A2
-  B1
-  B2
-  C1
-  C2
-}
-
-enum AuthProvider {
-  LOCAL
-  GOOGLE
-  APPLE
-}
-
-enum LearningPurpose {
-  EXAM
-  WORK
-  DAILY_COMMUNICATION
-  STUDY
-}
-
-enum AssessmentSkill {
+enum LearningKind {
+  GRAMMAR
+  VOCABULARY
   READING
   LISTENING
-  WRITING
-  SPEAKING
 }
 
-enum SessionStatus {
+enum LearningAttemptStatus {
   IN_PROGRESS
   COMPLETED
-  ABANDONED
 }
 
-enum ItemType {
-  MULTIPLE_CHOICE
-  CLOZE
-  SENTENCE_REORDER
-  MATCHING
-  GAP_FILL
-  ESSAY
-  SPEAKING_PROMPT
+model LearningLesson {
+  id               String       @id @default(uuid()) @db.Uuid
+  code             String       @unique @db.VarChar(100)
+  kind             LearningKind
+  title            String       @db.VarChar(200)
+  description      String       @db.Text
+  estimatedMinutes Int          @map("estimated_minutes")
+  sortOrder        Int          @map("sort_order")
+  published        Boolean      @default(false)
+  contentVersion   Int          @default(1) @map("content_version")
+  content          Json         @db.JsonB
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+  attempts         LearningAttempt[]
+
+  @@index([published, sortOrder])
+  @@map("learning_lessons")
 }
 
-enum ItemUsageScope {
-  PLACEMENT
-  MOCK_EXAM
-  PRACTICE
-  ALL
+model LearningAttempt {
+  id               String                @id @default(uuid()) @db.Uuid
+  userId           String                @map("user_id") @db.Uuid
+  lessonId         String                @map("lesson_id") @db.Uuid
+  status           LearningAttemptStatus @default(IN_PROGRESS)
+  version          Int                   @default(0)
+  phase            String                @default("STUDY") @db.VarChar(10)
+  positionIndex    Int                   @default(0) @map("position_index")
+  lessonSnapshot   Json                  @map("lesson_snapshot") @db.JsonB
+  contentSnapshot  Json                  @map("content_snapshot") @db.JsonB
+  correctCount     Int?                  @map("correct_count")
+  totalQuestions   Int                   @map("total_questions")
+  startedAt        DateTime              @default(now()) @map("started_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  submittedAt      DateTime?             @map("submitted_at")
+  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson           LearningLesson        @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  answers          LearningAttemptAnswer[]
+  activitySessions LearningActivitySession[]
+
+  @@index([userId, status, updatedAt])
+  @@index([userId, lessonId])
+  @@map("learning_attempts")
+}
+
+model LearningAttemptAnswer {
+  id          String          @id @default(uuid()) @db.Uuid
+  attemptId   String          @map("attempt_id") @db.Uuid
+  questionId  String          @map("question_id") @db.VarChar(100)
+  optionId    String?         @map("option_id") @db.VarChar(100)
+  checked     Boolean         @default(false)
+  isCorrect   Boolean?        @map("is_correct")
+  checkedAt   DateTime?       @map("checked_at")
+  attempt     LearningAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@unique([attemptId, questionId])
+  @@map("learning_attempt_answers")
+}
+
+model LearningDayPlan {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  date String @db.VarChar(10)
+  version Int @default(0)
+  preferencesVersion Int @map("preferences_version")
+  dailyGoalMinutes Int @map("daily_goal_minutes")
+  items Json @db.JsonB
+  policyVersion String @default("baseline-v1") @map("policy_version")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, date])
+  @@map("learning_day_plans")
+}
+
+model LearningActivitySession {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  attemptId String @map("attempt_id") @db.Uuid
+  clientRunId String @map("client_run_id") @db.Uuid
+  anchorAt DateTime @default(now()) @map("anchor_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt LearningAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  segments LearningActivitySegment[]
+  @@unique([userId, attemptId, clientRunId])
+  @@index([userId, anchorAt])
+  @@map("learning_activity_sessions")
+}
+
+model LearningActivitySegment {
+  id String @id @default(uuid()) @db.Uuid
+  sessionId String @map("session_id") @db.Uuid
+  seq Int
+  startOffsetMs Int @map("start_offset_ms")
+  endOffsetMs Int @map("end_offset_ms")
+  startAt DateTime? @map("start_at")
+  endAt DateTime? @map("end_at")
+  session LearningActivitySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  @@unique([sessionId, seq])
+  @@index([startAt, endAt])
+  @@map("learning_activity_segments")
+}
+
+model VocabularyDeck {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  name String @db.VarChar(60)
+  version Int @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  words VocabularyWord[]
+  reviews VocabularyReviewAttempt[]
+  @@index([userId, deletedAt, createdAt, id])
+  @@map("vocabulary_decks")
+}
+
+model VocabularyWord {
+  id String @id @default(uuid()) @db.Uuid
+  deckId String @map("deck_id") @db.Uuid
+  english String @db.VarChar(100)
+  meaning String @db.VarChar(500)
+  phonetic String @default("") @db.VarChar(100)
+  partOfSpeech String @default("") @map("part_of_speech") @db.VarChar(50)
+  example String @default("") @db.VarChar(1000)
+  translation String @default("") @db.VarChar(1000)
+  acceptedAnswers String[] @map("accepted_answers")
+  contentVersion Int @default(1) @map("content_version")
+  version Int @default(0)
+  learningState String @default("NEEDS_REVIEW") @map("learning_state") @db.VarChar(20)
+  lastPresentedAt DateTime? @map("last_presented_at")
+  lastReviewedAt DateTime? @map("last_reviewed_at")
+  lastReviewItemId String? @map("last_review_item_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  deck VocabularyDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  reviewItems VocabularyReviewItem[]
+  @@index([deckId, deletedAt, createdAt, id])
+  @@map("vocabulary_words")
+}
+
+model VocabularyReviewAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  deckId String @map("deck_id") @db.Uuid
+  scope String @db.VarChar(20)
+  status String @default("IN_PROGRESS") @db.VarChar(20)
+  version Int @default(0)
+  deckSnapshot Json @map("deck_snapshot") @db.JsonB
+  queue String[] @db.Uuid
+  phase String @default("FRONT") @db.VarChar(20)
+  remainingEligibleCount Int @default(0) @map("remaining_eligible_count")
+  startedAt DateTime @default(now()) @map("started_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  submittedAt DateTime? @map("submitted_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deck VocabularyDeck @relation(fields: [deckId], references: [id], onDelete: Restrict)
+  items VocabularyReviewItem[]
+  @@index([userId, startedAt, id])
+  @@map("vocabulary_review_attempts")
+}
+
+model VocabularyReviewItem {
+  id String @id @default(uuid()) @db.Uuid
+  attemptId String @map("attempt_id") @db.Uuid
+  wordId String @map("word_id") @db.Uuid
+  initialOrdinal Int @map("initial_ordinal")
+  wordContentVersion Int @map("word_content_version")
+  wordSnapshot Json @map("word_snapshot") @db.JsonB
+  state String @default("PENDING") @db.VarChar(20)
+  draft String @default("") @db.VarChar(1000)
+  checkedAnswer String? @map("checked_answer") @db.VarChar(1000)
+  normalizedAnswer String? @map("normalized_answer") @db.VarChar(1000)
+  normalizationVersion String? @map("normalization_version") @db.VarChar(10)
+  isCorrect Boolean? @map("is_correct")
+  checkedAt DateTime? @map("checked_at")
+  rating String? @db.VarChar(10)
+  resultSource String? @map("result_source") @db.VarChar(30)
+  finalizedAt DateTime? @map("finalized_at")
+  attempt VocabularyReviewAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  word VocabularyWord @relation(fields: [wordId], references: [id], onDelete: Restrict)
+  @@unique([attemptId, wordId])
+  @@map("vocabulary_review_items")
+}
+
+model VocabularyCommandReceipt {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  commandId String @map("command_id") @db.Uuid
+  action String @db.VarChar(40)
+  targetId String @map("target_id")
+  canonicalPayloadHash String @map("canonical_payload_hash") @db.VarChar(64)
+  appliedVersion Int? @map("applied_version")
+  result Json @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, commandId])
+  @@map("vocabulary_command_receipts")
+}
+
+model SpeakingGameProgress {
+  userId String @map("user_id") @db.Uuid
+  promptId String @map("prompt_id") @db.Uuid
+  contentVersion Int @map("content_version")
+  stars Int @default(0)
+  bestScore Float @default(0) @map("best_score")
+  cleared Boolean @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@id([userId, promptId, contentVersion])
+  @@map("speaking_game_progress")
 }

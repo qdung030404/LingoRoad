@@ -124,7 +124,11 @@ void main() {
           key: boundaryKey,
           child: MaterialApp(
             theme: AppTheme.lightTheme,
-            home: ResultPage(session: session, sessionId: 'session'),
+            home: ResultPage(
+              session: session,
+              sessionId: 'session',
+              initialResult: testResult(),
+            ),
           ),
         ),
       );

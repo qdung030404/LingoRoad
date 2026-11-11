@@ -44,7 +44,7 @@ model MockExamSession {
   sectionExpiresAt   DateTime?        @map("section_expires_at")
   startedAt          DateTime         @default(now()) @map("started_at")
   completedAt        DateTime?        @map("completed_at")
-  
+
   // Điểm số thô và band score từng kỹ năng
   listeningScore     Float?           @map("listening_score")
   readingScore       Float?           @map("reading_score")
@@ -52,7 +52,7 @@ model MockExamSession {
   speakingScore      Float?           @map("speaking_score")
   overallCefr        CefrLevel?       @map("overall_cefr")
   overallScore       Float?           @map("overall_score")
-  
+
   user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   submissions        MockSubmission[]
 
@@ -113,4 +113,3 @@ model MockSubmission {
    - Gọi `POST /ml/awe/evaluate-cefr` cho các bài viết Writing.
    - Gọi `POST /ml/speech/evaluate-cefr` cho các file ghi âm Speaking.
 3. Khi tất cả kết quả thành phần hoàn tất, gọi `CefrAggregationService` để tính Bậc CEFR tổng và chuyển trạng thái phiên thành `COMPLETED`.
-

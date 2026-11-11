@@ -8,7 +8,7 @@ export const Footer: React.FC = () => {
     <footer className="border-t border-slateDark-100 bg-white text-slateDark-600">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-5">
-          
+
           {/* Brand Info */}
           <div className="lg:col-span-2">
             <Link href="/" className="flex items-center gap-3">

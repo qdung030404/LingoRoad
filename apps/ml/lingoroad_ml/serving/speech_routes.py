@@ -2,8 +2,10 @@ import asyncio
 import io
 import os
 from functools import lru_cache
-from fastapi import APIRouter, UploadFile, Form, HTTPException
+from fastapi import APIRouter, UploadFile, Form, HTTPException, Request
+from python_multipart.multipart import MultipartParser, parse_options_header
 from lingoroad_ml.speech.scoring import word_scores, fluency_from_wpm
+from lingoroad_ml.speech import azure
 
 router = APIRouter()
 MAX_AUDIO_BYTES = 10 * 1024 * 1024
@@ -11,6 +13,87 @@ MAX_DURATION_SECONDS = 120
 MODEL_VERSION = os.environ.get("LINGOROAD_SPEECH_MODEL_VERSION", "faster-whisper-small")
 _speech_slots = asyncio.Semaphore(max(
     1, int(os.environ.get("LINGOROAD_SPEECH_CONCURRENCY", "1"))))
+
+
+@router.post("/speech/topic/score")
+@router.post("/speech/read-aloud/score")
+async def read_aloud_score(request: Request):
+    profile = request.headers.get("x-speaking-profile", "read-aloud-v1")
+    azure.assessment_parameters("", profile)
+    # Do not use UploadFile here: Starlette may spool malicious uploads to disk
+    # before route-level size validation runs. Parse a bounded body in memory.
+    media_type, options = parse_options_header(request.headers.get("content-type", ""))
+    boundary = options.get(b"boundary")
+    if media_type != b"multipart/form-data" or not boundary or len(boundary) > 200:
+        raise HTTPException(415, "invalid_multipart")
+    fields, current = {}, {}
+    finished = False
+
+    def part_begin():
+        current.clear()
+        current.update(header=bytearray(), value=bytearray(), headers={}, data=bytearray())
+
+    def header_field(data, start, end):
+        current["header"].extend(data[start:end])
+        if len(current["header"]) > 1024:
+            raise HTTPException(413, "multipart_headers_too_large")
+
+    def header_value(data, start, end):
+        current["value"].extend(data[start:end])
+        if len(current["value"]) > 4096:
+            raise HTTPException(413, "multipart_headers_too_large")
+
+    def header_end():
+        current["headers"][bytes(current["header"]).lower()] = bytes(current["value"])
+        current["header"].clear()
+        current["value"].clear()
+
+    def headers_finished():
+        _, opts = parse_options_header(current["headers"].get(b"content-disposition", b""))
+        name = opts.get(b"name")
+        if name not in {b"file", b"prompt_text"} or name in fields:
+            raise HTTPException(422, "invalid_multipart_fields")
+        current["name"] = name
+
+    def part_data(data, start, end):
+        limit = azure.MAX_BYTES if current["name"] == b"file" else 4000
+        if len(current["data"]) + end - start > limit:
+            raise HTTPException(413, "audio_too_large")
+        current["data"].extend(data[start:end])
+
+    def part_end():
+        fields[current["name"]] = bytes(current["data"])
+
+    def end():
+        nonlocal finished
+        finished = True
+
+    callbacks = {"on_part_begin": part_begin, "on_header_field": header_field,
+        "on_header_value": header_value, "on_header_end": header_end,
+        "on_headers_finished": headers_finished, "on_part_data": part_data,
+        "on_part_end": part_end, "on_end": end}
+    parser = MultipartParser(boundary, callbacks)
+    received = 0
+    try:
+        async for chunk in request.stream():
+            received += len(chunk)
+            if received > azure.MAX_BYTES + 16384:
+                raise HTTPException(413, "audio_too_large")
+            parser.write(chunk)
+        parser.finalize()
+        if not finished or set(fields) != {b"file", b"prompt_text"}:
+            raise HTTPException(422, "invalid_multipart_fields")
+        prompt = fields[b"prompt_text"].decode("utf-8")
+    except (ValueError, KeyError, UnicodeError):
+        raise HTTPException(422, "invalid_multipart") from None
+    if request.url.path.endswith("/topic/score"):
+        from lingoroad_ml.speech import topic
+        async with _speech_slots:
+            try:
+                return await asyncio.wait_for(asyncio.to_thread(topic.assess, fields[b"file"]), timeout=85)
+            except TimeoutError:
+                raise HTTPException(504, "azure_timeout") from None
+    return await azure.assess(fields[b"file"], prompt, profile)
 
 def _valid_signature(content_type: str | None, data: bytes) -> bool:
     signatures = {
@@ -77,3 +160,70 @@ def _score_sync(data: bytes, prompt_text: str):
             "completeness": s["completeness"], "fluency": fluency,
             "total": total, "duration_seconds": duration,
             "model_version": MODEL_VERSION, "feedback_vi": feedback}
+
+
+from pydantic import BaseModel, Field
+
+class TopicContentRequest(BaseModel):
+    topic: str = Field(min_length=1, max_length=1000)
+    hints: list[str] = Field(default_factory=list, max_length=3)
+    transcript: str = Field(min_length=1, max_length=12000)
+    durationSeconds: float = Field(gt=0, le=60, allow_inf_nan=False)
+
+@router.post("/speech/topic/content")
+async def topic_content(req: TopicContentRequest):
+    from lingoroad_ml.speech.content import evaluate
+    return await asyncio.to_thread(evaluate, req.topic, req.hints, req.transcript, req.durationSeconds)
+
+
+class ConversationTranslationRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=12000)
+
+
+class ConversationTurn(BaseModel):
+    itemId: str | None = Field(default=None, min_length=1, max_length=200)
+    role: str = Field(pattern="^(USER|ASSISTANT)$")
+    transcript: str = Field(min_length=0, max_length=12000)
+
+
+class ConversationAssessmentRequest(BaseModel):
+    perTurn: bool = False
+    topic: str = Field(min_length=1, max_length=1000)
+    turns: list[ConversationTurn] = Field(max_length=256)
+
+
+@router.post("/speech/conversation/content")
+async def conversation_content(req: ConversationAssessmentRequest):
+    from lingoroad_ml.speech.content import evaluate
+    transcript = "\n".join(turn.transcript for turn in req.turns if turn.role == "USER")
+    if sum(len(turn.transcript) for turn in req.turns) > 48000:
+        raise HTTPException(413, "conversation_too_large")
+    turns = [turn.model_dump(exclude_none=True) for turn in req.turns if turn.transcript.strip()]
+    result = await asyncio.to_thread(evaluate, req.topic, [], transcript, None, conversation=turns)
+    return {**result, "assessmentScope": "whole_conversation"}
+
+
+
+@router.post("/speech/conversation/score")
+async def conversation_pronunciation(request: Request):
+    from lingoroad_ml.speech import topic
+    data = bytearray()
+    async for chunk in request.stream():
+        if len(data) + len(chunk) > 6 * 1024 * 1024:
+            raise HTTPException(413, "audio_too_large")
+        data.extend(chunk)
+    async with _speech_slots:
+        try:
+            result = await asyncio.wait_for(asyncio.to_thread(
+                topic.assess, bytes(data), max_seconds=180, max_bytes=6 * 1024 * 1024,
+                timeout_seconds=195), timeout=200)
+        except TimeoutError:
+            raise HTTPException(504, "azure_timeout") from None
+    return {**result, "assessmentProfile": "conversation-speaking-v1",
+            "adapterVersion": "azure-conversation-v1-ipa"}
+
+
+@router.post("/speech/conversation/translate")
+async def translate_conversation(req: ConversationTranslationRequest):
+    from lingoroad_ml.speech.translation import translate
+    return await asyncio.to_thread(translate, req.text)

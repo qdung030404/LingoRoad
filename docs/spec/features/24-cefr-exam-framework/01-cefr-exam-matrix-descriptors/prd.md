@@ -81,4 +81,3 @@ Mỗi câu hỏi trắc nghiệm/điền từ lưu trữ thông số IRT (Item R
 
 - **Hiệu năng truy vấn**: Lấy trọn bộ một nhóm câu hỏi kèm tài nguyên đa phương tiện (Passage/Audio URL) trong < 100ms.
 - **Tính tương thích ngược**: Các câu hỏi cũ trong `AssessmentItem` vẫn hoạt động bình thường mà không bị gián đoạn.
-

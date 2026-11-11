@@ -12,7 +12,7 @@ export const HeroSection: React.FC = () => {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-8">
-          
+
           {/* Left Column: Headlines & Call to Actions */}
           <div className="flex flex-col items-start lg:col-span-7">
             {/* Top Badge */}
@@ -96,7 +96,7 @@ export const HeroSection: React.FC = () => {
           {/* Right Column: Interactive App Preview Showcase */}
           <div className="relative flex justify-center lg:col-span-5">
             <div className="relative w-full max-w-sm sm:max-w-md">
-              
+
               {/* Outer Decorative Glow */}
               <div className="absolute inset-0 -m-6 rounded-3xl bg-gradient-to-tr from-brand-300/30 to-brand-500/20 blur-2xl" />
 

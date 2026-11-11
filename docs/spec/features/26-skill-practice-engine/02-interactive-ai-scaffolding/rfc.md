@@ -46,7 +46,7 @@ Mobile/Web Client
 
 ### 4.1. Brainstorming Prompt Template
 ```python
-SYSTEM_SCAFFOLDING = """You are an encouraging CEFR language coach. 
+SYSTEM_SCAFFOLDING = """You are an encouraging CEFR language coach.
 Given a writing or speaking prompt and a target CEFR level (A1 to C2), provide structured guidance in VIETNAMESE.
 Return strict JSON:
 {
@@ -85,4 +85,3 @@ Return strict JSON:
   - 3 lần "Brainstorming Hints".
   - 5 lần "Check Paragraph & Rewrite".
 - Điều này vừa ngăn ngừa tình trạng lạm dụng AI làm hộ bài, vừa bảo vệ giới hạn tài nguyên hệ thống.
-

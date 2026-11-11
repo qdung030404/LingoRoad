@@ -7,19 +7,25 @@ import 'word_library.dart';
 class VocabularySummary extends StatelessWidget {
   const VocabularySummary({
     super.key,
-    required this.library,
+    this.library,
+    this.totalWords,
+    this.rememberedWords,
+    this.realData = false,
     required this.onReview,
     required this.onWords,
     this.decks,
   });
-  final WordLibrary library;
+  final WordLibrary? library;
+  final int? totalWords, rememberedWords;
+  final bool realData;
   final VoidCallback onReview, onWords;
   final Widget? decks;
 
   @override
   Widget build(BuildContext context) {
-    final total = library.totalWords;
-    final remembered = library.rememberedWords;
+    final total = totalWords ?? library?.totalWords ?? 0;
+    final remembered = rememberedWords ?? library?.rememberedWords ?? 0;
+    final totalLabel = realData ? 'Tổng từ' : 'Đã học';
     return Container(
       key: const Key('homeVocabularySummary'),
       width: double.infinity,
@@ -60,7 +66,7 @@ class VocabularySummary extends StatelessWidget {
               children: [
                 Semantics(
                   label:
-                      'Đã học $total từ, đã nhớ $remembered, cần ôn ${total - remembered}',
+                      '$totalLabel $total từ, đã nhớ $remembered, cần ôn ${total - remembered}',
                   child: ExcludeSemantics(
                     child: AspectRatio(
                       aspectRatio: 294.582 / 146.327,
@@ -80,7 +86,7 @@ class VocabularySummary extends StatelessWidget {
                             child: Column(
                               children: [
                                 Text(
-                                  'Đã học',
+                                  totalLabel,
                                   style: designText(
                                     16,
                                     color: const Color(0xFF8A8C91),

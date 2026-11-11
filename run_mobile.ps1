@@ -3,10 +3,11 @@ param(
     [Alias('d')][string]$device = '',
     [Alias('c')][switch]$clean,
     [string]$ApiBaseUrl = 'http://10.0.2.2:3000',
-    [string]$GoogleServerClientId = '741177056758-hsr0l8gk3avp17ui9ef42fhsdjhj47u3.apps.googleusercontent.com',
+    [string]$FirebaseConfig = '',
+    [string]$GoogleServerClientId = '',
     [Parameter(ValueFromRemainingArguments = $true)][string[]]$extraArgs
 )
-$ErrorActionPreference = 'Continue'
+$ErrorActionPreference = 'Stop'
 if (Test-Path Variable:\PSNativeCommandUseErrorActionPreference) {
     $PSNativeCommandUseErrorActionPreference = $false
 }
@@ -54,7 +55,24 @@ if (-not $device) {
     elseif ($onlineDevices.Count -eq 1) { $device = $onlineDevices[0] }
     else { throw 'Chi dinh -device <adb-id> hoac -emu de chon thiet bi.' }
 }
-if (-not $device) { throw 'Khong co thiet bi Android san sang.' }
+if (-not $device) { throw 'Không có thiết bị Android sẵn sàng.' }
+$firebaseArguments = @()
+if (-not $FirebaseConfig) {
+    $localFirebaseConfig = Join-Path $mobileDirectory 'firebase-config.local.json'
+    if (Test-Path -LiteralPath $localFirebaseConfig) { $FirebaseConfig = $localFirebaseConfig }
+}
+if ($FirebaseConfig) {
+    $FirebaseConfig = (Resolve-Path -LiteralPath $FirebaseConfig).Path
+    $firebaseSettings = Get-Content -LiteralPath $FirebaseConfig -Raw | ConvertFrom-Json
+    $firebaseArguments = @("--dart-define-from-file=$FirebaseConfig")
+    if ($firebaseSettings.FIREBASE_AUTH_EMULATOR_HOST) {
+        $authEmulator = [uri]("http://" + $firebaseSettings.FIREBASE_AUTH_EMULATOR_HOST)
+        if ($authEmulator.Host -in @('127.0.0.1', 'localhost')) {
+            & $adbTool -s $device reverse "tcp:$($authEmulator.Port)" "tcp:$($authEmulator.Port)"
+            if ($LASTEXITCODE -ne 0) { throw 'ADB reverse cho Firebase Auth Emulator thất bại.' }
+        }
+    }
+}
 if ($device -notlike 'emulator-*' -and $ApiBaseUrl -eq 'http://10.0.2.2:3000') {
     & $adbTool -s $device reverse tcp:3000 tcp:3000
     if ($LASTEXITCODE -ne 0) { throw 'ADB reverse that bai.' }
@@ -64,14 +82,9 @@ Push-Location $mobileDirectory
 try {
     if ($clean) { & flutter.bat clean; if ($LASTEXITCODE -ne 0) { throw 'flutter clean that bai' } }
     & flutter.bat pub get
-    if ($LASTEXITCODE -ne 0) { throw 'flutter pub get that bai' }
-    $flutterArguments = @(
-        'run',
-        '-d', $device,
-        '--dart-define=APP_ENV=dev',
-        "--dart-define=API_BASE_URL=$ApiBaseUrl",
-        "--dart-define=GOOGLE_SERVER_CLIENT_ID=$GoogleServerClientId"
-    )
+    if ($LASTEXITCODE -ne 0) { throw 'flutter pub get thất bại' }
+    $flutterArguments = @('run', '-d', $device) + $firebaseArguments + @('--dart-define=APP_ENV=dev', "--dart-define=API_BASE_URL=$ApiBaseUrl")
+    if ($GoogleServerClientId) { $flutterArguments += "--dart-define=GOOGLE_SERVER_CLIENT_ID=$GoogleServerClientId" }
     if ($extraArgs) { $flutterArguments += $extraArgs }
     & flutter.bat @flutterArguments
     if ($LASTEXITCODE -ne 0) { throw 'Flutter khong chay duoc.' }

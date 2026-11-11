@@ -62,7 +62,7 @@ export interface AssessmentItemDto {
 ### Kịch bản 1: Lấy danh sách câu hỏi làm bài không bị lộ đáp án
 - **Given**: Người học gọi API `GET /api/v1/assessment/practice/groups?skill=LISTENING&cefrLevel=B1`.
 - **When**: Backend truy vấn `assessment_item_groups` và các `assessment_items` con.
-- **Then**: 
+- **Then**:
   - Payload trả về chứa danh sách câu hỏi, file audio URL.
   - Các trường `correct_option`, `explanation`, và `transcript` bị lược bỏ hoàn toàn (null hoặc undefined).
 
@@ -70,4 +70,3 @@ export interface AssessmentItemDto {
 - **Given**: Quản trị viên lọc câu hỏi theo mã `skillCode = 'reading.skimming'`.
 - **When**: Gửi truy vấn tới cơ sở dữ liệu.
 - **Then**: Trả về đúng các câu hỏi có mã kỹ năng tương ứng với thời gian truy vấn < 50ms nhờ chỉ mục `@@index([skillCode, cefrLevel])`.
-
