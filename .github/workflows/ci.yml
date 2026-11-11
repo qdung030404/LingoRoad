@@ -67,6 +67,8 @@ jobs:
           npm run test
 
       - name: Validate Demo Content and HTTP E2E
+        env:
+          AUTH_PROVIDER: legacy
         run: |
           cd apps/backend
           npx ts-node prisma/demo-content/validate.spec.ts

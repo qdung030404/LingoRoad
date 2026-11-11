@@ -58,10 +58,10 @@ describe("AssessmentModule (E2E Integration & Zero Leakage)", () => {
         name: "Assessment Tester",
         email: testUserEmail,
         password: "Password123!",
-      });
-    if (regRes.status === 201) {
-      authToken = regRes.body.data.accessToken;
-    }
+      })
+      .expect(201);
+    authToken = regRes.body.data.accessToken;
+    expect(authToken).toEqual(expect.any(String));
   });
 
   afterAll(async () => {
