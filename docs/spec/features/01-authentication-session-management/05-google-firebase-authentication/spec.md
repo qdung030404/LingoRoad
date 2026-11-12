@@ -55,8 +55,6 @@ x-device-id: <uuid-hoặc-chuỗi-định-danh-thiết-bị-client> (Tùy chọn
   "success": true,
   "message": "Đăng nhập Google thành công",
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "4a7f28bc9e31d041a87e50392ad34bb18901c23849...",
     "user": {
       "id": "e4f8d220-410a-4a6c-b362-e61ef0598f82",
       "email": "learner@gmail.com",
@@ -65,10 +63,11 @@ x-device-id: <uuid-hoặc-chuỗi-định-danh-thiết-bị-client> (Tùy chọn
       "role": "LEARNER",
       "status": "ACTIVE",
       "provider": "GOOGLE",
+      "createdAt": "2026-10-06T09:00:00.000Z",
       "profile": {
         "id": "b1a77421-394f-4d01-a1e4-b865584e0302",
         "targetCefr": "B1",
-        "dailyGoalMinutes": 15,
+        "dailyGoalMinutes": 10,
         "reminderEnabled": true
       }
     }
@@ -80,19 +79,19 @@ x-device-id: <uuid-hoặc-chuỗi-định-danh-thiết-bị-client> (Tùy chọn
 
 #### Error Responses:
 
-- **400 Bad Request** (`AUTH_EMAIL_NOT_VERIFIED`):
-  Xảy ra khi tài khoản Google chưa được xác minh email.
+- **400 Bad Request** (`AUTH_FIREBASE_DISABLED` / `AUTH_GOOGLE_REQUIRED` / `AUTH_EMAIL_NOT_VERIFIED`):
+  Xảy ra khi chế độ Firebase bị tắt, provider không phải `google.com`, hoặc tài khoản Google chưa được xác minh email.
   ```json
   {
     "success": false,
     "statusCode": 400,
     "errorCode": "AUTH_EMAIL_NOT_VERIFIED",
-    "message": "Email từ tài khoản Google chưa được xác thực"
+    "message": "Tài khoản Google cần có email đã xác thực."
   }
   ```
 
-- **401 Unauthorized** (`AUTH_FIREBASE_INVALID_TOKEN`):
-  Xảy ra khi token hết hạn, giả mạo, hoặc sai Project ID.
+- **401 Unauthorized** (`AUTH_FIREBASE_INVALID_TOKEN` / `AUTH_INVALID_TOKEN`):
+  Xảy ra khi token hết hạn, giả mạo, bị thu hồi hoặc sai Project ID.
   ```json
   {
     "success": false,
@@ -109,34 +108,23 @@ x-device-id: <uuid-hoặc-chuỗi-định-danh-thiết-bị-client> (Tùy chọn
     "success": false,
     "statusCode": 403,
     "errorCode": "AUTH_USER_SUSPENDED",
-    "message": "Tài khoản của bạn đã bị khóa hoặc tạm ngừng hoạt động"
+    "message": "Tài khoản đã bị tạm khóa hoặc không còn hoạt động."
   }
   ```
 
-- **403 Forbidden** (`AUTH_ADMIN_GOOGLE_LINK_RESTRICTED`):
-  Tài khoản Quản trị viên không được phép tự động liên kết qua Google SSO.
-  ```json
-  {
-    "success": false,
-    "statusCode": 403,
-    "errorCode": "AUTH_ADMIN_GOOGLE_LINK_RESTRICTED",
-    "message": "Tài khoản Quản trị viên không được phép tự động liên kết qua Google SSO."
-  }
-  ```
-
-- **409 Conflict** (`AUTH_GOOGLE_ACCOUNT_CONFLICT`):
-  Tài khoản này đã được liên kết với một tài khoản Google khác.
+- **409 Conflict** (`AUTH_ACCOUNT_LINK_REQUIRED`):
+  Email của tài khoản Google đã thuộc về một tài khoản cũ trong hệ thống (không tự động gộp theo email).
   ```json
   {
     "success": false,
     "statusCode": 409,
-    "errorCode": "AUTH_GOOGLE_ACCOUNT_CONFLICT",
-    "message": "Tài khoản này đã được liên kết với một tài khoản Google khác."
+    "errorCode": "AUTH_ACCOUNT_LINK_REQUIRED",
+    "message": "Email đã thuộc tài khoản cũ. Cần chuyển đổi tài khoản trước khi đăng nhập bằng Firebase."
   }
   ```
 
-- **503 Service Unavailable** (`AUTH_FIREBASE_NOT_CONFIGURED`):
-  Dịch vụ xác thực Google chưa được cấu hình credentials trên máy chủ.
+- **503 Service Unavailable** (`AUTH_FIREBASE_NOT_CONFIGURED` / `AUTH_NOT_CONFIGURED`):
+  Dịch vụ xác thực Firebase chưa được cấu hình credentials trên máy chủ.
   ```json
   {
     "success": false,
@@ -209,12 +197,12 @@ x-device-id: <uuid-hoặc-chuỗi-định-danh-thiết-bị-client> (Tùy chọn
 
 - [x] Gửi payload chứa Firebase ID Token hợp lệ của một người dùng mới:
   - Database tạo thành công 1 bản ghi `User` (với `provider = 'GOOGLE'`, `passwordHash = null`, có `avatarUrl`, `firebaseUid`).
-  - Database tạo thành công 1 bản ghi `UserProfile`.
-  - Database tạo thành công 1 bản ghi `RefreshSession` mới có `tokenHash` được băm SHA-256.
-  - API trả về HTTP `200 OK` kèm `accessToken`, `refreshToken`, và dữ liệu `user`.
-- [x] Gửi token của người dùng đã tồn tại: Không tạo thêm User mới, trả về token hợp lệ và dữ liệu user hiện tại.
-- [x] Gửi token giả, chuỗi rác hoặc token đã hết hạn: API phản hồi HTTP `401 Unauthorized` với mã lỗi `AUTH_FIREBASE_INVALID_TOKEN`.
+  - Database tạo thành công 1 bản ghi `UserProfile` (`dailyGoalMinutes = 10`).
+  - API trả về HTTP `200 OK` kèm dữ liệu `{ user }` từ `ProfileService`.
+- [x] Gửi token của người dùng đã tồn tại (`firebaseUid`): Không tạo thêm User mới, trả về dữ liệu `{ user }` hiện tại.
+- [x] Gửi token có email trùng với tài khoản cũ khác `firebaseUid`: API phản hồi HTTP `409 Conflict` (`AUTH_ACCOUNT_LINK_REQUIRED`), tuyệt đối không tự động liên kết theo email.
+- [x] Gửi token giả, chuỗi rác hoặc token đã hết hạn: API phản hồi HTTP `401 Unauthorized` với mã lỗi `AUTH_FIREBASE_INVALID_TOKEN` / `AUTH_INVALID_TOKEN`.
 - [x] Gửi request khi tài khoản đang ở trạng thái `SUSPENDED`: API phản hồi HTTP `403 Forbidden` (`AUTH_USER_SUSPENDED`).
-- [x] Cố gắng liên kết Google với tài khoản `ADMIN`: API phản hồi HTTP `403 Forbidden` (`AUTH_ADMIN_GOOGLE_LINK_RESTRICTED`).
 - [x] Không có bất kỳ dữ liệu nhạy cảm nào của Firebase Credentials bị lộ ra ngoài log console hoặc client response.
-- [x] Client Mobile (Flutter) xử lý luồng xác thực trơn tru: có loading indicator, xử lý khi hủy (`canceled`), kiểm tra `idToken` an toàn và điều hướng chính xác.
+- [x] Client Mobile (Flutter `FirebaseIdentity` & `SessionController`) xử lý luồng xác thực trơn tru: có loading indicator, xử lý khi hủy (`canceled`), kiểm tra `idToken` an toàn và điều hướng chính xác.
+

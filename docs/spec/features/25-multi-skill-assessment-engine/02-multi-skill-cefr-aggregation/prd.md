@@ -64,5 +64,9 @@ PRD định nghĩa các yêu cầu cho việc tổng hợp điểm số từ 4 k
 - Điểm trung bình cộng: `overall = (listening + reading + writing + speaking) / 4`.
 - Quy tắc làm tròn chuẩn: Làm tròn đến 0.5 gần nhất (ví dụ: 5.75 làm tròn thành 6.0; 5.25 làm tròn thành 5.5).
 
-### 6.3. Tự động liên kết Lộ trình học (Curriculum Bridge)
-- Khi xác định được kỹ năng yếu nhất, phát sự kiện `cefr.assessment_completed` để Curriculum Engine điều chỉnh trọng số các bài học trong `LearningPath`.
+### 6.3. Tự động liên kết Lộ trình học (Curriculum Bridge) & Trạng thái Triển khai
+- Khi xác định được kỹ năng yếu nhất, phát sự kiện hoặc truyền dữ liệu kết quả để bộ lập kế hoạch điều chỉnh trọng số các bài học.
+- **Trạng thái Triển khai (Phase 1 vs Phase 2)**:
+  - **Phase 1 (Đã triển khai)**: Tổng hợp kết quả theo từng kỹ năng (`skillResults` JSONB cho `reading` và `listening` gồm `estimatedCefr`, `correctCount`, `totalItems`) đã được triển khai trong `DemoPlacementService` (`PlacementSession`) và được `PlanningService.chooseDailyItems()` sử dụng trực tiếp để ưu tiên chọn bài học cho kỹ năng có tỷ lệ đúng thấp hơn (`placementScore(kind)`).
+  - **Phase 2 (Mở rộng)**: Tổng hợp 4 kỹ năng từ `MockExamSession` / `MockSubmission` qua `CefrAggregationService` thuộc phạm vi mở rộng Phase 2.
+

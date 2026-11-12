@@ -47,9 +47,15 @@ Triển khai API Luyện tập kỹ năng có phản hồi tức thì (`POST /ap
 
 # 5. Implementation Checklist (Danh mục Triển khai)
 
-- [ ] Thêm model `PracticeSession` và `PracticeAnswer` vào Prisma schema.
-- [ ] Chạy `npx prisma generate`.
-- [ ] Xây dựng `PracticeController` với endpoints `/start`, `/:id/check`, `/:id/complete`.
-- [ ] Xây dựng `CheckPracticeAnswerUseCase` với logic trả về explanation và transcript.
-- [ ] Tích hợp EventEmitter phát sự kiện cập nhật Knowledge Tracing.
-- [ ] Viết Unit Test cho UseCase kiểm tra câu trả lời đúng/sai.
+- [x] Triển khai `LearningAttempt` & `LearningAttemptAnswer` trong `apps/backend/prisma/schema.prisma`.
+- [x] Xây dựng `PUT /learning/attempts/:attemptId/answers/:questionId/check` trả về tức thì `isCorrect`, `correctOptionId`, `explanation` và `POST /learning/attempts/:attemptId/submit` mở khóa `transcript` bài Nghe (`apps/backend/src/modules/learning/`).
+- [x] Xây dựng `GET /api/v1/assessment/practice/groups`, `GET /api/v1/assessment/practice/groups/:id`, `GET /api/v1/assessment/writing/items` và `POST /api/v1/assessment/writing/evaluate` (`apps/backend/src/modules/assessment/`).
+- [ ] Phase 2: Thêm model `PracticeSession` và `PracticeAnswer` tách biệt cho ngân hàng đề thi thử (`POST /api/v1/practice/sessions/:sessionId/check`).
+- [x] Viết Unit Test và E2E Test cho luồng kiểm tra câu trả lời tức thì Phase 1.
+
+---
+
+# 6. Status (Trạng thái)
+
+- **PHASE 1 DONE / PHASE 2 TODO**
+

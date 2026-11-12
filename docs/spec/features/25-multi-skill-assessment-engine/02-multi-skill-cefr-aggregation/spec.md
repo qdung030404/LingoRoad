@@ -67,7 +67,7 @@ export interface MockExamResultDto {
 ### Kịch bản 1: Tổng hợp điểm đạt bậc B2
 - **Given**: Thí sinh có điểm các kỹ năng: Listening = 7.5, Reading = 8.0, Writing = 6.0, Speaking = 6.5.
 - **When**: `CefrAggregationService.aggregate(sessionId)` được thực thi.
-- **Then**:
+- **Then**: 
   - Điểm trung bình cộng: `(7.5 + 8.0 + 6.0 + 6.5) / 4 = 7.0`.
   - Bậc CEFR xác định: `B2`.
   - Kỹ năng yếu nhất xác định: `WRITING`.
@@ -77,3 +77,4 @@ export interface MockExamResultDto {
 - **Given**: Thí sinh có tổng điểm 4 kỹ năng là `23.0` (Trung bình = 5.75).
 - **When**: Tính điểm làm tròn.
 - **Then**: Điểm Overall được làm tròn lên thành `6.0` (Đạt chuẩn B2).
+

@@ -64,6 +64,10 @@ Nếu có sự cố hoặc người dùng chủ động bỏ thi: `ABANDONED`.
 - Khi bắt đầu một Section, server lưu `sectionStartedAt` và tính `sectionExpiresAt = sectionStartedAt + durationMinutes`.
 - Mọi câu trả lời gửi lên sau thời điểm `sectionExpiresAt + 10 giây (grace period)` đều bị từ chối với mã lỗi 403 (Time expired).
 
-### 6.3. Cơ chế Nộp bài Bất đồng bộ (Async Queue)
+### 6.3. Cơ chế Nộp bài Bất đồng bộ (Async Queue) & Trạng thái Triển khai
 - Khi nộp bài Writing và file ghi âm Speaking, backend ghi nhận trạng thái `SUBMITTED` và đẩy tác vụ chấm điểm vào hàng đợi (BullMQ / In-memory queue).
 - Hệ thống gửi thông báo WebSocket / Push Notification khi AI hoàn thành chấm điểm.
+- **Trạng thái Triển khai (Phase 1 vs Phase 2)**:
+  - **Phase 1 (Đã triển khai)**: Đánh giá thích ứng đa kỹ năng cho 2 kỹ năng tiếp nhận (`READING` + `LISTENING`) đã được triển khai hoàn chỉnh trong `PlacementModule` (`DemoPlacementService`, lưu `skillResults` JSONB theo từng kỹ năng trong `PlacementSession`). Ngoài ra, chấm điểm CEFR Writing (`POST /api/v1/assessment/writing/evaluate`) và Speaking (`SpeakingModule`) đã hoạt động độc lập.
+  - **Phase 2 (Mở rộng)**: Máy trạng thái phòng thi thử 4 kỹ năng nối tiếp tính giờ nghiêm ngặt (`MockExamSession` / `MockSubmission`) thuộc phạm vi mở rộng Phase 2.
+

@@ -51,13 +51,24 @@ PRD định nghĩa các yêu cầu cho Trợ lý Học tập AI tương tác (AI
 
 # 6. Functional Requirements (Yêu cầu Chức năng)
 
-### 6.1. API Gợi ý Ý tưởng (Brainstorming Assistance)
+### 6.1. Dàn bài & Từ vựng Chuẩn bị Chủ đề Nói & Hội thoại AI (Speaking Topic & Conversation Preparation Scaffolding - Đã triển khai Phase 1)
+- Trong `apps/backend/src/modules/speaking/conversation-preparation.ts` và endpoint `GET /speaking/conversations/topics/:id`:
+  - Cung cấp bộ khung chuẩn bị (`conversationPreparation(code)`) cho từng chủ đề hội thoại (`topic-1` đến `topic-6`):
+    - `goal`: Mục tiêu giao tiếp của chủ đề bằng tiếng Việt.
+    - `vocabulary`: 12 từ/cụm từ vựng trọng tâm kèm `meaningVi` và câu ví dụ `example`.
+    - `phrases`: 8 mẫu câu trả lời hoàn chỉnh (`text` và `meaningVi`).
+    - `helpPhrases`: Các câu cầu cứu giao tiếp thực tế (*"Could you repeat that, please?"*, *"Could you speak more slowly, please?"*, *"Could you explain that in Vietnamese?"*).
+    - `tips`: 3 mẹo trả lời mở rộng ý và sử dụng tính năng dịch trực tiếp dưới lời thoại AI (`POST /speaking/conversations/:id/turns/:itemId/translate`).
+    - Liên kết các bài luyện đọc mẫu (`linkedPrompts`) giúp người học khởi động phát âm trước khi bước vào hội thoại tự do.
+
+### 6.2. API Gợi ý Ý tưởng Động (Dynamic LLM Brainstorming Assistance - Mở rộng Phase 2)
 - Nhận diện `prompt` đề bài và bậc `cefrLevel`.
 - Trả về danh sách luận điểm cốt lõi, từ nối liên kết và câu hỏi gợi mở tư duy.
 
-### 6.2. API Đánh giá Đoạn văn Tức thì & Đề xuất Viết lại
-- Tiếp nhận đoạn văn nháp (Draft text) hoặc audio bản phiên âm.
-- Phát hiện lỗi ngữ pháp, lỗi từ vựng và đưa ra phương án viết lại tự nhiên hơn (Sentence Rewrite Suggestion) kèm giải thích lý do bằng tiếng Việt.
+### 6.3. API Đánh giá & Đề xuất Viết lại Câu văn (`POST /api/v1/assessment/writing/evaluate` & `/check-draft`)
+- Đánh giá bài viết theo chuẩn CEFR (`EvaluateCefrWritingUseCase`) trả về `grammarChecklist`, `improvementSteps`, và `feedback` từng câu (`originalSentence`, `issueVi`, `suggestion`, `explanationVi`).
+- Mở rộng thêm endpoint kiểm tra đoạn văn nháp nhanh (`/api/v1/practice/ai/check-draft`) trong Phase 2.
 
-### 6.3. Tích hợp Trực tiếp với FSRS Engine
-- Trả về payload từ vựng ở định dạng chuẩn để client có thể gọi ngay `POST /vocabulary/saved-words` mà không cần nhập thủ công nghĩa hay ví dụ.
+### 6.4. Tích hợp với Hệ thống Từ vựng (`VocabularyModule`)
+- Hỗ trợ lưu từ vựng vào các bộ thẻ (`VocabularyDeck` / `VocabularyWord`) để ôn luyện.
+

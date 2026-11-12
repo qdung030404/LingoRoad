@@ -1,50 +1,95 @@
-> Cập nhật phạm vi 08/11/2026: triển khai hiện tại là **luyện đọc câu bằng Azure**, theo [đặc tả read-aloud](read-aloud-v1.md). Phần nói tự do, Whisper/acoustic rubric và ánh xạ CEFR bên dưới là đề xuất cho giai đoạn sau, chưa được kiểm chứng hoặc nghiệm thu. Không dùng ngưỡng WPM để suy ra CEFR của người học.
-
-# Product Requirements Document (PRD) - CEFR Speaking Scoring Pipeline
+# Product Requirements Document (PRD) - Unscripted Topic Speaking 2-Stage Pipeline
 
 ## Mission (Sứ mệnh)
 
-PRD định nghĩa tiêu chuẩn và quy trình chấm điểm bài thi Nói (Speaking Evaluation Pipeline) kết hợp giữa AI nhận dạng âm thanh (Whisper STT), bộ đo lường chỉ số phát âm (Acoustic & Fluency Metrics) và Mô hình ngôn ngữ lớn (LLM) để đánh giá năng lực nói theo 4 tiêu chí CEFR chuẩn quốc tế.
+PRD định nghĩa tiêu chuẩn và quy trình chấm điểm bài nói tự do theo chủ đề (`TOPIC` mode, tối đa 60 giây) theo kiến trúc Pipeline 2 Giai đoạn: Giai đoạn 1 chấm phát âm liên tục và nhận dạng giọng nói qua Azure Speech SDK (`POST /speech/topic/score`), Giai đoạn 2 đánh giá nội dung, từ vựng và ngữ pháp bằng LLM (`POST /speech/topic/content`) kèm cơ chế chấm lại độc lập (`POST /speaking/submissions/:id/content`).
 
 ---
 
 # 1. Problem Statement (Phát biểu Bài toán)
 
-- Đánh giá kỹ năng Nói là một trong những phần khó và tốn kém nhất nếu chấm thủ công bằng giám khảo con người.
-- Tính năng chấm phát âm cơ bản trước đây (`01-audio-upload-pronunciation-scoring`) chỉ đo mức độ chuẩn xác của từng từ vựng riêng lẻ khi đọc lại văn bản có sẵn (Read-aloud), chưa đánh giá được năng lực nói tự do (Spontaneous Speech).
-- Trong bài thi CEFR (và VSTEP), thí sinh phải tự diễn đạt ý kiến trước câu hỏi mở (Part 1, 2, 3), đòi hỏi hệ thống phải đánh giá được cả độ trôi chảy (Fluency), ngữ âm (Pronunciation), vốn từ và ngữ pháp của bài nói tự sinh.
+- Khác với đọc văn bản có sẵn (`READ_ALOUD`), khi nói tự do theo chủ đề (`TOPIC`), người học không có kịch bản cố định. Hệ thống vừa phải nhận diện lời nói liên tục trong tối đa 60 giây để chấm phát âm/độ lưu loát/ngữ điệu, vừa phải đánh giá xem nội dung bài nói có đúng trọng tâm chủ đề, dùng từ vựng và ngữ pháp có chính xác hay không.
+- Nếu gộp cứng cả 2 bước vào một giao dịch duy nhất, khi dịch vụ LLM bị chậm hoặc lỗi tạm thời, người học sẽ bị mất luôn kết quả phát âm và phải ghi âm lại từ đầu. Do đó, cần tách thành 2 giai đoạn độc lập với khả năng lưu kết quả phát âm ngay lập tức và cho phép thử lại riêng phần chấm nội dung.
 
 ---
 
 # 2. Goals & Measurable Outcomes (Mục tiêu & Kết quả có thể đo lường)
 
-- **Đánh giá toàn diện 4 tiêu chí CEFR Speaking**:
-  1. *Fluency & Coherence (Độ lưu loát và mạch lạc)*: Tốc độ nói (WPM), độ ngập ngừng, khoảng dừng tự nhiên.
-  2. *Pronunciation (Phát âm)*: Trọng âm từ, ngữ điệu và độ rõ ràng của phụ âm/nguyên âm.
-  3. *Lexical Resource (Vốn từ vựng)*: Sử dụng từ ngữ phù hợp ngữ cảnh đề bài, dùng được idioms/collocations ở bậc cao.
-  4. *Grammatical Range & Accuracy (Ngữ pháp)*: Cấu trúc câu linh hoạt, kiểm soát thì động từ.
-- **Quy đổi điểm thống nhất**:
-  - Mỗi tiêu chí chấm từ 1.0 đến 5.0 (bước nhảy 0.5).
-  - Quy đổi tổng điểm sang thang điểm 10.0 và xếp loại Bậc CEFR (A1 - C2).
-- **Thời gian xử lý Pipeline**: Hoàn tất phân tích file audio từ 30-60 giây trong < 8 giây.
+- **Stage 1 - Chấm Phát âm Liên tục (`topic-speaking-v1`)**:
+  - Nhận diện lời nói liên tục nhiều câu qua Azure Continuous Recognition.
+  - Tính điểm `accuracy`, `fluency`, `prosody` theo trọng số thời lượng từng từ (`durationMs`) và điểm tổng phát âm: `overall = round((40 × Acc + 25 × Flu + 25 × Pros) ÷ 90)`.
+  - Lưu ngay kết quả Stage 1 vào `SpeakingSubmission` (`status = 'SUCCEEDED'`) trước khi gọi Stage 2.
+- **Stage 2 - Đánh giá Nội dung bằng LLM (`topic-content-v1`)**:
+  - Khi bài nói đạt tối thiểu `10 giây` thời lượng phát âm và `≥ 20 từ`, gọi LLM chấm 3 chỉ số (thang 0–100): `vocabulary`, `grammar`, `topic`.
+  - Trả về 1–2 điểm mạnh bằng tiếng Việt (`strengths`) và 1–3 gợi ý sửa câu cụ thể trích dẫn nguyên văn từ bài nói (`improvements: [{ original, suggestion, reason }]`).
+- **Hỗ trợ thử lại Stage 2 (`POST /speaking/submissions/:id/content`)**: Cho phép chấm lại nội dung từ `transcript` đã lưu mà không cần ghi âm lại.
 
 ---
 
 # 3. Non-Goals (Ngoài mục tiêu)
 
-- Đánh giá ngôn ngữ cơ thể, cử chỉ mắt qua camera (chỉ phân tích file audio giọng nói).
+- Đánh giá hình ảnh khuôn mặt qua video camera.
 
 ---
 
 # 4. Target Users (Người dùng Mục tiêu)
 
-- **Learners**: Thí sinh thi thử hoặc người học luyện nói muốn biết điểm số và nhận xét phát âm của mình.
+- **Learners**: Người học luyện nói tự do theo chủ đề trong vòng 60 giây.
 
 ---
 
 # 5. User Journey (Hành trình Người dùng)
 
-1. Học viên ghi âm câu trả lời cho một chủ đề nói (ví dụ: Part 2 VSTEP - Thảo luận phương án).
-2. Ứng dụng tải file âm thanh lên hệ thống.
-3. Pipeline AI chuyển âm thanh thành văn bản (STT), phân tích nhịp điệu và gửi bản phiên âm cho LLM chấm điểm.
-4. Học viên nhận bảng điểm chi tiết, xem lại bản phiên âm có đánh dấu những chỗ phát âm sai hoặc khoảng lặng quá lâu, cùng lời khuyên cải thiện bằng tiếng Việt.
+1. Người học chọn chế độ Nói theo chủ đề (`TOPIC`), xem câu hỏi chủ đề và các câu hỏi gợi ý (`hints`).
+2. Người học ghi âm bài nói tự do (tối đa 60 giây) và gửi lên hệ thống.
+3. Hệ thống thực thi Stage 1 (Azure Continuous Pronunciation) và Stage 2 (LLM Content Rubric), trả về bảng điểm phát âm kèm bản phiên âm (`recognizedText`), điểm Từ vựng / Ngữ pháp / Chủ đề và các thẻ gợi ý diễn đạt tự nhiên hơn bằng tiếng Việt.
+4. Nếu bài nói quá ngắn (< 10 giây hoặc < 20 từ), người học vẫn nhận được đầy đủ điểm phát âm và thông báo giải thích cần nói dài hơn để AI nhận xét nội dung.
+5. Nếu dịch vụ LLM tạm thời bận, người học vẫn thấy ngay điểm phát âm và có nút "Thử chấm lại nội dung" (`POST /speaking/submissions/:id/content`).
+
+---
+
+# 6. Functional Requirements (Yêu cầu Chức năng)
+
+- FastAPI `POST /speech/topic/score` (`apps/ml/lingoroad_ml/speech/topic.py`): Chấm phát âm liên tục không có văn bản tham chiếu (`reference_text = ""`), trả về `transcript`, `words`, `phonemes` và điểm `overall`, `accuracy`, `fluency`, `prosody`.
+- FastAPI `POST /speech/topic/content` (`apps/ml/lingoroad_ml/speech/content.py`): Đánh giá `transcript` theo đề bài `prompt_title`, `prompt_question`, `hints`, kiểm tra mọi câu `original` trong `improvements` phải xuất hiện thực tế trong `transcript`.
+- NestJS `POST /speaking/submissions/:id/content`: Chấm bổ sung hoặc chấm lại phần nội dung cho một submission `TOPIC` đã hoàn thành Stage 1.
+
+---
+
+# 7. Business Rules (Quy tắc Nghiệp vụ)
+
+- Thời lượng ghi âm tối đa cho chế độ `TOPIC` là `60 giây`.
+- Điều kiện kích hoạt Stage 2 (LLM Content Evaluation): Tổng thời lượng phát âm các từ `spokenSeconds ≥ 10` VÀ số lượng từ nhận dạng được `words.length ≥ 20`. Nếu chưa đạt, đặt `contentEvaluator = { status: 'SKIPPED_TOO_SHORT', reason: 'SPEAKING_TOPIC_TOO_SHORT' }`.
+
+---
+
+# 8. Success Metrics (Chỉ số Thành công - KPIs)
+
+- 100% bài nộp `TOPIC` hợp lệ bảo toàn được điểm phát âm Stage 1 ngay cả khi Stage 2 LLM gặp sự cố.
+- 0% trường hợp LLM tự bịa đặt câu nói không có trong `transcript` nhờ bước hậu kiểm chuỗi con (`_verify_quote`).
+
+---
+
+# 9. Constraints (Ràng buộc)
+
+- Yêu cầu `JwtAuthGuard` và `x-internal-token`.
+
+---
+
+# 10. Risks (Rủi ro)
+
+- LLM trích dẫn câu không khớp với bản phiên âm: Hàm `_verify_quote` trong `content.py` tự động lọc bỏ mọi gợi ý có trường `original` không nằm trong `transcript`.
+
+---
+
+# 11. Dependencies (Sự phụ thuộc)
+
+- Azure Cognitive Services Speech SDK, LLM Provider (Azure OpenAI / OpenAI / Gemini), PostgreSQL.
+
+---
+
+# 12. Open Questions (Câu hỏi Mở)
+
+- Không có.
+
+# End
