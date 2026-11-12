@@ -280,3 +280,8 @@ class PreviewProgress extends StatelessWidget {
     ],
   );
 }
+
+DateTime vietnamNow([DateTime? now]) =>
+    (now ?? DateTime.now()).toUtc().add(const Duration(hours: 7));
+
+const String learningHomeRouteName = 'learning-home';
