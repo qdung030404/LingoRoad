@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class AppRadius {
   AppRadius._();
 
+  static const double xxs = 4.0;
   static const double xs = 6.0;
   static const double sm = 10.0;
   static const double md = 14.0;
@@ -12,6 +13,8 @@ class AppRadius {
   static const double full = 999.0;
 
   // Semantic Radius conforming to AGENTS.md
+  static const BorderRadius xxsRadius = BorderRadius.all(Radius.circular(xxs));
+  static const BorderRadius xsRadius = BorderRadius.all(Radius.circular(xs));
   static const BorderRadius buttonRadius = BorderRadius.all(
     Radius.circular(99),
   );

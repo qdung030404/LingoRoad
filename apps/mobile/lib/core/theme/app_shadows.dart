@@ -30,4 +30,12 @@ class AppShadows {
           blurRadius: 24,
         ),
       ];
+
+  /// Vòng sáng nút ghi âm đang hoạt động (Speaking Recorder)
+  static List<BoxShadow> get recordingRing => const [
+        BoxShadow(
+          color: AppColors.primary100,
+          spreadRadius: 8,
+        ),
+      ];
 }

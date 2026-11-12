@@ -76,12 +76,16 @@ class _AccountNavigatorState extends State<_AccountNavigator> {
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
+    final completed = session.placement['status'] == 'COMPLETED';
     return NavigatorPopHandler<void>(
-      onPopWithResult: (_) => navigatorKey.currentState!.pop(),
+      onPopWithResult: (_) => navigatorKey.currentState?.maybePop(),
       child: Navigator(
         key: navigatorKey,
         onGenerateRoute: (_) => MaterialPageRoute<void>(
-          builder: (_) => session.placement['status'] == 'COMPLETED'
+          settings: RouteSettings(
+            name: completed ? LearningPreview.routeName : 'placement-home',
+          ),
+          builder: (_) => completed
               ? LearningPreview(
                   key: ValueKey(session.user?['id']),
                   account: session,

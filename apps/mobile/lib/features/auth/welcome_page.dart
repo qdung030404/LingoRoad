@@ -142,6 +142,9 @@ class _WelcomePageState extends State<WelcomePage> {
                               final signIn = await Navigator.of(context)
                                   .push<bool>(
                                     MaterialPageRoute<bool>(
+                                      settings: const RouteSettings(
+                                        name: LearningPreview.routeName,
+                                      ),
                                       builder: (guestContext) =>
                                           LearningPreview(
                                             onLogout: widget.onLogout,

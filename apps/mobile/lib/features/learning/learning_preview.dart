@@ -2,35 +2,37 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
-import 'learning_widgets.dart';
-import 'preview_model.dart';
-import 'lesson_pages.dart';
-import 'practice_pages.dart';
-import 'writing_evaluation_service.dart';
-import 'home_dashboard.dart';
-import 'word_collection_pages.dart';
-import 'word_library.dart';
-import 'srs_review_page.dart';
-import 'preview_navigation_bar.dart';
 import '../auth/session_controller.dart';
-import '../profile/profile_page.dart';
 import '../placement/placement_pages.dart' show ResultPage;
-import 'learning_controller.dart';
-import 'learning_repository.dart';
-import 'learning_pages.dart';
+import '../profile/profile_page.dart';
+import '../speaking/speaking_controller.dart';
+import '../speaking/speaking_recorder.dart';
+import '../speaking/speaking_repository.dart';
+import '../speaking/speaking_topic_catalogue.dart';
+import '../vocabulary/vocabulary_controller.dart';
+import '../vocabulary/vocabulary_pages.dart';
+import '../vocabulary/vocabulary_repository.dart';
+import '../vocabulary/vocabulary_review_page.dart';
 import 'daily_learning.dart';
 import 'daily_pages.dart';
-import '../vocabulary/vocabulary_controller.dart';
-import '../vocabulary/vocabulary_repository.dart';
-import '../vocabulary/vocabulary_pages.dart';
-import '../vocabulary/vocabulary_review_page.dart';
-import '../speaking/speaking_controller.dart';
-import '../speaking/speaking_repository.dart';
-import '../speaking/speaking_recorder.dart';
-import '../speaking/speaking_topic_catalogue.dart';
+import 'home_dashboard.dart';
+import 'learning_controller.dart';
+import 'learning_pages.dart';
+import 'learning_repository.dart';
+import 'learning_widgets.dart';
+import 'lesson_pages.dart';
+import 'practice_pages.dart';
+import 'preview_model.dart';
+import 'preview_navigation_bar.dart';
+import 'srs_review_page.dart';
+import 'weekly_plan_pages.dart';
+import 'word_collection_pages.dart';
+import 'word_library.dart';
+import 'writing_evaluation_service.dart';
+
+export 'weekly_plan_pages.dart';
 
 class LearningPreview extends StatefulWidget {
   const LearningPreview({
@@ -41,6 +43,7 @@ class LearningPreview extends StatefulWidget {
     this.account,
     this.onSignIn,
   });
+  static const routeName = learningHomeRouteName;
   final bool showPlan;
   final PreviewModel? model;
   final Future<void> Function()? onLogout;
@@ -52,32 +55,34 @@ class LearningPreview extends StatefulWidget {
 
 class _LearningPreviewState extends State<LearningPreview>
     with WidgetsBindingObserver {
+  late final String? _accountId = widget.account?.user?['id'] as String?;
   late final WritingEvaluationService? writing = widget.account == null
       ? null
       : WritingEvaluationService(client: widget.account!.api);
-  late final SpeakingController? speaking = widget.account == null
+  late final SpeakingController? speaking =
+      widget.account == null || _accountId == null
       ? null
       : SpeakingController(
           repository: ApiSpeakingRepository(widget.account!.api),
-          recorder: DeviceSpeakingRecorder(
-            widget.account!.user!['id'] as String,
-          ),
-          accountId: widget.account!.user!['id'] as String,
+          recorder: DeviceSpeakingRecorder(_accountId),
+          accountId: _accountId,
           isCurrent: () => widget.account!.user?['id'] == speaking?.accountId,
         );
-  late final VocabularyController? vocabularyController = widget.account == null
+  late final VocabularyController? vocabularyController =
+      widget.account == null || _accountId == null
       ? null
       : VocabularyController(
           repository: ApiVocabularyRepository(widget.account!.api),
-          accountId: widget.account!.user!['id'] as String,
+          accountId: _accountId,
           isCurrent: () =>
               widget.account!.user?['id'] == vocabularyController?.accountId,
         );
-  late final DailyLearningController? daily = widget.account == null
+  late final DailyLearningController? daily =
+      widget.account == null || _accountId == null
       ? null
       : DailyLearningController(
           repository: ApiDailyRepository(widget.account!.api),
-          accountId: widget.account!.user!['id'] as String,
+          accountId: _accountId,
           isCurrent: () => widget.account!.user?['id'] == daily?.accountId,
           onPreferences: (prefs) {
             final profile = widget.account!.user?['profile'];
@@ -89,19 +94,18 @@ class _LearningPreviewState extends State<LearningPreview>
   late final model =
       widget.model ??
       PreviewModel(
-        accountId: widget.account?.user?['id'] as String?,
+        accountId: _accountId,
         initialDailyMinutes:
             widget.account?.profile['dailyGoalMinutes'] as int? ?? 10,
       );
-  late final library = WordLibrary(
-    accountId: widget.account?.user?['id'] as String?,
-  );
+  late final library = WordLibrary(accountId: _accountId);
   final selectedTab = ValueNotifier<int>(0);
-  late final LearningController? learning = widget.account == null
+  late final LearningController? learning =
+      widget.account == null || _accountId == null
       ? null
       : LearningController(
           repository: ApiLearningRepository(widget.account!.api),
-          accountId: widget.account!.user!['id'] as String,
+          accountId: _accountId,
           daily: daily,
           isAccountCurrent: () =>
               widget.account!.user?['id'] == learning?.accountId,
@@ -131,7 +135,7 @@ class _LearningPreviewState extends State<LearningPreview>
     try {
       await speaking?.endSession();
       await widget.onLogout?.call();
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) Navigator.of(context).maybePop();
     } catch (_) {
       if (mounted) {
         previewMessage(context, 'Không thể đăng xuất. Vui lòng thử lại.');
@@ -145,8 +149,8 @@ class _LearningPreviewState extends State<LearningPreview>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _accountId;
     widget.account?.addListener(_speakingSessionChanged);
-    daily?.addListener(_dailyChanged);
     learning?.refresh();
     vocabularyController?.refresh();
     library.restore().catchError((Object error) {
@@ -195,7 +199,6 @@ class _LearningPreviewState extends State<LearningPreview>
     WidgetsBinding.instance.removeObserver(this);
     widget.account?.removeListener(_speakingSessionChanged);
     speaking?.dispose();
-    daily?.removeListener(_dailyChanged);
     daily?.dispose();
     learning?.dispose();
     vocabularyController?.dispose();
@@ -210,10 +213,6 @@ class _LearningPreviewState extends State<LearningPreview>
     if (speaking != null && !speaking!.active) {
       speaking!.endSession();
     }
-  }
-
-  void _dailyChanged() {
-    if (mounted) setState(() {});
   }
 
   @override
@@ -261,20 +260,28 @@ class _LearningPreviewState extends State<LearningPreview>
                   },
                 ),
                 const SizedBox(height: 12),
-                CustomAppButton(
-                  key: const Key('accountPlacementResult'),
-                  text: 'Kết quả đầu vào',
-                  isSecondary: true,
-                  onPressed: () {
-                    Navigator.pop(context);
-                    previewPush(
-                      this.context,
-                      ResultPage(
-                        session: widget.account!,
-                        sessionId:
-                            widget.account!.placement['currentSessionId']
-                                as String,
-                      ),
+                Builder(
+                  builder: (_) {
+                    final placementSessionId =
+                        (widget.account?.placement['currentSessionId'] ??
+                                widget.account?.placementResult?['sessionId'])
+                            as String?;
+                    return CustomAppButton(
+                      key: const Key('accountPlacementResult'),
+                      text: 'Kết quả đầu vào',
+                      isSecondary: true,
+                      onPressed: placementSessionId == null
+                          ? null
+                          : () {
+                              Navigator.pop(context);
+                              previewPush(
+                                this.context,
+                                ResultPage(
+                                  session: widget.account!,
+                                  sessionId: placementSessionId,
+                                ),
+                              );
+                            },
                     );
                   },
                 ),
@@ -295,7 +302,7 @@ class _LearningPreviewState extends State<LearningPreview>
                   isSecondary: true,
                   onPressed: () {
                     Navigator.pop(context);
-                    Navigator.of(this.context).pop();
+                    Navigator.of(this.context).maybePop();
                   },
                 ),
               const SizedBox(height: 12),
@@ -350,7 +357,7 @@ class _LearningPreviewState extends State<LearningPreview>
       context,
       SrsReviewPage(
         library: library,
-        deckId: library.decks.first.id,
+        deckId: library.decks.firstOrNull?.id ?? 'default',
         onNavigate: returnToTab,
       ),
     );
@@ -374,6 +381,7 @@ class _LearningPreviewState extends State<LearningPreview>
       library,
       widget.account,
       learning,
+      daily,
       vocabularyController,
     ]),
     builder: (context, _) {
@@ -391,7 +399,7 @@ class _LearningPreviewState extends State<LearningPreview>
                 onPageChanged: (index) => selectedTab.value = index,
                 children: [
                   for (var index = 0; index < 5; index++)
-                    _RetainedTab(
+                    RetainedTab(
                       key: ValueKey(index),
                       child: tabContent(index),
                     ),
@@ -413,7 +421,6 @@ class _LearningPreviewState extends State<LearningPreview>
                         stops: [0, .48],
                       ),
                     ),
-
                     child: PreviewNavigationBar(
                       selectedIndex: tab,
                       onSelected: switchTab,
@@ -453,6 +460,10 @@ class _LearningPreviewState extends State<LearningPreview>
               ? 'A1'
               : widget.account!.placementResult?['estimatedCefr'] as String?,
           learning: learning,
+          vocabularyWordsCount:
+              (vocabularyController?.summary?['totals']
+                      as Map?)?['rememberedWords']
+                  as int?,
           vocabularySection: vocabularyController == null
               ? null
               : VocabularyHomeSection(
@@ -541,72 +552,10 @@ class _LearningPreviewState extends State<LearningPreview>
     );
   }
 
-  Widget segments(
-    List<String> labels,
-    int selected,
-    ValueChanged<int> onChange, {
-    List<String>? icons,
-  }) => Container(
-    padding: const EdgeInsets.all(4),
-    decoration: BoxDecoration(
-      color: AppColors.grey50,
-      borderRadius: icons == null ? AppRadius.buttonRadius : AppRadius.cardSm,
-    ),
-    child: Row(
-      children: [
-        for (var i = 0; i < labels.length; i++)
-          Expanded(
-            child: InkWell(
-              onTap: () => onChange(i),
-              borderRadius: AppRadius.buttonRadius,
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  vertical: icons == null ? 11.5 : 8,
-                ),
-                decoration: BoxDecoration(
-                  color: selected == i ? Colors.white : Colors.transparent,
-                  borderRadius: icons == null
-                      ? AppRadius.buttonRadius
-                      : AppRadius.tagRadius,
-                  boxShadow: selected == i
-                      ? const [
-                          BoxShadow(
-                            color: Color(0x0D1A2029),
-                            blurRadius: 1.5,
-                            offset: Offset(0, 1),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Column(
-                  children: [
-                    if (icons != null) ...[
-                      FigmaAsset('practice/${icons[i]}', size: 20),
-                      const SizedBox(height: 8),
-                    ],
-                    Text(
-                      labels[i],
-                      style: designText(
-                        14,
-                        weight: FontWeight.w500,
-                        color: selected == i
-                            ? AppColors.grey900
-                            : AppColors.grey800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-
   List<Widget> road() {
     if (learning != null) {
       return [
-        segments(
+        learningSegments(
           ['Ngữ pháp', 'Từ vựng'],
           vocabulary ? 1 : 0,
           (i) => setState(() => vocabulary = i == 1),
@@ -645,7 +594,7 @@ class _LearningPreviewState extends State<LearningPreview>
             'Cấu trúc câu cơ bản',
           ];
     return [
-      segments(
+      learningSegments(
         ['Ngữ pháp', 'Từ vựng'],
         vocabulary ? 1 : 0,
         (i) => setState(() => vocabulary = i == 1),
@@ -659,7 +608,7 @@ class _LearningPreviewState extends State<LearningPreview>
       ),
       const SizedBox(height: 12),
       for (var i = 0; i < names.length; i++) ...[
-        catalogCard(
+        learningCatalogCard(
           names[i],
           subtitles[i],
           i,
@@ -676,77 +625,8 @@ class _LearningPreviewState extends State<LearningPreview>
     ];
   }
 
-  Widget catalogCard(
-    String title,
-    String description,
-    int index,
-    VoidCallback onTap, {
-    String source = 'practice',
-  }) => LearningCard(
-    gap: 16,
-    onTap: onTap,
-    children: [
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          learningHeading(title),
-          const SizedBox(height: 8),
-          learningBody(description),
-        ],
-      ),
-      Row(
-        children: [
-          Expanded(
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                LearningPill(
-                  index == 0
-                      ? 'Hoàn thành'
-                      : index == 1
-                      ? 'Đang học'
-                      : 'Chưa học',
-                  small: true,
-                  fill: index == 0
-                      ? AppColors.primary25
-                      : index == 1
-                      ? const Color(0xFFFFF7EA)
-                      : Colors.white,
-                  color: index == 0
-                      ? const Color(0xFF1F452A)
-                      : index == 1
-                      ? const Color(0xFFE28A00)
-                      : AppColors.grey900,
-                ),
-                LearningPill(
-                  '${index == 0
-                      ? 8
-                      : index == 1
-                      ? 5
-                      : 10} phút',
-                  small: true,
-                  icon: FigmaAsset('$source/imgVuesaxLinearTimer', size: 20),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          FigmaAsset(
-            '$source/imgFrame${index == 0
-                ? 74
-                : index == 1
-                ? 75
-                : 76}',
-            size: 40,
-          ),
-        ],
-      ),
-    ],
-  );
-
   List<Widget> practice() => [
-    segments(
+    learningSegments(
       PracticeSkill.values.map((s) => s.label).toList(),
       skill.index,
       (i) => setState(() => skill = PracticeSkill.values[i]),
@@ -789,7 +669,7 @@ class _LearningPreviewState extends State<LearningPreview>
       ),
       const SizedBox(height: 12),
       for (var i = 0; i < 3; i++) ...[
-        catalogCard(
+        learningCatalogCard(
           i == 0
               ? skill.title
               : i == 1
@@ -887,257 +767,4 @@ class _LearningPreviewState extends State<LearningPreview>
       ),
     ],
   ];
-}
-
-// Retain visited tab elements and their scroll positions while PageView prepares
-// the adjacent viewport. Navigation changes rebuild only the bottom bar.
-class _RetainedTab extends StatefulWidget {
-  const _RetainedTab({super.key, required this.child});
-  final Widget child;
-
-  @override
-  State<_RetainedTab> createState() => _RetainedTabState();
-}
-
-class _RetainedTabState extends State<_RetainedTab>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
-  }
-}
-
-class WeeklyPlanPage extends StatelessWidget {
-  const WeeklyPlanPage({super.key, required this.model});
-  final PreviewModel model;
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: model,
-    builder: (context, _) => PreviewSurface(
-      child: FigmaPage(
-        titleStyle: designHeading(18),
-        title: '',
-        headerHeight: 42,
-        bottom: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CustomAppButton(
-              text: 'Bắt đầu học',
-              onPressed: () =>
-                  previewPush(context, VocabularyLessonPage(model: model)),
-            ),
-            const SizedBox(height: 16),
-            CustomAppButton(
-              text: 'Điều chỉnh kế hoạch',
-              isSecondary: true,
-              onPressed: () =>
-                  previewPush(context, AdjustPlanPage(model: model)),
-            ),
-          ],
-        ),
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          children: [
-            learningHeading('Lộ trình tuần đầu tiên', size: 28),
-            const SizedBox(height: 16),
-            learningBody(
-              'Dựa trên đánh giá và mục tiêu, chúng tôi thiết kế kế hoạch phù hợp để bạn bắt đầu.',
-            ),
-            const SizedBox(height: 24),
-            LearningCard(
-              children: [
-                learningHeading('Trọng tâm tuần này'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: model.focus.map((s) => LearningPill(s)).toList(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            LearningCard(
-              children: [
-                learningHeading('Thời gian học mỗi ngày'),
-                _planRow(
-                  'plan/imgVuesaxBulkTimer',
-                  '${model.dailyMinutes} phút/ngày',
-                  'Bắt đầu với những phiên học ngắn, duy trì thói quen mỗi ngày.',
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            LearningCard(
-              children: [
-                learningHeading('Bắt đầu ngay hôm nay'),
-                _planRow(
-                  'plan/imgTaskSquare',
-                  'Phiên khởi động: Đọc và Nghe',
-                  'Làm quen với bài tập và giúp hệ thống hiểu rõ hơn về năng lực của bạn.',
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-  Widget _planRow(String icon, String title, String subtitle) => Row(
-    children: [
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: const BoxDecoration(
-          color: AppColors.primary25,
-          shape: BoxShape.circle,
-        ),
-        child: FigmaAsset(icon, size: 20),
-      ),
-      const SizedBox(width: 12),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: designText(14, weight: FontWeight.w500)),
-            const SizedBox(height: 4),
-            learningBody(subtitle, size: 12),
-          ],
-        ),
-      ),
-    ],
-  );
-}
-
-class AdjustPlanPage extends StatefulWidget {
-  const AdjustPlanPage({super.key, required this.model});
-  final PreviewModel model;
-  @override
-  State<AdjustPlanPage> createState() => _AdjustPlanPageState();
-}
-
-class _AdjustPlanPageState extends State<AdjustPlanPage> {
-  late int minutes = widget.model.dailyMinutes;
-  late Set<String> focus = Set.of(widget.model.focus);
-  Future<void> save() async {
-    await widget.model.savePlan(minutes, focus);
-    if (mounted) Navigator.pop(context);
-  }
-
-  @override
-  Widget build(BuildContext context) => PreviewSurface(
-    child: FigmaPage(
-      titleStyle: designHeading(18),
-      title: 'Điều chỉnh kế hoạch',
-      bottom: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CustomAppButton(
-            text: 'Bắt đầu học',
-            onPressed: focus.isEmpty
-                ? null
-                : () async {
-                    await widget.model.savePlan(minutes, focus);
-                    if (context.mounted) {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              VocabularyLessonPage(model: widget.model),
-                        ),
-                      );
-                    }
-                  },
-          ),
-          const SizedBox(height: 16),
-          CustomAppButton(
-            text: 'Lưu kế hoạch',
-            isSecondary: true,
-            onPressed: focus.isEmpty ? null : save,
-          ),
-        ],
-      ),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        children: [
-          LearningCard(
-            children: [
-              learningHeading('Kỹ năng muốn tập trung'),
-              learningBody(
-                'Dựa trên đánh giá và mục tiêu, chúng tôi thiết kế kế hoạch phù hợp để bạn bắt đầu.',
-                size: 14,
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final s in ['Đọc: Ngữ pháp', 'Nghe', 'Nói', 'Viết'])
-                    LearningPill(
-                      s,
-                      selected: focus.contains(s),
-                      onTap: () => setState(
-                        () =>
-                            focus.contains(s) ? focus.remove(s) : focus.add(s),
-                      ),
-                    ),
-                ],
-              ),
-              if (focus.isEmpty) const Text('Chọn ít nhất một kỹ năng.'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          LearningCard(
-            children: [
-              learningHeading('Thời gian học mỗi ngày'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final n in [5, 10, 20])
-                    LearningPill(
-                      '$n phút',
-                      selected: minutes == n,
-                      onTap: () => setState(() => minutes = n),
-                    ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF7EA),
-              border: Border.all(color: const Color(0xFFE28A00)),
-              borderRadius: AppRadius.cardRadius,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const FigmaAsset('adjust/imgVuesaxOutlineInfoCircle', size: 28),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Lưu ý',
-                        style: designText(16, color: const Color(0xFFE28A00)),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Thay đổi này chỉ điều chỉnh nội dung và thời lượng học được đề xuất. Kết quả đánh giá trình độ của bạn vẫn được giữ nguyên.',
-                        style: designText(14, color: const Color(0xFFE28A00)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
 }
