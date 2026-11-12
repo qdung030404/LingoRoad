@@ -76,29 +76,22 @@ RFC này đề xuất kiến trúc kỹ thuật, mô hình tích hợp bảo m�
                  +───────────────────────────────────+
 ```
 
-### Luồng Xử lý Chi tiết của `GoogleLoginUseCase`:
+### Luồng Xử lý Chi tiết của `GoogleLoginUseCase` & `FirebaseUserService`:
 1. Nhận `GoogleLoginDto` chứa `idToken`.
-2. Gọi `firebaseAdminService.verifyIdToken(idToken)`:
+2. Kiểm tra `firebase.enabled` (`FirebaseTokenService`): Nếu `false`, ném `BadRequestException('AUTH_FIREBASE_DISABLED')`.
+3. Gọi `firebaseAdmin.verifyIdToken(dto.idToken)`:
    - Nếu token không hợp lệ, hết hạn, hoặc sai Audience: Ném `UnauthorizedException('AUTH_FIREBASE_INVALID_TOKEN')`.
-   - Kiểm tra cờ `decodedToken.email_verified`: Nếu `false`, ném `BadRequestException('AUTH_EMAIL_NOT_VERIFIED')`.
-3. Chuẩn hóa `email = decodedToken.email.toLowerCase().trim()`.
-4. Tìm kiếm `User` trong PostgreSQL qua điều kiện:
-   `WHERE email = :email OR firebase_uid = :uid`
-5. **Phân nhánh xử lý User**:
-   - **Nhánh A (Người dùng mới)**:
-     - Khởi tạo bản ghi `User`: `email`, `name: decodedToken.name`, `avatarUrl: decodedToken.picture`, `firebaseUid: decodedToken.uid`, `provider: GOOGLE`, `passwordHash: null`.
-     - Khởi tạo bản ghi `UserProfile` mặc định đi kèm trong transaction.
-   - **Nhánh B (Người dùng đã tồn tại)**:
-     - Kiểm tra trạng thái: Nếu `status === SUSPENDED`, ném `ForbiddenException('AUTH_USER_SUSPENDED')`.
-     - Nếu `firebaseUid` chưa có: Cập nhật `firebaseUid` và `avatarUrl` (nếu trước đó chưa có avatar).
-      - Bảo vệ tài khoản Quản trị viên: Nếu `user.role === UserRole.ADMIN`, ném `ForbiddenException('AUTH_ADMIN_GOOGLE_LINK_RESTRICTED')`.
-      - Kiểm tra xung đột: Nếu `user.firebaseUid && user.firebaseUid !== decodedToken.uid`, ném `ConflictException('AUTH_GOOGLE_ACCOUNT_CONFLICT')`.
-      - Đồng bộ avatar: Nếu `user.avatarUrl` rỗng, cập nhật `avatarUrl` từ Google.
-6. Sinh Refresh Token ngẫu nhiên (32 bytes hex), tính mã băm SHA-256.
-7. Lưu phiên làm việc mới vào bảng `refresh_sessions`:
-   - `userId`, `tokenHash`, `deviceIdentifier`, `ipAddress`, `expiresAt = now + 30 days`.
-8. Sinh JWT Access Token (payload: `sub: user.id, email: user.email, role: user.role`, hạn: 15 phút).
-9. Trả về kết quả `AuthResult`.
+   - Kiểm tra `token.firebase?.sign_in_provider === 'google.com'`: Nếu khác, ném `BadRequestException('AUTH_GOOGLE_REQUIRED')`.
+   - Kiểm tra `token.email && token.email_verified`: Nếu thiếu hoặc `false`, ném `BadRequestException('AUTH_EMAIL_NOT_VERIFIED')`.
+4. Gọi `FirebaseUserService.resolve(token)`:
+   - Kiểm tra `token.uid` và `token.email` (`401 AUTH_EMAIL_REQUIRED`).
+   - Tra cứu `User` theo `where: { firebaseUid: token.uid }`.
+   - **Nếu chưa tồn tại**:
+     - Tạo mới `User` (`firebaseUid: token.uid`, `email: token.email.toLowerCase()`, `name`, `provider: AuthProvider.GOOGLE`, `avatarUrl`) cùng `profile: { create: {} }` (`targetCefr: B1`, `dailyGoalMinutes: 10`).
+     - Nếu bắt lỗi `P2002` (race condition hoặc trùng email): Tra cứu lại theo `where: { firebaseUid: token.uid }`. Nếu vẫn không tìm thấy (tức là trùng email với tài khoản cũ khác UID), ném `ConflictException('AUTH_ACCOUNT_LINK_REQUIRED')` — tuyệt đối không tự động liên kết theo email.
+   - Kiểm tra `user.status === UserStatus.ACTIVE`; nếu không, ném `ForbiddenException('AUTH_USER_SUSPENDED')`.
+   - Trả về principal `{ sub: user.id, email: user.email, role: user.role, firebaseUid: user.firebaseUid }`.
+5. `GoogleLoginUseCase` gọi `ProfileService.get(principal.sub)` và trả về `{ user }`. Các request API tiếp theo của Client gửi kèm `Authorization: Bearer <firebaseIdToken>` sẽ được `JwtAuthGuard` xác thực trực tiếp qua `FirebaseTokenService.verify()` và `FirebaseUserService.resolve()`.
 
 ---
 
@@ -176,3 +169,4 @@ model User {
 | **A. Firebase ID Token Verification (Được chọn)** | Client tận dụng Firebase SDK chính chủ (Flutter, Web), Backend chỉ cần 1 bước verify qua Admin SDK, bảo mật tuyệt đối, làm chủ DB. | Phụ thuộc vào việc cấu hình Firebase Project. | **Chọn**. Tối ưu nhất về bảo mật và tương thích với kiến trúc NestJS hiện có. |
 | **B. Google OAuth2 Authorization Code** | Không phụ thuộc Firebase, chỉ dùng Google Cloud Console. | Client mobile phải mở Custom Tab/WebView, luồng trao đổi code phức tạp, khó xử lý đăng nhập đa nền tảng. | Loại bỏ. Trải nghiệm mobile kém mượt mà hơn Firebase SDK. |
 | **C. Chuyển toàn bộ Auth sang Firebase (Bỏ JWT nội bộ)** | Không cần tự quản lý `RefreshSession` và phát hành JWT. | Mất quyền kiểm soát phiên, phụ thuộc hoàn toàn vào Firebase Rules, khó tích hợp với hệ thống microservices/database nội bộ. | Loại bỏ. Không phù hợp định hướng kiểm soát dữ liệu. |
+

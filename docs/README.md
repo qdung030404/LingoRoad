@@ -2,6 +2,7 @@
 
 | Document (Tài liệu)                                            | Nội dung / What it answers                                        |
 | -------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [spec/README.md](spec/README.md)                               | Đặc tả hệ thống chuẩn hoá: 10 Domains và 29 bộ Features (PRD, RFC, SPEC, TASK) |
 | [first-demo.md](first-demo.md) | Chạy demo tài khoản, hồ sơ, Đọc/Nghe và kết quả kiểm thử |
 | [demo-status-and-audit.md](demo-status-and-audit.md) | Báo cáo trạng thái First Demo, audit Figma UI, khoảng cách CAT-DKT và kiểm thử cục bộ |
 | [mumu-experiment.md](mumu-experiment.md) | Kết nối và kiểm chứng trên MuMu |

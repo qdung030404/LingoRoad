@@ -22,8 +22,16 @@ RFC định nghĩa kiến trúc tích hợp giữa Backend NestJS và Dịch v�
 
 ---
 
-# 3. Proposed Architecture & Data Flow
+# 3. Architecture & Data Flow (Phase 1 Implemented & Phase 2 Planned)
 
+### 3.1. Phase 1 Implemented: Speaking Topic Preparation Scaffolding & CEFR Writing Feedback
+- **Speaking Conversation Preparation (`apps/backend/src/modules/speaking/conversation-preparation.ts`)**:
+  - Hàm `conversationPreparation(code)` trả về gói hướng dẫn có cấu trúc ổn định (`version: 1`, `goal`, 12 `vocabulary` items, 8 `phrases`, 3 `helpPhrases`, 3 `tips`) kèm danh sách `linkedPrompts` trên endpoint `GET /speaking/conversations/topics/:id`.
+  - Hỗ trợ dịch từng lượt lời thoại của AI sang tiếng Việt theo yêu cầu qua `POST /speaking/conversations/:id/turns/:itemId/translate` (`VoiceConversationsService.translate`).
+- **CEFR Writing Sentence-Level Rewrite & Grammar Checklist (`EvaluateCefrWritingUseCase`)**:
+  - Endpoint `POST /api/v1/assessment/writing/evaluate` kết nối tới FastAPI ML Service để trả về `grammarChecklist` và danh sách `feedback` sửa lỗi từng câu (`originalSentence`, `issueVi`, `suggestion`, `explanationVi`).
+
+### 3.2. Phase 2 Planned: On-Demand LLM Brainstorming (`/api/v1/practice/ai/brainstorm`)
 ```
 Mobile/Web Client
       │
@@ -46,7 +54,7 @@ Mobile/Web Client
 
 ### 4.1. Brainstorming Prompt Template
 ```python
-SYSTEM_SCAFFOLDING = """You are an encouraging CEFR language coach.
+SYSTEM_SCAFFOLDING = """You are an encouraging CEFR language coach. 
 Given a writing or speaking prompt and a target CEFR level (A1 to C2), provide structured guidance in VIETNAMESE.
 Return strict JSON:
 {
@@ -85,3 +93,4 @@ Return strict JSON:
   - 3 lần "Brainstorming Hints".
   - 5 lần "Check Paragraph & Rewrite".
 - Điều này vừa ngăn ngừa tình trạng lạm dụng AI làm hộ bài, vừa bảo vệ giới hạn tài nguyên hệ thống.
+

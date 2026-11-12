@@ -44,12 +44,9 @@ Triển khai Engine Đánh giá Bài viết chuẩn CEFR (`POST /ml/awe/evaluate
 
 # 5. Implementation Checklist (Danh mục Triển khai)
 
-- [x] Cập nhật `SYSTEM_CEFR_AWE` trong `awe.py`.
-- [x] Thêm route `/ml/awe/evaluate-cefr` và `/llm/awe/evaluate-cefr` trong `llm_routes.py`.
-- [x] Thêm DTOs trong NestJS ML module (`CefrWritingEvaluationResultDto`, `EvaluateCefrWritingDto`).
-- [x] Viết UseCase `EvaluateCefrWritingUseCase` trong module `assessment` kết nối sang ML Service và kiểm tra tiền điều kiện (word count ≥ 20).
-- [x] Bổ sung endpoint `POST /api/v1/assessment/writing/evaluate` tại `AssessmentController`.
-- [x] Bổ sung endpoint `GET /api/v1/assessment/writing/items` truy vấn đề bài thực tế từ Database PostgreSQL (`AssessmentItem`, skill `WRITING`).
-- [x] Tích hợp Mobile Flutter: thay thế toàn bộ mock data tĩnh trong `WritingPreviewPage`, `WritingResultPage`, `WritingReviewPage` bằng API Database và kết nối màn hình kết quả AI `WritingEvaluationResultPage`.
-- [x] Viết Unit Test kiểm thử prompt, schema validation, score parsing tại ML (`test_cefr_awe.py`), NestJS (`evaluate-cefr-writing.use-case.spec.ts`, `ml-client.service.spec.ts`, `assessment.controller.spec.ts`) và Flutter (`writing_evaluation_test.dart`, `learning_preview_test.dart`).
+- [ ] Cập nhật `SYSTEM_CEFR_AWE` trong `awe.py`.
+- [ ] Thêm route `/evaluate-cefr` trong `llm_routes.py`.
+- [ ] Thêm DTOs trong NestJS ML module (`CefrWritingEvaluationResultDto`).
+- [ ] Viết UseCase gọi sang ML Service và lưu kết quả vào `mock_submissions`.
+- [ ] Viết Unit Test kiểm thử prompt và output format.
 

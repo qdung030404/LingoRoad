@@ -19,8 +19,8 @@ PRD này định nghĩa các yêu cầu nghiệp vụ, trải nghiệm người 
 - **Tỷ lệ chuyển đổi Onboarding**: Tăng ít nhất 30% tỷ lệ hoàn tất đăng ký tài khoản mới trên ứng dụng Mobile.
 - **Thời gian phản hồi API**: API `POST /auth/google` có thời gian phản hồi p95 < 250ms (bao gồm thời gian xác thực chữ ký số Firebase ID Token).
 - **Tỷ lệ thành công**: Đạt 99.9% đối với các request có token Firebase hợp lệ từ Google.
-- **Tính toàn vẹn dữ liệu**: Tự động liên kết tài khoản nếu email Google trùng khớp với tài khoản cục bộ đã tồn tại, tránh trùng lặp email (`unique constraint`).
-- **Bảo mật**: Không bao giờ nhận hoặc lưu mật khẩu/khóa bí mật cá nhân của người dùng từ Google; chỉ sử dụng Firebase ID Token có chữ ký số mã hóa.
+- **Tính toàn vẹn dữ liệu**: Định danh duy nhất theo `firebaseUid` (mỗi UID đã xác thực gắn với một UUID nội bộ cố định); không bao giờ tự động gộp tài khoản chỉ dựa trên email (`409 AUTH_ACCOUNT_LINK_REQUIRED` nếu email trùng với tài khoản cũ chưa liên kết).
+- **Bảo mật**: Không bao giờ nhận hoặc lưu mật khẩu/khóa bí mật cá nhân của người dùng từ Google; sử dụng Firebase ID Token có chữ ký số mã hóa và không phát hành thêm họ token thứ hai song song với phiên Firebase SDK.
 
 ---
 
@@ -28,7 +28,7 @@ PRD này định nghĩa các yêu cầu nghiệp vụ, trải nghiệm người 
 
 - Đăng nhập qua các nền tảng mạng xã hội khác (Apple ID, Facebook, GitHub) trong giai đoạn này.
 - Đồng bộ danh bạ Google hoặc quyền truy cập Google Drive/Google Calendar của người dùng.
-- Thay thế hoàn toàn cơ chế JWT nội bộ của LingoRoad bằng Firebase Client SDK Token (LingoRoad tiếp tục duy trì quyền tự chủ quản lý phiên qua `RefreshSession`).
+- Tự động liên kết tài khoản cũ chỉ dựa trên địa chỉ email mà không qua luồng xác nhận chuyển đổi tài khoản.
 
 ---
 
@@ -43,51 +43,46 @@ PRD này định nghĩa các yêu cầu nghiệp vụ, trải nghiệm người 
 
 ### Trường hợp 1: Người dùng mới (First-time User / Auto-Registration)
 1. Người dùng mở ứng dụng LingoRoad, chọn nút "Tiếp tục với Google" (Continue with Google).
-2. Hộp thoại hệ thống của Google hiển thị danh sách tài khoản Google trên thiết bị.
+2. Hộp thoại hệ thống của Google hiển thị danh sách tài khoản Google trên thiết bị (`FirebaseIdentity`).
 3. Người dùng chọn tài khoản Google mong muốn.
-4. Client nhận `idToken` từ Firebase Auth SDK và gửi đến API Backend `POST /auth/google`.
-5. Backend xác minh token với Firebase Admin SDK:
-   - Nhận diện email chưa từng tồn tại trong hệ thống.
-   - Tự động tạo bản ghi `User` mới (`provider = GOOGLE`, `status = ACTIVE`, `passwordHash = null`, `avatarUrl`, `firebaseUid`).
-   - Tự động tạo bản ghi `UserProfile` mặc định (`targetCefr = B1`, `dailyGoalMinutes = 10`).
-   - Cấp phát cặp Access Token (JWT 15m) và Refresh Token (30d), lưu thông tin thiết bị vào `RefreshSession`.
-6. Client nhận token và chuyển thẳng người dùng vào màn hình khảo sát trình độ (Placement Test) hoặc Home.
+4. Client nhận `idToken` từ Firebase Auth SDK và gửi đến API Backend `POST /auth/google` (hoặc gọi trực tiếp các API bảo vệ bằng Bearer Firebase ID Token).
+5. Backend (`GoogleLoginUseCase` + `FirebaseUserService.resolve`) xác minh token:
+   - Kiểm tra `firebase.enabled` (`400 AUTH_FIREBASE_DISABLED`), `sign_in_provider === 'google.com'` (`400 AUTH_GOOGLE_REQUIRED`), và `email_verified === true` (`400 AUTH_EMAIL_NOT_VERIFIED`).
+   - Tra cứu theo `firebaseUid`; nếu chưa có, tự động tạo bản ghi `User` mới (`provider = GOOGLE`, `status = ACTIVE`, `passwordHash = null`, `avatarUrl`, `firebaseUid`) kèm `UserProfile` mặc định (`targetCefr = B1`, `dailyGoalMinutes = 10`).
+   - Trả về `{ user }` từ `ProfileService.get(principal.sub)`.
+6. Client (`SessionController`) cập nhật trạng thái phiên và chuyển người dùng vào màn hình khảo sát trình độ (Placement Test) hoặc Home.
 
-### Trường hợp 2: Người dùng đã có tài khoản (Existing User / Account Linking)
+### Trường hợp 2: Người dùng đã có tài khoản (Existing User / Email Collision)
 1. Người dùng bấm "Tiếp tục với Google".
 2. Client gửi `idToken` đến `POST /auth/google`.
 3. Backend xác minh:
-   - Nếu `firebaseUid` hoặc `email` đã tồn tại trong database: Cập nhật thông tin avatar/tên mới nhất (nếu có), cập nhật `firebaseUid` nếu trước đó đăng ký bằng email thông thường.
-   - Kiểm tra trạng thái tài khoản (`status == ACTIVE`).
-   - Cấp phát cặp Access Token và Refresh Token mới.
-4. Client nhận token và điều hướng vào trang chính.
+   - Nếu `firebaseUid` đã tồn tại trong database: Kiểm tra trạng thái tài khoản (`status === ACTIVE`, nếu không ném `403 AUTH_USER_SUSPENDED`) và trả về `{ user }`.
+   - Nếu `firebaseUid` chưa tồn tại nhưng `email` đã thuộc về một tài khoản cũ (lỗi Prisma `P2002`): Không tự động gộp theo email, trả về `409 Conflict` (`AUTH_ACCOUNT_LINK_REQUIRED`).
+4. Client nhận thông tin `{ user }` và điều hướng vào trang chính.
 
 ---
 
 # 6. Functional Requirements (Yêu cầu Chức năng)
 
-- **FR-01 (Tiếp nhận xác thực)**: Cung cấp endpoint công khai `POST /auth/google` nhận payload gồm `idToken` (Firebase ID Token) và header thiết bị `x-device-id`.
-- **FR-02 (Xác minh Chữ ký số)**: Backend sử dụng Firebase Admin SDK (`verifyIdToken`) kiểm tra tính hợp lệ, thời hạn, tính toàn vẹn và ứng dụng phát hành (Audience/Issuer) của ID Token.
-- **FR-03 (Tự động khởi tạo tài khoản)**: Nếu email được trả về từ token chưa có trong bảng `users`, hệ thống tự động đăng ký người dùng mới với vai trò mặc định `LEARNER` và hồ sơ mặc định.
-- **FR-04 (Hợp nhất danh tính - Account Linking)**: Nếu email từ Google đã tồn tại trong database (được tạo trước đó bằng email/mật khẩu), hệ thống liên kết tài khoản bằng cách ghi nhận `firebaseUid` và cho phép đăng nhập đồng thời bằng cả hai phương thức.
-- **FR-05 (Kiểm tra trạng thái tài khoản)**: Chặn truy cập nếu tài khoản đang ở trạng thái `SUSPENDED` hoặc `DELETED`.
-- **FR-06 (Khởi tạo phiên làm việc nội bộ)**: Tạo bản ghi `RefreshSession` mới chứa SHA-256 hash của Refresh Token, IP đăng nhập và `deviceIdentifier`.
-- **FR-07 (Đồng bộ Profile cơ bản)**: Tự động lưu `name` và `avatarUrl` từ Google nếu người dùng chưa thiết lập ảnh đại diện.
+- **FR-01 (Tiếp nhận xác thực)**: Cung cấp endpoint công khai `POST /auth/google` nhận payload `idToken` (Firebase ID Token), đồng thời hỗ trợ xác thực Bearer Firebase ID Token trực tiếp trên `JwtAuthGuard` thông qua `FirebaseTokenService.verify()` và `FirebaseUserService.resolve()`.
+- **FR-02 (Xác minh Chữ ký số & Provider)**: Backend sử dụng Firebase Admin SDK (`verifyIdToken`) kiểm tra tính hợp lệ của ID Token, yêu cầu `firebase.enabled === true` (`AUTH_FIREBASE_DISABLED`), `sign_in_provider === 'google.com'` (`AUTH_GOOGLE_REQUIRED`) và `email_verified === true` (`AUTH_EMAIL_NOT_VERIFIED`).
+- **FR-03 (Tự động khởi tạo tài khoản theo `firebaseUid`)**: Nếu `firebaseUid` chưa có trong bảng `users`, `FirebaseUserService.resolve()` tự động tạo người dùng mới với vai trò `LEARNER` và `UserProfile` mặc định (`targetCefr = B1`, `dailyGoalMinutes = 10`).
+- **FR-04 (Chính sách Chống gộp tài khoản tự động theo Email)**: Tuyệt đối không tự động liên kết tài khoản chỉ dựa trên email. Nếu tạo mới gặp xung đột `P2002` trên cột `email` (do tài khoản cũ tạo trước đó), hệ thống trả về `409 AUTH_ACCOUNT_LINK_REQUIRED`.
+- **FR-05 (Kiểm tra trạng thái tài khoản)**: Chặn truy cập nếu tài khoản có `status !== ACTIVE` (`403 AUTH_USER_SUSPENDED`).
+- **FR-06 (Quản lý phiên đồng nhất với Firebase SDK)**: Trả về `{ user }` thông qua `ProfileService.get(userId)` và sử dụng trực tiếp phiên Firebase ID Token cho các request kế tiếp (không phát hành họ token thứ hai gây xung đột).
+- **FR-07 (Đồng bộ Profile cơ bản)**: Tự động lưu `name` (tối đa 100 ký tự, fallback phần trước `@` của email) và `avatarUrl` (`https://...`, tối đa 500 ký tự) khi tạo mới tài khoản.
 
 ---
 
 # 7. Business Rules (Quy tắc Nghiệp vụ)
 
-- **BR-01 (Định dạng Email chuẩn)**: Email nhận được từ Firebase token phải luôn được chuyển về dạng chữ thường (`toLowerCase().trim()`) trước khi tra cứu cơ sở dữ liệu.
-- **BR-02 (Xác thực Email từ Google)**: Chỉ chấp nhận ID Token có thuộc tính `email_verified: true` từ Google để ngăn chặn tấn công giả mạo email chưa xác thực.
-- **BR-03 (Không bắt buộc mật khẩu)**: Người dùng đăng ký qua Google có `passwordHash` mang giá trị `null`. Họ không thể đăng nhập qua form mật khẩu trừ khi thực hiện tính năng "Thiết lập mật khẩu lần đầu" (Set Password).
-- **BR-04 (Thời hạn phiên)**: Tuân thủ quy định quản lý phiên chung của hệ sinh thái LingoRoad:
-  - `Access Token`: 15 phút.
-  - `Refresh Token`: 30 ngày.
-- **BR-05 (Xử lý tài khoản khóa)**: Nếu tài khoản mang cờ `SUSPENDED`, trả về HTTP 403 Forbidden với mã lỗi `AUTH_USER_SUSPENDED`.
-- **BR-06 (Bảo vệ tài khoản Quản trị viên)**: Tài khoản có vai trò `role: ADMIN` bị cấm tự động liên kết qua Google SSO. Nếu người dùng cố gắng đăng nhập Google với email của tài khoản Admin, hệ thống từ chối với HTTP 403 Forbidden (`AUTH_ADMIN_GOOGLE_LINK_RESTRICTED`) để chống leo thang đặc quyền.
-- **BR-07 (Chống xung đột tài khoản Google)**: Nếu tài khoản email đã liên kết với một `firebaseUid` trước đó, hệ thống cấm liên kết đè với một tài khoản Google khác (`AUTH_GOOGLE_ACCOUNT_CONFLICT`).
-- **BR-08 (Giới hạn tần suất - Rate Limiting)**: Endpoint `POST /auth/google` được bảo vệ bởi `ThrottlerGuard` với giới hạn tối đa 10 requests / 60 giây trên mỗi địa chỉ IP để phòng chống tấn công brute-force và DDoS.
+- **BR-01 (Định dạng Email chuẩn)**: Email nhận được từ Firebase token phải luôn được chuyển về dạng chữ thường (`toLowerCase()`) trước khi lưu trữ.
+- **BR-02 (Xác thực Provider & Email từ Google)**: Chỉ chấp nhận ID Token có `firebase.sign_in_provider === 'google.com'` (`AUTH_GOOGLE_REQUIRED`) và `email_verified: true` (`AUTH_EMAIL_NOT_VERIFIED`).
+- **BR-03 (Không bắt buộc mật khẩu)**: Người dùng đăng ký qua Google có `passwordHash` mang giá trị `null`.
+- **BR-04 (Xác thực Phiên qua Firebase)**: Khi `AUTH_PROVIDER=firebase` (mặc định), `JwtAuthGuard` xác thực mỗi request bằng `FirebaseTokenService.verify(token)` (`verifyIdToken(token, true)`) và thu hồi phiên qua `FirebaseTokenService.revoke(firebaseUid)`.
+- **BR-05 (Xử lý tài khoản khóa)**: Nếu tài khoản có `status !== ACTIVE`, trả về HTTP 403 Forbidden với mã lỗi `AUTH_USER_SUSPENDED`.
+- **BR-06 (Bảo vệ chống chiếm đoạt qua Email - No Auto-Link by Email)**: Một `firebaseUid` luôn ánh xạ cố định tới một `User.id`. Nếu email trùng với tài khoản đã tồn tại có `firebaseUid` khác hoặc tài khoản mật khẩu cũ, hệ thống từ chối với HTTP 409 Conflict (`AUTH_ACCOUNT_LINK_REQUIRED`).
+- **BR-07 (Giới hạn tần suất - Rate Limiting)**: Endpoint `POST /auth/google` được bảo vệ bởi `ThrottlerGuard` với giới hạn tối đa 10 requests / 60 giây trên mỗi địa chỉ IP.
 
 ---
 
@@ -97,3 +92,4 @@ PRD này định nghĩa các yêu cầu nghiệp vụ, trải nghiệm người 
 - Độ trễ phản hồi trung bình (p50) < 150ms, (p95) < 250ms.
 - 0 sự cố liên quan đến giả mạo danh tính hoặc tấn công replay token Firebase.
 - Tỷ lệ hoàn tất phiên đăng nhập Google phía client đạt ≥ 98%.
+

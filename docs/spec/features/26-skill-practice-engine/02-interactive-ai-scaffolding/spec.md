@@ -25,7 +25,12 @@ Cung cấp tính năng trợ giảng AI trong phòng luyện tập kỹ năng:
 
 # 3. Detailed Behavior (Hành vi Chi tiết)
 
-### 3.1. Hành vi Gợi ý Ý tưởng (`POST /api/v1/practice/ai/brainstorm`)
+### 3.0. Hành vi Chuẩn bị Chủ đề Hội thoại & Dịch Lời thoại AI (Đã triển khai Phase 1)
+1. Client gọi `GET /speaking/conversations/topics/:id`.
+2. Backend truy xuất chủ đề nói, ghép nối dữ liệu `conversationPreparation(topic.code)` (`apps/backend/src/modules/speaking/conversation-preparation.ts`) gồm `goal`, 12 từ vựng (`word`, `meaningVi`, `example`), 8 câu mẫu (`text`, `meaningVi`), 3 `helpPhrases`, 3 `tips`, và các bài đọc mẫu `linkedPrompts`.
+3. Trong khi hội thoại, học viên có thể chạm dịch lời thoại bất kỳ của AI qua `POST /speaking/conversations/:id/turns/:itemId/translate`.
+
+### 3.1. Hành vi Gợi ý Ý tưởng Động (`POST /api/v1/practice/ai/brainstorm` - Phase 2)
 1. Client gửi `itemId` hoặc `prompt` kèm `cefrLevel`.
 2. Backend kiểm tra hạn ngạch (Quota): Nếu số lần gọi trong phiên < 3, tiếp tục; nếu vượt quá, trả về mã lỗi 429 (Quota exceeded).
 3. Backend gọi ML Service qua endpoint `POST /ml/scaffolding/brainstorm`.
@@ -94,12 +99,13 @@ export interface DraftFeedbackDto {
 ### Kịch bản 1: Nhận gợi ý ý tưởng hợp lệ
 - **Given**: Học viên yêu cầu gợi ý cho đề bài Viết luận B2 về chủ đề "Remote Working".
 - **When**: Gọi `POST /api/v1/practice/ai/brainstorm`.
-- **Then**:
+- **Then**: 
   - Trả về mã 200 OK trong < 2.5 giây.
   - Payload chứa tối thiểu 2 ý tưởng chính và 3 từ vựng học thuật B2 kèm ví dụ.
 
 ### Kịch bản 2: Vượt quá hạn ngạch gọi hỗ trợ trong phiên
 - **Given**: Học viên đã gọi kiểm tra đoạn văn 5 lần trong cùng một `sessionId`.
 - **When**: Học viên bấm kiểm tra lần thứ 6.
-- **Then**:
+- **Then**: 
   - Hệ thống từ chối với status 429 và thông điệp tiếng Việt: "Bạn đã dùng hết lượt gợi ý cho bài tập này. Hãy tự tin hoàn thành bài viết của mình nhé!".
+

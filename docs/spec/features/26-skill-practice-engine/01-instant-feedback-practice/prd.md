@@ -54,14 +54,15 @@ PRD định nghĩa các yêu cầu nghiệp vụ cho Chế độ Luyện tập T
 - Không giới hạn thời gian (Untimed mode) mặc định; người học có thể tùy chọn bật đồng hồ bấm giờ (Stopwatch) để đo tốc độ đọc/làm bài cá nhân.
 - Cho phép thoát và lưu tiến độ bất kỳ lúc nào để học tiếp sau.
 
-### 6.2. Kiểm tra Đáp án Tức thì (Check Answer Endpoint)
-- API nhận đáp án của 1 câu hỏi cụ thể, kiểm tra tính đúng/sai.
-- Trả về payload đầy đủ:
-  - `isCorrect`: boolean.
-  - `correctOption`: đáp án chính xác.
-  - `explanation`: giải thích ngữ pháp, từ vựng bằng tiếng Việt.
-  - `transcript`: bản phiên âm bài nghe (nếu là kỹ năng Listening).
-  - `keyVocabulary`: danh sách 3 - 5 từ vựng then chốt trong câu kèm phiên âm và nghĩa tiếng Việt.
+### 6.2. Kiểm tra Đáp án Tức thì (Check Answer Endpoint - Đã triển khai Phase 1)
+- **Trong `LearningModule` (`apps/backend/src/modules/learning/`)**:
+  - `PUT /learning/attempts/:attemptId/answers/:questionId/check`: Kiểm tra đáp án từng câu hỏi ngay trong lượt học (`LearningAttempt`), khóa câu trả lời đã kiểm tra (`checked = true`) và trả về tức thì `isCorrect`, `correctOptionId`, `explanation`.
+  - `POST /learning/attempts/:attemptId/submit`: Hoàn tất lượt học và mở khóa `transcript` của bài Nghe (`completed && content.transcript`).
+- **Trong `AssessmentModule` (`apps/backend/src/modules/assessment/`)**:
+  - `GET /api/v1/assessment/practice/groups` & `GET /api/v1/assessment/practice/groups/:id`: Cung cấp danh sách và chi tiết nhóm đề luyện tập theo kỹ năng và bậc CEFR.
+  - `GET /api/v1/assessment/writing/items` & `POST /api/v1/assessment/writing/evaluate`: Lấy đề viết tự luận và nhận phản hồi đánh giá chi tiết tức thì theo chuẩn CEFR (`levelEvaluation`, `grammarChecklist`, `improvementSteps`, `feedback`).
 
-### 6.3. Tích hợp Cập nhật Knowledge Tracing (BKT)
-- Mỗi câu trả lời trong phiên luyện tập vẫn được gửi sự kiện sang `KnowledgeTracingService` để cập nhật độ thành thạo kỹ năng (`masteryScore`), giúp hệ thống tự động nhận biết người học đã tiến bộ hay chưa.
+### 6.3. Tích hợp Cập nhật Tiến độ Học tập & Mở rộng Phase 2
+- Kết quả luyện tập trong `LearningAttempt` được đồng bộ tức thì với `PlanningService` (`chooseDailyItems`, `progress`, `summary`) để lên lịch ôn tập (`REVIEW`) các bài có tỷ lệ đúng `< 80%`.
+- Mô hình `PracticeSession` / `PracticeAnswer` tách riêng cho ngân hàng đề thi thử thuộc phạm vi mở rộng Phase 2.
+

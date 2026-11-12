@@ -67,7 +67,7 @@ export class SubmitSectionDto {
 ### Kịch bản 1: Nộp bài đúng giờ và chuyển Section tiếp theo
 - **Given**: Thí sinh đang ở phần thi Listening và gửi bài nộp khi còn 2 phút.
 - **When**: Gọi API `POST /api/v1/mock-exams/:id/sections/LISTENING/submit`.
-- **Then**:
+- **Then**: 
   - Lưu toàn bộ đáp án phần Listening vào `mock_submissions`.
   - Cập nhật trạng thái session sang `IN_PROGRESS_READING`.
   - Trả về danh sách câu hỏi phần Reading kèm `sectionExpiresAt = now() + 60 phút`.
@@ -75,6 +75,7 @@ export class SubmitSectionDto {
 ### Kịch bản 2: Tự động thu bài khi quá giờ
 - **Given**: Thí sinh làm phần Reading nhưng để hết giờ mà không bấm nộp.
 - **When**: Đồng hồ client đếm ngược về 0 và tự động gửi request nộp bài.
-- **Then**:
+- **Then**: 
   - Server ghi nhận các câu trả lời đã điền.
   - Chuyển tiếp phiên thi sang phần Writing mà không làm mất bài thi của thí sinh.
+

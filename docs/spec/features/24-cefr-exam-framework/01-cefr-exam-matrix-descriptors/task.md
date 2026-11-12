@@ -48,9 +48,17 @@ Thiết kế Schema Ngân hàng đề thi CEFR (`AssessmentItemGroup`) và tích
 
 # 5. Implementation Checklist (Danh mục Triển khai)
 
-- [x] Cập nhật `apps/backend/prisma/schema.prisma` với `AssessmentItemGroup`.
+- [x] Cập nhật `apps/backend/prisma/schema.prisma` với `AssessmentItemGroup`, `ItemType`, `ItemUsageScope`.
 - [x] Chạy `npx prisma generate` trong `apps/backend`.
-- [x] Tạo DTO `AssessmentItemGroupDto` và `AssessmentItemDto` trong backend common.
-- [x] Viết UseCase / Service `AssessmentPracticeService` và `AssessmentMatrixService`.
-- [x] Viết bộ seed mẫu kiểm thử cho 4 kỹ năng chuẩn CEFR (`prisma/seed-cefr-bank.ts`).
+- [x] Định nghĩa 24 `CanDoDescriptor` trong `apps/backend/src/modules/assessment/constants/cefr-can-do-matrix.constant.ts`.
+- [x] Tạo Safe DTOs và `AssessmentSafeMapper` (`toSafeItem`, `toSafeGroup`, `sanitizeRubricCriteria` chỉ giữ `ALLOWED_PUBLIC_KEYS`, ẩn `targetGrammars` & đáp án).
+- [x] Triển khai `AssessmentCacheService` (Redis `ioredis` + bounded 200-key in-memory fallback, TTL 15 phút).
+- [x] Triển khai `AssessmentController` với đầy đủ 6 endpoints (`GET matrix`, `GET practice/groups`, `GET practice/groups/:id`, `GET descriptors/:skillCode` với `ParseSkillCodePipe`, `GET writing/items`, `POST writing/evaluate` với `EvaluateCefrWritingUseCase`).
+- [x] Viết bộ seed mẫu `apps/backend/prisma/seed-cefr-bank.ts` (2 groups + 16 items cho 4 kỹ năng Reading, Listening, Writing, Speaking) và Unit/E2E Tests.
+
+---
+
+# 6. Status (Trạng thái)
+
+- **HOÀN THÀNH (DONE)**
 

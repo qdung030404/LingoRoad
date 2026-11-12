@@ -9,7 +9,8 @@ RFC định nghĩa thuật toán quy đổi điểm thô sang thang điểm chu�
 # 1. Context (Ngữ cảnh)
 
 - Hiện thực hóa PRD Multi-Skill CEFR Aggregation (`docs/spec/features/25-multi-skill-assessment-engine/02-multi-skill-cefr-aggregation/prd.md`).
-- Tiếp nhận kết quả từ `MockSubmission` của Feature 25-01.
+- Trong Phase 1, `PlacementSession.skillResults` (JSONB) đã tổng hợp kết quả riêng biệt cho `READING` và `LISTENING` trong `PlacementModule` (`DemoPlacementService`) và kết nối trực tiếp với `PlanningService.chooseDailyItems()`.
+- Trong Phase 2, `CefrAggregationService` mở rộng tổng hợp 4 kỹ năng từ `MockSubmission` của Feature 25-01.
 
 ---
 
@@ -99,3 +100,4 @@ Dữ liệu chẩn đoán được lưu trong trường `skillResults` của phi
   "recommendedAction": "Luyện tập thêm dạng bài Opinion Essay trong Practice Mode."
 }
 ```
+

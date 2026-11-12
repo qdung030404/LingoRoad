@@ -22,16 +22,21 @@ Cho phép người học làm bài luyện tập theo từng kỹ năng CEFR, nh
 
 # 3. Detailed Behavior (Hành vi Chi tiết)
 
+### 3.1. Hành vi Đã triển khai trong Phase 1 (`LearningModule` & `AssessmentModule`)
+1. **Kiểm tra từng câu hỏi tức thì trong bài học (`PUT /learning/attempts/:attemptId/answers/:questionId/check`)**:
+   - Xác thực quyền sở hữu `attemptId`, phiên bản `expectedVersion` và kiểm tra `optionId` thuộc danh sách phương án của `questionId`.
+   - Đánh dấu `checked = true`, tính `isCorrect = (dto.optionId === question.correctOptionId)` và lưu `checkedAt = new Date()`.
+   - Trả về `publicAttempt(attempt)` trong đó câu hỏi đã kiểm tra sẽ hiển thị ngay `isCorrect`, `correctOptionId` và `explanation`.
+2. **Giải phóng Transcript khi hoàn tất bài học (`POST /learning/attempts/:attemptId/submit`)**:
+   - Kiểm tra tất cả câu hỏi đã được `checked = true`, tính `correctCount`, cập nhật `status = COMPLETED` và mở khóa trường `transcript` cho bài Nghe.
+3. **Luyện tập theo nhóm đề và đánh giá bài viết CEFR (`AssessmentController`)**:
+   - `GET /api/v1/assessment/practice/groups` & `GET /api/v1/assessment/practice/groups/:id`: Lấy đề luyện tập theo kỹ năng và bậc CEFR.
+   - `GET /api/v1/assessment/writing/items` & `POST /api/v1/assessment/writing/evaluate`: Lấy đề viết tự luận và nhận kết quả chấm điểm chi tiết tức thì.
+
+### 3.2. Hành vi Mở rộng trong Phase 2 (`PracticeSession` độc lập)
 1. Người học gửi request kiểm tra đáp án `POST /api/v1/practice/sessions/:sessionId/check`.
-2. Hệ thống kiểm tra:
-   - `sessionId` có hợp lệ và thuộc về `userId` hay không.
-   - `itemId` có thuộc nhóm bài tập của phiên này hay không.
-3. So khớp `selectedOption` với `correctOption` trong database:
-   - Chuẩn hóa chuỗi (trim whitespace, so sánh case-insensitive nếu là dạng điền từ).
-   - Xác định `isCorrect` (true/false).
-4. Lưu hoặc cập nhật bản ghi vào `practice_answers` (hỗ trợ làm lại câu hỏi nhiều lần nếu người học muốn thử lại).
-5. Tăng `correctCount` trong `PracticeSession` nếu câu trả lời đúng và đây là lượt thử đầu tiên của câu đó.
-6. Trả về payload chứa `isCorrect`, `correctOption`, `explanation`, `transcript` (nếu là bài nghe) và trích xuất `keyVocabulary`.
+2. Hệ thống kiểm tra `sessionId` và `itemId`, so khớp `selectedOption` với `correctOption` và lưu vào `practice_answers`.
+3. Trả về payload chứa `isCorrect`, `correctOption`, `explanation`, `transcript` và `keyVocabulary`.
 
 ---
 
@@ -76,7 +81,7 @@ export interface PracticeFeedbackDto {
 ### Kịch bản 1: Kiểm tra đáp án đúng
 - **Given**: Người học đang làm bài đọc B1 và chọn đáp án chính xác "C".
 - **When**: Gọi API `POST /api/v1/practice/sessions/:sessionId/check`.
-- **Then**:
+- **Then**: 
   - Trả về status 200 OK với `isCorrect = true`.
   - Trả về đầy đủ trường `explanation` giải thích lý do vì sao đáp án C đúng.
   - Cập nhật số câu đúng trong session.
@@ -87,3 +92,4 @@ export interface PracticeFeedbackDto {
 - **Then**:
   - Trả về `isCorrect = false`, `correctOption = "B"`.
   - Trả về toàn bộ `transcript` bài nghe có đánh dấu đoạn thông tin chứa đáp án đúng.
+

@@ -22,9 +22,17 @@ RFC định nghĩa kiến trúc kỹ thuật backend NestJS và cơ chế API ph
 
 ---
 
-# 3. Proposed Architecture & Data Models
+# 3. Architecture & Data Models (Phase 1 Implemented & Phase 2 Planned)
 
-### 3.1. Prisma Schema bổ sung
+### 3.1. Phase 1 Implemented (`LearningAttempt`, `LearningAttemptAnswer` & `AssessmentModule`)
+- Trong `apps/backend/src/modules/learning/learning.service.ts`:
+  - `LearningAttempt` và `LearningAttemptAnswer` lưu trạng thái từng câu hỏi (`optionId`, `checked`, `isCorrect`, `checkedAt`) kèm kiểm soát đồng thời bằng `expectedVersion`.
+  - Khi gọi `PUT /learning/attempts/:attemptId/answers/:questionId/check`, phương thức `publicAttempt()` chỉ trả về `isCorrect`, `correctOptionId`, `explanation` cho những câu đã có `checked === true`.
+  - Khi gọi `POST /learning/attempts/:attemptId/submit`, `attempt.status` chuyển sang `COMPLETED` và `publicContent()` giải phóng `transcript` bài nghe.
+- Trong `apps/backend/src/modules/assessment/assessment.controller.ts`:
+  - `GET /api/v1/assessment/practice/groups`, `GET /api/v1/assessment/practice/groups/:id`, `GET /api/v1/assessment/writing/items`, `POST /api/v1/assessment/writing/evaluate` cung cấp kho bài tập luyện tập theo kỹ năng CEFR và chấm bài viết tức thì.
+
+### 3.2. Phase 2 Planned Schema (`PracticeSession` & `PracticeAnswer`)
 
 ```prisma
 model PracticeSession {
@@ -117,3 +125,4 @@ eventEmitter.emit('practice.answer_submitted', {
 Sự kiện này được lắng nghe bởi:
 1. `KnowledgeTracingListener`: Cập nhật xác suất nắm vững kiến thức (BKT / DKT).
 2. `StreakRewardListener`: Cập nhật tiến độ học tập hàng ngày của người dùng.
+

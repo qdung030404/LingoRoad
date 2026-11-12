@@ -55,12 +55,12 @@ PRD định nghĩa khung ma trận năng lực ngôn ngữ theo chuẩn CEFR 6 b
 
 # 6. Functional Requirements (Yêu cầu Chức năng)
 
-### 6.1. Ma trận Năng lực CEFR (Can-Do Descriptors)
-Mỗi câu hỏi hoặc nhóm bài tập bắt buộc phải liên kết với một mã năng lực (`skillCode`):
-- **Listening**: `listening.identifying_facts`, `listening.inference`, `listening.gist`.
-- **Reading**: `reading.skimming`, `reading.scanning`, `reading.vocabulary_in_context`, `reading.author_purpose`.
-- **Writing**: `writing.transactional_letter`, `writing.opinion_essay`, `writing.cause_solution`.
-- **Speaking**: `speaking.social_interaction`, `speaking.solution_presentation`, `speaking.topic_argument`.
+### 6.1. Ma trận Năng lực CEFR (24 Can-Do Descriptors - `cefr-can-do-matrix.constant.ts`)
+Hệ thống định nghĩa đầy đủ 24 `CanDoDescriptor` (6 bậc `A1`–`C2` × 4 kỹ năng), mỗi câu hỏi hoặc nhóm bài tập bắt buộc liên kết với một mã năng lực (`skillCode`):
+- **Listening**: `listening.identifying_facts` (A1, A2), `listening.gist` (B1), `listening.detail` (B2), `listening.inference` (C1, C2).
+- **Reading**: `reading.scanning` (A1, A2), `reading.skimming` (B1), `reading.author_purpose` (B2), `reading.vocabulary_in_context` (C1, C2).
+- **Writing**: `writing.sentence_building` (A1), `writing.transactional_letter` (A2, B1), `writing.opinion_essay` (B2), `writing.cause_solution` (C1, C2).
+- **Speaking**: `speaking.personal_info` (A1), `speaking.social_interaction` (A2), `speaking.solution_presentation` (B1), `speaking.topic_argument` (B2, C1, C2).
 
 ### 6.2. Phân loại Cấu trúc Dữ liệu Đề thi
 - Mỗi bài thi hoặc bộ đề luyện tập gồm 4 `SkillSection`:
@@ -81,3 +81,4 @@ Mỗi câu hỏi trắc nghiệm/điền từ lưu trữ thông số IRT (Item R
 
 - **Hiệu năng truy vấn**: Lấy trọn bộ một nhóm câu hỏi kèm tài nguyên đa phương tiện (Passage/Audio URL) trong < 100ms.
 - **Tính tương thích ngược**: Các câu hỏi cũ trong `AssessmentItem` vẫn hoạt động bình thường mà không bị gián đoạn.
+

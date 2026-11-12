@@ -75,16 +75,16 @@ Kế hoạch phân rã các đầu việc kỹ thuật chi tiết theo từng b�
   - Cung cấp hàm `verifyIdToken(idToken: string): Promise<admin.auth.DecodedIdToken>`.
 - Export `FirebaseAdminService` trong `SecurityModule`.
 
-### Bước 3: Xây dựng Tầng Nghiệp vụ Auth (DTO & UseCase)
+### Bước 3: Xây dựng Tầng Nghiệp vụ Auth (DTO, Firebase Services & UseCase)
 - Tạo DTO `apps/backend/src/modules/auth/dto/google-login.dto.ts`:
-  - Validate `@IsString()`, `@IsNotEmpty()`, `@Trim()`.
+  - Validate `@IsString()`, `@IsNotEmpty()`, `@MaxLength(4096)`.
+- Tạo `apps/backend/src/modules/auth/firebase/firebase-token.service.ts` và `apps/backend/src/modules/auth/firebase/firebase-user.service.ts`:
+  - `FirebaseTokenService`: Quản lý cờ `enabled` (`AUTH_PROVIDER=firebase|legacy`), `verify(token)` (`verifyIdToken(token, true)`) và `revoke(uid)`.
+  - `FirebaseUserService.resolve(token)`: Tìm kiếm theo `firebaseUid`, tự động khởi tạo `User` + `UserProfile` (`dailyGoalMinutes: 10`), xử lý xung đột `P2002` bằng cách tra cứu lại theo `firebaseUid` hoặc ném `409 AUTH_ACCOUNT_LINK_REQUIRED` (không tự động liên kết theo email).
 - Tạo Use Case `apps/backend/src/modules/auth/use-cases/google-login.use-case.ts`:
-  - Inject `FirebaseAdminService`, `PrismaService`, `TokenService`, `RefreshSessionRepository`.
-  - Thực thi xác minh token qua Firebase.
-  - Xử lý auto-provisioning (tạo User + Profile) nếu tài khoản mới.
-  - Xử lý account linking nếu email đã tồn tại.
-  - Tạo `RefreshSession` mới bằng `tokenHash` (SHA-256).
-  - Trả về `AuthResult` (chứa `accessToken`, `refreshToken`, `user`).
+  - Inject `FirebaseAdminService`, `FirebaseTokenService`, `FirebaseUserService`, `ProfileService`.
+  - Kiểm tra `firebase.enabled`, `sign_in_provider === 'google.com'`, và `email_verified`.
+  - Giải quyết định danh qua `FirebaseUserService.resolve(token)` và trả về `{ user }` từ `ProfileService.get(principal.sub)`.
 
 ### Bước 4: Tích hợp Controller & AuthModule
 - Cập nhật `apps/backend/src/modules/auth/auth.controller.ts`:
@@ -130,3 +130,4 @@ Kế hoạch phân rã các đầu việc kỹ thuật chi tiết theo từng b�
 - [x] Tích hợp Client Flutter hoàn chỉnh với Firebase Core, Firebase Auth, Google Sign-In và xử lý đầy đủ các trạng thái loading/canceled/error.
 - [x] Chặn rò rỉ Firebase credentials: Đã đưa `google-services.json` vào `.gitignore` và cung cấp `google-services.json.example`.
 - [x] Toàn bộ Mobile Unit & Widget Test chạy pass 100%, `flutter analyze` sạch không lỗi.
+

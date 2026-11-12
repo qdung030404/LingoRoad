@@ -30,43 +30,61 @@ Cung cấp chuẩn phân loại thống nhất cho toàn bộ hệ thống đán
 
 # 3. Data Contracts (Hợp đồng Dữ liệu)
 
-### 3.1. DTO Trả về Nhóm câu hỏi (Safe Response - Client)
+### 3.1. DTO Trả về Nhóm câu hỏi & Câu hỏi An toàn (`AssessmentSafeGroupDto` & `AssessmentSafeItemDto`)
 
 ```typescript
-export interface AssessmentItemGroupDto {
+export interface AssessmentSafeGroupDto {
   id: string;
   skill: 'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING';
-  title?: string;
+  title?: string | null;
   cefrLevel: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
   partNumber: number;
   passage?: string | null;
   audioUrl?: string | null;
-  items: AssessmentItemDto[];
+  usageScope: 'PLACEMENT' | 'MOCK_EXAM' | 'PRACTICE' | 'ALL';
+  items: AssessmentSafeItemDto[];
 }
 
-export interface AssessmentItemDto {
+export interface AssessmentSafeItemDto {
   id: string;
-  type: 'MULTIPLE_CHOICE' | 'GAP_FILL' | 'ESSAY' | 'SPEAKING_PROMPT';
+  groupId?: string | null;
+  itemOrder: number;
+  externalId?: string | null;
+  skill?: 'LISTENING' | 'READING' | 'WRITING' | 'SPEAKING' | null;
   skillCode: string;
-  cefrLevel: string;
+  cefrLevel: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+  type: 'MULTIPLE_CHOICE' | 'CLOZE' | 'SENTENCE_REORDER' | 'MATCHING' | 'GAP_FILL' | 'ESSAY' | 'SPEAKING_PROMPT';
   prompt: string;
-  options?: string[] | Record<string, string> | null;
-  // TUYỆT ĐỐI KHÔNG trả về: correctOption, explanation, transcript trong DTO này
+  options?: unknown;
+  passage?: string | null;
+  audioUrl?: string | null;
+  rubricCriteria?: Record<string, unknown> | null; // Đã lọc qua sanitizeRubricCriteria (chỉ giữ ALLOWED_PUBLIC_KEYS)
+  usageScope: 'PLACEMENT' | 'MOCK_EXAM' | 'PRACTICE' | 'ALL';
+  // TUYỆT ĐỐI KHÔNG trả về: correctOption, explanation, transcript, targetGrammars, irtA, irtB, irtC
 }
 ```
+
+### 3.2. Danh sách 6 Endpoints trong `AssessmentController` (`@Controller(['api/v1/assessment', 'assessment'])`)
+1. `GET /api/v1/assessment/matrix`: Trả về ma trận 24 Can-Do Descriptors kèm số lượng câu hỏi.
+2. `GET /api/v1/assessment/practice/groups`: Danh sách nhóm bài tập phân trang theo `skill`, `cefrLevel`, `partNumber`, `limit`, `offset`.
+3. `GET /api/v1/assessment/practice/groups/:id`: Chi tiết nhóm bài tập theo UUID.
+4. `GET /api/v1/assessment/descriptors/:skillCode`: Tra cứu câu hỏi theo mã năng lực (`ParseSkillCodePipe`).
+5. `GET /api/v1/assessment/writing/items`: Lấy danh sách đề viết tự luận (`ESSAY`) từ ngân hàng đề CEFR.
+6. `POST /api/v1/assessment/writing/evaluate`: Chấm bài viết tự luận theo 4 tiêu chí CEFR và `targetGrammars` (`EvaluateCefrWritingUseCase`).
 
 ---
 
 # 4. Acceptance Criteria (Tiêu chuẩn Nghiệm thu)
 
-### Kịch bản 1: Lấy danh sách câu hỏi làm bài không bị lộ đáp án
-- **Given**: Người học gọi API `GET /api/v1/assessment/practice/groups?skill=LISTENING&cefrLevel=B1`.
-- **When**: Backend truy vấn `assessment_item_groups` và các `assessment_items` con.
+### Kịch bản 1: Lấy danh sách câu hỏi làm bài không bị lộ đáp án & barem nội bộ
+- **Given**: Người học gọi API `GET /api/v1/assessment/practice/groups?skill=LISTENING&cefrLevel=B2` hoặc `GET /api/v1/assessment/writing/items`.
+- **When**: Backend truy vấn `assessment_item_groups` và `assessment_items` rồi ánh xạ qua `AssessmentSafeMapper`.
 - **Then**:
-  - Payload trả về chứa danh sách câu hỏi, file audio URL.
-  - Các trường `correct_option`, `explanation`, và `transcript` bị lược bỏ hoàn toàn (null hoặc undefined).
+  - Payload trả về chứa câu hỏi, `audioUrl`, và các thông số công khai trong `ALLOWED_PUBLIC_KEYS` (`wordCount`, `timeLimitSeconds`...).
+  - Các trường `correctOption`, `explanation`, `transcript`, `targetGrammars` và barem chấm điểm nội bộ bị lược bỏ hoàn toàn.
 
-### Kịch bản 2: Truy vấn theo Can-Do Code
-- **Given**: Quản trị viên lọc câu hỏi theo mã `skillCode = 'reading.skimming'`.
-- **When**: Gửi truy vấn tới cơ sở dữ liệu.
-- **Then**: Trả về đúng các câu hỏi có mã kỹ năng tương ứng với thời gian truy vấn < 50ms nhờ chỉ mục `@@index([skillCode, cefrLevel])`.
+### Kịch bản 2: Truy vấn theo Can-Do Code với `ParseSkillCodePipe`
+- **Given**: Client lọc câu hỏi theo mã `skillCode = 'reading.skimming'` (nằm trong 24 descriptor chuẩn).
+- **When**: Gửi truy vấn tới `GET /api/v1/assessment/descriptors/reading.skimming`.
+- **Then**: Trả về đúng các câu hỏi có mã kỹ năng tương ứng với thời gian truy vấn ≤ 50ms nhờ chỉ mục `@@index([skillCode, cefrLevel])` và `AssessmentCacheService`.
+

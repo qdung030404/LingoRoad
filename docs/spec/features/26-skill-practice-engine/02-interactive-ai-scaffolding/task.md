@@ -47,8 +47,14 @@ Triển khai API Trợ lý AI gợi ý ý tưởng và phân tích sửa lỗi �
 
 # 5. Implementation Checklist (Danh mục Triển khai)
 
-- [ ] Tạo module `scaffolding.py` trong `apps/ml/lingoroad_ml/llm/`.
-- [ ] Thêm các routes trong FastAPI `llm_routes.py`.
-- [ ] Viết UseCases trong NestJS kết nối sang FastAPI ML Service.
-- [ ] Viết Guard hoặc Middleware kiểm tra Quota cuộc gọi AI theo Session.
-- [ ] Viết Unit Test cho việc parse JSON response từ LLM.
+- [x] Triển khai bộ dữ liệu scaffolding chuẩn bị hội thoại (`apps/backend/src/modules/speaking/conversation-preparation.ts`: 12 từ vựng, 8 mẫu câu, `helpPhrases`, `tips`) và phục vụ qua `GET /speaking/conversations/topics/:id`.
+- [x] Triển khai tính năng dịch lời thoại AI tức thì trong phiên hội thoại (`POST /speaking/conversations/:id/turns/:itemId/translate`).
+- [x] Triển khai đánh giá và gợi ý sửa câu bài viết CEFR (`POST /api/v1/assessment/writing/evaluate` qua `EvaluateCefrWritingUseCase`).
+- [ ] Phase 2: Tạo module `scaffolding.py` và routes `/ml/scaffolding/brainstorm`, `/ml/scaffolding/analyze-draft` cho gợi ý dàn ý tự do theo thời gian thực.
+
+---
+
+# 6. Status (Trạng thái)
+
+- **PHASE 1 DONE / PHASE 2 TODO**
+
