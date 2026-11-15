@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
+import '../vocabulary/vocabulary_controller.dart';
 import 'learning_repository.dart';
 import 'daily_learning.dart';
 import 'activity_collector.dart';
@@ -14,11 +15,13 @@ class LearningController extends ChangeNotifier {
     required this.accountId,
     this.isAccountCurrent,
     this.daily,
+    this.vocabulary,
   });
   final LearningRepository repository;
   final String accountId;
   final bool Function()? isAccountCurrent;
   final DailyLearningController? daily;
+  final VocabularyController? vocabulary;
   ActivityOutbox? _activity;
   ActivityOutbox? get activity =>
       daily == null ? null : (_activity ??= ActivityOutbox(owner: daily!));
@@ -100,8 +103,15 @@ class LearningAttemptController extends ChangeNotifier {
   Future<void> _storage = Future.value();
   Future<bool>? _flush;
   Future<LearningAttempt> Function()? _failedAction;
+  final Map<String, Json> _aiExplanations = {};
+  final Set<String> _explainingQuestions = {};
+  final Map<String, String> _explainErrors = {};
   bool get active => !_disposed && owner.active;
   bool get unsynced => _pending != null;
+  Json? aiExplanation(String questionId) => _aiExplanations[questionId];
+  bool isExplaining(String questionId) =>
+      _explainingQuestions.contains(questionId);
+  String? explainError(String questionId) => _explainErrors[questionId];
   String get _key => 'learning.pending.${owner.accountId}.${attempt!.id}';
   @override
   void notifyListeners() {
@@ -124,6 +134,9 @@ class LearningAttemptController extends ChangeNotifier {
     _timer?.cancel();
     loading = true;
     error = null;
+    _aiExplanations.clear();
+    _explainingQuestions.clear();
+    _explainErrors.clear();
     notifyListeners();
     try {
       final result = attemptId != null
@@ -350,6 +363,40 @@ class LearningAttemptController extends ChangeNotifier {
   });
   Future<void> submit() =>
       _action(() => repository.submit(attempt!.id, attempt!.version));
+
+  Future<void> explainQuestion(String questionId) async {
+    final current = attempt;
+    final previous = _aiExplanations[questionId];
+    if (!active ||
+        current == null ||
+        current.lesson.kind != 'READING' ||
+        current.answer(questionId)?['checked'] != true ||
+        previous?['source'] == 'AI' ||
+        previous?['retryable'] == false ||
+        _explainingQuestions.contains(questionId)) {
+      return;
+    }
+    final targetAttemptId = current.id;
+    _explainingQuestions.add(questionId);
+    _explainErrors.remove(questionId);
+    notifyListeners();
+    try {
+      final result = await repository.explainReadingAnswer(
+        targetAttemptId,
+        questionId,
+      );
+      if (!active || attempt?.id != targetAttemptId) return;
+      _aiExplanations[questionId] = result;
+    } catch (e) {
+      if (!active || attempt?.id != targetAttemptId) return;
+      _explainErrors[questionId] = e is ApiFailure
+          ? e.message
+          : 'Không tải được giải thích AI. Hãy thử lại.';
+    } finally {
+      _explainingQuestions.remove(questionId);
+      if (active) notifyListeners();
+    }
+  }
   @override
   void dispose() {
     _disposed = true;

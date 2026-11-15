@@ -7,6 +7,7 @@ class UpdatedFigmaAssets {
     'nav/practice': 'assets/figma/v3_vuesax_bold_edit.svg',
     'nav/progress': 'assets/figma/v3_vuesax_bold_chart.svg',
     'home-v3/cup': 'assets/figma/v3_vuesax_bulk_cup.png',
+    'progress/arrow-up': 'assets/figma/v3_vuesax_linear_arrow_up.svg',
     'brand/logo': 'assets/figma/logo.svg',
     'my-words/add': 'assets/figma/v2_word_add.svg',
     'my-words/search': 'assets/figma/v2_word_search.svg',

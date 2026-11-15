@@ -3,6 +3,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import 'learning_controller.dart';
@@ -16,6 +17,12 @@ String learningKindLabel(String kind) => switch (kind) {
   'READING' => 'Đọc',
   'LISTENING' => 'Nghe',
   _ => kind,
+};
+
+String readingQuestionTypeLabel(String? type) => switch (type) {
+  'GAP_FILL' => 'Điền khuyết',
+  'TRUE_FALSE_NOT_GIVEN' => 'Đúng / Sai / Không đề cập',
+  _ => 'Trắc nghiệm',
 };
 
 Future<void> openLearningLesson(
@@ -86,7 +93,12 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
           LearningCard(
             children: [
               learningBody(lesson?.description ?? ''),
-              learningBody('${lesson?.minutes ?? '—'} phút · 5 câu luyện tập'),
+              if (lesson?.cefrLevel case final String level
+                  when lesson?.kind == 'READING')
+                LearningPill(level, small: true),
+              learningBody(
+                '${lesson?.minutes ?? '—'} phút · ${lesson?.questionCount ?? 5} câu luyện tập',
+              ),
               learningBody(
                 'Chọn đáp án rồi bấm Kiểm tra để xem giải thích. Làm đủ câu và bấm Nộp bài để lưu kết quả.',
               ),
@@ -105,7 +117,7 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
   }
 }
 
-class LearningCatalogue extends StatelessWidget {
+class LearningCatalogue extends StatefulWidget {
   const LearningCatalogue({
     super.key,
     required this.controller,
@@ -113,20 +125,59 @@ class LearningCatalogue extends StatelessWidget {
   });
   final LearningController controller;
   final List<String> kinds;
+
+  @override
+  State<LearningCatalogue> createState() => _LearningCatalogueState();
+}
+
+class _LearningCatalogueState extends State<LearningCatalogue> {
+  String? selectedLevel;
+
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
     if (controller.loading && controller.lessons.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
-    final lessons = controller.lessons
-        .where((l) => kinds.contains(l.kind))
-        .toList();
+    final lessons = controller.lessons.where(
+      (lesson) => widget.kinds.contains(lesson.kind),
+    );
+    final isReading =
+        widget.kinds.length == 1 && widget.kinds.single == 'READING';
+    final levels = isReading
+        ? (lessons
+              .map((lesson) => lesson.cefrLevel)
+              .whereType<String>()
+              .toSet()
+              .toList()
+            ..sort())
+        : <String>[];
+    final level = levels.contains(selectedLevel) ? selectedLevel : null;
+    final visible = level == null
+        ? lessons
+        : lessons.where((lesson) => lesson.cefrLevel == level);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (controller.error != null)
           LearningError(controller.error!, retry: controller.refresh),
-        for (final lesson in lessons) ...[
+        if (levels.length > 1) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final filter in <String?>[null, ...levels])
+                ChoiceChip(
+                  label: Text(filter ?? 'Tất cả'),
+                  selected: filter == level,
+                  onSelected: (selected) =>
+                      setState(() => selectedLevel = selected ? filter : null),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+        ],
+        for (final lesson in visible) ...[
           LearningCard(
             key: ValueKey('learning-lesson-${lesson.id}'),
             onTap: () => openLearningLesson(
@@ -142,7 +193,12 @@ class LearningCatalogue extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  LearningPill(learningKindLabel(lesson.kind), small: true),
+                  LearningPill(
+                    isReading
+                        ? lesson.cefrLevel ?? 'Đọc'
+                        : learningKindLabel(lesson.kind),
+                    small: true,
+                  ),
                   LearningPill('${lesson.minutes} phút', small: true),
                   LearningPill(
                     switch (lesson.state) {
@@ -204,8 +260,13 @@ class LearningAttemptPage extends StatefulWidget {
 class _LearningAttemptPageState extends State<LearningAttemptPage>
     with WidgetsBindingObserver {
   late final controller = LearningAttemptController(owner: widget.owner);
+  final ValueNotifier<Set<String>> _savedWordKeys = ValueNotifier({});
+  final ValueNotifier<Set<String>> _savingWordKeys = ValueNotifier({});
+  final Set<String> _sessionSavedWordKeys = {};
   ActivityCollector? activity;
   bool _leaving = false;
+  bool _viewingPassage = false;
+  String? _loadedReadingAttemptId;
   @override
   void initState() {
     super.initState();
@@ -227,6 +288,13 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
   void _attemptChanged() {
     final attempt = controller.attempt;
     if (attempt == null || controller.loading) return;
+    if (attempt.lesson.kind == 'READING' &&
+        widget.owner.vocabulary != null &&
+        _loadedReadingAttemptId != attempt.id) {
+      _loadedReadingAttemptId = attempt.id;
+      _sessionSavedWordKeys.clear();
+      unawaited(_loadSavedReadingWords(attempt.id));
+    }
     if (attempt.completed) {
       activity?.finish();
       return;
@@ -240,7 +308,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
       attemptId: attempt.id,
       isEligible: () =>
           mounted &&
-          ModalRoute.of(context)?.isCurrent == true &&
+          (_viewingPassage || ModalRoute.of(context)?.isCurrent == true) &&
           !controller.loading &&
           controller.attempt?.completed == false,
     );
@@ -250,6 +318,73 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
 
   void _activityChanged() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _loadSavedReadingWords(String attemptId) async {
+    final vocabulary = widget.owner.vocabulary;
+    if (vocabulary == null) return;
+    try {
+      final data = await vocabulary.readingWords();
+      if (!mounted || _loadedReadingAttemptId != attemptId) return;
+      final items = learningItems(data['items']);
+      _savedWordKeys.value = {
+        for (final item in items)
+          readingWordSaveKey(
+            item['english'] as String? ?? '',
+            item['meaning'] as String? ?? '',
+          ),
+        ..._sessionSavedWordKeys,
+      };
+    } catch (_) {
+      // Leave current state untouched if background word sync fails.
+    }
+  }
+
+  Future<void> _saveReadingWord(Map<String, dynamic> item) async {
+    final vocabulary = widget.owner.vocabulary;
+    if (vocabulary == null) return;
+    final english = (item['word'] as String? ?? '').trim();
+    final meaning = (item['meaning'] as String? ?? '').trim();
+    if (english.isEmpty || meaning.isEmpty) return;
+    final key = readingWordSaveKey(english, meaning);
+    if (_savedWordKeys.value.contains(key) ||
+        _savingWordKeys.value.contains(key)) {
+      return;
+    }
+    _savingWordKeys.value = {..._savingWordKeys.value, key};
+    try {
+      await vocabulary.saveReadingWord({
+        'english': english,
+        'meaning': meaning,
+        if (item['phonetic'] case final String phonetic
+            when phonetic.trim().isNotEmpty)
+          'phonetic': phonetic.trim(),
+        if (item['example'] case final String example
+            when example.trim().isNotEmpty)
+          'example': example.trim(),
+        if (item['translation'] case final String translation
+            when translation.trim().isNotEmpty)
+          'translation': translation.trim(),
+      });
+      if (!mounted) return;
+      _sessionSavedWordKeys.add(key);
+      _savedWordKeys.value = {..._savedWordKeys.value, key};
+    } catch (e) {
+      if (!mounted) return;
+      final text = e is ApiFailure
+          ? e.message
+          : 'Không lưu được từ vựng. Hãy thử lại.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(text)),
+      );
+    } finally {
+      if (mounted) {
+        _savingWordKeys.value = {
+          for (final existing in _savingWordKeys.value)
+            if (existing != key) existing,
+        };
+      }
+    }
   }
 
   Future<void> _checkpointActivity() async {
@@ -266,6 +401,8 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
     controller.removeListener(_attemptChanged);
     activity?.dispose();
     controller.dispose();
+    _savedWordKeys.dispose();
+    _savingWordKeys.dispose();
     super.dispose();
   }
 
@@ -307,6 +444,9 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
       final items = study ? attempt.steps : attempt.questions;
       final index = controller.index.clamp(0, items.length - 1);
       final item = items[index];
+      final passage = study ? null : attempt.content['passage'] as String?;
+      final reading = passage != null && attempt.lesson.kind == 'READING';
+      final options = study ? const <Json>[] : learningItems(item['options']);
       final questionId = study ? null : item['id'] as String;
       final answer = questionId == null ? null : attempt.answer(questionId);
       final checked = answer?['checked'] == true;
@@ -322,12 +462,17 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
             if (!didPop) leave();
           },
           child: FigmaPage(
-            title: attempt.lesson.title,
-            titleStyle: designHeading(18),
+            title: reading ? 'Luyện Đọc' : attempt.lesson.title,
+            titleStyle: reading ? null : designHeading(18),
             leading: IconButton(
               tooltip: 'Lưu và thoát',
               onPressed: leave,
-              icon: const Icon(Icons.arrow_back),
+              icon: reading
+                  ? const FigmaAsset(
+                      'reading/imgVuesaxLinearArrowLeft',
+                      size: 20,
+                    )
+                  : const Icon(Icons.arrow_back),
             ),
             bottom: Column(
               mainAxisSize: MainAxisSize.min,
@@ -364,7 +509,13 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                       child: CustomAppButton(
                         text: '',
                         isSecondary: true,
-                        icon: const Icon(Icons.chevron_left),
+                        borderRadius: reading ? AppRadius.tagRadius : null,
+                        icon: reading
+                            ? const FigmaAsset(
+                                'reading/imgVuesaxLinearArrowLeft1',
+                                size: 20,
+                              )
+                            : const Icon(Icons.chevron_left),
                         onPressed: blocked || index == 0
                             ? null
                             : () => controller.move(
@@ -374,10 +525,28 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                       ),
                     ),
                     const SizedBox(width: 8),
+                    if (reading && !study) ...[
+                      Expanded(
+                        child: CustomAppButton(
+                          text: '${index + 1}/${items.length}',
+                          isSecondary: true,
+                          borderRadius: AppRadius.tagRadius,
+                          icon: const FigmaAsset(
+                            'reading/imgVuesaxBoldCategory',
+                            size: 20,
+                          ),
+                          onPressed: blocked
+                              ? null
+                              : () => _chooseQuestion(attempt, index),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     Expanded(
                       child: CustomAppButton(
                         key: const Key('learningPrimaryAction'),
                         isLoading: controller.busy,
+                        borderRadius: reading ? AppRadius.tagRadius : null,
                         text: study
                             ? (last ? 'Bắt đầu luyện tập' : 'Tiếp theo')
                             : (!checked
@@ -412,7 +581,10 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
               ],
             ),
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              key: reading ? ValueKey(questionId) : null,
+              padding: reading
+                  ? const EdgeInsets.fromLTRB(16, 16, 16, 8)
+                  : const EdgeInsets.all(16),
               children: [
                 PreviewProgress(
                   index: index,
@@ -444,8 +616,13 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                     ],
                   )
                 else ...[
-                  if (attempt.content['passage'] case final String passage) ...[
-                    LearningCard(children: [learningBody(passage, size: 18)]),
+                  if (reading) ...[
+                    _passageCard(
+                      passage,
+                      highlightText: checked
+                          ? (answer!['evidence'] as String?)
+                          : null,
+                    ),
                     const SizedBox(height: 16),
                   ],
                   if (attempt.content['audioUrl'] case final String url) ...[
@@ -465,10 +642,43 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                     ),
                     const SizedBox(height: 16),
                   ],
-                  learningHeading(item['prompt'] as String, size: 24),
+                  if (reading) ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: LearningPill(
+                        readingQuestionTypeLabel(item['type'] as String?),
+                        small: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      item['prompt'] as String,
+                      style: designText(18, weight: FontWeight.w600),
+                    ),
+                  ] else
+                    learningHeading(item['prompt'] as String, size: 24),
                   const SizedBox(height: 16),
-                  for (final option in learningItems(item['options'])) ...[
-                    _answerOption(option, questionId!, answer, blocked),
+                  for (final (optionIndex, option) in options.indexed) ...[
+                    if (reading)
+                      AnswerOption(
+                        key: ValueKey('learning-option-${option['id']}'),
+                        index: optionIndex,
+                        text: option['text'] as String,
+                        selected:
+                            controller.selected(questionId!) == option['id'],
+                        chosen: answer?['optionId'] == option['id'],
+                        correct: checked
+                            ? answer!['correctOptionId'] == option['id']
+                            : null,
+                        onTap: checked || blocked
+                            ? null
+                            : () => controller.select(
+                                questionId,
+                                option['id'] as String,
+                              ),
+                      )
+                    else
+                      _answerOption(option, questionId!, answer, blocked),
                     const SizedBox(height: 12),
                   ],
                   if (checked)
@@ -480,6 +690,16 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                               : 'Chưa chính xác',
                         ),
                         learningBody(answer['explanation'] as String? ?? ''),
+                        if (answer['evidence'] case final String evidence
+                            when evidence.trim().isNotEmpty)
+                          learningBody('Dẫn chứng: "$evidence"'),
+                        if (reading) ...[
+                          ..._readingExplainWidgets(
+                            context,
+                            questionId!,
+                            answer['explanation'] as String? ?? '',
+                          ),
+                        ],
                       ],
                     ),
                 ],
@@ -490,6 +710,67 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
       );
     },
   );
+  List<Widget> _readingExplainWidgets(
+    BuildContext context,
+    String questionId,
+    String originalExplanation,
+  ) {
+    final ai = controller.aiExplanation(questionId);
+    final explaining = controller.isExplaining(questionId);
+    final errorText = controller.explainError(questionId);
+
+    Widget button(String label) => Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton(
+        key: ValueKey('learning-ai-explain-$questionId'),
+        onPressed: explaining
+            ? null
+            : () => controller.explainQuestion(questionId),
+        child: Text(explaining ? 'Đang giải thích...' : label),
+      ),
+    );
+
+    if (ai == null) {
+      return [
+        if (errorText != null)
+          Text(
+            errorText,
+            style: designText(13, color: Theme.of(context).colorScheme.error),
+          ),
+        button('Hỏi AI giải thích thêm'),
+      ];
+    }
+
+    final text = (ai['explanation'] as String? ?? '').trim();
+    if (ai['source'] == 'AI') {
+      return [
+        const Divider(height: 20),
+        learningHeading('Giải thích AI', size: 16),
+        if (text.isNotEmpty && text != originalExplanation.trim())
+          learningBody(text),
+      ];
+    }
+
+    final retryable = ai['retryable'] != false;
+    return [
+      const Divider(height: 20),
+      learningHeading('Giải thích từ học liệu', size: 16),
+      learningBody(
+        retryable
+            ? 'AI tạm thời chưa phản hồi. Bạn có thể giữ lời giải trên hoặc thử lại.'
+            : 'Câu hỏi này cần toàn bộ ngữ cảnh bài đọc nên dùng lời giải từ học liệu.',
+      ),
+      if (text.isNotEmpty && text != originalExplanation.trim())
+        learningBody(text),
+      if (errorText != null)
+        Text(
+          errorText,
+          style: designText(13, color: Theme.of(context).colorScheme.error),
+        ),
+      if (retryable) button('Thử lại giải thích AI'),
+    ];
+  }
+
   Widget _answerOption(
     Json option,
     String questionId,
@@ -574,6 +855,10 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
             ),
           learningHeading(attempt.lesson.title, size: 28),
           const SizedBox(height: 16),
+          if (attempt.content['passage'] case final String passage) ...[
+            _passageCard(passage),
+            const SizedBox(height: 16),
+          ],
           LearningCard(
             children: [
               learningHeading('Đã hoàn thành', size: 24),
@@ -610,6 +895,10 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                           as String? ??
                       '',
                 ),
+                if (attempt.answer(q['id'] as String)?['evidence']
+                    case final String evidence
+                    when evidence.trim().isNotEmpty)
+                  learningBody('Dẫn chứng: "$evidence"'),
               ],
             ),
             const SizedBox(height: 12),
@@ -617,6 +906,58 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
         ],
       ),
     );
+  }
+
+  Widget _passageCard(String passage, {String? highlightText}) {
+    final canSaveWords = widget.owner.vocabulary != null;
+    return PassageCard(
+      passage: passage,
+      highlightText: highlightText,
+      keyVocabulary: learningItems(controller.attempt?.content['keyVocabulary']),
+      savedWordKeysListenable: canSaveWords ? _savedWordKeys : null,
+      savingWordKeysListenable: canSaveWords ? _savingWordKeys : null,
+      onSaveWord: canSaveWords ? _saveReadingWord : null,
+      onExpandedChanged: (expanded) => _viewingPassage = expanded,
+      onInteraction: () => activity?.touch(),
+    );
+  }
+
+  Future<void> _chooseQuestion(LearningAttempt attempt, int current) async {
+    final questions = attempt.questions;
+    final firstUnchecked = questions.indexWhere(
+      (question) =>
+          attempt.answer(question['id'] as String)?['checked'] != true,
+    );
+    final index = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Danh sách câu hỏi', style: designHeading(20)),
+              for (final (i, question) in questions.indexed)
+                ListTile(
+                  title: Text('Câu ${i + 1}'),
+                  selected: i == current,
+                  subtitle: Text(
+                    attempt.answer(question['id'] as String)?['checked'] == true
+                        ? 'Đã kiểm tra'
+                        : 'Chưa kiểm tra',
+                  ),
+                  enabled: firstUnchecked < 0 || i <= firstUnchecked,
+                  onTap: () => Navigator.pop(sheetContext, i),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (mounted && index != null && index != current) {
+      await controller.move('QUIZ', index);
+    }
   }
 }
 
