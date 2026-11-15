@@ -7,6 +7,7 @@ import 'package:mobile/core/config/app_config.dart';
 import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/features/learning/learning_preview.dart';
+import 'package:mobile/shared/figma_widgets.dart';
 
 // Uses an emulator REST token only. It never initializes/signs out the Firebase
 // SDK, so the developer's cloud account on the device remains untouched.
@@ -106,16 +107,10 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     await mount();
-    await tap(find.byKey(const Key('learningContinue')));
+    await tap(find.byKey(ValueKey('learning-lesson-${reading['id']}')));
     await waitFor(find.text('Câu 2/5'));
     final resumedOption = find.byKey(const ValueKey('learning-option-A'));
-    expect(
-      find.descendant(
-        of: resumedOption,
-        matching: find.byIcon(Icons.radio_button_checked),
-      ),
-      findsOneWidget,
-    );
+    expect(tester.widget<AnswerOption>(resumedOption).selected, isTrue);
     await screenshot('learning-02-resumed-draft');
     for (var index = 1; index < 5; index++) {
       if (index > 1) {
@@ -196,7 +191,215 @@ void main() {
     expect(find.text('sister'), findsWidgets);
     await screenshot('learning-05-vocabulary-resume');
     await tap(find.byTooltip('Lưu và thoát'));
+
+    // New A2 v2 reading attempt: inspect start evidence on Q1 card, end evidence in Q5 BottomSheet, and history review.
+    final readingA2 = lessons.firstWhere(
+      (row) => row['code'] == 'reading-a2-club-meeting',
+    );
+    const a2StartEvidence = 'Subject: A new time for our book club meeting';
+    const a2EndEvidence =
+        'If you can’t come on Thursday, please email me by Wednesday evening.';
+    await tap(find.byKey(ValueKey('learning-lesson-${readingA2['id']}')));
+    await tap(find.byKey(const Key('learningStart')));
+    await waitFor(find.text('Câu 1/5'));
+    await tap(find.byKey(const ValueKey('learning-option-B')));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Chính xác!'));
+    await waitFor(find.text('Dẫn chứng: "$a2StartEvidence"'));
+    final q1CardHighlight = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((widget) => widget.textSpan)
+        .whereType<TextSpan>()
+        .expand((root) => root.children ?? const <InlineSpan>[])
+        .whereType<TextSpan>()
+        .where(
+          (span) =>
+              span.text == a2StartEvidence &&
+              span.style?.backgroundColor == const Color(0xFFFFF3C4),
+        );
+    expect(q1CardHighlight, hasLength(1));
+    await screenshot('learning-06-a2-q1-evidence');
+
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    for (var index = 1; index < 4; index++) {
+      await waitFor(find.text('Câu ${index + 1}/5'));
+      await tap(find.byKey(const ValueKey('learning-option-A')));
+      await tap(find.byKey(const Key('learningPrimaryAction')));
+      await waitFor(find.text('Tiếp theo'));
+      await tap(find.byKey(const Key('learningPrimaryAction')));
+    }
+    await waitFor(find.text('Câu 5/5'));
+    await tap(find.byKey(const ValueKey('learning-option-B')));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Dẫn chứng: "$a2EndEvidence"'));
+    await tester.ensureVisible(find.text('Xem toàn bộ'));
+    await tester.pumpAndSettle();
+    await tap(find.text('Xem toàn bộ'));
+    await waitFor(find.byType(BottomSheet));
+    await tester.drag(
+      find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(SingleChildScrollView),
+      ),
+      const Offset(0, -300),
+    );
+    await tester.pumpAndSettle();
+    final q5SheetHighlight = tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(Text),
+          ),
+        )
+        .map((widget) => widget.textSpan)
+        .whereType<TextSpan>()
+        .expand((root) => root.children ?? const <InlineSpan>[])
+        .whereType<TextSpan>()
+        .where(
+          (span) =>
+              span.text == a2EndEvidence &&
+              span.style?.backgroundColor == const Color(0xFFFFF3C4),
+        );
+    expect(q5SheetHighlight, hasLength(1));
+    await screenshot('learning-07-a2-q5-bottom-sheet');
+    Navigator.of(tester.element(find.byType(BottomSheet))).pop();
+    await tester.pumpAndSettle();
+
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Kết quả bài học'));
+    late String a2CompletedId;
+    await tester.runAsync(() async {
+      final history = await api.request('GET', '/learning/history');
+      final item = (history['items'] as List).cast<Map>().firstWhere(
+        (row) => (row['lesson'] as Map)['code'] == 'reading-a2-club-meeting',
+      );
+      a2CompletedId = item['id'] as String;
+      expect(item['status'], 'COMPLETED');
+    });
+    await tap(find.byIcon(Icons.arrow_back));
+    await tap(find.byKey(const Key('previewTab4')));
+    await tap(find.byKey(const Key('learningHistory')));
+    await tap(find.byKey(ValueKey('learning-history-$a2CompletedId')));
+    await waitFor(find.text('Kết quả bài học'));
+    await tester.scrollUntilVisible(
+      find.text('Dẫn chứng: "$a2EndEvidence"'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Dẫn chứng: "$a2EndEvidence"'), findsOneWidget);
+    await screenshot('learning-08-a2-history-review');
+    await tap(find.byIcon(Icons.arrow_back));
+    await tap(find.byTooltip('Quay lại'));
+
+    // Đợt 2: B1 Pre-reading STUDY -> exit & resume -> GAP_FILL -> save reading word -> reopen verify.
+    await tap(find.byKey(const Key('previewTab0')));
+    final readingB1 = lessons.firstWhere(
+      (row) => row['code'] == 'reading-b1-hybrid-workday',
+    );
+    await tap(find.byKey(ValueKey('learning-lesson-${readingB1['id']}')));
+    await tap(find.byKey(const Key('learningStart')));
+    await waitFor(find.text('Học 1/3'));
+    expect(find.text('hybrid arrangement'), findsWidgets);
+    await screenshot('learning-09-b1-study');
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Học 2/3'));
+    await tap(find.byTooltip('Lưu và thoát'));
+
+    // Reopen B1 directly: must resume at STUDY step 2/3, then reach QUIZ.
+    await tap(find.byKey(ValueKey('learning-lesson-${readingB1['id']}')));
+    await waitFor(find.text('Học 2/3'));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Học 3/3'));
+    expect(find.text('Bắt đầu luyện tập'), findsOneWidget);
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Câu 1/6'));
+
+    for (var index = 0; index < 5; index++) {
+      await tap(find.byKey(const ValueKey('learning-option-A')));
+      await tap(find.byKey(const Key('learningPrimaryAction')));
+      await waitFor(find.text('Tiếp theo'));
+      await tap(find.byKey(const Key('learningPrimaryAction')));
+    }
+    await waitFor(find.text('Câu 6/6'));
+    expect(find.text('Điền khuyết'), findsOneWidget);
+    await tap(find.byKey(const ValueKey('learning-option-A')));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Chính xác!'));
+    await screenshot('learning-10-b1-gapfill');
+
+    await tester.ensureVisible(find.text('Xem toàn bộ'));
+    await tester.pumpAndSettle();
+    await tap(find.text('Xem toàn bộ'));
+    await waitFor(find.byType(BottomSheet));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('reading-save-word-b1-kv-1')),
+    );
+    await tester.pumpAndSettle();
+    await tap(find.byKey(const ValueKey('reading-save-word-b1-kv-1')));
+    await waitFor(find.text('Đã lưu'));
+    await screenshot('learning-11-b1-saved-word');
+    Navigator.of(tester.element(find.byType(BottomSheet))).pop();
+    await tester.pumpAndSettle();
+    await tap(find.byTooltip('Lưu và thoát'));
+
+    // Reopen B1 and verify saved word state persists from server.
+    await tap(find.byKey(ValueKey('learning-lesson-${readingB1['id']}')));
+    await waitFor(find.text('Câu 6/6'));
+    await tester.ensureVisible(find.text('Xem toàn bộ'));
+    await tester.pumpAndSettle();
+    await tap(find.text('Xem toàn bộ'));
+    await waitFor(find.byType(BottomSheet));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('reading-save-word-b1-kv-1')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Đã lưu'), findsOneWidget);
+    await screenshot('learning-12-b1-reopened-word');
+    Navigator.of(tester.element(find.byType(BottomSheet))).pop();
+    await tester.pumpAndSettle();
+    await tap(find.byTooltip('Lưu và thoát'));
+
+    // Đợt 2: B2 Pre-reading STUDY -> Q6 TRUE_FALSE_NOT_GIVEN ('Not Given') checks with explanation & no evidence.
+    final readingB2 = lessons.firstWhere(
+      (row) => row['code'] == 'reading-b2-urban-pocket-parks',
+    );
+    await tap(find.byKey(ValueKey('learning-lesson-${readingB2['id']}')));
+    await tap(find.byKey(const Key('learningStart')));
+    await waitFor(find.text('Học 1/3'));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Học 2/3'));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Học 3/3'));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Câu 1/6'));
+
+    for (var index = 0; index < 5; index++) {
+      await tap(find.byKey(const ValueKey('learning-option-A')));
+      await tap(find.byKey(const Key('learningPrimaryAction')));
+      await waitFor(find.text('Tiếp theo'));
+      await tap(find.byKey(const Key('learningPrimaryAction')));
+    }
+    await waitFor(find.text('Câu 6/6'));
+    expect(find.text('Đúng / Sai / Không đề cập'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('learning-option-C')),
+      200,
+      scrollable: find.byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.down,
+      ),
+    );
+    await tap(find.byKey(const ValueKey('learning-option-C')));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Chính xác!'));
+    expect(find.textContaining('Dẫn chứng: "'), findsNothing);
+    await tester.drag(find.byType(ListView), const Offset(0, -250));
+    await tester.pumpAndSettle();
+    await screenshot('learning-13-b2-q6-not-given');
+    await tap(find.byTooltip('Lưu và thoát'));
+
     await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
     account.dispose();
     api.dio.close();
   });
