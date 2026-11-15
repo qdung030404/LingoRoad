@@ -1,8 +1,16 @@
 import 'dotenv/config';
-import { LearningKind, Prisma, PrismaClient } from '@prisma/client';
+import { CefrLevel, LearningKind, Prisma, PrismaClient } from '@prisma/client';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LearningContent, LearningQuestion, validateLearningContent } from '../src/modules/learning/learning.types';
+import { LearningContent, LearningQuestion, READING_SKILL_CODES, validateLearningContent } from '../src/modules/learning/learning.types';
+
+export interface LearningUnitSeed {
+  code: string;
+  cefrLevel: CefrLevel;
+  orderIndex: number;
+  title: string;
+  description: string;
+}
 
 export interface LearningSeed {
   code: string;
@@ -12,22 +20,98 @@ export interface LearningSeed {
   estimatedMinutes: number;
   sortOrder: number;
   contentVersion: number;
+  unitCode: string;
   content: LearningContent;
 }
 
+export function loadLearningUnits(): LearningUnitSeed[] {
+  return [
+    {
+      code: 'a1-unit-1',
+      cefrLevel: 'A1',
+      orderIndex: 1,
+      title: 'Làm quen và giới thiệu',
+      description: 'Chào hỏi, giới thiệu bản thân, nói số thứ tự và giờ',
+    },
+    {
+      code: 'a1-unit-2',
+      cefrLevel: 'A1',
+      orderIndex: 2,
+      title: 'Gia đình và đồ vật',
+      description: 'Nói về gia đình, đồ vật và đồ ăn',
+    },
+    {
+      code: 'a1-unit-3',
+      cefrLevel: 'A1',
+      orderIndex: 3,
+      title: 'Thói quen và sở thích',
+      description: 'Kể thói quen nghề nghiệp, sở thích và hỏi đáp đơn giản',
+    },
+    {
+      code: 'a1-unit-4',
+      cefrLevel: 'A1',
+      orderIndex: 4,
+      title: 'Nơi chốn và mua sắm',
+      description: 'Hỏi đường, nói về nơi chốn và mua sắm',
+    },
+    {
+      code: 'a2-unit-1',
+      cefrLevel: 'A2',
+      orderIndex: 1,
+      title: 'Lịch hẹn và kế hoạch',
+      description: 'Đọc thông báo đổi lịch và xác định việc cần làm',
+    },
+    {
+      code: 'b1-unit-1',
+      cefrLevel: 'B1',
+      orderIndex: 1,
+      title: 'Công việc và môi trường số',
+      description: 'Đọc hiểu quy định làm việc kết hợp và trao đổi nơi công sở',
+    },
+    {
+      code: 'b2-unit-1',
+      cefrLevel: 'B2',
+      orderIndex: 1,
+      title: 'Đô thị và phát triển bền vững',
+      description: 'Phân tích bài viết về không gian xanh và quy hoạch đô thị',
+    },
+    {
+      code: 'c1-unit-1',
+      cefrLevel: 'C1',
+      orderIndex: 1,
+      title: 'Tư duy phản biện và khoa học nhận thức',
+      description: 'Đọc văn bản học thuật về sự chú ý và thói quen đọc sâu',
+    },
+  ];
+}
+
 const transcript = 'Hello! My name is Anna. I am twenty years old. I am from Hanoi. I am a student. I like reading books with my friends.';
-const question = (id: string, prompt: string, options: string[], correctIndex: number, explanation: string): LearningQuestion => ({
+const question = (
+  id: string,
+  prompt: string,
+  options: string[],
+  correctIndex: number,
+  explanation: string,
+  extra?: Pick<LearningQuestion, 'evidence' | 'skillCode' | 'type'>,
+): LearningQuestion => ({
   id, prompt, options: options.map((text, index) => ({ id: String.fromCharCode(65 + index), text })),
-  correctOptionId: String.fromCharCode(65 + correctIndex), explanation,
+  correctOptionId: String.fromCharCode(65 + correctIndex), explanation, ...extra,
 });
 
 export function loadLearningContent(): LearningSeed[] {
+  const readingMeta = (prefix: string, evidence: string, skillCode: LearningQuestion['skillCode'] = 'reading.scanning') =>
+    prefix === 'reading' ? { evidence, skillCode } : undefined;
   const comprehension = (prefix: string) => [
-    question(`${prefix}-1`, 'What is the speaker’s name?', ['Anna', 'Mai', 'Lan', 'Jane'], 0, 'Người nói tự giới thiệu: “My name is Anna.”'),
-    question(`${prefix}-2`, 'Where is Anna from?', ['London', 'Hanoi', 'Paris', 'Tokyo'], 1, 'Anna nói “I am from Hanoi”, nên cô ấy đến từ Hà Nội.'),
-    question(`${prefix}-3`, 'What does Anna do?', ['A doctor', 'A teacher', 'A student', 'A nurse'], 2, '“I am a student” có nghĩa là Anna là sinh viên.'),
-    question(`${prefix}-4`, 'What does Anna like?', ['Running', 'Cooking', 'Dancing', 'Reading'], 3, 'Anna nói cô ấy thích đọc sách cùng bạn bè: “I like reading books with my friends.”'),
-    question(`${prefix}-5`, 'How old is Anna?', ['Twenty', 'Twelve', 'Thirty', 'Eighteen'], 0, '“I am twenty years old” nghĩa là Anna hai mươi tuổi.'),
+    question(`${prefix}-1`, 'What is the speaker’s name?', ['Anna', 'Mai', 'Lan', 'Jane'], 0, 'Người nói tự giới thiệu: “My name is Anna.”',
+      readingMeta(prefix, 'My name is Anna.')),
+    question(`${prefix}-2`, 'Where is Anna from?', ['London', 'Hanoi', 'Paris', 'Tokyo'], 1, 'Anna nói “I am from Hanoi”, nên cô ấy đến từ Hà Nội.',
+      readingMeta(prefix, 'I am from Hanoi.')),
+    question(`${prefix}-3`, 'What does Anna do?', ['A doctor', 'A teacher', 'A student', 'A nurse'], 2, '“I am a student” có nghĩa là Anna là sinh viên.',
+      readingMeta(prefix, 'I am a student.')),
+    question(`${prefix}-4`, 'What does Anna like?', ['Running', 'Cooking', 'Dancing', 'Reading'], 3, 'Anna nói cô ấy thích đọc sách cùng bạn bè: “I like reading books with my friends.”',
+      readingMeta(prefix, 'I like reading books with my friends.')),
+    question(`${prefix}-5`, 'How old is Anna?', ['Twenty', 'Twelve', 'Thirty', 'Eighteen'], 0, '“I am twenty years old” nghĩa là Anna hai mươi tuổi.',
+      readingMeta(prefix, 'I am twenty years old.')),
   ];
   const words = [
     ['mother', '/ˈmʌðə(r)/', 'mẹ', 'My mother is a teacher.', 'Mẹ tôi là giáo viên.'],
@@ -42,7 +126,7 @@ export function loadLearningContent(): LearningSeed[] {
     ['son', '/sʌn/', 'con trai', 'Their son is a student.', 'Con trai của họ là sinh viên.'],
   ];
   return [
-    { code: 'grammar-pronouns-to-be', kind: 'GRAMMAR', title: 'Subject pronouns and “to be”', description: 'Đại từ nhân xưng, câu khẳng định, phủ định và câu hỏi với to be.', estimatedMinutes: 10, sortOrder: 1, contentVersion: 1,
+    { code: 'grammar-pronouns-to-be', kind: 'GRAMMAR', title: 'Subject pronouns and “to be”', description: 'Đại từ nhân xưng, câu khẳng định, phủ định và câu hỏi với to be.', estimatedMinutes: 10, sortOrder: 1, contentVersion: 1, unitCode: 'a1-unit-1',
       content: { steps: [{ id: 'grammar-theory', title: 'Đại từ nhân xưng và động từ to be',
         body: 'I → am; He / She / It → is; You / We / They → are.\n\nKhẳng định: Chủ ngữ + am / is / are.\nI am a student. She is a teacher. They are friends.\n\nPhủ định: Chủ ngữ + am / is / are + not.\nWe are not tired. He is not a doctor.\n\nCâu hỏi: Am / Is / Are + chủ ngữ …?\nIs she a teacher? Are you from Hanoi?\n\nTên một người như Lan dùng “is”.' }], questions: [
         question('grammar-1', 'I … a student.', ['am', 'is', 'are', 'be'], 0, 'Chủ ngữ “I” đi với “am”: I am a student.'),
@@ -51,7 +135,7 @@ export function loadLearningContent(): LearningSeed[] {
         question('grammar-4', '… she a teacher?', ['Am', 'Are', 'Be', 'Is'], 3, 'Đảo “Is” lên trước “she” để tạo câu hỏi: Is she a teacher?'),
         question('grammar-5', 'We … not tired.', ['are', 'is', 'am', 'be'], 0, '“We” đi với “are”; câu phủ định là “We are not tired”.'),
       ] } },
-    { code: 'vocabulary-family', kind: 'VOCABULARY', title: 'Family and relationships', description: 'Học 10 từ về gia đình qua phát âm và ví dụ, sau đó luyện tập.', estimatedMinutes: 10, sortOrder: 2, contentVersion: 1,
+    { code: 'vocabulary-family', kind: 'VOCABULARY', title: 'Family and relationships', description: 'Học 10 từ về gia đình qua phát âm và ví dụ, sau đó luyện tập.', estimatedMinutes: 10, sortOrder: 2, contentVersion: 1, unitCode: 'a1-unit-2',
       content: { steps: words.map(([word, phonetic, meaning, example, body]) => ({ id: `word-${word}`, title: word, word, phonetic, meaning, example, body, audioUrl: `/media/learning/v1/${word}.wav` })), questions: [
         question('vocabulary-1', 'My father and mother are my …', ['parents', 'sisters', 'brothers', 'sons'], 0, '“Parents” nghĩa là bố mẹ, gồm father và mother.'),
         question('vocabulary-2', 'My mother’s mother is my …', ['sister', 'grandmother', 'daughter', 'brother'], 1, 'Mẹ của mẹ là bà ngoại: “grandmother”.'),
@@ -59,20 +143,318 @@ export function loadLearningContent(): LearningSeed[] {
         question('vocabulary-4', 'My parents have two children: me and a boy. The boy is my …', ['mother', 'sister', 'grandmother', 'brother'], 3, 'Cậu bé là người con trai còn lại của bố mẹ, tức anh/em trai: “brother”.'),
         question('vocabulary-5', 'A son is a …', ['boy', 'girl', 'mother', 'grandmother'], 0, '“Son” nghĩa là con trai, nên chọn “boy”.'),
       ] } },
-    { code: 'reading-everyday-introductions', kind: 'READING', title: 'Everyday Introductions', description: 'Đọc đoạn tự giới thiệu và xác định thông tin tên, tuổi, quê quán và sở thích.', estimatedMinutes: 5, sortOrder: 3, contentVersion: 1,
+    { code: 'reading-everyday-introductions', kind: 'READING', title: 'Everyday Introductions', description: 'Đọc đoạn tự giới thiệu và xác định thông tin tên, tuổi, quê quán và sở thích.', estimatedMinutes: 5, sortOrder: 3, contentVersion: 2, unitCode: 'a1-unit-1',
       content: { steps: [], passage: transcript, questions: comprehension('reading') } },
-    { code: 'listening-greetings-introductions', kind: 'LISTENING', title: 'Greetings and Introductions', description: 'Nghe Anna tự giới thiệu. Được nghe lại và tua không giới hạn.', estimatedMinutes: 5, sortOrder: 4, contentVersion: 1,
+    { code: 'listening-greetings-introductions', kind: 'LISTENING', title: 'Greetings and Introductions', description: 'Nghe Anna tự giới thiệu. Được nghe lại và tua không giới hạn.', estimatedMinutes: 5, sortOrder: 4, contentVersion: 1, unitCode: 'a1-unit-1',
       content: { steps: [], audioUrl: '/media/learning/v1/listening.wav', transcript, questions: comprehension('listening') } },
+    {
+      code: 'reading-a2-club-meeting', kind: 'READING', title: 'A New Time for the Club Meeting',
+      description: 'Đọc email đổi lịch câu lạc bộ và xác định thời gian, địa điểm cùng việc cần làm.',
+      estimatedMinutes: 5, sortOrder: 5, contentVersion: 3, unitCode: 'a2-unit-1',
+      content: {
+        steps: [],
+        passage: [
+          'Subject: A new time for our book club meeting',
+          'Hi everyone,',
+          'The school library is closed on Wednesday afternoon, so we can’t meet there at 4 p.m. as planned. Let’s meet on Thursday at 3:30 p.m. in Room 12 instead. The room is next to the school office.',
+          'Please bring the book you’re reading now. You don’t need to finish it before the meeting. We’ll each have two minutes to talk about our book.',
+          'If you can’t come on Thursday, please email me by Wednesday evening. I’ll send you a list of the books we talk about.',
+          'See you soon,\nMaya',
+        ].join('\n\n'),
+        keyVocabulary: [
+          { id: 'a2-kv-1', word: 'as planned', phonetic: '/æz plænd/', meaning: 'như đã dự kiến', example: 'We can’t meet there at 4 p.m. as planned.', translation: 'Chúng ta không thể gặp ở đó lúc 4 giờ chiều như dự kiến.' },
+          { id: 'a2-kv-2', word: 'instead', phonetic: '/ɪnˈsted/', meaning: 'thay vào đó', example: 'Let’s meet on Thursday at 3:30 p.m. in Room 12 instead.', translation: 'Thay vào đó hãy gặp nhau vào thứ Năm lúc 3:30 chiều tại Phòng 12.' },
+          { id: 'a2-kv-3', word: 'office', phonetic: '/ˈɒfɪs/', meaning: 'văn phòng', example: 'The room is next to the school office.', translation: 'Phòng nằm ngay cạnh văn phòng nhà trường.' },
+          { id: 'a2-kv-4', word: 'finish', phonetic: '/ˈfɪnɪʃ/', meaning: 'hoàn thành, đọc xong', example: 'You don’t need to finish it before the meeting.', translation: 'Bạn không cần đọc xong cuốn sách trước buổi họp.' },
+        ],
+        questions: [
+          question('club-meeting-purpose', 'Why did Maya write this email?',
+            ['To invite students to join a new club', 'To tell members about a change to their meeting', 'To ask the school office for a room', 'To share a list of books'], 1,
+            'Maya viết “Let’s meet on Thursday … in Room 12 instead” để báo giờ và nơi họp mới cho các thành viên.',
+            { skillCode: 'reading.skimming', evidence: 'Subject: A new time for our book club meeting' }),
+          question('club-meeting-when', 'When is the new meeting?',
+            ['Wednesday at 3:30 p.m.', 'Wednesday at 4 p.m.', 'Thursday at 4 p.m.', 'Thursday at 3:30 p.m.'], 3,
+            'Lịch mới là “Thursday at 3:30 p.m.” Giờ 4 p.m. thứ Tư là lịch cũ.',
+            { skillCode: 'reading.scanning', evidence: 'Let’s meet on Thursday at 3:30 p.m. in Room 12 instead.' }),
+          question('club-meeting-where', 'Where should members go for the meeting?',
+            ['Room 12', 'The school library', 'The school office', 'The library entrance'], 0,
+            'Maya hẹn gặp “in Room 12”. Văn phòng trường chỉ là mốc để tìm phòng.',
+            { skillCode: 'reading.scanning', evidence: 'in Room 12 instead. The room is next to the school office.' }),
+          question('club-meeting-book', 'Leo hasn’t finished his book. What should he do?',
+            ['Leave the book at home', 'Finish it before Thursday', 'Bring the book he is reading', 'Choose a different book'], 2,
+            '“Please bring the book you’re reading now” yêu cầu mang sách đang đọc. “You don’t need to finish it” cho biết Leo có thể mang sách dù chưa đọc xong.',
+            { skillCode: 'reading.scanning', evidence: 'Please bring the book you’re reading now. You don’t need to finish it before the meeting.' }),
+          question('club-meeting-reply', 'What should a member do if they can’t come?',
+            ['Go to the library on Wednesday', 'Email Maya by Wednesday evening', 'Call the school office on Thursday', 'Send Maya a list of books'], 1,
+            'Maya viết “If you can’t come on Thursday, please email me by Wednesday evening.” Chính Maya sẽ gửi danh sách sách sau buổi họp.',
+            { skillCode: 'reading.scanning', evidence: 'If you can’t come on Thursday, please email me by Wednesday evening.' }),
+        ],
+      },
+    },
+    {
+      code: 'reading-b1-hybrid-workday', kind: 'READING', title: 'Lịch làm việc kết hợp của nhóm thiết kế',
+      description: 'Đọc thông báo nội bộ về quy tắc làm việc từ xa và phối hợp tại văn phòng.',
+      estimatedMinutes: 8, sortOrder: 6, contentVersion: 2, unitCode: 'b1-unit-1',
+      content: {
+        steps: [
+          {
+            id: 'b1-pre-hybrid',
+            title: 'Từ khóa trước khi đọc',
+            word: 'hybrid arrangement',
+            phonetic: '/ˈhaɪbrɪd əˈreɪndʒmənt/',
+            meaning: 'hình thức làm việc kết hợp',
+            body: 'Kết hợp ngày lên văn phòng cố định để phối hợp trực tiếp với ngày làm việc từ xa linh hoạt.',
+            example: 'We are keeping the hybrid arrangement with two small changes.',
+          },
+          {
+            id: 'b1-pre-core',
+            title: 'Từ khóa trước khi đọc',
+            word: 'core window',
+            phonetic: '/kɔː ˈwɪndəʊ/',
+            meaning: 'khung giờ cốt lõi',
+            body: 'Khoảng thời gian chung trong ngày mà mọi thành viên đều sẵn sàng trao đổi công việc.',
+            example: 'We are introducing a shared core window from 10:00 a.m. to 3:00 p.m.',
+          },
+          {
+            id: 'b1-pre-reserve',
+            title: 'Từ khóa trước khi đọc',
+            word: 'reserve',
+            phonetic: '/rɪˈzɜːv/',
+            meaning: 'đặt trước (chỗ ngồi, bàn làm việc)',
+            body: 'Đặt chỗ trên ứng dụng trước khi lên văn phòng để đảm bảo có đầy đủ thiết bị.',
+            example: 'Please reserve a seat in the booking app before 6:00 p.m.',
+          },
+        ],
+        passage: [
+          'Subject: Updated hybrid schedule for the Product Design team',
+          'Hello team,',
+          'After reviewing our three-month trial, we are keeping the hybrid arrangement with two small changes starting next Monday. Every member will still work in the office on Tuesdays and Thursdays so that sprint reviews and whiteboard critiques happen in person. Monday, Wednesday, and Friday remain flexible remote days, unless a client specifically requests an on-site workshop.',
+          'To help everyone stay reachable without feeling overwhelmed by messages, we are introducing a shared core window from 10:00 a.m. to 3:00 p.m. During these hours, please respond to Slack threads within twenty minutes and keep your calendar up to date. Outside the core window, you are free to shift your deep-focus hours earlier or later to match your routine.',
+          'One reminder about shared desks: please reserve a seat in the booking app before 6:00 p.m. the evening before you come in. If you forget, the front desk can assign a temporary spot on the fourth floor, though dual monitors are not guaranteed there.',
+          'Best,\nHana',
+        ].join('\n\n'),
+        keyVocabulary: [
+          { id: 'b1-kv-1', word: 'hybrid arrangement', phonetic: '/ˈhaɪbrɪd əˈreɪndʒmənt/', meaning: 'hình thức làm việc kết hợp', example: 'We are keeping the hybrid arrangement with two small changes.' },
+          { id: 'b1-kv-2', word: 'reachable', phonetic: '/ˈriːtʃəbl/', meaning: 'dễ liên lạc được', example: 'To help everyone stay reachable without feeling overwhelmed by messages...' },
+          { id: 'b1-kv-3', word: 'reserve', phonetic: '/rɪˈzɜːv/', meaning: 'đặt trước', example: 'Please reserve a seat in the booking app before 6:00 p.m.' },
+          { id: 'b1-kv-4', word: 'temporary', phonetic: '/ˈtemprəri/', meaning: 'tạm thời', example: 'The front desk can assign a temporary spot on the fourth floor.' },
+        ],
+        questions: [
+          question('hybrid-main-purpose', 'What is the main purpose of Hana’s announcement?',
+            ['To introduce a completely remote policy for designers', 'To confirm the hybrid model with two adjustments for the team', 'To move all client workshops to Friday afternoons', 'To replace Slack with calendar invitations'], 1,
+            'Hana cho biết nhóm vẫn giữ mô hình kết hợp sau giai đoạn thử nghiệm kèm hai điều chỉnh nhỏ áp dụng từ thứ Hai tới.',
+            { skillCode: 'reading.main_idea', evidence: 'After reviewing our three-month trial, we are keeping the hybrid arrangement with two small changes starting next Monday.' }),
+          question('hybrid-office-days', 'When must all design team members come to the office under the regular schedule?',
+            ['Mondays and Fridays', 'Tuesdays and Thursdays', 'Wednesdays and Fridays', 'Every weekday morning'], 1,
+            'Thông báo nêu rõ mọi thành viên vẫn làm việc tại văn phòng vào thứ Ba và thứ Năm để họp sprint review và góp ý trực tiếp.',
+            { skillCode: 'reading.scanning', evidence: 'Every member will still work in the office on Tuesdays and Thursdays so that sprint reviews and whiteboard critiques happen in person.' }),
+          question('hybrid-core-window', 'What is expected of team members between 10:00 a.m. and 3:00 p.m.?',
+            ['Booking a temporary desk on the fourth floor', 'Turning off Slack notifications for deep work', 'Replying to Slack messages within twenty minutes and updating calendars', 'Attending daily on-site client workshops'], 2,
+            'Trong khung giờ cốt lõi từ 10 giờ sáng đến 3 giờ chiều, nhân viên cần phản hồi các chuỗi Slack trong vòng 20 phút và cập nhật lịch.',
+            { skillCode: 'reading.scanning', evidence: 'During these hours, please respond to Slack threads within twenty minutes and keep your calendar up to date.' }),
+          question('hybrid-context-window', 'What does the phrase “core window” refer to in the second paragraph?',
+            ['The hours when everyone agrees to be responsive', 'A new glass meeting room near the front desk', 'The software used to reserve dual monitors', 'A mandatory office lunch break'], 0,
+            'Dựa vào ngữ cảnh, “core window” là khoảng thời gian chung (10:00–15:00) để cả nhóm dễ liên lạc với nhau trước khi tự điều chỉnh giờ làm việc tập trung ngoài khung này.',
+            { skillCode: 'reading.context_clues', evidence: 'To help everyone stay reachable without feeling overwhelmed by messages, we are introducing a shared core window from 10:00 a.m. to 3:00 p.m.' }),
+          question('hybrid-inference-monitors', 'What can be inferred if a designer arrives at the office without reserving a desk the evening before?',
+            ['They will be asked to work from home instead.', 'They can still get a seat, though it might lack dual monitors.', 'They must wait until 10:00 a.m. to enter the fourth floor.', 'They will automatically receive a permanent desk next week.'], 1,
+            'Quầy lễ tân vẫn có thể sắp xếp chỗ ngồi tạm ở tầng 4 cho người quên đặt trước, nhưng không đảm bảo có màn hình kép như chỗ đặt chuẩn.',
+            { skillCode: 'reading.inference', evidence: 'If you forget, the front desk can assign a temporary spot on the fourth floor, though dual monitors are not guaranteed there.' }),
+          question('hybrid-gap-booking', 'Before 6:00 p.m., designers should reserve a shared desk using the _____.',
+            ['booking app', 'front desk', 'calendar thread', 'whiteboard'], 0,
+            'Thông báo dặn đặt chỗ qua ứng dụng đặt bàn trước 6 giờ tối hôm trước: “reserve a seat in the booking app before 6:00 p.m.”',
+            { type: 'GAP_FILL', skillCode: 'reading.scanning', evidence: 'please reserve a seat in the booking app before 6:00 p.m. the evening before you come in.' }),
+        ],
+      },
+    },
+    {
+      code: 'reading-b2-urban-pocket-parks', kind: 'READING', title: 'Công viên bỏ túi giữa lòng đô thị',
+      description: 'Đọc bài phân tích về cách các khoảng xanh nhỏ cải thiện vi khí hậu và gắn kết cư dân.',
+      estimatedMinutes: 10, sortOrder: 7, contentVersion: 3, unitCode: 'b2-unit-1',
+      content: {
+        steps: [
+          {
+            id: 'b2-pre-municipal',
+            title: 'Từ vựng trọng tâm trước khi đọc',
+            word: 'municipal',
+            phonetic: '/mjuːˈnɪsɪpl/',
+            meaning: 'thuộc chính quyền đô thị',
+            body: 'Tính từ dùng để chỉ cơ quan quản lý hoặc quy hoạch ở cấp thành phố, đô thị.',
+            example: 'Yet municipal planners have increasingly turned to “pocket parks”.',
+          },
+          {
+            id: 'b2-pre-permeable',
+            title: 'Từ vựng trọng tâm trước khi đọc',
+            word: 'permeable',
+            phonetic: '/ˈpɜːmiəbl/',
+            meaning: 'thấm nước được',
+            body: 'Mô tả bề mặt hoặc vật liệu cho phép nước mưa thấm xuống đất thay vì chảy tràn.',
+            example: 'Dense tree canopies and permeable paving lower surface temperatures on surrounding blocks.',
+          },
+          {
+            id: 'b2-pre-belies',
+            title: 'Từ vựng trọng tâm trước khi đọc',
+            word: 'belies',
+            phonetic: '/bɪˈlaɪz/',
+            meaning: 'che lấp, trái ngược với ấn tượng ban đầu',
+            body: 'Động từ diễn tả vẻ bề ngoài nhỏ bé hoặc đơn giản nhưng thực tế mang lại kết quả đáng kể.',
+            example: 'Their modest footprint belies measurable environmental gains.',
+          },
+        ],
+        passage: [
+          'In densely built cities, securing hectares of open land for a major park is rarely realistic. Yet municipal planners have increasingly turned to “pocket parks”—green spaces often no larger than a single building plot—wedged between apartment blocks and commercial streets. Because they occupy vacant corners or underused parking strips, these compact plots require a fraction of the land and budget needed for traditional recreational grounds.',
+          'Their modest footprint belies measurable environmental gains. Dense tree canopies and permeable paving lower surface temperatures on surrounding blocks by two to three degrees Celsius during heatwaves, while rain gardens absorb sudden downpours before stormwater drains overflow. For older residents and young families who cannot easily travel across town to a botanical garden, a shaded bench five minutes from home turns daily greenery from an occasional excursion into an accessible routine.',
+          'Still, pocket parks are not immune to neglect. Sites designed solely for visual appeal—such as manicured lawns enclosed by decorative fences—tend to sit empty and accumulate litter. By contrast, pocket parks co-designed with neighborhood associations pair practical ecological benefits with everyday access—offering movable seating, drinking fountains, and clear sightlines from nearby storefronts to foster informal social oversight that keeps the space lively and safe.',
+        ].join('\n\n'),
+        keyVocabulary: [
+          { id: 'b2-kv-1', word: 'municipal', phonetic: '/mjuːˈnɪsɪpl/', meaning: 'thuộc chính quyền đô thị', example: 'Municipal planners have increasingly turned to pocket parks.' },
+          { id: 'b2-kv-2', word: 'permeable', phonetic: '/ˈpɜːmiəbl/', meaning: 'thấm nước được', example: 'Dense tree canopies and permeable paving lower surface temperatures.' },
+          { id: 'b2-kv-3', word: 'belies', phonetic: '/bɪˈlaɪz/', meaning: 'che lấp, gây ấn tượng trái ngược thực tế', example: 'Their modest footprint belies measurable environmental gains.' },
+          { id: 'b2-kv-4', word: 'oversight', phonetic: '/ˈəʊvəsaɪt/', meaning: 'sự quan sát, giám sát tự nhiên', example: 'Clear sightlines foster informal social oversight.' },
+        ],
+        questions: [
+          question('pocket-main-idea', 'What is the central point of the passage?',
+            ['Large botanical gardens should replace smaller neighborhood parks.', 'Small urban parks offer practical environmental and social benefits when designed with community input.', 'City planners are eliminating street parking in every commercial district.', 'Decorative fences are the best way to protect new city trees.'], 1,
+            'Toàn bài phân tích lợi ích vi khí hậu và khả năng tiếp cận hằng ngày của công viên bỏ túi tại đô thị chật hẹp, đồng thời nhấn mạnh vai trò đồng thiết kế của cộng đồng.',
+            { skillCode: 'reading.main_idea', evidence: 'By contrast, pocket parks co-designed with neighborhood associations pair practical ecological benefits with everyday access—offering movable seating, drinking fountains, and clear sightlines from nearby storefronts to foster informal social oversight that keeps the space lively and safe.' }),
+          question('pocket-environment-detail', 'How do pocket parks help cities cope with heavy rainfall?',
+            ['By channeling water directly onto commercial streets', 'By using rain gardens to absorb sudden downpours', 'By replacing apartment roofs with wooden benches', 'By locking drainage gates during heatwaves'], 1,
+            'Bài viết nêu rõ các vườn mưa (rain gardens) trong công viên nhỏ giúp thấm lượng mưa lớn đột ngột trước khi hệ thống thoát nước bị quá tải.',
+            { skillCode: 'reading.text_structure', evidence: 'while rain gardens absorb sudden downpours before stormwater drains overflow.' }),
+          question('pocket-context-belies', 'In the second paragraph, the word “belies” is closest in meaning to which of the following?',
+            ['disproves the expectation created by', 'depends completely upon', 'publicly advertises', 'gradually weakens'], 0,
+            'Cụm “Their modest footprint belies measurable environmental gains” nhấn mạnh diện tích khiêm tốn dễ khiến người ta đánh giá thấp tác động thực tế, tức đi ngược lại ấn tượng nhỏ bé ban đầu.',
+            { skillCode: 'reading.context_clues', evidence: 'Their modest footprint belies measurable environmental gains.' }),
+          question('pocket-author-purpose', 'Why does the author mention manicured lawns with decorative fences in the final paragraph?',
+            ['To praise low-maintenance landscaping in business districts', 'To illustrate a design choice that discourages everyday community use', 'To explain why botanical gardens cost more than parking strips', 'To recommend keeping pets out of newly planted areas'], 1,
+            'Tác giả đưa ra ví dụ bãi cỏ cắt tỉa có hàng rào trang trí để đối lập, cho thấy thiết kế chỉ chú trọng hình thức khiến cư dân ngại sử dụng và nơi đó dễ bị bỏ hoang.',
+            { skillCode: 'reading.author_purpose', evidence: 'Sites designed solely for visual appeal—such as manicured lawns enclosed by decorative fences—tend to sit empty and accumulate litter.' }),
+          question('pocket-inference-safety', 'What does the author imply makes a pocket park feel safer and livelier?',
+            ['Installing taller brick walls around apartment blocks', 'Limiting access to members of neighborhood associations', 'Active community involvement and visibility from nearby shops', 'Restricting opening hours to morning commutes'], 2,
+            'Sự tham gia đồng thiết kế cùng tầm nhìn thông thoáng từ các cửa hàng xung quanh tạo ra sự quan sát tự nhiên từ cộng đồng, giúp công viên vừa sống động vừa an toàn.',
+            { skillCode: 'reading.inference', evidence: 'foster informal social oversight that keeps the space lively and safe.' }),
+          question('pocket-tfng-maintenance', 'Pocket parks cost more per square meter to maintain than major botanical gardens.',
+            ['True', 'False', 'Not Given'], 2,
+            'Bài viết chỉ đề cập công viên bỏ túi cần ít đất và ngân sách tổng thể hơn khu vui chơi truyền thống, không so sánh chi phí bảo trì trên mỗi mét vuông với vườn bách thảo.',
+            { type: 'TRUE_FALSE_NOT_GIVEN', skillCode: 'reading.fact_opinion' }),
+        ],
+      },
+    },
+    {
+      code: 'reading-c1-deep-reading-attention', kind: 'READING', title: 'Đọc sâu trong kỷ nguyên phân mảnh chú ý',
+      description: 'Đọc bài luận học thuật về tác động của thói quen đọc lướt đối với tư duy phản biện.',
+      estimatedMinutes: 12, sortOrder: 8, contentVersion: 2, unitCode: 'c1-unit-1',
+      content: {
+        steps: [
+          {
+            id: 'c1-pre-triage',
+            title: 'Từ vựng học thuật trọng tâm',
+            word: 'triage',
+            phonetic: '/ˈtriːɑːʒ/',
+            meaning: 'sự phân loại nhanh theo mức độ ưu tiên',
+            body: 'Trong văn bản, “constant triage” chỉ thói quen lướt nhanh tiêu đề để chọn lọc thông tin tức thì.',
+            example: 'Cognitive scientists warn that this constant triage gradually reshapes how the brain approaches complex prose.',
+          },
+          {
+            id: 'c1-pre-skepticism',
+            title: 'Từ vựng học thuật trọng tâm',
+            word: 'skepticism',
+            phonetic: '/ˈskeptɪsɪzəm/',
+            meaning: 'thái độ hoài nghi phản biện',
+            body: 'Khả năng dừng lại kiểm chứng lập luận thay vì chấp nhận vội vàng thông tin trên màn hình.',
+            example: 'Deep reading recruits regions responsible for analogical reasoning, perspective-taking, and quiet skepticism.',
+          },
+          {
+            id: 'c1-pre-metacognitive',
+            title: 'Từ vựng học thuật trọng tâm',
+            word: 'metacognitive',
+            phonetic: '/ˌmetəˈkɒɡnətɪv/',
+            meaning: 'thuộc siêu nhận thức (tự điều chỉnh cách học)',
+            body: 'Nhận biết và chủ động chọn tốc độ, phương pháp đọc phù hợp với từng loại văn bản.',
+            example: 'Cultivating metacognitive control over pace restores the patience that rigorous thought demands.',
+          },
+        ],
+        passage: [
+          'Digital interfaces train readers to optimize for speed. Facing an endless stream of notifications and headlines, we instinctively adopt an “F-shaped” scanning pattern—grasping the opening lines, darting down the left margin for keywords, and abandoning dense paragraphs before an argument finishes unfolding. Far from being a trivial habit, cognitive scientists warn that this constant triage gradually reshapes how the brain approaches complex prose.',
+          'Unlike spoken language, deep reading is not an evolutionary inheritance; it is a fragile neural circuit built only through sustained effort. When readers engage slowly with nuanced arguments, the brain recruits regions responsible for analogical reasoning, perspective-taking, and quiet skepticism. Skimming serves a clear purpose when locating a train timetable or verifying a statistic, yet applying the same hurried reflex to essays or research reports leaves readers vulnerable to flattened reasoning and plausible misinformation.',
+          'Encouragingly, the remedy does not require abandoning screens altogether. Studies of university cohorts indicate that comprehension rebounds sharply when readers switch deliberately between reading modes: annotating key claims on printed pages or distraction-free readers, pausing after difficult sections to paraphrase an author’s logic, and reserving uninterrupted blocks of twenty minutes for challenging texts. Rather than resisting technology itself, cultivating metacognitive control over pace restores the patience that rigorous thought demands.',
+        ].join('\n\n'),
+        keyVocabulary: [
+          { id: 'c1-kv-1', word: 'triage', phonetic: '/ˈtriːɑːʒ/', meaning: 'sự phân loại, sàng lọc nhanh', example: 'This constant triage gradually reshapes how the brain approaches complex prose.' },
+          { id: 'c1-kv-2', word: 'fragile', phonetic: '/ˈfrædʒaɪl/', meaning: 'mong manh, cần rèn luyện giữ gìn', example: 'Deep reading is a fragile neural circuit built only through sustained effort.' },
+          { id: 'c1-kv-3', word: 'skepticism', phonetic: '/ˈskeptɪsɪzəm/', meaning: 'thái độ hoài nghi phản biện', example: 'The brain recruits regions responsible for quiet skepticism.' },
+          { id: 'c1-kv-4', word: 'metacognitive', phonetic: '/ˌmetəˈkɒɡnətɪv/', meaning: 'thuộc siêu nhận thức', example: 'Cultivating metacognitive control over pace restores patience.' },
+        ],
+        questions: [
+          question('deep-reading-purpose', 'What is the author’s primary purpose in this essay?',
+            ['To advocate banning digital devices in university classrooms', 'To examine how hurried reading habits affect cognition and propose deliberate countermeasures', 'To prove that spoken language is more complex than written prose', 'To teach readers how to scan headlines faster during emergencies'], 1,
+            'Tác giả phân tích hệ quả nhận thức của thói quen đọc lướt từ giao diện số và đề xuất chiến lược điều chỉnh nhịp đọc một cách có chủ đích.',
+            { skillCode: 'reading.author_purpose', evidence: 'Rather than resisting technology itself, cultivating metacognitive control over pace restores the patience that rigorous thought demands.' }),
+          question('deep-reading-fact-neuro', 'Which claim about deep reading does the author present as an established characteristic rather than a personal preference?',
+            ['Deep reading is naturally hardwired in the brain like spoken speech.', 'Deep reading relies on a constructed neural circuit requiring sustained practice.', 'Everyone retains arguments better when reading on smartphones.', 'Printed newspapers always eliminate reader distraction.'], 1,
+            'Tác giả nêu rõ đọc sâu không phải bản năng tiến hóa như ngôn ngữ nói mà là một mạch thần kinh mong manh được hình thành qua rèn luyện bền bỉ.',
+            { skillCode: 'reading.fact_opinion', evidence: 'Unlike spoken language, deep reading is not an evolutionary inheritance; it is a fragile neural circuit built only through sustained effort.' }),
+          question('deep-reading-context-triage', 'In the first paragraph, what does the phrase “constant triage” signify?',
+            ['Memorizing every footnote inside a dense research report', 'Continuously sorting information rapidly to decide what deserves brief attention', 'Comparing translations of an academic book across languages', 'Designing calmer notification icons for mobile applications'], 1,
+            'Ngữ cảnh dòng thông báo liên tục và kiểu quét chữ F cho thấy “constant triage” là việc phân loại, sàng lọc nhanh xem mẩu tin nào đáng liếc qua rồi bỏ dở đoạn văn dày đặc.',
+            { skillCode: 'reading.context_clues', evidence: 'we instinctively adopt an “F-shaped” scanning pattern—grasping the opening lines, darting down the left margin for keywords, and abandoning dense paragraphs before an argument finishes unfolding.' }),
+          question('deep-reading-inference-skimming', 'What nuanced stance does the author take toward skimming?',
+            ['It should be completely eradicated from modern workplaces.', 'It is useful for targeted lookup tasks, provided readers do not treat it as universal.', 'It strengthens analogical reasoning more effectively than annotation.', 'It only impairs comprehension among older university students.'], 1,
+            'Tác giả không phủ nhận hoàn toàn việc đọc lướt; tác giả công nhận nó hữu ích khi tra giờ tàu hay số liệu, chỉ phản đối việc áp dụng phản xạ vội vàng đó cho lập luận phức tạp.',
+            { skillCode: 'reading.inference', evidence: 'Skimming serves a clear purpose when locating a train timetable or verifying a statistic, yet applying the same hurried reflex to essays or research reports leaves readers vulnerable to flattened reasoning and plausible misinformation.' }),
+          question('deep-reading-critical', 'Which scenario best reflects the “metacognitive control over pace” recommended in the final paragraph?',
+            ['Turning up screen brightness while scrolling through twenty news alerts', 'Using a speed-reading timer to halve the time spent on a philosophy chapter', 'Scanning a schedule for departure times, then switching to twenty minutes of uninterrupted annotation for a journal article', 'Listening to an audio summary at triple speed instead of reading the primary source'], 2,
+            'Kiểm soát siêu nhận thức về tốc độ đọc thể hiện ở việc chọn đúng chế độ cho từng mục đích: đọc lướt khi tra lịch trình và dành 20 phút tập trung, ghi chú khi đọc văn bản học thuật khó.',
+            { skillCode: 'reading.critical_reading', evidence: 'Studies of university cohorts indicate that comprehension rebounds sharply when readers switch deliberately between reading modes: annotating key claims on printed pages or distraction-free readers, pausing after difficult sections to paraphrase an author’s logic, and reserving uninterrupted blocks of twenty minutes for challenging texts.' }),
+          question('deep-reading-gap-pattern', 'Endless alerts condition readers to use an “F-shaped” _____ pattern rather than reading deeply.',
+            ['scanning', 'listening', 'printing', 'paraphrasing'], 0,
+            'Đoạn đầu mô tả người đọc tự động dùng kiểu quét mắt chữ F (“an “F-shaped” scanning pattern”) trước dòng thông báo liên tục.',
+            { type: 'GAP_FILL', skillCode: 'reading.context_clues', evidence: 'Facing an endless stream of notifications and headlines, we instinctively adopt an “F-shaped” scanning pattern' }),
+          question('deep-reading-tfng-screens', 'The author argues that deep comprehension is impossible unless readers give up digital screens completely.',
+            ['True', 'False', 'Not Given'], 1,
+            'Tác giả bác bỏ quan điểm này và viết rõ giải pháp không đòi hỏi bỏ màn hình hoàn toàn: “the remedy does not require abandoning screens altogether.”',
+            { type: 'TRUE_FALSE_NOT_GIVEN', skillCode: 'reading.critical_reading', evidence: 'Encouragingly, the remedy does not require abandoning screens altogether.' }),
+        ],
+      },
+    },
   ];
 }
 
 export function validateLearningSeeds(seeds = loadLearningContent()): void {
-  if (seeds.length !== 4 || new Set(seeds.map((seed) => seed.code)).size !== 4 || new Set(seeds.map((seed) => seed.kind)).size !== 4) throw new Error('Expected four distinct lesson kinds.');
+  const skillsPath = [
+    join(__dirname, '../../ml/data/skills.json'),
+    join(__dirname, '../../../ml/data/skills.json'),
+  ].find((candidate) => existsSync(candidate));
+  if (!skillsPath) throw new Error('Missing canonical skills.json catalog.');
+  const rawSkills = JSON.parse(readFileSync(skillsPath, 'utf8')) as {
+    skills?: Array<{ code?: string; category?: string }>;
+  };
+  const canonicalReadingCodes = new Set(
+    (rawSkills.skills ?? [])
+      .filter((item) => item.category === 'reading' && typeof item.code === 'string' && item.code.startsWith('reading.'))
+      .map((item) => item.code as string),
+  );
+  if (
+    canonicalReadingCodes.size !== READING_SKILL_CODES.length ||
+    READING_SKILL_CODES.some((code) => !canonicalReadingCodes.has(code))
+  ) {
+    throw new Error('READING_SKILL_CODES is out of sync with apps/ml/data/skills.json.');
+  }
+  const units = loadLearningUnits();
+  const unitCodes = new Set(units.map((unit) => unit.code));
+  if (unitCodes.size !== units.length) throw new Error('Unit codes must be unique.');
+  if (new Set(seeds.map((seed) => seed.code)).size !== seeds.length) throw new Error('Lesson codes must be unique.');
   for (const seed of seeds) {
     validateLearningContent(seed.content);
-    if (!seed.title.trim() || !seed.description.trim() || seed.contentVersion < 1 || seed.estimatedMinutes < 1) throw new Error('Invalid lesson metadata.');
+    if (!seed.code.trim() || !seed.title.trim() || !seed.description.trim() || seed.contentVersion < 1 || seed.estimatedMinutes < 1 || !seed.unitCode?.trim() || !unitCodes.has(seed.unitCode)) throw new Error('Invalid lesson metadata.');
     if (seed.kind === 'LISTENING' && (!seed.content.audioUrl || !seed.content.transcript)) throw new Error('Listening audio and transcript are required.');
-    if (seed.kind === 'READING' && !seed.content.passage) throw new Error('Reading passage is required.');
+    if (seed.kind === 'READING') {
+      if (!seed.unitCode?.trim() || !unitCodes.has(seed.unitCode)) throw new Error('Every reading lesson must declare a valid unitCode.');
+      if (!seed.content.passage?.trim()) throw new Error('Reading passage is required.');
+      if (seed.content.questions.some((q) => !q.skillCode || !canonicalReadingCodes.has(q.skillCode))) {
+        throw new Error('Every reading question must declare a valid reading skillCode from skills.json.');
+      }
+    }
     const urls = [seed.content.audioUrl, ...seed.content.steps.map((step) => step.audioUrl)].filter((url): url is string => !!url);
     for (const url of urls) {
       if (!/^\/media\/learning\/v1\/[a-z]+\.wav$/.test(url)) throw new Error('Invalid curriculum audio path.');
@@ -83,17 +465,37 @@ export function validateLearningSeeds(seeds = loadLearningContent()): void {
 }
 
 export async function seedLearningContent(prisma: PrismaClient): Promise<number> {
+  const units = loadLearningUnits();
   const seeds = loadLearningContent();
   validateLearningSeeds(seeds);
-  await prisma.$transaction(seeds.map((seed) => {
-    const data = { ...seed, published: true, content: seed.content as unknown as Prisma.InputJsonValue };
-    return prisma.learningLesson.upsert({ where: { code: seed.code }, create: data, update: data });
-  }));
+  await prisma.$transaction(async (tx) => {
+    const unitIds = new Map<string, string>();
+    for (const unit of units) {
+      const saved = await tx.learningUnit.upsert({ where: { code: unit.code }, create: unit, update: unit });
+      unitIds.set(unit.code, saved.id);
+    }
+    for (const seed of seeds) {
+      const { unitCode, ...rest } = seed;
+      const data = {
+        ...rest,
+        unitId: unitIds.get(unitCode) ?? null,
+        published: true,
+        content: seed.content as unknown as Prisma.InputJsonValue,
+      };
+      await tx.learningLesson.upsert({ where: { code: seed.code }, create: data, update: data });
+    }
+  });
   return seeds.length;
 }
 
 async function main(): Promise<void> {
-  if (process.argv.includes('--validate')) { validateLearningSeeds(); console.log('Validated 4 lessons, 20 questions and 11 curriculum audio files.'); return; }
+  if (process.argv.includes('--validate')) {
+    const seeds = loadLearningContent();
+    validateLearningSeeds(seeds);
+    const questions = seeds.reduce((count, seed) => count + seed.content.questions.length, 0);
+    console.log(`Validated ${seeds.length} lessons and ${questions} questions, including curriculum audio references.`);
+    return;
+  }
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl || !/^lingoroad_(demo|test|[a-z0-9_]+_test)$/.test(new URL(databaseUrl).pathname.slice(1))) {
     throw new Error('Seed CLI requires an isolated lingoroad_demo or lingoroad_*test database.');

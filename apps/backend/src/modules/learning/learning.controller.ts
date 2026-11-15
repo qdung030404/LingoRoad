@@ -40,6 +40,12 @@ export class LearningController {
     return { success: true, data: await this.learning.check(userId, attemptId, questionId, dto) };
   }
 
+  @Post('attempts/:attemptId/answers/:questionId/explain') @HttpCode(200)
+  async explain(@CurrentUser('sub') userId: string, @Param('attemptId', ParseUUIDPipe) attemptId: string,
+    @Param('questionId') questionId: string) {
+    return { success: true, data: await this.learning.explainReadingAnswer(userId, attemptId, questionId) };
+  }
+
   @Post('attempts/:attemptId/submit') @HttpCode(200)
   async submit(@CurrentUser('sub') userId: string, @Param('attemptId', ParseUUIDPipe) attemptId: string, @Body() dto: VersionDto) {
     return { success: true, data: await this.learning.submit(userId, attemptId, dto.expectedVersion) };

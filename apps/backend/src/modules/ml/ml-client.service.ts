@@ -15,6 +15,8 @@ import {
   ExerciseResponse,
   KtEvent,
   KtPredictResponse,
+  ReadingExplainRequest,
+  ReadingExplainResponse,
   SpeechScoreResponse,
 } from './interfaces/ml-client.interface';
 import { InProcessCatFallback } from './fallbacks/in-process-cat.fallback';
@@ -306,6 +308,25 @@ export class MlClientService {
         {
           headers: this.getHeaders({ 'Content-Type': 'application/json' }),
           timeout: this.defaultTimeoutMs,
+        },
+      ),
+    );
+    return res.data;
+  }
+
+  /**
+   * Grounded AI explanation for a checked reading question (capped below Flutter 20s timeout)
+   */
+  async explainReadingAnswer(
+    request: ReadingExplainRequest,
+  ): Promise<ReadingExplainResponse> {
+    const res = await firstValueFrom(
+      this.httpService.post<ReadingExplainResponse>(
+        `${this.baseUrl}/llm/reading-explain`,
+        request,
+        {
+          headers: this.getHeaders({ 'Content-Type': 'application/json' }),
+          timeout: Math.min(Math.max(this.defaultTimeoutMs, 12000), 15000),
         },
       ),
     );

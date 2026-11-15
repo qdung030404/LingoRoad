@@ -5,9 +5,22 @@ import { VocabularyCommandService } from './vocabulary-command.service';
 import { VocabularyCreateDeckDto, VocabularyCreateWordDto, VocabularyListQuery, VocabularyUpdateDeckDto, VocabularyUpdateWordDto, VocabularyVersionDto } from './vocabulary.dto';
 import { Db, vocabConflict, vocabInvalid, vocabMissing, wordView } from './vocabulary.types';
 
+const READING_DECK_SYSTEM_KEY = 'READING_WORDS';
+const READING_DECK_DEFAULT_NAME = 'Từ vựng Bài đọc';
+
 @Injectable()
 export class VocabularyService {
   constructor(private readonly prisma: PrismaService, private readonly commands: VocabularyCommandService) {}
+  private async findReadingDeck(db: Db, userId: string) {
+    return (
+      await db.vocabularyDeck.findFirst({
+        where: { userId, systemKey: READING_DECK_SYSTEM_KEY, deletedAt: null },
+      })
+    ) ?? db.vocabularyDeck.findFirst({
+      where: { userId, deletedAt: null, name: { equals: READING_DECK_DEFAULT_NAME, mode: 'insensitive' } },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
   async ownedDeck(db: Db, userId: string, id: string, includeDeleted = false) {
     const deck = await db.vocabularyDeck.findFirst({ where: { id, userId, ...(!includeDeleted ? { deletedAt: null } : {}) } });
     if (!deck) vocabMissing();
@@ -108,5 +121,69 @@ export class VocabularyService {
         reviewedWords: words.filter(w => w.lastReviewedAt != null).length, completedReviewCount },
         decks: await Promise.all(decks.slice(0, 2).map(d => this.deckView(db, d))), hasMoreDecks: decks.length > 2 };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
+
+  /** Returns active words stored in the account's stable Reading vocabulary deck. */
+  async readingWords(userId: string) {
+    return this.prisma.$transaction(async db => {
+      const deck = await this.findReadingDeck(db, userId);
+      if (!deck) return { deck: null, items: [] };
+      const rows = await db.vocabularyWord.findMany({
+        where: { deckId: deck.id, deletedAt: null },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      return {
+        deck: { id: deck.id, name: deck.name },
+        items: rows.map(w => ({ ...wordView(w), acceptedAnswers: w.acceptedAnswers })),
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
+
+  /** Atomically saves a reading-passage word into the user's Reading deck without duplicates. */
+  async saveReadingWord(userId: string, dto: VocabularyCreateWordDto) {
+    const normalized = this.wordData(dto);
+    const receipt = await this.commands.execute(userId, dto.commandId, 'SAVE_READING_WORD', 'reading-deck', dto, async db => {
+      let deck = await this.findReadingDeck(db, userId);
+      if (!deck) {
+        deck = await db.vocabularyDeck.create({
+          data: { userId, name: READING_DECK_DEFAULT_NAME, systemKey: READING_DECK_SYSTEM_KEY },
+        });
+      } else if (deck.systemKey !== READING_DECK_SYSTEM_KEY) {
+        deck = await db.vocabularyDeck.update({
+          where: { id: deck.id },
+          data: { systemKey: READING_DECK_SYSTEM_KEY },
+        });
+      }
+      const existing = await db.vocabularyWord.findFirst({
+        where: {
+          deckId: deck.id,
+          deletedAt: null,
+          english: { equals: normalized.english, mode: 'insensitive' },
+          meaning: { equals: normalized.meaning, mode: 'insensitive' },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      });
+      if (existing) {
+        return {
+          targetId: existing.id,
+          appliedVersion: existing.version,
+          result: { deckId: deck.id, wordId: existing.id, alreadyExisted: true },
+        };
+      }
+      const word = await db.vocabularyWord.create({ data: { deckId: deck.id, ...normalized } });
+      return {
+        targetId: word.id,
+        appliedVersion: word.version,
+        result: { deckId: deck.id, wordId: word.id, alreadyExisted: false },
+      };
+    });
+    const result = receipt.result as { deckId: string; alreadyExisted?: boolean };
+    const deck = await this.ownedDeck(this.prisma, userId, result.deckId, true);
+    return {
+      receipt: this.commands.view(receipt),
+      deck: await this.deckView(this.prisma, deck),
+      word: await this.readWord(userId, receipt.targetId),
+      alreadyExisted: Boolean(result.alreadyExisted),
+    };
   }
 }

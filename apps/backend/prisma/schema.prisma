@@ -342,22 +342,40 @@ enum LearningAttemptStatus {
   COMPLETED
 }
 
+model LearningUnit {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(100)
+  cefrLevel   CefrLevel        @default(A1) @map("cefr_level")
+  orderIndex  Int              @map("order_index")
+  title       String           @db.VarChar(200)
+  description String           @db.Text
+  lessons     LearningLesson[]
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@unique([cefrLevel, orderIndex])
+  @@map("learning_units")
+}
+
 model LearningLesson {
-  id               String       @id @default(uuid()) @db.Uuid
-  code             String       @unique @db.VarChar(100)
+  id               String            @id @default(uuid()) @db.Uuid
+  code             String            @unique @db.VarChar(100)
   kind             LearningKind
-  title            String       @db.VarChar(200)
-  description      String       @db.Text
-  estimatedMinutes Int          @map("estimated_minutes")
-  sortOrder        Int          @map("sort_order")
-  published        Boolean      @default(false)
-  contentVersion   Int          @default(1) @map("content_version")
-  content          Json         @db.JsonB
-  createdAt        DateTime     @default(now()) @map("created_at")
-  updatedAt        DateTime     @updatedAt @map("updated_at")
+  title            String            @db.VarChar(200)
+  description      String            @db.Text
+  estimatedMinutes Int               @map("estimated_minutes")
+  sortOrder        Int               @map("sort_order")
+  published        Boolean           @default(false)
+  contentVersion   Int               @default(1) @map("content_version")
+  content          Json              @db.JsonB
+  unitId           String?           @map("unit_id") @db.Uuid
+  unit             LearningUnit?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
   attempts         LearningAttempt[]
 
   @@index([published, sortOrder])
+  @@index([unitId, sortOrder])
   @@map("learning_lessons")
 }
 
@@ -448,6 +466,7 @@ model VocabularyDeck {
   id String @id @default(uuid()) @db.Uuid
   userId String @map("user_id") @db.Uuid
   name String @db.VarChar(60)
+  systemKey String? @map("system_key") @db.VarChar(40)
   version Int @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -456,6 +475,7 @@ model VocabularyDeck {
   words VocabularyWord[]
   reviews VocabularyReviewAttempt[]
   @@index([userId, deletedAt, createdAt, id])
+  @@index([userId, systemKey, deletedAt])
   @@map("vocabulary_decks")
 }
 

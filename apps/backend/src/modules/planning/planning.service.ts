@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
-import { LearningAttempt, LearningDayPlan, LearningKind, LearningLesson, Prisma } from '@prisma/client';
+import { CefrLevel, LearningAttempt, LearningDayPlan, LearningKind, LearningLesson, LearningUnit, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityBatchDto, LearningPreferencesDto } from './planning.dto';
@@ -8,22 +8,160 @@ export const LEARNING_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 const DAY_MS = 86400000;
 type Db = Prisma.TransactionClient;
 export type PlanItem = { id: string; lessonId: string; title: string; kind: LearningKind; estimatedMinutes: number; reasonCode: string; reason: string };
+export type PlannedLesson = LearningLesson & {
+  unit?: { cefrLevel: CefrLevel } | null;
+};
+
+const CEFR_RANK: Record<CefrLevel, number> = {
+  A1: 1,
+  A2: 2,
+  B1: 3,
+  B2: 4,
+  C1: 5,
+  C2: 6,
+};
+
+function skillCefrRank(
+  placement: Record<string, unknown> | null | undefined,
+  skillKey: 'reading' | 'listening',
+): number {
+  const entry = placement?.[skillKey];
+  if (!entry || typeof entry !== 'object') return 0;
+  const estimated = (entry as { estimatedCefr?: unknown }).estimatedCefr;
+  if (typeof estimated === 'string' && estimated in CEFR_RANK) {
+    return CEFR_RANK[estimated as CefrLevel];
+  }
+  return 0;
+}
+
+/** Filters daily plan suggestions by skill-specific Placement CEFR ceiling (minimum A2). */
+export function isCefrEligible(
+  lesson: PlannedLesson,
+  placement?: Record<string, unknown> | null,
+): boolean {
+  const lessonCefr = lesson.unit?.cefrLevel;
+  if (!lessonCefr) return true;
+
+  let userSkillRank = 0;
+  if (lesson.kind === 'READING') {
+    userSkillRank = skillCefrRank(placement, 'reading');
+  } else if (lesson.kind === 'LISTENING') {
+    userSkillRank = skillCefrRank(placement, 'listening');
+  } else {
+    userSkillRank = Math.max(
+      skillCefrRank(placement, 'reading'),
+      skillCefrRank(placement, 'listening'),
+    );
+  }
+
+  // Accounts without Placement or estimated at A1 still receive A1-A2 foundation lessons.
+  const maxAllowedRank = Math.max(CEFR_RANK.A2, userSkillRank);
+  return CEFR_RANK[lessonCefr] <= maxAllowedRank;
+}
+export type ProgressUnitStatus = 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING';
+export type ProgressUnit = {
+  id: string;
+  code: string;
+  cefrLevel: CefrLevel;
+  orderIndex: number;
+  title: string;
+  description: string;
+  totalLessons: number;
+  completedLessonCount: number;
+  status: ProgressUnitStatus;
+};
+export type ProgressScoreStats = {
+  averageScore: number | null;
+  completedAttemptCount: number;
+  currentWeekAverage: number | null;
+  previousWeekAverage: number | null;
+  deltaPercent: number | null;
+};
 export const learningDate = (now: Date) => new Date(now.getTime() + 7 * 3600000).toISOString().slice(0, 10);
 export const learningDayStart = (date: string) => new Date(`${date}T00:00:00+07:00`);
 const finishedOn = (a: LearningAttempt, date: string) => a.status === 'COMPLETED' && a.submittedAt != null && learningDate(a.submittedAt) === date;
 const recentFinished = (attempts: LearningAttempt[], id: string) => attempts.filter(a => a.lessonId === id && a.status === 'COMPLETED')
   .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0) || b.id.localeCompare(a.id))[0];
 
+/** Maps published lessons and distinct completed lesson IDs onto ordered curriculum stages. */
+export function buildProgressUnits(
+  units: Pick<LearningUnit, 'id' | 'code' | 'cefrLevel' | 'orderIndex' | 'title' | 'description'>[],
+  lessons: Pick<LearningLesson, 'id' | 'unitId'>[],
+  completedLessonIds: Set<string>,
+): ProgressUnit[] {
+  const byUnit = new Map<string, string[]>();
+  for (const lesson of lessons) {
+    if (!lesson.unitId) continue;
+    const list = byUnit.get(lesson.unitId) ?? [];
+    list.push(lesson.id);
+    byUnit.set(lesson.unitId, list);
+  }
+  let assignedActive = false;
+  return units.map((unit) => {
+    const lessonIds = byUnit.get(unit.id) ?? [];
+    const totalLessons = lessonIds.length;
+    const completedLessonCount = lessonIds.filter((id) => completedLessonIds.has(id)).length;
+    const isCompleted = totalLessons > 0 && completedLessonCount >= totalLessons;
+    let status: ProgressUnitStatus = 'UPCOMING';
+    if (isCompleted) {
+      status = 'COMPLETED';
+    } else if (!assignedActive && totalLessons > 0) {
+      status = 'IN_PROGRESS';
+      assignedActive = true;
+    }
+    return {
+      id: unit.id,
+      code: unit.code,
+      cefrLevel: unit.cefrLevel,
+      orderIndex: unit.orderIndex,
+      title: unit.title,
+      description: unit.description,
+      totalLessons,
+      completedLessonCount,
+      status,
+    };
+  });
+}
+
+/** Computes 0-100 practice attempt average and 7-day Vietnam-timezone trend; never alters CEFR. */
+export function computeScoreStats(attempts: LearningAttempt[], now: Date): ProgressScoreStats {
+  const valid = attempts.filter(
+    (a) => a.status === 'COMPLETED' && a.submittedAt != null && a.correctCount != null && a.totalQuestions > 0,
+  );
+  const average = (rows: LearningAttempt[]): number | null => {
+    if (!rows.length) return null;
+    const total = rows.reduce((sum, a) => sum + (a.correctCount! / a.totalQuestions) * 100, 0);
+    return Math.round(total / rows.length);
+  };
+  const todayStart = learningDayStart(learningDate(now));
+  const currentWeekStart = new Date(todayStart.getTime() - 6 * DAY_MS);
+  const previousWeekStart = new Date(todayStart.getTime() - 13 * DAY_MS);
+  const currentWeekAverage = average(valid.filter((a) => a.submittedAt! >= currentWeekStart && a.submittedAt! <= now));
+  const previousWeekAverage = average(
+    valid.filter((a) => a.submittedAt! >= previousWeekStart && a.submittedAt! < currentWeekStart),
+  );
+  return {
+    averageScore: average(valid),
+    completedAttemptCount: valid.length,
+    currentWeekAverage,
+    previousWeekAverage,
+    deltaPercent:
+      currentWeekAverage != null && previousWeekAverage != null
+        ? currentWeekAverage - previousWeekAverage
+        : null,
+  };
+}
+
 /** Deterministic baseline; completion is activity, not mastery. */
-export function chooseDailyItems(lessons: LearningLesson[], attempts: LearningAttempt[], date: string,
-  minutes: number, preferred: LearningKind[], previous: PlanItem[] = [], placement?: Record<string, unknown>): PlanItem[] {
+export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAttempt[], date: string,
+  minutes: number, preferred: LearningKind[], previous: PlanItem[] = [], placement?: Record<string, unknown> | null): PlanItem[] {
   const selected: PlanItem[] = [];
   const seen = new Set<string>();
   const byId = new Map(lessons.map(l => [l.id, l]));
   const completeToday = new Set(attempts.filter(a => finishedOn(a, date)).map(a => a.lessonId));
   const active = attempts.filter(a => a.status === 'IN_PROGRESS')
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || a.id.localeCompare(b.id));
-  const add = (lesson: LearningLesson, reasonCode: string, reason: string, force = false) => {
+  const add = (lesson: PlannedLesson, reasonCode: string, reason: string, force = false) => {
     if (seen.has(lesson.id)) return false;
     const used = selected.reduce((sum, item) => sum + item.estimatedMinutes, 0);
     if (!force && used + lesson.estimatedMinutes > minutes) return false;
@@ -46,10 +184,11 @@ export function chooseDailyItems(lessons: LearningLesson[], attempts: LearningAt
   const ordered = [...lessons].sort((a, b) => Number(!preferred.includes(a.kind)) - Number(!preferred.includes(b.kind))
     || (['READING', 'LISTENING'].includes(a.kind) && ['READING', 'LISTENING'].includes(b.kind) ? placementScore(a.kind) - placementScore(b.kind) : 0)
     || a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
-  const fresh = ordered.filter(l => !recentFinished(attempts, l.id) && !seen.has(l.id));
+  const eligible = ordered.filter(l => isCefrEligible(l, placement));
+  const fresh = eligible.filter(l => !recentFinished(attempts, l.id) && !seen.has(l.id));
   // Reserve an opportunity to progress before offering a review.
   for (const lesson of fresh) if (add(lesson, 'NEW', 'Bài mới')) break;
-  const review = ordered.filter(l => {
+  const review = eligible.filter(l => {
     const latest = recentFinished(attempts, l.id);
     return latest && latest.correctCount! / latest.totalQuestions < .8 && !seen.has(l.id) && !completeToday.has(l.id);
   }).sort((a, b) => {
@@ -64,18 +203,27 @@ export function chooseDailyItems(lessons: LearningLesson[], attempts: LearningAt
     }
     for (const lesson of fresh) add(lesson, 'NEW', 'Bài mới');
   } else {
-    const rotation = ordered.filter(l => !seen.has(l.id) && !completeToday.has(l.id)).sort((a, b) => {
+    const rotation = eligible.filter(l => !seen.has(l.id) && !completeToday.has(l.id)).sort((a, b) => {
       const x = recentFinished(attempts, a.id), y = recentFinished(attempts, b.id);
       return Number(!preferred.includes(a.kind)) - Number(!preferred.includes(b.kind))
         || (x?.submittedAt?.getTime() ?? 0) - (y?.submittedAt?.getTime() ?? 0) || a.sortOrder - b.sortOrder;
     });
     for (const lesson of rotation) add(lesson, 'ROTATION', 'Luyện lại bài lâu chưa học');
   }
-  if (!selected.length && ordered.length) {
-    const candidate = active.map(a => byId.get(a.lessonId)).find((l): l is LearningLesson => !!l) ?? fresh[0] ?? ordered[0];
-    const inProgress = active.some(a => a.lessonId === candidate.id);
-    add(candidate, inProgress ? 'RESUME' : fresh.includes(candidate) ? 'NEW' : 'ROTATION',
-      inProgress ? 'Tiếp tục bài đang học' : fresh.includes(candidate) ? 'Bài mới' : 'Luyện lại bài lâu chưa học', true);
+  if (!selected.length) {
+    const candidate =
+      active.map(a => byId.get(a.lessonId)).find((l): l is PlannedLesson => !!l) ??
+      fresh[0] ??
+      eligible[0];
+    if (candidate) {
+      const inProgress = active.some(a => a.lessonId === candidate.id);
+      add(
+        candidate,
+        inProgress ? 'RESUME' : fresh.includes(candidate) ? 'NEW' : 'ROTATION',
+        inProgress ? 'Tiếp tục bài đang học' : fresh.includes(candidate) ? 'Bài mới' : 'Luyện lại bài lâu chưa học',
+        true,
+      );
+    }
   }
   return selected;
 }
@@ -137,7 +285,11 @@ export class PlanningService {
     const existing = await db.learningDayPlan.findUnique({ where: { userId_date: { userId, date } } });
     if (existing && existing.preferencesVersion === profile.preferencesVersion && existing.dailyGoalMinutes === profile.dailyGoalMinutes) return existing;
     const [lessons, attempts, placement] = await Promise.all([
-      db.learningLesson.findMany({ where: { published: true }, orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }] }),
+      db.learningLesson.findMany({
+        where: { published: true },
+        include: { unit: { select: { cefrLevel: true } } },
+        orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      }),
       db.learningAttempt.findMany({ where: { userId } }),
       db.placementSession.findFirst({ where: { userId, status: 'COMPLETED' }, orderBy: { completedAt: 'desc' }, select: { skillResults: true } }),
     ]);
@@ -186,10 +338,11 @@ export class PlanningService {
 
   async progress(userId: string) {
     const now = new Date(), today = learningDate(now), start = learningDayStart(today);
-    const [profile, plans, attempts, totalLessons, first, placement] = await Promise.all([
+    const [profile, plans, attempts, totalLessons, units, first, placement] = await Promise.all([
       this.profile(this.prisma, userId), this.prisma.learningDayPlan.findMany({ where: { userId } }),
       this.prisma.learningAttempt.findMany({ where: { userId }, orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }] }),
-      this.prisma.learningLesson.findMany({ where: { published: true }, select: { id: true } }),
+      this.prisma.learningLesson.findMany({ where: { published: true }, select: { id: true, unitId: true } }),
+      this.prisma.learningUnit.findMany({ orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }] }),
       this.prisma.learningActivitySession.findFirst({ where: { userId }, orderBy: { anchorAt: 'asc' }, select: { anchorAt: true } }),
       this.prisma.placementSession.findFirst({ where: { userId, status: 'COMPLETED' }, orderBy: { completedAt: 'desc' }, select: { skillResults: true } }),
     ]);
@@ -204,16 +357,24 @@ export class PlanningService {
     }));
     const completed = attempts.filter(a => a.status === 'COMPLETED');
     const publishedIds = new Set(totalLessons.map(l => l.id));
+    const completedPublishedIds = new Set(completed.filter(a => publishedIds.has(a.lessonId)).map(a => a.lessonId));
+    const measuredDays = days.filter(d => d.timeMeasured);
+    const averageActiveSeconds = measuredDays.length
+      ? Math.round(measuredDays.reduce((sum, d) => sum + d.activeSeconds, 0) / measuredDays.length)
+      : 0;
     const latestResults = Object.values(LearningKind).flatMap(kind => {
       const a = completed.find(row => (row.lessonSnapshot as { kind?: string })?.kind === kind);
       return a ? [{ kind, correctCount: a.correctCount!, totalQuestions: a.totalQuestions, scoreRatio: a.correctCount! / a.totalQuestions,
         submittedAt: a.submittedAt, lessonTitle: (a.lessonSnapshot as { title: string }).title }] : [];
     });
     return { today: days[6], days, totals: { totalLessons: totalLessons.length,
-      completedLessonCount: new Set(completed.filter(a => publishedIds.has(a.lessonId)).map(a => a.lessonId)).size,
+      completedLessonCount: completedPublishedIds.size,
       completedAttemptCount: completed.length, activeAttemptCount: attempts.filter(a => a.status === 'IN_PROGRESS').length,
-      activeSeconds: await this.activeSeconds(userId, new Date(0), now) }, latestResults,
-      placement: placement?.skillResults ?? null, trackingStartedAt: first?.anchorAt ?? null };
+      activeSeconds: await this.activeSeconds(userId, new Date(0), now),
+      averageActiveSeconds, averageStudyMinutes: Math.floor(averageActiveSeconds / 60) },
+      units: buildProgressUnits(units, totalLessons, completedPublishedIds),
+      scoreStats: computeScoreStats(completed, now),
+      latestResults, placement: placement?.skillResults ?? null, trackingStartedAt: first?.anchorAt ?? null };
   }
 
   async summary(userId: string) {

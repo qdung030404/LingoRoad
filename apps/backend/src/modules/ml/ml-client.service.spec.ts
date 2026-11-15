@@ -210,5 +210,44 @@ describe('MlClientService & InProcessCatFallback', () => {
         expect.any(Object),
       );
     });
+
+    it('should explain reading answer with timeout bounded between 12s and 15s', async () => {
+      const response: AxiosResponse = {
+        data: { explanation: 'Đoạn văn nêu rõ công viên giúp giảm nhiệt.', model_version: 'gemini-2.5-flash' },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any,
+      };
+      mockHttpService.post.mockReturnValue(of(response));
+
+      const payload = {
+        passage: 'Pocket parks lower street heat.',
+        question_prompt: 'What do pocket parks reduce?',
+        question_type: 'MULTIPLE_CHOICE' as const,
+        options: ['Street heat', 'Noise'],
+        selected_option: 'Noise',
+        correct_option: 'Street heat',
+        evidence: 'lower street heat',
+        curriculum_explanation: 'Công viên bỏ túi giảm nhiệt đường phố.',
+        cefr: 'B2',
+        locale: 'vi',
+      };
+
+      const result = await service.explainReadingAnswer(payload);
+
+      expect(result.explanation).toBe('Đoạn văn nêu rõ công viên giúp giảm nhiệt.');
+      expect(mockHttpService.post).toHaveBeenCalledWith(
+        'http://localhost:8001/llm/reading-explain',
+        payload,
+        expect.objectContaining({
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
+          timeout: expect.any(Number),
+        }),
+      );
+      const callOpts = mockHttpService.post.mock.calls.at(-1)?.[2] as { timeout: number };
+      expect(callOpts.timeout).toBeGreaterThanOrEqual(12000);
+      expect(callOpts.timeout).toBeLessThanOrEqual(15000);
+    });
   });
 });

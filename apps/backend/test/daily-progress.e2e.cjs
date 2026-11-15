@@ -34,7 +34,9 @@ describe('Daily plans and observed learning time', () => {
     await app.init();
     prisma = app.get(PrismaService);
     await seedLearningContent(prisma);
-    const published = await prisma.learningLesson.findMany({ where: { published: true } });
+    const published = await prisma.learningLesson.findMany({
+      where: { published: true }, orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
     lessons = Object.fromEntries(kinds.map(kind => [kind, published.find(row => row.kind === kind)]));
     assert.ok(kinds.every(kind => lessons[kind]));
   });
@@ -118,9 +120,9 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(today.estimatedMinutes, 5);
     await preferences(owner, 120);
     today = await plan(owner);
-    assert.equal(today.totalCount, 4);
-    assert.equal(today.estimatedMinutes, 30);
-    assert.equal(new Set(today.items.map(item => item.lessonId)).size, 4);
+    assert.equal(today.totalCount, 5);
+    assert.equal(today.estimatedMinutes, 35);
+    assert.equal(new Set(today.items.map(item => item.lessonId)).size, 5);
     const me = (await api(owner, 'get', '/auth/me').expect(200)).body.data;
     assert.equal(me.profile.dailyGoalMinutes, 120);
   });
@@ -266,5 +268,61 @@ describe('Daily plans and observed learning time', () => {
     await api(owner, 'patch', '/learning/preferences', { dailyGoalMinutes: 5, preferredKinds: kinds, expectedVersion: pref.version }).expect(409);
     await api(owner, 'patch', '/learning/preferences', { dailyGoalMinutes: 5, preferredKinds: kinds, expectedVersion: pref.version, userId: other.userId }).expect(400);
     assert.equal((await progress(other)).totals.activeSeconds, 0);
+  });
+
+  it('tracks A1 roadmap units and practice score stats across weeks', async () => {
+    const owner = await account();
+    const initial = await progress(owner);
+    assert.equal(initial.units.length, 8);
+    assert.equal(initial.units.find(unit => unit.cefrLevel === 'A2').totalLessons, 1);
+    assert.equal(initial.units[0].status, 'IN_PROGRESS');
+    assert.equal(initial.units[0].totalLessons, 3);
+    assert.equal(initial.scoreStats.averageScore, null);
+
+    // Complete previous week attempt at 3/5 (60%) and current week attempts at 5/5 (100%)
+    const firstDone = await finish(owner, lessons.GRAMMAR, 3);
+    await prisma.learningAttempt.update({
+      where: { id: firstDone.id },
+      data: { submittedAt: new Date(Date.now() - 8 * dayMs) },
+    });
+    await finish(owner, lessons.READING, 5);
+    await finish(owner, lessons.LISTENING, 5);
+
+    const updated = await progress(owner);
+    assert.equal(updated.units[0].status, 'COMPLETED');
+    assert.equal(updated.units[0].completedLessonCount, 3);
+    assert.equal(updated.units[1].status, 'IN_PROGRESS');
+    assert.equal(updated.scoreStats.averageScore, 87);
+    assert.equal(updated.scoreStats.previousWeekAverage, 60);
+    assert.equal(updated.scoreStats.currentWeekAverage, 100);
+    assert.equal(updated.scoreStats.deltaPercent, 40);
+  });
+
+  it('filters daily plan suggestions by skill-specific CEFR ceiling from placement', async () => {
+    const owner = await account();
+    await prisma.placementSession.create({
+      data: {
+        userId: owner.userId,
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        estimatedCefr: 'B1',
+        correctCount: 7,
+        skillResults: {
+          reading: { estimatedCefr: 'B1', correctCount: 4, totalItems: 5, status: 'PROVISIONAL' },
+          listening: { estimatedCefr: 'A2', correctCount: 3, totalItems: 5, status: 'PROVISIONAL' },
+        },
+      },
+    });
+    await preferences(owner, 120);
+    const generated = await plan(owner);
+    const readingLessons = await prisma.learningLesson.findMany({
+      where: { code: { in: ['reading-b1-hybrid-workday', 'reading-b2-urban-pocket-parks', 'reading-c1-deep-reading-attention'] } },
+      select: { id: true, code: true },
+    });
+    const idByCode = Object.fromEntries(readingLessons.map(row => [row.code, row.id]));
+    const plannedIds = new Set(generated.items.map(item => item.lessonId));
+    assert.ok(plannedIds.has(idByCode['reading-b1-hybrid-workday']));
+    assert.ok(!plannedIds.has(idByCode['reading-b2-urban-pocket-parks']));
+    assert.ok(!plannedIds.has(idByCode['reading-c1-deep-reading-attention']));
   });
 });

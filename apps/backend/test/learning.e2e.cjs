@@ -10,11 +10,20 @@ const { ValidationPipe } = require('@nestjs/common');
 const request = require('supertest');
 const { AppModule } = require('../dist/app.module');
 const { PrismaService } = require('../dist/modules/prisma/prisma.service');
+const { MlClientService } = require('../dist/modules/ml/ml-client.service');
 const { HttpExceptionFilter } = require('../dist/common/filters/http-exception.filter');
 
 describe('Persisted learning workflow', () => {
   let app, prisma, seeds, seedLearningContent;
   const users = [], identities = [], fixtures = [];
+  const mlExplainCalls = [];
+  let mlExplainHandler = async () => { throw new Error('ML mock unavailable'); };
+  const mlMock = {
+    explainReadingAnswer: async (payload) => {
+      mlExplainCalls.push(payload);
+      return mlExplainHandler(payload);
+    },
+  };
   const emulator = process.env.FIREBASE_AUTH_EMULATOR_HOST;
   const project = process.env.FIREBASE_PROJECT_ID;
 
@@ -25,7 +34,10 @@ describe('Persisted learning workflow', () => {
     process.env.AUTH_PROVIDER = 'firebase';
     require('ts-node/register');
     ({ seedLearningContent } = require('../prisma/seed-learning.ts'));
-    const module = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const module = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(MlClientService)
+      .useValue(mlMock)
+      .compile();
     app = module.createNestApplication({ logger: false });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true,
       transformOptions: { enableImplicitConversion: true } }));
@@ -36,7 +48,9 @@ describe('Persisted learning workflow', () => {
     await app.init();
     prisma = app.get(PrismaService);
     await seedLearningContent(prisma);
-    const lessons = await prisma.learningLesson.findMany({ where: { published: true } });
+    const lessons = await prisma.learningLesson.findMany({
+      where: { published: true }, orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
     seeds = ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'].map(kind => {
       const lesson = lessons.find(row => row.kind === kind);
       assert.ok(lesson, `Missing ${kind} curriculum lesson`);
@@ -106,9 +120,9 @@ describe('Persisted learning workflow', () => {
     await send(owner, 'get', '/learning/lessons?kind=UNKNOWN').expect(400);
     for (const lesson of seeds) {
       const detail = await send(owner, 'get', `/learning/lessons/${lesson.id}`).expect(200);
-      assertNoKey(detail.body.data, ['correctOptionId', 'isCorrect', 'explanation', 'transcript', 'contentSnapshot']);
+      assertNoKey(detail.body.data, ['correctOptionId', 'isCorrect', 'explanation', 'evidence', 'transcript', 'contentSnapshot']);
       const attempt = await start(owner, lesson);
-      assertNoKey(attempt, ['correctOptionId', 'isCorrect', 'explanation', 'transcript', 'contentSnapshot']);
+      assertNoKey(attempt, ['correctOptionId', 'isCorrect', 'explanation', 'evidence', 'transcript', 'contentSnapshot']);
       assert.equal(attempt.questions.length, 5);
     }
   });
@@ -152,6 +166,88 @@ describe('Persisted learning workflow', () => {
     } while (cursor);
     assert.equal(all.length, 8);
     assert.equal(new Set(all.map(row => row.id)).size, 8);
+  });
+
+  it('lists the A2 reading lesson and preserves its passage and level when reopening from history', async () => {
+    const owner = await account();
+    const { items } = (await send(owner, 'get', '/learning/lessons?kind=READING').expect(200)).body.data;
+    assert.equal(items.find(row => row.code === 'reading-everyday-introductions').cefrLevel, 'A1');
+    const lesson = items.find(row => row.code === 'reading-a2-club-meeting');
+    assert.equal(lesson.cefrLevel, 'A2');
+    assert.equal(lesson.questionCount, 5);
+    const original = await prisma.learningLesson.findUniqueOrThrow({ where: { id: lesson.id } });
+    const started = await start(owner, lesson);
+    assert.equal(started.lesson.cefrLevel, 'A2');
+    assert.equal(started.lesson.contentVersion, 3);
+    assert.match(started.content.passage, /book club meeting/);
+    assert.ok(Array.isArray(started.content.keyVocabulary) && started.content.keyVocabulary.length > 0);
+    assertNoKey(started, ['correctOptionId', 'isCorrect', 'explanation', 'evidence']);
+    const first = original.content.questions[0];
+    const draft = (await send(owner, 'patch', `/learning/attempts/${started.id}/progress`, {
+      expectedVersion: started.version, phase: 'QUIZ', index: 0, questionId: first.id, optionId: first.correctOptionId,
+    }).expect(200)).body.data;
+    const resumed = await start(owner, lesson);
+    assert.equal(resumed.id, draft.id);
+    assert.deepEqual(resumed.answers.find(answer => answer.questionId === first.id), {
+      questionId: first.id, optionId: first.correctOptionId, checked: false,
+    });
+    const checked = await checkAll(owner, resumed, original);
+    assert.equal(checked.answers[0].evidence, first.evidence);
+    await send(owner, 'post', `/learning/attempts/${checked.id}/submit`, { expectedVersion: checked.version }).expect(200);
+    const history = (await send(owner, 'get', '/learning/history').expect(200)).body.data.items;
+    const entry = history.find(row => row.id === checked.id);
+    assert.equal(entry.lesson.cefrLevel, 'A2');
+    assert.equal(entry.lesson.questionCount, 5);
+    assert.equal(entry.result.correctCount, 5);
+    const reviewed = (await send(owner, 'get', `/learning/attempts/${entry.id}`).expect(200)).body.data;
+    assert.equal(reviewed.content.passage, started.content.passage);
+    assert.equal(reviewed.answers[0].explanation, first.explanation);
+    assert.equal(reviewed.answers[0].evidence, first.evidence);
+  });
+
+  it('preserves A2 reading v1 attempts across upgrade to v2 and only reveals v2 evidence per checked question', async () => {
+    const owner = await account();
+    const a2V2 = await prisma.learningLesson.findUniqueOrThrow({ where: { code: 'reading-a2-club-meeting' } });
+    const v1Content = structuredClone(a2V2.content);
+    delete v1Content.keyVocabulary;
+    for (const q of v1Content.questions) {
+      delete q.evidence;
+      delete q.skillCode;
+      delete q.type;
+    }
+    try {
+      await prisma.learningLesson.update({
+        where: { id: a2V2.id },
+        data: { contentVersion: 1, content: v1Content },
+      });
+      const v1Started = await start(owner, a2V2);
+      assert.equal(v1Started.lesson.contentVersion, 1);
+      assert.equal(v1Started.lesson.questionCount, 5);
+
+      await seedLearningContent(prisma);
+
+      const reopenedV1 = (await send(owner, 'get', `/learning/attempts/${v1Started.id}`).expect(200)).body.data;
+      assert.equal(reopenedV1.lesson.contentVersion, 1);
+      assert.equal(reopenedV1.lesson.questionCount, 5);
+      assert.equal(reopenedV1.questions[0].prompt, v1Content.questions[0].prompt);
+      const checkedV1 = await checkAll(owner, reopenedV1, { content: v1Content });
+      assertNoKey(checkedV1.answers, ['evidence']);
+      await send(owner, 'post', `/learning/attempts/${checkedV1.id}/submit`, { expectedVersion: checkedV1.version }).expect(200);
+
+      const v2Started = await start(owner, a2V2);
+      assert.notEqual(v2Started.id, v1Started.id);
+      assert.equal(v2Started.lesson.contentVersion, 3);
+      assert.equal(v2Started.lesson.questionCount, 5);
+      assertNoKey(v2Started, ['correctOptionId', 'isCorrect', 'explanation', 'evidence']);
+      const q0 = a2V2.content.questions[0];
+      const q0Checked = (await send(owner, 'put', `/learning/attempts/${v2Started.id}/answers/${q0.id}/check`, {
+        expectedVersion: v2Started.version, optionId: q0.correctOptionId,
+      }).expect(200)).body.data;
+      assert.equal(q0Checked.answers[0].evidence, q0.evidence);
+      assertNoKey(q0Checked.answers.slice(1), ['evidence']);
+    } finally {
+      await seedLearningContent(prisma);
+    }
   });
 
   it('serializes concurrent starts and rejects stale progress without overwriting saved drafts', async () => {
@@ -258,5 +354,101 @@ describe('Persisted learning workflow', () => {
       assert.equal(bytes.subarray(8, 12).toString(), 'WAVE');
       assert.equal(Number(response.headers['content-length']), bytes.length);
     }
+  });
+
+  it('explains checked reading answers with ownership checks, AI success, and deterministic fallback without mutating attempts', async () => {
+    mlExplainCalls.length = 0;
+    const owner = await account(), stranger = await account();
+    const reading = seeds.find(row => row.kind === 'READING');
+    const started = await start(owner, reading);
+    const question = reading.content.questions[0];
+
+    mlExplainHandler = async () => ({
+      explanation: 'AI giải thích từ mock provider: đoạn văn nêu rõ mốc giờ.',
+      model_version: 'mock-ai',
+    });
+
+    await send(stranger, 'post', `/learning/attempts/${started.id}/answers/${question.id}/explain`, {}).expect(404);
+    await send(owner, 'post', `/learning/attempts/${started.id}/answers/${question.id}/explain`, {}).expect(400);
+    assert.equal(mlExplainCalls.length, 0);
+
+    const checked = (await send(owner, 'put', `/learning/attempts/${started.id}/answers/${question.id}/check`, {
+      expectedVersion: started.version,
+      optionId: question.options.find(opt => opt.id !== question.correctOptionId).id,
+    }).expect(200)).body.data;
+
+    const aiExplained = (await send(owner, 'post', `/learning/attempts/${started.id}/answers/${question.id}/explain`, {})
+      .expect(200)).body.data;
+    assert.deepEqual(aiExplained, {
+      questionId: question.id,
+      explanation: 'AI giải thích từ mock provider: đoạn văn nêu rõ mốc giờ.',
+      source: 'AI',
+    });
+    assert.equal(mlExplainCalls.length, 1);
+    assert.equal(mlExplainCalls[0].question_prompt, question.prompt);
+
+    mlExplainHandler = async () => { throw new Error('timeout of 12000ms exceeded'); };
+    const retryableFallback = (await send(owner, 'post', `/learning/attempts/${started.id}/answers/${question.id}/explain`, {})
+      .expect(200)).body.data;
+    assert.deepEqual(retryableFallback, {
+      questionId: question.id,
+      explanation: question.explanation,
+      source: 'CURRICULUM',
+      retryable: true,
+    });
+    assert.equal(mlExplainCalls.length, 2);
+
+    const longPassageContent = {
+      steps: [],
+      passage: `${reading.content.passage} ${'Extra context sentence about reading skills. '.repeat(120)}`,
+      questions: [
+        {
+          id: 'q-ng',
+          type: 'TRUE_FALSE_NOT_GIVEN',
+          skillCode: 'reading.inference',
+          prompt: 'The author plans to cancel every meeting next year.',
+          options: [
+            { id: 'A', text: 'True' },
+            { id: 'B', text: 'False' },
+            { id: 'C', text: 'Not Given' },
+          ],
+          correctOptionId: 'C',
+          explanation: 'Bài đọc không đề cập kế hoạch năm sau.',
+        },
+        ...reading.content.questions.slice(0, 2),
+      ],
+    };
+    const longFixture = await prisma.learningLesson.create({
+      data: {
+        code: `reading-long-${randomUUID()}`,
+        kind: 'READING',
+        title: 'Long reading fixture',
+        description: reading.description,
+        estimatedMinutes: 8,
+        contentVersion: 1,
+        sortOrder: 998,
+        published: true,
+        content: longPassageContent,
+      },
+    });
+    fixtures.push(longFixture.id);
+    const longStarted = await start(owner, longFixture);
+    const ngChecked = (await send(owner, 'put', `/learning/attempts/${longStarted.id}/answers/q-ng/check`, {
+      expectedVersion: longStarted.version,
+      optionId: 'C',
+    }).expect(200)).body.data;
+    const contextFallback = (await send(owner, 'post', `/learning/attempts/${ngChecked.id}/answers/q-ng/explain`, {})
+      .expect(200)).body.data;
+    assert.deepEqual(contextFallback, {
+      questionId: 'q-ng',
+      explanation: 'Bài đọc không đề cập kế hoạch năm sau.',
+      source: 'CURRICULUM',
+      retryable: false,
+    });
+    assert.equal(mlExplainCalls.length, 2);
+
+    const persisted = (await send(owner, 'get', `/learning/attempts/${started.id}`).expect(200)).body.data;
+    assert.equal(persisted.version, checked.version);
+    assert.deepEqual(persisted.answers, checked.answers);
   });
 });
