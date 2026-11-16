@@ -85,13 +85,14 @@ RFC này đề xuất kiến trúc kỹ thuật, mô hình tích hợp bảo m�
    - Kiểm tra `token.email && token.email_verified`: Nếu thiếu hoặc `false`, ném `BadRequestException('AUTH_EMAIL_NOT_VERIFIED')`.
 4. Gọi `FirebaseUserService.resolve(token)`:
    - Kiểm tra `token.uid` và `token.email` (`401 AUTH_EMAIL_REQUIRED`).
+   - Nếu `token.firebase?.sign_in_provider === 'google.com'` và `!token.email_verified`: Ném `UnauthorizedException('AUTH_EMAIL_NOT_VERIFIED')`. Không áp đặt kiểm tra này lên tài khoản Email/Password để không làm gián đoạn luồng người dùng mới.
    - Tra cứu `User` theo `where: { firebaseUid: token.uid }`.
    - **Nếu chưa tồn tại**:
-     - Tạo mới `User` (`firebaseUid: token.uid`, `email: token.email.toLowerCase()`, `name`, `provider: AuthProvider.GOOGLE`, `avatarUrl`) cùng `profile: { create: {} }` (`targetCefr: B1`, `dailyGoalMinutes: 10`).
+     - Tạo mới `User` (`firebaseUid: token.uid`, `email: token.email.toLowerCase()`, `name` fallback prefix email, `provider: AuthProvider.GOOGLE`, `avatarUrl`) cùng `profile: { create: { targetCefr: B1, dailyGoalMinutes: 10, reminderEnabled: true } }`.
      - Nếu bắt lỗi `P2002` (race condition hoặc trùng email): Tra cứu lại theo `where: { firebaseUid: token.uid }`. Nếu vẫn không tìm thấy (tức là trùng email với tài khoản cũ khác UID), ném `ConflictException('AUTH_ACCOUNT_LINK_REQUIRED')` — tuyệt đối không tự động liên kết theo email.
    - Kiểm tra `user.status === UserStatus.ACTIVE`; nếu không, ném `ForbiddenException('AUTH_USER_SUSPENDED')`.
    - Trả về principal `{ sub: user.id, email: user.email, role: user.role, firebaseUid: user.firebaseUid }`.
-5. `GoogleLoginUseCase` gọi `ProfileService.get(principal.sub)` và trả về `{ user }`. Các request API tiếp theo của Client gửi kèm `Authorization: Bearer <firebaseIdToken>` sẽ được `JwtAuthGuard` xác thực trực tiếp qua `FirebaseTokenService.verify()` và `FirebaseUserService.resolve()`.
+5. `GoogleLoginUseCase` gọi `ProfileService.get(principal.sub)` và trả về `{ user }`. Các request API tiếp theo của Client gửi kèm `Authorization: Bearer <firebaseIdToken>` sẽ được `JwtAuthGuard` xác thực trực tiếp qua `FirebaseTokenService.verify(token, checkRevoked = false)` (xác thực chữ ký cục bộ trên RAM ~1ms, không phát sinh outbound network call sang Google trên từng request) và `FirebaseUserService.resolve()`.
 
 ---
 
@@ -137,28 +138,37 @@ model User {
 
 ### 1. Quản lý Khóa Bí mật Firebase (Credentials Management)
 - Không lưu file JSON Service Account trực tiếp trong mã nguồn Git.
-- Cấu hình qua các biến môi trường được mã hóa:
-  - `FIREBASE_PROJECT_ID`
-  - `FIREBASE_CLIENT_EMAIL`
-  - `FIREBASE_PRIVATE_KEY` (xử lý escape ký tự newline `\n` an toàn khi nạp).
+- Cung cấp 2 cơ chế nạp credentials linh hoạt:
+  - **Phương án 1 (File Path)**: Sử dụng `GOOGLE_APPLICATION_CREDENTIALS` trỏ tới file JSON bên ngoài thư mục dự án.
+  - **Phương án 2 (Direct Env Vars)**: Thiết lập trực tiếp qua biến môi trường `FIREBASE_CLIENT_EMAIL` và `FIREBASE_PRIVATE_KEY` (hệ thống tự động xử lý ký tự newline `\n` và bóc tách dấu ngoặc kép an toàn).
+- **Validation chặt chẽ**: Nếu phát hiện cấu hình thiếu 1 trong 2 biến môi trường (`FIREBASE_CLIENT_EMAIL` hoặc `FIREBASE_PRIVATE_KEY`), hệ thống ném ngay `ServiceUnavailableException('AUTH_NOT_CONFIGURED')` để ngăn ngừa lỗi runtime khó chẩn đoán.
 
-### 2. Phòng chống Tấn công Man-in-the-Middle & Replay Attack
+### 2. Phòng chống Tấn công DoS & Replay Attack
 - Firebase ID Token có thời hạn ngắn (1 giờ).
+- Giới hạn độ dài token: `GoogleLoginDto` áp dụng `@MaxLength(4096)` và `JwtAuthGuard` chặn token có độ dài vượt quá 4096 ký tự (`AUTH_UNAUTHORIZED`) để chống tràn bộ đệm và tấn công ReDoS.
 - Backend kiểm tra chữ ký số công khai từ Google keyserver với cơ chế tự động xoay vòng khóa (key rotation) tích hợp sẵn trong Firebase Admin SDK.
-- Header `x-device-id` và IP Address được lưu gắn liền với `RefreshSession` để phát hiện đăng nhập bất thường.
 
 ### 3. Rate Limiting
 - Áp dụng `ThrottlerGuard` trên endpoint `POST /auth/google`: Tối đa 10 requests / phút / IP để ngăn chặn việc gửi rác token giả nhằm làm nghẽn dịch vụ verify.
 
-### 4. Bảo vệ Tệp cấu hình Client (Mobile Credentials)
-- Tệp cấu hình `google-services.json` trên ứng dụng Android chứa thông tin API key của dự án. Tệp này được đưa vào danh sách `.gitignore` ở cả thư mục gốc và thư mục `apps/mobile/` để tránh lộ bí mật mã nguồn. Tệp mẫu an toàn `google-services.json.example` được duy trì để hỗ trợ thiết lập môi trường mới.
+### 4. Bảo vệ Tệp cấu hình Client & Credentials
+- Toàn bộ các file bí mật nhạy cảm được cấu hình chặn triệt để trong `.gitignore`:
+  - Android: `google-services.json` (giữ lại `google-services.json.example`).
+  - iOS: `GoogleService-Info.plist` (giữ lại `GoogleService-Info.example.plist`).
+  - Service Account: `**/*firebase-adminsdk*.json`, `**/service-account*.json`, `**/firebase-config.local.json`.
 
-### 5. Tích hợp Phía Client (Flutter Mobile)
+### 5. Tối ưu Hóa Hiệu năng & Vệ sinh Nhật ký (Performance & Log Hygiene)
+- **Tối ưu độ trễ (Latency)**: `JwtAuthGuard` mặc định xác thực qua `FirebaseTokenService.verify(token, checkRevoked = false)`, thực hiện xác thực chữ ký RSA cục bộ trong RAM (~1ms) thay vì tạo kết nối mạng outbound sang Google trên mỗi request.
+- **Bảo vệ PII**: Hàm `maskEmail` che giấu email người dùng (`l***r@example.com`) trước khi xuất ra log.
+- **Phân loại Log chống cảnh báo giả**: Các lỗi token thông thường từ phía client (`auth/invalid-id-token`, `auth/id-token-expired`) chỉ ghi log ở mức `warn` không kèm stack trace; chỉ lỗi hệ thống/mạng bất ngờ mới ghi nhận mức `error` kèm stack trace.
+
+### 6. Tích hợp Phía Client (Flutter Mobile)
 - Client sử dụng kết hợp `google_sign_in` và `firebase_auth`:
   1. Người dùng chọn tài khoản Google -> `google_sign_in` trả về OAuth credential.
   2. Trao đổi credential với `firebase_auth` để lấy Firebase ID Token (`getIdToken()`).
-  3. Client kiểm tra tính toàn vẹn của token (không rỗng, không null) trước khi gửi lên API Backend `POST /auth/google`.
-  4. Bắt và xử lý mượt mà sự kiện người dùng hủy hộp thoại (`GoogleSignInExceptionCode.canceled`), không báo lỗi sai lệch trên UI.
+  3. Client kiểm tra tính toàn vẹn của token (không rỗng, không null) trước khi gửi lên API Backend hoặc gọi `/auth/me`.
+  4. Bắt và xử lý mượt mà sự kiện người dùng hủy hộp thoại (`GoogleSignInExceptionCode.canceled`), ném mã lỗi `AUTH_CANCELLED` để `SessionController` bỏ qua thông báo lỗi trên UI.
+  5. Cấu hình `_serverId` nhận giá trị từ `--dart-define=GOOGLE_SERVER_CLIENT_ID` kèm `defaultValue` hỗ trợ dev local tiện lợi cho project mặc định (`lingoroad-7fb29`), tự động chuyển sang chuỗi rỗng an toàn khi cấu hình project khác.
 
 ---
 

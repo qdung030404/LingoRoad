@@ -27,14 +27,16 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   private async firebaseAccess(context: ExecutionContext) {
     const req = context.switchToHttp().getRequest();
     const match = /^Bearer (\S+)$/i.exec(req.headers.authorization ?? '');
-    if (!match) throw new UnauthorizedException('AUTH_UNAUTHORIZED');
+    if (!match || match[1].length > 4096) {
+      throw new UnauthorizedException({ code: 'AUTH_UNAUTHORIZED', message: 'Yêu cầu Bearer token hợp lệ.' });
+    }
     req.user = await this.users.resolve(await this.firebase.verify(match[1]));
     return true;
   }
 
   handleRequest<TUser = unknown>(err: unknown, user: TUser, info: unknown): TUser {
     if (err || !user) {
-      throw err || new UnauthorizedException('AUTH_UNAUTHORIZED');
+      throw err || new UnauthorizedException({ code: 'AUTH_UNAUTHORIZED', message: 'Yêu cầu Bearer token hợp lệ.' });
     }
     return user;
   }

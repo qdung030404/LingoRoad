@@ -79,8 +79,8 @@ Kế hoạch phân rã các đầu việc kỹ thuật chi tiết theo từng b�
 - Tạo DTO `apps/backend/src/modules/auth/dto/google-login.dto.ts`:
   - Validate `@IsString()`, `@IsNotEmpty()`, `@MaxLength(4096)`.
 - Tạo `apps/backend/src/modules/auth/firebase/firebase-token.service.ts` và `apps/backend/src/modules/auth/firebase/firebase-user.service.ts`:
-  - `FirebaseTokenService`: Quản lý cờ `enabled` (`AUTH_PROVIDER=firebase|legacy`), `verify(token)` (`verifyIdToken(token, true)`) và `revoke(uid)`.
-  - `FirebaseUserService.resolve(token)`: Tìm kiếm theo `firebaseUid`, tự động khởi tạo `User` + `UserProfile` (`dailyGoalMinutes: 10`), xử lý xung đột `P2002` bằng cách tra cứu lại theo `firebaseUid` hoặc ném `409 AUTH_ACCOUNT_LINK_REQUIRED` (không tự động liên kết theo email).
+  - `FirebaseTokenService`: Quản lý cờ `enabled` (`AUTH_PROVIDER=firebase|legacy`), xác thực chữ ký cục bộ mặc định `verify(token, checkRevoked = false)` tối ưu độ trễ cho `JwtAuthGuard`, hỗ trợ kiểm tra thu hồi `checkRevoked = true` tùy chọn, và thu hồi phiên qua `revoke(uid)`. Kiểm tra cấu hình an toàn: ném `AUTH_NOT_CONFIGURED` nếu cấu hình thiếu 1 trong 2 biến `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY`.
+  - `FirebaseUserService.resolve(token)`: Kiểm tra `email_verified` có điều kiện (chỉ dành riêng cho Google), tìm kiếm theo `firebaseUid`, tự động khởi tạo `User` + `UserProfile` (`targetCefr: B1, dailyGoalMinutes: 10, reminderEnabled: true`), xử lý xung đột `P2002` bằng cách tra cứu lại theo `firebaseUid` hoặc ném `409 AUTH_ACCOUNT_LINK_REQUIRED` (không tự động liên kết theo email).
 - Tạo Use Case `apps/backend/src/modules/auth/use-cases/google-login.use-case.ts`:
   - Inject `FirebaseAdminService`, `FirebaseTokenService`, `FirebaseUserService`, `ProfileService`.
   - Kiểm tra `firebase.enabled`, `sign_in_provider === 'google.com'`, và `email_verified`.
@@ -104,11 +104,11 @@ Kế hoạch phân rã các đầu việc kỹ thuật chi tiết theo từng b�
 ### Bước 6: Tích hợp và Kiểm thử Client Mobile (Flutter)
 - Cấu hình Firebase & Gradle trên Android (`apps/mobile/android`):
   - Bổ sung `com.google.gms.google-services` plugin.
-  - Tạo tệp mẫu `google-services.json.example` và cấu hình `.gitignore` chặn rò rỉ credential.
+  - Tạo tệp mẫu `google-services.json.example` và cấu hình `.gitignore` chặn rò rỉ credential (kèm `GoogleService-Info.plist` cho iOS).
 - Mở rộng `SessionController`:
   - Bổ sung hàm `authenticateWithGoogle()`.
   - Kiểm tra `googleAuth.idToken` hợp lệ trước khi tạo Firebase Credential.
-  - Xử lý mượt mà khi người dùng nhấn hủy (`canceled`).
+  - Xử lý mượt mà khi người dùng nhấn hủy (`canceled`), không văng lỗi giả trên giao diện.
 - Cập nhật giao diện `WelcomePage`:
   - Gắn sự kiện đăng nhập Google vào nút `_SocialButton`.
   - Hiển thị trạng thái loading (`CircularProgressIndicator`) trong khi đang xác thực.
@@ -122,12 +122,16 @@ Kế hoạch phân rã các đầu việc kỹ thuật chi tiết theo từng b�
 # 4. Acceptance Checklist (Danh sách Kiểm tra Hoàn thành)
 
 - [x] Prisma schema đã cập nhật và migrate thành công mà không gây mất dữ liệu hiện có.
-- [x] Thư viện `firebase-admin` được tích hợp an toàn qua biến môi trường.
+- [x] Thư viện `firebase-admin` được tích hợp an toàn qua biến môi trường (hỗ trợ cả đường dẫn tệp JSON và biến môi trường trực tiếp).
+- [x] Bắt lỗi cấu hình Service Account không đồng nhất (`FIREBASE_CLIENT_EMAIL` và `FIREBASE_PRIVATE_KEY`).
 - [x] Endpoint `POST /auth/google` tiếp nhận request và phản hồi đúng chuẩn ApiResponse chuẩn mực của dự án kèm Rate Limit.
-- [x] Tài khoản tạo qua Google có `provider = 'GOOGLE'`, `passwordHash = null`, và có `UserProfile` mặc định.
-- [x] Bảng `refresh_sessions` lưu phiên mới chính xác với mã băm SHA-256.
-- [x] Toàn bộ Backend Unit Test chạy pass 100% không có lỗi linter/strict type.
+- [x] Bảo vệ DoS: Giới hạn độ dài `idToken` tối đa 4096 ký tự trên cả DTO và `JwtAuthGuard`.
+- [x] Tối ưu hóa hiệu năng: `JwtAuthGuard` mặc định xác thực chữ ký cục bộ (`checkRevoked = false`) trong RAM (~1ms), loại bỏ độ trễ mạng thừa.
+- [x] Tài khoản tạo qua Google có `provider = 'GOOGLE'`, `passwordHash = null`, và có `UserProfile` mặc định (`targetCefr = B1, dailyGoalMinutes = 10, reminderEnabled = true`).
+- [x] Xử lý xung đột email an toàn (Zero Account Takeover): Ném `409 AUTH_ACCOUNT_LINK_REQUIRED`, không tự động liên kết tài khoản cũ theo email đơn thuần.
+- [x] Phân loại nhật ký và che giấu PII: Ẩn email người dùng (`maskEmail`), chuyển các lỗi token client sang log `warn` không có stack trace.
+- [x] Toàn bộ Backend Unit Test chạy pass 100% (38/38 Test Suites, 267 tests passed) không có lỗi linter/strict type.
 - [x] Tích hợp Client Flutter hoàn chỉnh với Firebase Core, Firebase Auth, Google Sign-In và xử lý đầy đủ các trạng thái loading/canceled/error.
-- [x] Chặn rò rỉ Firebase credentials: Đã đưa `google-services.json` vào `.gitignore` và cung cấp `google-services.json.example`.
+- [x] Chặn rò rỉ Firebase credentials: Đã đưa `google-services.json`, `GoogleService-Info.plist` và `*firebase-adminsdk*.json` vào `.gitignore`.
 - [x] Toàn bộ Mobile Unit & Widget Test chạy pass 100%, `flutter analyze` sạch không lỗi.
 

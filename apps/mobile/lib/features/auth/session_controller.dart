@@ -7,6 +7,7 @@ enum SessionStage { loading, signedOut, onboarding, ready, error }
 class SessionController extends ChangeNotifier {
   SessionController(this.api) {
     api.onUnauthorized = () {
+      _currentUid = null;
       _epoch++;
       user = null;
       placement = {};
@@ -24,6 +25,7 @@ class SessionController extends ChangeNotifier {
   Json? placementResult;
   bool _disposed = false;
   int _epoch = 0;
+  String? _currentUid;
   StreamSubscription<String?>? _authChanges;
   String? error;
   Json get profile => (user?['profile'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -36,6 +38,7 @@ class SessionController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _epoch++;
+    api.onUnauthorized = null;
     _authChanges?.cancel();
     super.dispose();
   }
@@ -49,10 +52,20 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (kDebugMode) debugPrint('[SessionController] Bắt đầu authenticateWithGoogle...');
       await signInWithGoogle();
-    } on ApiFailure catch (e) {
+      if (kDebugMode) debugPrint('[SessionController] authenticateWithGoogle thành công!');
+    } on ApiFailure catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[SessionController] ❌ ApiFailure: code=${e.code}, message=${e.message}, status=${e.status}');
+        debugPrint('[SessionController] StackTrace:\n$st');
+      }
       if (!_disposed && e.code != 'AUTH_CANCELLED') error = e.message;
-    } catch (_) {
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[SessionController] ❌ Exception: $e (${e.runtimeType})');
+        debugPrint('[SessionController] StackTrace:\n$st');
+      }
       if (_disposed) return;
       error = 'Đăng nhập Google thất bại. Vui lòng thử lại.';
     } finally {
@@ -71,13 +84,18 @@ class SessionController extends ChangeNotifier {
         await api.identity!.initialize();
         if (_disposed || epoch != _epoch) return;
         _authChanges ??= api.identity!.userChanges.listen((uid) {
-          if (uid == null && user != null) {
+          if (uid != _currentUid) {
+            _currentUid = uid;
             _epoch++;
             user = null;
             placement = {};
             placementResult = null;
-            stage = SessionStage.signedOut;
-            notifyListeners();
+            if (uid == null) {
+              stage = SessionStage.signedOut;
+              notifyListeners();
+            } else {
+              initialize();
+            }
           }
         });
         if (!api.identity!.signedIn) {
@@ -145,9 +163,12 @@ class SessionController extends ChangeNotifier {
 
   Future<void> signInWithGoogle() async {
     if (api.identity == null) {
+      if (kDebugMode) debugPrint('[SessionController] ❌ signInWithGoogle: api.identity == null (chưa khởi tạo Firebase)');
       throw const ApiFailure('Google yêu cầu cấu hình Firebase.');
     }
+    if (kDebugMode) debugPrint('[SessionController] Gọi api.identity.signInWithGoogle()...');
     await api.identity!.signInWithGoogle();
+    if (kDebugMode) debugPrint('[SessionController] api.identity.signInWithGoogle() xong, gọi initialize()...');
     await initialize();
   }
 
@@ -160,8 +181,14 @@ class SessionController extends ChangeNotifier {
 
   Future<void> loadAccount({int? epoch}) async {
     final expected = epoch ?? _epoch;
-    final account = await api.request('GET', '/auth/me');
-    final assessment = await api.request('GET', '/placement/status');
+    if (kDebugMode) debugPrint('[SessionController] loadAccount: Gọi song song GET /auth/me và GET /placement/status...');
+    final results = await Future.wait([
+      api.request('GET', '/auth/me'),
+      api.request('GET', '/placement/status'),
+    ]);
+    final account = results[0];
+    final assessment = results[1];
+    if (kDebugMode) debugPrint('[SessionController] GET /auth/me thành công: ID=${account['id'] ?? account['sub']}');
     final result = assessment['status'] == 'COMPLETED'
         ? await api.request(
             'GET',
@@ -207,6 +234,7 @@ class SessionController extends ChangeNotifier {
 
   Future<void> logout() async {
     _epoch++;
+    _currentUid = null;
     try {
       if (api.identity != null) return;
       final token = await api.store.read();
