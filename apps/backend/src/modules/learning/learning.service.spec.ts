@@ -8,19 +8,27 @@ import { LearningContent, validateLearningContent } from './learning.types';
 const content: LearningContent = {
   steps: [{ id: 'theory', title: 'To be', body: 'I am. She is. They are.' }],
   audioUrl: '/media/learning/v1/listening.wav', transcript: 'Private transcript.',
-  questions: Array.from({ length: 5 }, (_, index) => ({ id: `q${index}`, prompt: `Question ${index}`,
-    options: ['A', 'B', 'C', 'D'].map((id) => ({ id, text: id })), correctOptionId: 'A', explanation: `Explanation ${index}` })),
+  questions: Array.from({ length: 5 }, (_, index) => ({
+    id: `q${index}`, prompt: `Question ${index}`,
+    options: ['A', 'B', 'C', 'D'].map((id) => ({ id, text: id })), correctOptionId: 'A', explanation: `Explanation ${index}`
+  })),
 };
 
 function fixture(ml?: Partial<MlClientService>) {
   const now = new Date('2026-11-01T00:00:00Z');
-  const lesson: LearningLesson = { id: 'lesson', code: 'test-lesson', kind: 'GRAMMAR', title: 'A lesson', description: 'Practice',
+  const lesson: LearningLesson = {
+    id: 'lesson', code: 'test-lesson', kind: 'GRAMMAR', title: 'A lesson', description: 'Practice',
     estimatedMinutes: 10, sortOrder: 1, published: true, contentVersion: 1, unitId: null, content: structuredClone(content) as unknown as Prisma.JsonValue,
-    createdAt: now, updatedAt: now };
-  const attempt: LearningAttempt & { answers: LearningAttemptAnswer[] } = { id: 'attempt', userId: 'owner', lessonId: lesson.id,
-    status: 'IN_PROGRESS', version: 0, phase: 'STUDY', positionIndex: 0, totalQuestions: 5, correctCount: null,
+    createdAt: now, updatedAt: now
+  };
+  const attempt: LearningAttempt & { answers: LearningAttemptAnswer[] } = {
+    id: 'attempt', userId: 'owner', lessonId: lesson.id,
+    status: 'IN_PROGRESS', version: 0, phase: 'STUDY', positionIndex: 0, contentVersion: 1, eligibleForLevelEval: true, totalQuestions: 5, correctCount: null,
     lessonSnapshot: { id: lesson.id, code: lesson.code, kind: lesson.kind, title: lesson.title, description: lesson.description, estimatedMinutes: 10, contentVersion: 1 },
-    contentSnapshot: structuredClone(content) as unknown as Prisma.JsonValue, startedAt: now, updatedAt: now, submittedAt: null, answers: [] };
+    contentSnapshot: structuredClone(content) as unknown as Prisma.JsonValue, startedAt: now, updatedAt: now, submittedAt: null, answers: []
+  };
+  const exposures: Array<{ id: string; userId: string; lessonId: string; contentVersion: number; firstAttemptId: string }> = [];
+  let savedLevelEvent: { kind: string; fromCefr: string; toCefr: string; direction: string } | null = null;
   const db = {
     learningAttempt: {
       findFirst: jest.fn(async ({ where }: { where: { id?: string; userId: string; lessonId?: string; status?: string } }) => {
@@ -52,12 +60,27 @@ function fixture(ml?: Partial<MlClientService>) {
         else attempt.answers.push(Object.assign({ id: `answer-${attempt.answers.length}`, checked: false, isCorrect: null, checkedAt: null }, create));
       }),
     },
+    learningAnswerExposure: {
+      findUnique: jest.fn(async ({ where }: { where: { userId_lessonId: { userId: string; lessonId: string } } }) =>
+        exposures.find((e) => e.userId === where.userId_lessonId.userId && e.lessonId === where.userId_lessonId.lessonId) ?? null),
+      create: jest.fn(async ({ data }: { data: { userId: string; lessonId: string; contentVersion: number; firstAttemptId: string } }) => {
+        const row = { id: `exp-${exposures.length}`, ...data };
+        exposures.push(row);
+        return row;
+      }),
+    },
+    learningSkillLevel: { findUnique: jest.fn(async () => null) },
+    learningSkillLevelEvent: { findUnique: jest.fn(async () => savedLevelEvent) },
     learningLesson: { findMany: jest.fn(async () => [lesson]), findFirst: jest.fn(async () => lesson) },
     $queryRaw: jest.fn(async () => []),
     $transaction: jest.fn(),
   };
   db.$transaction.mockImplementation(async (work: (tx: unknown) => Promise<unknown>) => work(db));
-  return { db, attempt, lesson, service: new LearningService(db as unknown as PrismaService, undefined, ml as MlClientService | undefined) };
+  return {
+    db, attempt, lesson, exposures,
+    setSavedLevelEvent: (evt: typeof savedLevelEvent) => { savedLevelEvent = evt; },
+    service: new LearningService(db as unknown as PrismaService, undefined, ml as MlClientService | undefined),
+  };
 }
 
 describe('LearningService', () => {
@@ -428,6 +451,93 @@ describe('LearningService', () => {
       });
 
       expect(ml.explainReadingAnswer).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Adaptive level lock order, exposure guard, and idempotent submit', () => {
+    it('acquires user lock before reading attempt and records exposure across version bumps and cancel', async () => {
+      const { db, lesson, exposures, service } = fixture();
+      const callOrder: string[] = [];
+      db.$queryRaw.mockImplementation(async () => { callOrder.push('lock_users'); return []; });
+      const origFindFirst = db.learningAttempt.findFirst.getMockImplementation()!;
+      db.learningAttempt.findFirst.mockImplementation(async (arg: any) => {
+        callOrder.push('read_attempt');
+        return origFindFirst(arg);
+      });
+
+      await service.check('owner', 'attempt', 'q0', { expectedVersion: 0, optionId: 'A' });
+      expect(callOrder.slice(0, 2)).toEqual(['lock_users', 'read_attempt']);
+      expect(exposures).toHaveLength(1);
+      expect(exposures[0].firstAttemptId).toBe('attempt');
+
+      // Canceling does not erase LearningAnswerExposure; bumping lesson.contentVersion still marks restart ineligible.
+      await service.cancel('owner', 'attempt');
+      expect(exposures).toHaveLength(1);
+      lesson.contentVersion = 4;
+      const restarted = await service.start('owner', lesson.id);
+      expect(restarted.id).toBe('fresh-attempt');
+      expect(db.learningAttempt.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ contentVersion: 4, eligibleForLevelEval: false }),
+        }),
+      );
+    });
+
+    it('keeps attempt eligible if canceled before any check() revealed answers', async () => {
+      const { db, lesson, exposures, service } = fixture();
+      await service.cancel('owner', 'attempt');
+      expect(exposures).toHaveLength(0);
+      await service.start('owner', lesson.id);
+      expect(db.learningAttempt.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ eligibleForLevelEval: true }),
+        }),
+      );
+    });
+
+    it('locks users before submit, calls evaluateReadingLevel once, and returns saved levelChange on retry', async () => {
+      const { db, lesson, service, setSavedLevelEvent } = fixture();
+      lesson.kind = 'READING';
+      const evaluateReadingLevel = jest.fn(async () => {
+        const evt = { kind: 'READING' as const, from: 'A2' as const, to: 'B1' as const, direction: 'UP' as const };
+        setSavedLevelEvent({ kind: 'READING', fromCefr: 'A2', toCefr: 'B1', direction: 'UP' });
+        return evt;
+      });
+      const planningMock = { evaluateReadingLevel } as unknown as any;
+      const svc = new LearningService(db as unknown as PrismaService, planningMock);
+      const readingContent = { ...content, passage: 'Sample passage' };
+      const attempt = db.learningAttempt.findFirst.mock;
+      void attempt;
+      // Check all 5 questions first.
+      for (let i = 0; i < 5; i++) {
+        await svc.check('owner', 'attempt', `q${i}`, { expectedVersion: i, optionId: 'A' });
+      }
+      // Patch attempt snapshot kind for submission evaluation check.
+      const firstRow = await db.learningAttempt.findFirst({ where: { id: 'attempt', userId: 'owner' } });
+      expect(firstRow).not.toBeNull();
+      // Mutate underlying attempt via updateMany or direct call sequence after resetting query log.
+      const order: string[] = [];
+      db.$queryRaw.mockImplementation(async () => { order.push('lock_users'); return []; });
+      const prevFindFirst = db.learningAttempt.findFirst.getMockImplementation()!;
+      db.learningAttempt.findFirst.mockImplementation(async (args: any) => {
+        order.push('read_attempt');
+        const res = await prevFindFirst(args);
+        if (res) {
+          res.lessonSnapshot = { ...res.lessonSnapshot as object, kind: 'READING', cefrLevel: 'A2' };
+          res.contentSnapshot = readingContent as unknown as Prisma.JsonValue;
+        }
+        return res;
+      });
+
+      const submitted = await svc.submit('owner', 'attempt', 5);
+      expect(order.slice(0, 2)).toEqual(['lock_users', 'read_attempt']);
+      expect(evaluateReadingLevel).toHaveBeenCalledTimes(1);
+      expect(submitted.levelChange).toEqual({ kind: 'READING', from: 'A2', to: 'B1', direction: 'UP' });
+
+      // Retry after lost response must return exact stored levelChange and never re-evaluate.
+      const retried = await svc.submit('owner', 'attempt', 5);
+      expect(evaluateReadingLevel).toHaveBeenCalledTimes(1);
+      expect(retried.levelChange).toEqual({ kind: 'READING', from: 'A2', to: 'B1', direction: 'UP' });
     });
   });
 });

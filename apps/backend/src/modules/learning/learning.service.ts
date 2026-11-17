@@ -166,7 +166,19 @@ export class LearningService {
         throw new ServiceUnavailableException({ code: 'LEARNING_CONTENT_UNAVAILABLE', message: 'Nội dung bài học chưa sẵn sàng.' });
       }
       await tx.learningAttempt.deleteMany({ where: { userId, lessonId, status: 'IN_PROGRESS' } });
+      const [priorExposure, priorCompleted] = await Promise.all([
+        tx.learningAnswerExposure?.findUnique({
+          where: { userId_lessonId: { userId, lessonId } },
+          select: { id: true },
+        }) ?? Promise.resolve(null),
+        tx.learningAttempt.findFirst({
+          where: { userId, lessonId, status: 'COMPLETED' },
+          select: { id: true },
+        }),
+      ]);
       return tx.learningAttempt.create({ data: { userId, lessonId, phase: content.steps.length ? 'STUDY' : 'QUIZ',
+        contentVersion: lesson.contentVersion,
+        eligibleForLevelEval: !priorExposure && !priorCompleted,
         totalQuestions: content.questions.length, contentSnapshot: lesson.content as Prisma.InputJsonValue,
         lessonSnapshot: this.lessonInfo(lesson) as unknown as Prisma.InputJsonValue }, include: includeAnswers });
     });
@@ -217,8 +229,20 @@ export class LearningService {
     });
   }
 
+  private async loadSavedLevelChange(tx: Database, attemptId: string) {
+    const saved = await (tx.learningSkillLevelEvent?.findUnique({ where: { attemptId } }) ?? Promise.resolve(null));
+    if (!saved) return null;
+    return {
+      kind: saved.kind,
+      from: saved.fromCefr,
+      to: saved.toCefr,
+      direction: saved.direction as 'UP' | 'DOWN',
+    };
+  }
+
   async check(userId: string, attemptId: string, questionId: string, dto: CheckLearningAnswerDto) {
     try { return await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const attempt = await this.owned(tx, userId, attemptId);
       const content = this.content(attempt);
       const index = content.questions.findIndex((question) => question.id === questionId);
@@ -229,7 +253,26 @@ export class LearningService {
         if (saved.optionId !== dto.optionId) this.conflict();
         return this.publicAttempt(attempt); // Safe retry even when the original response was lost.
       }
-      await this.reserve(tx, attempt, dto.expectedVersion, { phase: 'QUIZ', positionIndex: index });
+      let extraUpdate: Prisma.LearningAttemptUpdateManyMutationInput = {};
+      if (tx.learningAnswerExposure) {
+        const existingExposure = await tx.learningAnswerExposure.findUnique({
+          where: { userId_lessonId: { userId, lessonId: attempt.lessonId } },
+          select: { firstAttemptId: true },
+        });
+        if (!existingExposure) {
+          await tx.learningAnswerExposure.create({
+            data: {
+              userId,
+              lessonId: attempt.lessonId,
+              contentVersion: attempt.contentVersion,
+              firstAttemptId: attempt.id,
+            },
+          });
+        } else if (existingExposure.firstAttemptId !== attempt.id && attempt.eligibleForLevelEval) {
+          extraUpdate = { eligibleForLevelEval: false };
+        }
+      }
+      await this.reserve(tx, attempt, dto.expectedVersion, { phase: 'QUIZ', positionIndex: index, ...extraUpdate });
       const data = { optionId: dto.optionId, checked: true, isCorrect: dto.optionId === question.correctOptionId, checkedAt: new Date() };
       await tx.learningAttemptAnswer.upsert({ where: { attemptId_questionId: { attemptId, questionId } }, create: { attemptId, questionId, ...data }, update: data });
       return this.publicAttempt(await this.owned(tx, userId, attemptId));
@@ -246,19 +289,38 @@ export class LearningService {
 
   async submit(userId: string, attemptId: string, expectedVersion: number) {
     try { return await this.prisma.$transaction(async (tx) => {
+      // Consistent lock order: users -> attempt -> skill level -> day plan.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const attempt = await this.owned(tx, userId, attemptId);
-      if (attempt.status === 'COMPLETED') return this.publicAttempt(attempt);
+      if (attempt.status === 'COMPLETED') {
+        return { ...this.publicAttempt(attempt), levelChange: await this.loadSavedLevelChange(tx, attempt.id) };
+      }
       const content = this.content(attempt);
       if (!content.questions.every((question) => attempt.answers.some((answer) => answer.questionId === question.id && answer.checked))) {
         this.invalid('Hãy kiểm tra đầy đủ các câu hỏi trước khi nộp bài.');
       }
       const correctCount = attempt.answers.filter((answer) => answer.checked && answer.isCorrect).length;
-      await this.reserve(tx, attempt, expectedVersion, { status: 'COMPLETED', correctCount, submittedAt: new Date() });
-      return this.publicAttempt(await this.owned(tx, userId, attemptId));
+      let submittedAt = new Date();
+      const kind = (attempt.lessonSnapshot as unknown as LessonSnapshot).kind;
+      if (this.planning && kind === 'READING' && tx.learningSkillLevel) {
+        const existingSkill = await tx.learningSkillLevel.findUnique({
+          where: { userId_kind: { userId, kind: 'READING' } },
+          select: { changedAt: true },
+        });
+        if (existingSkill?.changedAt && submittedAt <= existingSkill.changedAt) {
+          submittedAt = new Date(existingSkill.changedAt.getTime() + 1);
+        }
+      }
+      await this.reserve(tx, attempt, expectedVersion, { status: 'COMPLETED', correctCount, submittedAt });
+      const savedAttempt = await this.owned(tx, userId, attemptId);
+      const levelChange = this.planning ? await this.planning.evaluateReadingLevel(tx, userId, savedAttempt) : null;
+      return { ...this.publicAttempt(savedAttempt), levelChange };
     }); } catch (error) {
       if (error instanceof ConflictException) {
         const current = await this.owned(this.prisma, userId, attemptId);
-        if (current.status === 'COMPLETED') return this.publicAttempt(current);
+        if (current.status === 'COMPLETED') {
+          return { ...this.publicAttempt(current), levelChange: await this.loadSavedLevelChange(this.prisma, current.id) };
+        }
       }
       throw error;
     }

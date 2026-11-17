@@ -224,6 +224,14 @@ void main() {
           'totalLessons': 4,
           'submittedAttemptCount': 3,
         },
+        'recommendedLevels': {
+          'reading': {
+            'cefrLevel': 'B1',
+            'source': 'ADAPTIVE',
+            'previousCefr': 'A2',
+            'changedAt': DateTime.now().toIso8601String(),
+          },
+        },
       };
     final learning = LearningController(
       repository: _StubLearningRepository(),
@@ -259,6 +267,16 @@ void main() {
     expect(find.text('Đang học chặng 2 · Gia đình và đồ vật'), findsOneWidget);
     expect(find.text('Hoàn thành 3/3 bài'), findsOneWidget);
     expect(find.text('Còn 1 bài'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('progressRecommendedLevel')),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Mức luyện tập đề xuất'), findsOneWidget);
+    expect(find.text('B1 ↑'), findsOneWidget);
+    expect(find.text('Tự điều chỉnh từ kết quả học'), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.byKey(const Key('learningHistory')),

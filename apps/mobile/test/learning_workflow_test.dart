@@ -50,6 +50,7 @@ class MemoryLearningRepository implements LearningRepository {
   bool dropCheckResponse = false;
   int checks = 0;
   int progressCalls = 0;
+  Json? nextSubmitLevelChange;
   final List<String> cancelledIds = [];
   int _seq = 1;
   Completer<void>? delayed;
@@ -133,7 +134,12 @@ class MemoryLearningRepository implements LearningRepository {
       'scoreRatio': 0,
     };
     state['version'] = version + 1;
-    return snapshot();
+    final out = snapshot();
+    if (nextSubmitLevelChange != null) {
+      out.json['levelChange'] = copy(nextSubmitLevelChange!);
+      nextSubmitLevelChange = null;
+    }
+    return out;
   }
 
   @override
@@ -1459,7 +1465,92 @@ void main() {
       owner.dispose();
     },
   );
+  testWidgets(
+    'shows recommended reading level banner on submit UP/DOWN and omits it when reopening from history',
+    (tester) async {
+      final repository = MemoryLearningRepository()
+        ..nextSubmitLevelChange = {
+          'kind': 'READING',
+          'from': 'A2',
+          'to': 'B1',
+          'direction': 'UP',
+        };
+      final owner = LearningController(
+        repository: repository,
+        accountId: 'alice',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: LearningAttemptPage(owner: owner, lessonId: 'lesson'),
+        ),
+      );
+      await tester.pumpAndSettle();
 
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.byKey(const ValueKey('learning-option-a')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('learningPrimaryAction')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('learningPrimaryAction')));
+        await tester.pumpAndSettle();
+      }
+
+      expect(find.byKey(const Key('learningLevelChangeBanner')), findsOneWidget);
+      expect(find.text('Mức luyện tập đề xuất: Đọc B1 ↑'), findsOneWidget);
+
+      // Reopening completed attempt from history does not carry transient levelChange banner.
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: LearningAttemptPage(
+            key: const Key('historyAttemptPage'),
+            owner: owner,
+            attemptId: 'attempt',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Kết quả bài học'), findsOneWidget);
+      expect(find.byKey(const Key('learningLevelChangeBanner')), findsNothing);
+
+      // Verify DOWN banner wording.
+      final downRepo = MemoryLearningRepository()
+        ..nextSubmitLevelChange = {
+          'kind': 'READING',
+          'from': 'B1',
+          'to': 'A2',
+          'direction': 'DOWN',
+        };
+      final downOwner = LearningController(
+        repository: downRepo,
+        accountId: 'alice',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: LearningAttemptPage(owner: downOwner, lessonId: 'lesson'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.byKey(const ValueKey('learning-option-b')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('learningPrimaryAction')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('learningPrimaryAction')));
+        await tester.pumpAndSettle();
+      }
+      expect(
+        find.text('Điều chỉnh mức luyện tập đề xuất: Đọc A2 ↓'),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox());
+      owner.dispose();
+      downOwner.dispose();
+    },
+  );
 }
 
 class _MemoryVocabularyRepository implements VocabularyRepository {

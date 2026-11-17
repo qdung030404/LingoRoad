@@ -33,6 +33,7 @@ class LearningAttempt {
   List<Json> get steps => learningItems(content['steps']);
   List<Json> get questions => learningItems(json['questions']);
   List<Json> get answers => learningItems(json['answers']);
+  Json? get levelChange => (json['levelChange'] as Map?)?.cast<String, dynamic>();
   Json? answer(String questionId) {
     for (final a in answers) {
       if (a['questionId'] == questionId) return a;

@@ -60,17 +60,20 @@ model User {
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
 
-  profile           UserProfile?
-  refreshSessions   RefreshSession[]
-  placementSessions PlacementSession[]
-  learningAttempts  LearningAttempt[]
-  dayPlans          LearningDayPlan[]
-  activitySessions  LearningActivitySession[]
-  vocabularyDecks VocabularyDeck[]
-  vocabularyReviews VocabularyReviewAttempt[]
-  vocabularyReceipts VocabularyCommandReceipt[]
+  profile             UserProfile?
+  refreshSessions     RefreshSession[]
+  placementSessions   PlacementSession[]
+  learningAttempts    LearningAttempt[]
+  skillLevels         LearningSkillLevel[]
+  skillLevelEvents    LearningSkillLevelEvent[]
+  answerExposures     LearningAnswerExposure[]
+  dayPlans            LearningDayPlan[]
+  activitySessions    LearningActivitySession[]
+  vocabularyDecks     VocabularyDeck[]
+  vocabularyReviews   VocabularyReviewAttempt[]
+  vocabularyReceipts  VocabularyCommandReceipt[]
   speakingSubmissions SpeakingSubmission[]
-  voiceConversations VoiceConversation[]
+  voiceConversations  VoiceConversation[]
 
   @@map("users")
 }
@@ -342,6 +345,12 @@ enum LearningAttemptStatus {
   COMPLETED
 }
 
+enum SkillLevelSource {
+  PLACEMENT
+  ADAPTIVE
+  DEFAULT
+}
+
 model LearningUnit {
   id          String           @id @default(uuid()) @db.Uuid
   code        String           @unique @db.VarChar(100)
@@ -370,9 +379,10 @@ model LearningLesson {
   content          Json              @db.JsonB
   unitId           String?           @map("unit_id") @db.Uuid
   unit             LearningUnit?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
-  createdAt        DateTime          @default(now()) @map("created_at")
-  updatedAt        DateTime          @updatedAt @map("updated_at")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
   attempts         LearningAttempt[]
+  answerExposures  LearningAnswerExposure[]
 
   @@index([published, sortOrder])
   @@index([unitId, sortOrder])
@@ -380,24 +390,27 @@ model LearningLesson {
 }
 
 model LearningAttempt {
-  id               String                @id @default(uuid()) @db.Uuid
-  userId           String                @map("user_id") @db.Uuid
-  lessonId         String                @map("lesson_id") @db.Uuid
-  status           LearningAttemptStatus @default(IN_PROGRESS)
-  version          Int                   @default(0)
-  phase            String                @default("STUDY") @db.VarChar(10)
-  positionIndex    Int                   @default(0) @map("position_index")
-  lessonSnapshot   Json                  @map("lesson_snapshot") @db.JsonB
-  contentSnapshot  Json                  @map("content_snapshot") @db.JsonB
-  correctCount     Int?                  @map("correct_count")
-  totalQuestions   Int                   @map("total_questions")
-  startedAt        DateTime              @default(now()) @map("started_at")
-  updatedAt        DateTime              @updatedAt @map("updated_at")
-  submittedAt      DateTime?             @map("submitted_at")
-  user             User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lesson           LearningLesson        @relation(fields: [lessonId], references: [id], onDelete: Restrict)
-  answers          LearningAttemptAnswer[]
-  activitySessions LearningActivitySession[]
+  id                   String                    @id @default(uuid()) @db.Uuid
+  userId               String                    @map("user_id") @db.Uuid
+  lessonId             String                    @map("lesson_id") @db.Uuid
+  status               LearningAttemptStatus     @default(IN_PROGRESS)
+  version              Int                       @default(0)
+  phase                String                    @default("STUDY") @db.VarChar(10)
+  positionIndex        Int                       @default(0) @map("position_index")
+  contentVersion       Int                       @default(1) @map("content_version")
+  eligibleForLevelEval Boolean                   @default(true) @map("eligible_for_level_eval")
+  lessonSnapshot       Json                      @map("lesson_snapshot") @db.JsonB
+  contentSnapshot      Json                      @map("content_snapshot") @db.JsonB
+  correctCount         Int?                      @map("correct_count")
+  totalQuestions       Int                       @map("total_questions")
+  startedAt            DateTime                  @default(now()) @map("started_at")
+  updatedAt            DateTime                  @updatedAt @map("updated_at")
+  submittedAt          DateTime?                 @map("submitted_at")
+  user                 User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson               LearningLesson            @relation(fields: [lessonId], references: [id], onDelete: Restrict)
+  answers              LearningAttemptAnswer[]
+  activitySessions     LearningActivitySession[]
+  levelChangeEvent     LearningSkillLevelEvent?
 
   @@index([userId, status, updatedAt])
   @@index([userId, lessonId])
@@ -432,6 +445,51 @@ model LearningDayPlan {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([userId, date])
   @@map("learning_day_plans")
+}
+
+model LearningSkillLevel {
+  id           String           @id @default(uuid()) @db.Uuid
+  userId       String           @map("user_id") @db.Uuid
+  kind         LearningKind
+  cefrLevel    CefrLevel        @map("cefr_level")
+  source       SkillLevelSource
+  previousCefr CefrLevel?       @map("previous_cefr")
+  changedAt    DateTime?        @map("changed_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind])
+  @@map("learning_skill_levels")
+}
+
+model LearningSkillLevelEvent {
+  id        String          @id @default(uuid()) @db.Uuid
+  userId    String          @map("user_id") @db.Uuid
+  attemptId String          @unique @map("attempt_id") @db.Uuid
+  kind      LearningKind
+  fromCefr  CefrLevel       @map("from_cefr")
+  toCefr    CefrLevel       @map("to_cefr")
+  direction String          @db.VarChar(8)
+  createdAt DateTime        @default(now()) @map("created_at")
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt   LearningAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind, createdAt])
+  @@map("learning_skill_level_events")
+}
+
+model LearningAnswerExposure {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  lessonId       String         @map("lesson_id") @db.Uuid
+  contentVersion Int            @default(1) @map("content_version")
+  firstAttemptId String         @map("first_attempt_id") @db.Uuid
+  exposedAt      DateTime       @default(now()) @map("exposed_at")
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson         LearningLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@map("learning_answer_exposures")
 }
 
 model LearningActivitySession {

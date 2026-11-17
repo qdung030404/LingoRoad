@@ -28,8 +28,10 @@ describe('Daily plans and observed learning time', () => {
     const { seedLearningContent } = require('../prisma/seed-learning.ts');
     const module = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = module.createNestApplication({ logger: false });
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true,
-      forbidNonWhitelisted: true, transformOptions: { enableImplicitConversion: true } }));
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true, transform: true,
+      forbidNonWhitelisted: true, transformOptions: { enableImplicitConversion: true }
+    }));
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
     prisma = app.get(PrismaService);
@@ -120,9 +122,9 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(today.estimatedMinutes, 5);
     await preferences(owner, 120);
     today = await plan(owner);
-    assert.equal(today.totalCount, 5);
-    assert.equal(today.estimatedMinutes, 35);
-    assert.equal(new Set(today.items.map(item => item.lessonId)).size, 5);
+    assert.equal(today.totalCount, 6);
+    assert.equal(today.estimatedMinutes, 40);
+    assert.equal(new Set(today.items.map(item => item.lessonId)).size, 6);
     const me = (await api(owner, 'get', '/auth/me').expect(200)).body.data;
     assert.equal(me.profile.dailyGoalMinutes, 120);
   });
@@ -284,7 +286,7 @@ describe('Daily plans and observed learning time', () => {
     const owner = await account();
     const initial = await progress(owner);
     assert.equal(initial.units.length, 8);
-    assert.equal(initial.units.find(unit => unit.cefrLevel === 'A2').totalLessons, 1);
+    assert.equal(initial.units.find(unit => unit.cefrLevel === 'A2').totalLessons, 2);
     assert.equal(initial.units[0].status, 'IN_PROGRESS');
     assert.equal(initial.units[0].totalLessons, 3);
     assert.equal(initial.scoreStats.averageScore, null);

@@ -865,6 +865,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
 
   Widget _result(LearningAttempt attempt) {
     final result = attempt.json['result'] as Map;
+    final levelChange = attempt.levelChange;
     return FigmaPage(
       title: 'Kết quả bài học',
       leading: IconButton(onPressed: leave, icon: const Icon(Icons.arrow_back)),
@@ -886,6 +887,10 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
               controller.error!,
               retry: () => controller.load(lessonId: attempt.lesson.id),
             ),
+          if (levelChange != null) ...[
+            _levelChangeBanner(levelChange),
+            const SizedBox(height: 16),
+          ],
           learningHeading(attempt.lesson.title, size: 28),
           const SizedBox(height: 16),
           if (attempt.content['passage'] case final String passage) ...[
@@ -923,6 +928,61 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
             ),
             const SizedBox(height: 12),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _levelChangeBanner(Json change) {
+    final isUp = change['direction'] == 'UP';
+    final kindLabel = learningKindLabel(change['kind'] as String? ?? 'READING');
+    final toCefr = change['to'] as String? ?? '';
+    return Container(
+      key: const Key('learningLevelChangeBanner'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isUp ? AppColors.primary25 : const Color(0xFFFFF8E6),
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(
+          color: isUp ? AppColors.primary300 : const Color(0xFFF3C669),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isUp ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+            color: isUp ? AppColors.primary700 : const Color(0xFF9A6700),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isUp
+                      ? 'Mức luyện tập đề xuất: $kindLabel $toCefr ↑'
+                      : 'Điều chỉnh mức luyện tập đề xuất: $kindLabel $toCefr ↓',
+                  style: designText(
+                    16,
+                    weight: FontWeight.w700,
+                    color: AppColors.grey900,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isUp
+                      ? '2 bài Đọc khác nhau đạt từ 80%. Kế hoạch tiếp theo sẽ ưu tiên mức $toCefr.'
+                      : '2 bài Đọc khác nhau đạt dưới 50%. Hệ thống ưu tiên củng cố mức $toCefr.',
+                  style: designText(
+                    14,
+                    color: AppColors.grey800,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );

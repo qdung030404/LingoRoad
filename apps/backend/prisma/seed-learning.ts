@@ -150,7 +150,7 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-a2-club-meeting', kind: 'READING', title: 'A New Time for the Club Meeting',
       description: 'Đọc email đổi lịch câu lạc bộ và xác định thời gian, địa điểm cùng việc cần làm.',
-      estimatedMinutes: 5, sortOrder: 5, contentVersion: 3, unitCode: 'a2-unit-1',
+      estimatedMinutes: 5, sortOrder: 5, contentVersion: 4, unitCode: 'a2-unit-1',
       content: {
         steps: [],
         passage: [
@@ -162,10 +162,10 @@ export function loadLearningContent(): LearningSeed[] {
           'See you soon,\nMaya',
         ].join('\n\n'),
         keyVocabulary: [
-          { id: 'a2-kv-1', word: 'as planned', phonetic: '/æz plænd/', meaning: 'như đã dự kiến', example: 'We can’t meet there at 4 p.m. as planned.', translation: 'Chúng ta không thể gặp ở đó lúc 4 giờ chiều như dự kiến.' },
-          { id: 'a2-kv-2', word: 'instead', phonetic: '/ɪnˈsted/', meaning: 'thay vào đó', example: 'Let’s meet on Thursday at 3:30 p.m. in Room 12 instead.', translation: 'Thay vào đó hãy gặp nhau vào thứ Năm lúc 3:30 chiều tại Phòng 12.' },
-          { id: 'a2-kv-3', word: 'office', phonetic: '/ˈɒfɪs/', meaning: 'văn phòng', example: 'The room is next to the school office.', translation: 'Phòng nằm ngay cạnh văn phòng nhà trường.' },
-          { id: 'a2-kv-4', word: 'finish', phonetic: '/ˈfɪnɪʃ/', meaning: 'hoàn thành, đọc xong', example: 'You don’t need to finish it before the meeting.', translation: 'Bạn không cần đọc xong cuốn sách trước buổi họp.' },
+          { id: 'a2-kv-1', word: 'as planned', phonetic: '/æz plænd/', meaning: 'như đã dự kiến', example: 'Our weekend picnic started on time as planned.', translation: 'Buổi dã ngoại cuối tuần của chúng tôi đã bắt đầu đúng giờ như dự kiến.' },
+          { id: 'a2-kv-2', word: 'instead', phonetic: '/ɪnˈsted/', meaning: 'thay vào đó', example: 'We took the morning bus instead of walking in the rain.', translation: 'Chúng tôi đi xe buýt buổi sáng thay vì đi bộ dưới mưa.' },
+          { id: 'a2-kv-3', word: 'office', phonetic: '/ˈɒfɪs/', meaning: 'văn phòng', example: 'Her desk sits near a sunny window inside the main office.', translation: 'Bàn làm việc của cô ấy đặt cạnh cửa sổ nắng trong văn phòng chính.' },
+          { id: 'a2-kv-4', word: 'finish', phonetic: '/ˈfɪnɪʃ/', meaning: 'hoàn thành, đọc xong', example: 'He hopes to finish his science homework before dinner.', translation: 'Cậu ấy hy vọng làm xong bài tập khoa học trước bữa tối.' },
         ],
         questions: [
           question('club-meeting-purpose', 'Why did Maya write this email?',
@@ -192,9 +192,51 @@ export function loadLearningContent(): LearningSeed[] {
       },
     },
     {
+      code: 'reading-a2-weekend-market', kind: 'READING', title: 'Thông báo chợ cuối tuần ở công viên',
+      description: 'Đọc thông báo địa điểm, giờ mở cửa và lưu ý khi tham gia phiên chợ địa phương.',
+      estimatedMinutes: 5, sortOrder: 6, contentVersion: 1, unitCode: 'a2-unit-1',
+      content: {
+        steps: [],
+        passage: [
+          'Notice: Riverside Weekend Market',
+          'Starting this Sunday, our weekly food and craft market is moving outdoors to Oak Park because the old train hall is being painted. The market will be open from 8:00 a.m. to 1:00 p.m. You can reach the park easily by taking Bus 14 to Green Street.',
+          'Local farmers will sell fresh fruit, honey, and homemade cheese, and three neighborhood bakers will bring warm bread at 9:00 a.m. Please bring your own cloth bag, as stalls will only offer paper bags for a small fee.',
+          'If it rains heavily on Sunday morning, the market will move inside the community hall next door. Anyone who wants to rent a small table must send a message to the market office by Friday noon.',
+        ].join('\n\n'),
+        keyVocabulary: [
+          { id: 'a2m-kv-1', word: 'outdoors', phonetic: '/ˌaʊtˈdɔːz/', meaning: 'ngoài trời', example: 'People enjoy walking in the fresh air outdoors during spring.' },
+          { id: 'a2m-kv-2', word: 'homemade', phonetic: '/ˌhəʊmˈmeɪd/', meaning: 'tự làm ở nhà', example: 'My grandmother makes delicious homemade jam every summer.' },
+          { id: 'a2m-kv-3', word: 'stall', phonetic: '/stɔːl/', meaning: 'quầy hàng (ở chợ)', example: 'Each vegetable stall opens early in the morning.' },
+          { id: 'a2m-kv-4', word: 'rent', phonetic: '/rent/', meaning: 'thuê', example: 'Small shops can rent a wooden table for one morning.' },
+        ],
+        questions: [
+          question('weekend-market-why-move', 'Why is the market moving to Oak Park this Sunday?',
+            ['Bus 14 stops only near Oak Park', 'The old train hall is being painted', 'Oak Park is open all night long', 'More farmers asked for larger tables'], 1,
+            'Thông báo ghi rõ lý do chuyển ra Oak Park là vì nhà ga cũ đang được sơn sửa: “because the old train hall is being painted.”',
+            { skillCode: 'reading.scanning', evidence: 'Starting this Sunday, our weekly food and craft market is moving outdoors to Oak Park because the old train hall is being painted.' }),
+          question('weekend-market-hours', 'What time does warm bread arrive at the market?',
+            ['At 8:00 a.m.', 'At 9:00 a.m.', 'At 1:00 p.m.', 'At Friday noon'], 1,
+            'Chợ mở cửa lúc 8:00 a.m., nhưng ba thợ làm bánh địa phương sẽ mang bánh mì nóng tới lúc 9:00 a.m.',
+            { skillCode: 'reading.scanning', evidence: 'three neighborhood bakers will bring warm bread at 9:00 a.m.' }),
+          question('weekend-market-bag', 'What are visitors asked to bring with them?',
+            ['A paper cup for warm drinks', 'A small umbrella from home', 'Their own cloth bag', 'Bus tickets for Green Street'], 2,
+            'Thông báo nhắc khách nên tự mang túi vải (“Please bring your own cloth bag”) vì quầy hàng thu phí nhỏ nếu lấy túi giấy.',
+            { skillCode: 'reading.scanning', evidence: 'Please bring your own cloth bag, as stalls will only offer paper bags for a small fee.' }),
+          question('weekend-market-rain', 'What will happen if it rains heavily on Sunday morning?',
+            ['The market will wait until next weekend', 'Stalls will close earlier at 10:00 a.m.', 'The market will move inside the community hall next door', 'Visitors will receive free paper bags'], 2,
+            'Nếu mưa lớn vào sáng Chủ nhật, phiên chợ sẽ chuyển vào hội trường cộng đồng ngay bên cạnh.',
+            { skillCode: 'reading.scanning', evidence: 'If it rains heavily on Sunday morning, the market will move inside the community hall next door.' }),
+          question('weekend-market-table', 'Who needs to send a message to the market office by Friday noon?',
+            ['Bus drivers working on Bus 14', 'Anyone wishing to rent a table at the market', 'Customers wanting warm bread at 9:00 a.m.', 'Painters working inside the train hall'], 1,
+            'Bất kỳ ai muốn thuê một bàn bán hàng nhỏ đều phải nhắn cho ban quản lý chợ trước trưa thứ Sáu.',
+            { skillCode: 'reading.main_idea', evidence: 'Anyone who wants to rent a small table must send a message to the market office by Friday noon.' }),
+        ],
+      },
+    },
+    {
       code: 'reading-b1-hybrid-workday', kind: 'READING', title: 'Lịch làm việc kết hợp của nhóm thiết kế',
       description: 'Đọc thông báo nội bộ về quy tắc làm việc từ xa và phối hợp tại văn phòng.',
-      estimatedMinutes: 8, sortOrder: 6, contentVersion: 2, unitCode: 'b1-unit-1',
+      estimatedMinutes: 8, sortOrder: 7, contentVersion: 2, unitCode: 'b1-unit-1',
       content: {
         steps: [
           {
@@ -207,13 +249,13 @@ export function loadLearningContent(): LearningSeed[] {
             example: 'We are keeping the hybrid arrangement with two small changes.',
           },
           {
-            id: 'b1-pre-core',
+            id: 'b1-pre-onsite',
             title: 'Từ khóa trước khi đọc',
-            word: 'core window',
-            phonetic: '/kɔː ˈwɪndəʊ/',
-            meaning: 'khung giờ cốt lõi',
-            body: 'Khoảng thời gian chung trong ngày mà mọi thành viên đều sẵn sàng trao đổi công việc.',
-            example: 'We are introducing a shared core window from 10:00 a.m. to 3:00 p.m.',
+            word: 'on-site',
+            phonetic: '/ˌɒn ˈsaɪt/',
+            meaning: 'trực tiếp tại địa điểm làm việc',
+            body: 'Chỉ hoạt động diễn ra tại văn phòng hoặc địa điểm của khách hàng thay vì làm từ xa.',
+            example: 'Client teams sometimes request an on-site workshop at the office.',
           },
           {
             id: 'b1-pre-reserve',
@@ -221,8 +263,8 @@ export function loadLearningContent(): LearningSeed[] {
             word: 'reserve',
             phonetic: '/rɪˈzɜːv/',
             meaning: 'đặt trước (chỗ ngồi, bàn làm việc)',
-            body: 'Đặt chỗ trên ứng dụng trước khi lên văn phòng để đảm bảo có đầy đủ thiết bị.',
-            example: 'Please reserve a seat in the booking app before 6:00 p.m.',
+            body: 'Đăng ký giữ chỗ trước khi lên văn phòng để đảm bảo có đầy đủ thiết bị làm việc.',
+            example: 'Staff can reserve a quiet desk near the window a day ahead.',
           },
         ],
         passage: [
@@ -234,10 +276,10 @@ export function loadLearningContent(): LearningSeed[] {
           'Best,\nHana',
         ].join('\n\n'),
         keyVocabulary: [
-          { id: 'b1-kv-1', word: 'hybrid arrangement', phonetic: '/ˈhaɪbrɪd əˈreɪndʒmənt/', meaning: 'hình thức làm việc kết hợp', example: 'We are keeping the hybrid arrangement with two small changes.' },
-          { id: 'b1-kv-2', word: 'reachable', phonetic: '/ˈriːtʃəbl/', meaning: 'dễ liên lạc được', example: 'To help everyone stay reachable without feeling overwhelmed by messages...' },
-          { id: 'b1-kv-3', word: 'reserve', phonetic: '/rɪˈzɜːv/', meaning: 'đặt trước', example: 'Please reserve a seat in the booking app before 6:00 p.m.' },
-          { id: 'b1-kv-4', word: 'temporary', phonetic: '/ˈtemprəri/', meaning: 'tạm thời', example: 'The front desk can assign a temporary spot on the fourth floor.' },
+          { id: 'b1-kv-1', word: 'hybrid arrangement', phonetic: '/ˈhaɪbrɪd əˈreɪndʒmənt/', meaning: 'hình thức làm việc kết hợp', example: 'The company tested a flexible weekly schedule with shared office days.' },
+          { id: 'b1-kv-2', word: 'reachable', phonetic: '/ˈriːtʃəbl/', meaning: 'dễ liên lạc được', example: 'Colleagues stayed reachable while working from different neighborhoods.' },
+          { id: 'b1-kv-3', word: 'reserve', phonetic: '/rɪˈzɜːv/', meaning: 'đặt trước', example: 'Visitors should reserve a meeting seat at least one evening ahead.' },
+          { id: 'b1-kv-4', word: 'temporary', phonetic: '/ˈtemprəri/', meaning: 'tạm thời', example: 'New team members use a temporary pass during their first week.' },
         ],
         questions: [
           question('hybrid-main-purpose', 'What is the main purpose of Hana’s announcement?',
@@ -270,7 +312,7 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-b2-urban-pocket-parks', kind: 'READING', title: 'Công viên bỏ túi giữa lòng đô thị',
       description: 'Đọc bài phân tích về cách các khoảng xanh nhỏ cải thiện vi khí hậu và gắn kết cư dân.',
-      estimatedMinutes: 10, sortOrder: 7, contentVersion: 3, unitCode: 'b2-unit-1',
+      estimatedMinutes: 10, sortOrder: 8, contentVersion: 3, unitCode: 'b2-unit-1',
       content: {
         steps: [
           {
@@ -280,7 +322,7 @@ export function loadLearningContent(): LearningSeed[] {
             phonetic: '/mjuːˈnɪsɪpl/',
             meaning: 'thuộc chính quyền đô thị',
             body: 'Tính từ dùng để chỉ cơ quan quản lý hoặc quy hoạch ở cấp thành phố, đô thị.',
-            example: 'Yet municipal planners have increasingly turned to “pocket parks”.',
+            example: 'Municipal teams often redesign narrow corners between busy roads.',
           },
           {
             id: 'b2-pre-permeable',
@@ -292,13 +334,13 @@ export function loadLearningContent(): LearningSeed[] {
             example: 'Dense tree canopies and permeable paving lower surface temperatures on surrounding blocks.',
           },
           {
-            id: 'b2-pre-belies',
+            id: 'b2-pre-footprint',
             title: 'Từ vựng trọng tâm trước khi đọc',
-            word: 'belies',
-            phonetic: '/bɪˈlaɪz/',
-            meaning: 'che lấp, trái ngược với ấn tượng ban đầu',
-            body: 'Động từ diễn tả vẻ bề ngoài nhỏ bé hoặc đơn giản nhưng thực tế mang lại kết quả đáng kể.',
-            example: 'Their modest footprint belies measurable environmental gains.',
+            word: 'footprint',
+            phonetic: '/ˈfʊtprɪnt/',
+            meaning: 'diện tích chiếm dụng',
+            body: 'Khoảng không gian mặt bằng thực tế mà một công trình hoặc khu vực sử dụng.',
+            example: 'A small garden takes up less footprint than a traditional city square.',
           },
         ],
         passage: [
@@ -307,10 +349,10 @@ export function loadLearningContent(): LearningSeed[] {
           'Still, pocket parks are not immune to neglect. Sites designed solely for visual appeal—such as manicured lawns enclosed by decorative fences—tend to sit empty and accumulate litter. By contrast, pocket parks co-designed with neighborhood associations pair practical ecological benefits with everyday access—offering movable seating, drinking fountains, and clear sightlines from nearby storefronts to foster informal social oversight that keeps the space lively and safe.',
         ].join('\n\n'),
         keyVocabulary: [
-          { id: 'b2-kv-1', word: 'municipal', phonetic: '/mjuːˈnɪsɪpl/', meaning: 'thuộc chính quyền đô thị', example: 'Municipal planners have increasingly turned to pocket parks.' },
-          { id: 'b2-kv-2', word: 'permeable', phonetic: '/ˈpɜːmiəbl/', meaning: 'thấm nước được', example: 'Dense tree canopies and permeable paving lower surface temperatures.' },
-          { id: 'b2-kv-3', word: 'belies', phonetic: '/bɪˈlaɪz/', meaning: 'che lấp, gây ấn tượng trái ngược thực tế', example: 'Their modest footprint belies measurable environmental gains.' },
-          { id: 'b2-kv-4', word: 'oversight', phonetic: '/ˈəʊvəsaɪt/', meaning: 'sự quan sát, giám sát tự nhiên', example: 'Clear sightlines foster informal social oversight.' },
+          { id: 'b2-kv-1', word: 'municipal', phonetic: '/mjuːˈnɪsɪpl/', meaning: 'thuộc chính quyền đô thị', example: 'Municipal offices manage public lighting and street trees.' },
+          { id: 'b2-kv-2', word: 'permeable', phonetic: '/ˈpɜːmiəbl/', meaning: 'thấm nước được', example: 'Gravel walkways are more permeable than concrete plazas.' },
+          { id: 'b2-kv-3', word: 'footprint', phonetic: '/ˈfʊtprɪnt/', meaning: 'diện tích chiếm dụng', example: 'Corner libraries fit well within a compact street footprint.' },
+          { id: 'b2-kv-4', word: 'oversight', phonetic: '/ˈəʊvəsaɪt/', meaning: 'sự quan sát, giám sát tự nhiên', example: 'Open windows facing the lane provide informal neighborhood oversight.' },
         ],
         questions: [
           question('pocket-main-idea', 'What is the central point of the passage?',
@@ -343,17 +385,17 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-c1-deep-reading-attention', kind: 'READING', title: 'Đọc sâu trong kỷ nguyên phân mảnh chú ý',
       description: 'Đọc bài luận học thuật về tác động của thói quen đọc lướt đối với tư duy phản biện.',
-      estimatedMinutes: 12, sortOrder: 8, contentVersion: 2, unitCode: 'c1-unit-1',
+      estimatedMinutes: 12, sortOrder: 9, contentVersion: 2, unitCode: 'c1-unit-1',
       content: {
         steps: [
           {
-            id: 'c1-pre-triage',
+            id: 'c1-pre-paraphrase',
             title: 'Từ vựng học thuật trọng tâm',
-            word: 'triage',
-            phonetic: '/ˈtriːɑːʒ/',
-            meaning: 'sự phân loại nhanh theo mức độ ưu tiên',
-            body: 'Trong văn bản, “constant triage” chỉ thói quen lướt nhanh tiêu đề để chọn lọc thông tin tức thì.',
-            example: 'Cognitive scientists warn that this constant triage gradually reshapes how the brain approaches complex prose.',
+            word: 'paraphrase',
+            phonetic: '/ˈpærəfreɪz/',
+            meaning: 'diễn giải lại bằng lời của chính mình',
+            body: 'Tóm tắt lại lập luận của tác giả theo cách diễn đạt cá nhân để kiểm tra mức độ hiểu sâu.',
+            example: 'Students are encouraged to pause and paraphrase dense sections in the margins.',
           },
           {
             id: 'c1-pre-skepticism',
@@ -362,7 +404,7 @@ export function loadLearningContent(): LearningSeed[] {
             phonetic: '/ˈskeptɪsɪzəm/',
             meaning: 'thái độ hoài nghi phản biện',
             body: 'Khả năng dừng lại kiểm chứng lập luận thay vì chấp nhận vội vàng thông tin trên màn hình.',
-            example: 'Deep reading recruits regions responsible for analogical reasoning, perspective-taking, and quiet skepticism.',
+            example: 'Readers should approach sweeping headlines with measured skepticism.',
           },
           {
             id: 'c1-pre-metacognitive',
@@ -371,7 +413,7 @@ export function loadLearningContent(): LearningSeed[] {
             phonetic: '/ˌmetəˈkɒɡnətɪv/',
             meaning: 'thuộc siêu nhận thức (tự điều chỉnh cách học)',
             body: 'Nhận biết và chủ động chọn tốc độ, phương pháp đọc phù hợp với từng loại văn bản.',
-            example: 'Cultivating metacognitive control over pace restores the patience that rigorous thought demands.',
+            example: 'Stronger metacognitive habits help learners slow down on unfamiliar essays.',
           },
         ],
         passage: [
@@ -380,10 +422,10 @@ export function loadLearningContent(): LearningSeed[] {
           'Encouragingly, the remedy does not require abandoning screens altogether. Studies of university cohorts indicate that comprehension rebounds sharply when readers switch deliberately between reading modes: annotating key claims on printed pages or distraction-free readers, pausing after difficult sections to paraphrase an author’s logic, and reserving uninterrupted blocks of twenty minutes for challenging texts. Rather than resisting technology itself, cultivating metacognitive control over pace restores the patience that rigorous thought demands.',
         ].join('\n\n'),
         keyVocabulary: [
-          { id: 'c1-kv-1', word: 'triage', phonetic: '/ˈtriːɑːʒ/', meaning: 'sự phân loại, sàng lọc nhanh', example: 'This constant triage gradually reshapes how the brain approaches complex prose.' },
-          { id: 'c1-kv-2', word: 'fragile', phonetic: '/ˈfrædʒaɪl/', meaning: 'mong manh, cần rèn luyện giữ gìn', example: 'Deep reading is a fragile neural circuit built only through sustained effort.' },
-          { id: 'c1-kv-3', word: 'skepticism', phonetic: '/ˈskeptɪsɪzəm/', meaning: 'thái độ hoài nghi phản biện', example: 'The brain recruits regions responsible for quiet skepticism.' },
-          { id: 'c1-kv-4', word: 'metacognitive', phonetic: '/ˌmetəˈkɒɡnətɪv/', meaning: 'thuộc siêu nhận thức', example: 'Cultivating metacognitive control over pace restores patience.' },
+          { id: 'c1-kv-1', word: 'paraphrase', phonetic: '/ˈpærəfreɪz/', meaning: 'diễn giải lại bằng lời của mình', example: 'Readers learn faster when they stop to paraphrase tricky claims.' },
+          { id: 'c1-kv-2', word: 'fragile', phonetic: '/ˈfrædʒaɪl/', meaning: 'mong manh, cần rèn luyện giữ gìn', example: 'Sustained focus is a fragile habit during busy workdays.' },
+          { id: 'c1-kv-3', word: 'skepticism', phonetic: '/ˈskeptɪsɪzəm/', meaning: 'thái độ hoài nghi phản biện', example: 'Healthy skepticism keeps researchers from trusting unverified claims.' },
+          { id: 'c1-kv-4', word: 'metacognitive', phonetic: '/ˌmetəˈkɒɡnətɪv/', meaning: 'thuộc siêu nhận thức', example: 'Teachers build metacognitive awareness by asking learners to monitor their focus.' },
         ],
         questions: [
           question('deep-reading-purpose', 'What is the author’s primary purpose in this essay?',
@@ -454,6 +496,7 @@ export function validateLearningSeeds(seeds = loadLearningContent()): void {
       if (seed.content.questions.some((q) => !q.skillCode || !canonicalReadingCodes.has(q.skillCode))) {
         throw new Error('Every reading question must declare a valid reading skillCode from skills.json.');
       }
+      validateReadingPrepNoAnswerLeak(seed);
     }
     const urls = [seed.content.audioUrl, ...seed.content.steps.map((step) => step.audioUrl)].filter((url): url is string => !!url);
     for (const url of urls) {
@@ -462,6 +505,48 @@ export function validateLearningSeeds(seeds = loadLearningContent()): void {
       if (!existsSync(file) || readFileSync(file).toString('ascii', 0, 4) !== 'RIFF') throw new Error(`Missing or invalid learning audio: ${url}`);
     }
   }
+}
+
+export function validateReadingPrepNoAnswerLeak(seed: LearningSeed): void {
+  const stepFields = seed.content.steps.flatMap((s) => [s.word, s.body, s.example]).filter((v): v is string => !!v?.trim());
+  const vocabFields = (seed.content.keyVocabulary ?? []).flatMap((v) => [v.word, v.meaning, v.example, v.translation]).filter((v): v is string => !!v?.trim());
+  const allPrepTexts = [...stepFields, ...vocabFields];
+  const prepWords = [
+    ...seed.content.steps.map((s) => s.word?.trim().toLowerCase()).filter((w): w is string => !!w),
+    ...(seed.content.keyVocabulary ?? []).map((v) => v.word.trim().toLowerCase()),
+  ];
+
+  for (const q of seed.content.questions) {
+    if (q.skillCode === 'reading.context_clues') {
+      const quoted = [...q.prompt.matchAll(/[“"']([A-Za-z][A-Za-z\s-]{1,40})[”"']/g)]
+        .map((m) => m[1].trim().toLowerCase());
+      for (const target of quoted) {
+        const tokens = target.split(/\s+/).filter((t) => t.length >= 3);
+        if (prepWords.some((w) => w === target || tokens.includes(w)) || allPrepTexts.some((f) => new RegExp(`\\b${escapeRegExp(target)}\\b`, 'i').test(f))) {
+          throw new Error(`Reading preparation reveals context-clues target "${target}" in ${seed.code} (${q.id}).`);
+        }
+      }
+    }
+    const qType = q.type ?? 'MULTIPLE_CHOICE';
+    if (qType === 'TRUE_FALSE_NOT_GIVEN') continue;
+    const answerText = q.options.find((o) => o.id === q.correctOptionId)?.text.trim();
+    if (!answerText || answerText.length < 4) continue;
+    const pattern = answerMatchPattern(answerText);
+    if (allPrepTexts.some((text) => pattern.test(text))) {
+      throw new Error(`Reading preparation example reveals ${qType} answer "${answerText}" in ${seed.code} (${q.id}).`);
+    }
+  }
+}
+
+function answerMatchPattern(phrase: string): RegExp {
+  const escaped = escapeRegExp(phrase);
+  const startBoundary = /^[A-Za-z0-9]/.test(phrase) ? '\\b' : '';
+  const endBoundary = /[A-Za-z0-9]$/.test(phrase) ? '\\b' : '';
+  return new RegExp(`${startBoundary}${escaped}${endBoundary}`, 'i');
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export async function seedLearningContent(prisma: PrismaClient): Promise<number> {

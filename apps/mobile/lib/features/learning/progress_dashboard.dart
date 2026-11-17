@@ -178,6 +178,10 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
     final cefrTitle = unitLevels.isEmpty
         ? widget.level ?? 'A1'
         : unitLevels.join('–');
+    final recommendedReading = !_isSample
+        ? (progress?['recommendedLevels']?['reading'] as Map?)
+              ?.cast<String, dynamic>()
+        : null;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value:
@@ -252,6 +256,10 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                       isSample: _isSample,
                       loading: widget.daily?.loading == true && units.isEmpty,
                     ),
+                    if (recommendedReading != null) ...[
+                      const SizedBox(height: 24),
+                      ProgressRecommendedLevelCard(reading: recommendedReading),
+                    ],
                     const SizedBox(height: 24),
                     ProgressImprovementCard(
                       averageScore: averageScore,
@@ -320,6 +328,121 @@ class _SectionCardHeader extends StatelessWidget {
     ),
     child: Text(title, style: designHeading(24)),
   );
+}
+
+class ProgressRecommendedLevelCard extends StatelessWidget {
+  const ProgressRecommendedLevelCard({super.key, required this.reading});
+
+  final Json reading;
+
+  static const _cefrOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+  String _sourceLabel(String? source) => switch (source) {
+    'ADAPTIVE' => 'Tự điều chỉnh từ kết quả học',
+    'PLACEMENT' => 'Từ bài kiểm tra đầu vào',
+    _ => 'Mặc định ban đầu',
+  };
+
+  String _recentArrow() {
+    if (reading['source'] != 'ADAPTIVE') return '';
+    final current = reading['cefrLevel'] as String?;
+    final previous = reading['previousCefr'] as String?;
+    final rawAt = reading['changedAt'] as String?;
+    if (current == null || previous == null || rawAt == null) return '';
+    final changedAt = DateTime.tryParse(rawAt);
+    if (changedAt == null ||
+        DateTime.now().difference(changedAt).inDays.abs() > 7) {
+      return '';
+    }
+    final cIdx = _cefrOrder.indexOf(current);
+    final pIdx = _cefrOrder.indexOf(previous);
+    if (cIdx < 0 || pIdx < 0 || cIdx == pIdx) return '';
+    return cIdx > pIdx ? ' ↑' : ' ↓';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cefr = reading['cefrLevel'] as String? ?? 'A1';
+    final source = reading['source'] as String?;
+    final arrow = _recentArrow();
+    return DashboardCard(
+      key: const Key('progressRecommendedLevel'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionCardHeader(title: 'Mức luyện tập đề xuất'),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Đọc',
+                            style: designText(
+                              16,
+                              weight: FontWeight.w600,
+                              color: AppColors.grey900,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _sourceLabel(source),
+                            style: designText(
+                              13,
+                              color: AppColors.grey600,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: source == 'ADAPTIVE'
+                            ? AppColors.primary50
+                            : AppColors.grey100,
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(
+                          color: source == 'ADAPTIVE'
+                              ? AppColors.primary300
+                              : AppColors.grey200,
+                        ),
+                      ),
+                      child: Text(
+                        '$cefr$arrow',
+                        style: designText(
+                          14,
+                          weight: FontWeight.w700,
+                          color: source == 'ADAPTIVE'
+                              ? AppColors.primary700
+                              : AppColors.grey800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Chỉ kỹ năng Đọc tự điều chỉnh theo kết quả bài mới; mức CEFR đầu vào trên góc phải không thay đổi.',
+                  style: designText(12, color: AppColors.grey600, height: 1.45),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class ProgressRoadmapCard extends StatelessWidget {

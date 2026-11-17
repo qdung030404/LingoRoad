@@ -167,6 +167,85 @@ describe('Daily planning policy', () => {
       ['read-c1-done', 'COMPLETED_TODAY'],
     ]);
   });
+  it('enforces strict A1 ceiling across all branches after adaptive demotion while keeping completed A2 today', () => {
+    const a1Done = lesson('read-a1-old', 'READING', 5, 1, 'u-a1', 'A1');
+    const a1Fresh = lesson('read-a1-fresh', 'READING', 5, 2, 'u-a1', 'A1');
+    const a2CompletedToday = lesson('read-a2-done-today', 'READING', 5, 3, 'u-a2', 'A2');
+    const a2Unseen = lesson('read-a2-unseen', 'READING', 5, 4, 'u-a2', 'A2');
+    const yesterday = new Date('2026-11-01T06:00:00Z');
+    const demotedA1 = { cefrLevel: 'A1' as const, strictCeiling: true };
+
+    // 1. Fresh + COMPLETED_TODAY branch: A2 done today stays, unseen A2 excluded, fresh A1 chosen.
+    const freshAfterDemote = chooseDailyItems(
+      [a1Fresh, a2CompletedToday, a2Unseen],
+      [attempt('done-a2', 'read-a2-done-today', 1, now)],
+      '2026-11-02',
+      30,
+      kinds,
+      [],
+      null,
+      demotedA1,
+    );
+    expect(freshAfterDemote.map(i => [i.lessonId, i.reasonCode])).toEqual([
+      ['read-a2-done-today', 'COMPLETED_TODAY'],
+      ['read-a1-fresh', 'NEW'],
+    ]);
+    expect(freshAfterDemote[1].reason).toBe('Bài mới · đúng mức A1');
+
+    // 2. REVIEW branch: weak A2 from yesterday must NOT be suggested when demoted to A1.
+    const reviewAfterDemote = chooseDailyItems(
+      [a1Fresh, a2Unseen],
+      [attempt('weak-a2', 'read-a2-unseen', 1, yesterday)],
+      '2026-11-02',
+      30,
+      kinds,
+      [],
+      null,
+      demotedA1,
+    );
+    expect(reviewAfterDemote.map(i => i.lessonId)).toEqual(['read-a1-fresh']);
+
+    // 3. ROTATION branch: with only a1Done & yesterday-completed A2, rotates only A1.
+    const rotationAfterDemote = chooseDailyItems(
+      [a1Done, a2Unseen],
+      [attempt('old-a1', 'read-a1-old', 4, yesterday), attempt('old-a2', 'read-a2-unseen', 1, yesterday)],
+      '2026-11-02',
+      30,
+      kinds,
+      [],
+      null,
+      demotedA1,
+    );
+    expect(rotationAfterDemote.map(i => [i.lessonId, i.reasonCode])).toEqual([['read-a1-old', 'ROTATION']]);
+
+    // 4. Fallback branch when only A2 exists -> empty plan (no over-level leak).
+    expect(chooseDailyItems([a2Unseen], [], '2026-11-02', 5, kinds, [], null, demotedA1)).toEqual([]);
+  });
+  it('separates remaining today budget vs next-day schedule when promoted to B1', () => {
+    const a2a = lesson('a2-a', 'READING', 5, 1, 'u-a2', 'A2');
+    const a2b = lesson('a2-b', 'READING', 5, 2, 'u-a2', 'A2');
+    const b1 = lesson('b1-1', 'READING', 8, 3, 'u-b1', 'B1');
+    const completedBothA2Today = [attempt('att1', 'a2-a', 5, now), attempt('att2', 'a2-b', 5, now)];
+    const promotedB1 = { cefrLevel: 'B1' as const, strictCeiling: true };
+
+    // Remaining today budget (20m - 10m = 10m >= 8m): adds B1 immediately today.
+    const withRoom = chooseDailyItems([a2a, a2b, b1], completedBothA2Today, '2026-11-02', 20, kinds, [], null, promotedB1);
+    expect(withRoom.map(i => [i.lessonId, i.reasonCode])).toEqual([
+      ['a2-a', 'COMPLETED_TODAY'],
+      ['a2-b', 'COMPLETED_TODAY'],
+      ['b1-1', 'NEW'],
+    ]);
+    expect(withRoom[2].reason).toBe('Bài mới · đúng mức B1');
+
+    // Full today budget (10m used out of 10m): does NOT overflow today; B1 schedules first on next day.
+    const fullBudget = chooseDailyItems([a2a, a2b, b1], completedBothA2Today, '2026-11-02', 10, kinds, [], null, promotedB1);
+    expect(fullBudget.map(i => [i.lessonId, i.reasonCode])).toEqual([
+      ['a2-a', 'COMPLETED_TODAY'],
+      ['a2-b', 'COMPLETED_TODAY'],
+    ]);
+    const nextDay = chooseDailyItems([a2a, a2b, b1], completedBothA2Today, '2026-11-03', 10, kinds, [], null, promotedB1);
+    expect(nextDay.map(i => [i.lessonId, i.reasonCode])).toEqual([['b1-1', 'NEW']]);
+  });
 });
 
 describe('Activity receipt persistence', () => {
@@ -282,7 +361,8 @@ describe('Progress roadmap units and score stats', () => {
         learningLesson: { findMany: jest.fn(async () => lessons) },
         learningUnit: { findMany: jest.fn(async () => units) },
         learningActivitySession: { findFirst: jest.fn(async () => ({ anchorAt: new Date('2026-11-12T00:00:00Z') })) },
-        placementSession: { findFirst: jest.fn(async () => null) },
+        placementSession: { findFirst: jest.fn(async () => ({ skillResults: { reading: { estimatedCefr: 'B1' } }, completedAt: new Date('2026-11-01T00:00:00Z') })) },
+        learningSkillLevel: { findUnique: jest.fn(async () => ({ cefrLevel: 'B2', source: 'ADAPTIVE', previousCefr: 'B1', changedAt: new Date('2026-11-12T10:00:00Z') })) },
         $queryRaw: jest.fn(async () => [{ milliseconds: 120000 }]),
       };
       const svc = new PlanningService(db as unknown as PrismaService);
@@ -296,10 +376,338 @@ describe('Progress roadmap units and score stats', () => {
         previousWeekAverage: 60,
         deltaPercent: 20,
       });
+      expect(res.recommendedLevels.reading).toEqual({
+        cefrLevel: 'B2',
+        source: 'ADAPTIVE',
+        previousCefr: 'B1',
+        changedAt: new Date('2026-11-12T10:00:00Z'),
+      });
       expect(res.totals.averageStudyMinutes).toBe(2);
       expect(res.totals.averageActiveSeconds).toBe(120);
     } finally {
       jest.useRealTimers();
     }
+  });
+  it('upgrades persisted baseline-v1 plans to adaptive-v1 on today() / ensureToday()', async () => {
+    jest.useFakeTimers().setSystemTime(now);
+    try {
+      const legacyPlan = {
+        id: 'plan-1', userId: 'u', date: '2026-11-02', version: 0,
+        preferencesVersion: 2, dailyGoalMinutes: 15, policyVersion: 'baseline-v1',
+        items: [{ id: 'old-item', lessonId: 'read-a2', title: 'Old', kind: 'READING', estimatedMinutes: 5, reasonCode: 'NEW', reason: 'Bài mới' }],
+        createdAt: now, updatedAt: now,
+      };
+      let stored = legacyPlan;
+      const upsert = jest.fn(async ({ create, update }: any) => {
+        stored = { ...stored, ...create, ...update, version: stored.version + 1 };
+        return stored;
+      });
+      const db: Record<string, any> = {
+        userProfile: { findUnique: jest.fn(async () => ({ userId: 'u', dailyGoalMinutes: 15, preferredKinds: ['READING'], preferencesVersion: 2 })) },
+        learningDayPlan: {
+          findUnique: jest.fn(async () => stored),
+          upsert,
+        },
+        learningLesson: { findMany: jest.fn(async () => [lesson('read-b1', 'READING', 8, 1, 'u-b1', 'B1'), lesson('read-a2', 'READING', 5, 2, 'u-a2', 'A2')]) },
+        learningAttempt: { findMany: jest.fn(async () => []) },
+        placementSession: { findFirst: jest.fn(async () => ({ skillResults: { reading: { estimatedCefr: 'B1' } }, completedAt: now })) },
+        learningSkillLevel: {
+          findUnique: jest.fn(async () => ({ id: 'sl-1', userId: 'u', kind: 'READING', cefrLevel: 'B1', source: 'PLACEMENT', previousCefr: null, changedAt: now })),
+          create: jest.fn(),
+        },
+        $queryRaw: jest.fn(async () => []),
+      };
+      db.$transaction = jest.fn(async (work: (tx: unknown) => Promise<unknown>): Promise<unknown> => work(db));
+      const svc = new PlanningService(db as unknown as PrismaService);
+      const res = await svc.today('u');
+      expect(upsert).toHaveBeenCalledTimes(1);
+      expect(res.plan?.policyVersion).toBe('adaptive-v1');
+      expect(res.plan?.items.map((i: any) => [i.lessonId, i.reason])).toEqual([
+        ['read-b1', 'Bài mới · đúng mức B1'],
+        ['read-a2', 'Bài mới'],
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('keeps B1 reading ahead of a lower-tier reading+listening pair when reading and listening placement tie', () => {
+    const lessons = [
+      lesson('grammar-a1', 'GRAMMAR', 10, 1, 'u-a1', 'A1'),
+      lesson('vocab-a1', 'VOCABULARY', 10, 2, 'u-a1', 'A1'),
+      lesson('read-a1', 'READING', 5, 3, 'u-a1', 'A1'),
+      lesson('listen-a1', 'LISTENING', 5, 4, 'u-a1', 'A1'),
+      lesson('read-a2', 'READING', 5, 5, 'u-a2', 'A2'),
+      lesson('read-b1', 'READING', 8, 7, 'u-b1', 'B1'),
+    ];
+    const placement = {
+      reading: { estimatedCefr: 'B1', correctCount: 4, totalItems: 5 },
+      listening: { estimatedCefr: 'B1', correctCount: 4, totalItems: 5 },
+    };
+    const result = chooseDailyItems(
+      lessons,
+      [],
+      '2026-11-16',
+      10,
+      ['READING', 'LISTENING'],
+      [],
+      placement,
+      { cefrLevel: 'B1', strictCeiling: true },
+    );
+    expect(result.map((i) => i.lessonId)).toEqual(['read-b1']);
+    expect(result[0].reasonCode).toBe('NEW');
+  });
+
+  it('upgrades persisted DEFAULT A1 skill level to PLACEMENT B1 and replans stale plans across event, today, and progress', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-16T06:00:00Z'));
+    try {
+      const stalePlanAt = new Date('2026-11-16T02:00:00Z');
+      const placementCompletedAt = new Date('2026-11-16T04:00:00Z');
+
+      const lessons = [
+        lesson('read-a1', 'READING', 5, 1, 'u-a1', 'A1'),
+        lesson('listen-a1', 'LISTENING', 5, 2, 'u-a1', 'A1'),
+        lesson('read-b1', 'READING', 8, 3, 'u-b1', 'B1'),
+      ];
+      const placement = {
+        status: 'COMPLETED',
+        estimatedCefr: 'B1',
+        completedAt: placementCompletedAt,
+        skillResults: {
+          reading: { estimatedCefr: 'B1', correctCount: 4, totalItems: 5 },
+          listening: { estimatedCefr: 'B1', correctCount: 4, totalItems: 5 },
+        },
+      };
+
+      const makeStatefulDb = () => {
+        let skillRow = {
+          id: 'sk-1',
+          userId: 'u',
+          kind: LearningKind.READING,
+          cefrLevel: CefrLevel.A1,
+          source: 'DEFAULT',
+          previousCefr: null as CefrLevel | null,
+          changedAt: null as Date | null,
+          updatedAt: stalePlanAt,
+        };
+        let planRow = {
+          id: 'plan-1',
+          userId: 'u',
+          date: '2026-11-16',
+          version: 0,
+          preferencesVersion: 0,
+          dailyGoalMinutes: 10,
+          policyVersion: 'adaptive-v1',
+          createdAt: stalePlanAt,
+          updatedAt: stalePlanAt,
+          items: [
+            {
+              id: 'stale-1',
+              lessonId: 'read-a1',
+              code: 'read-a1',
+              title: 'read-a1',
+              kind: 'READING',
+              cefrLevel: 'A1',
+              estimatedMinutes: 5,
+              reasonCode: 'NEW',
+              reason: 'Bài mới',
+            },
+          ],
+        };
+
+        const tx: any = {
+          $queryRaw: jest.fn(async () => [{ id: 'u' }]),
+          user: { findUnique: jest.fn(async () => ({ id: 'u' })) },
+          userProfile: {
+            findUnique: jest.fn(async () => ({
+              userId: 'u',
+              dailyGoalMinutes: 10,
+              preferencesVersion: 0,
+              preferredKinds: [LearningKind.READING, LearningKind.LISTENING],
+            })),
+          },
+          placementSession: {
+            findFirst: jest.fn(async () => placement),
+          },
+          learningSkillLevel: {
+            findUnique: jest.fn(async () => ({ ...skillRow })),
+            findMany: jest.fn(async () => [{ ...skillRow }]),
+            upsert: jest.fn(async ({ create, update }: any) => {
+              skillRow = skillRow ? { ...skillRow, ...update, updatedAt: new Date() } : { id: 'sk-1', ...create, updatedAt: new Date() };
+              return { ...skillRow };
+            }),
+            update: jest.fn(async ({ data }: any) => {
+              skillRow = { ...skillRow, ...data, updatedAt: new Date() };
+              return { ...skillRow };
+            }),
+          },
+          learningLesson: {
+            findMany: jest.fn(async () => lessons),
+          },
+          learningUnit: {
+            findMany: jest.fn(async () => [
+              { id: 'u-a1', code: 'u-a1', title: 'A1', cefrLevel: 'A1', orderIndex: 1, lessons: [lessons[0], lessons[1]] },
+              { id: 'u-b1', code: 'u-b1', title: 'B1', cefrLevel: 'B1', orderIndex: 2, lessons: [lessons[2]] },
+            ]),
+          },
+          learningActivitySession: {
+            findFirst: jest.fn(async () => null),
+          },
+          learningAttempt: {
+            findMany: jest.fn(async () => []),
+            findFirst: jest.fn(async () => null),
+          },
+          learningSkillLevelEvent: {
+            findFirst: jest.fn(async () => null),
+          },
+          learningAnswerExposure: {
+            findMany: jest.fn(async () => []),
+          },
+          learningDayPlan: {
+            findUnique: jest.fn(async () => ({ ...planRow })),
+            findMany: jest.fn(async () => [{ ...planRow }]),
+            upsert: jest.fn(async ({ create, update }: any) => {
+              planRow = {
+                ...planRow,
+                ...(planRow ? update : create),
+                version: (planRow?.version ?? 0) + 1,
+                updatedAt: new Date(),
+              };
+              return { ...planRow };
+            }),
+          },
+        };
+        tx.$transaction = jest.fn(async (cb: (client: any) => Promise<any>) => cb(tx));
+        return {
+          tx,
+          getSkillRow: () => skillRow,
+          getPlanRow: () => planRow,
+        };
+      };
+
+      // 1) Placement completion event upgrades DEFAULT A1 -> PLACEMENT B1
+      const eventDb = makeStatefulDb();
+      const eventSvc = new PlanningService(eventDb.tx as unknown as PrismaService);
+      await eventSvc.onPlacementCompleted({ userId: 'u' });
+      expect(eventDb.getSkillRow()).toEqual(expect.objectContaining({
+        cefrLevel: 'B1',
+        source: 'PLACEMENT',
+        changedAt: placementCompletedAt,
+      }));
+
+      // 2) today() upgrades DEFAULT A1 -> PLACEMENT B1 and replans stale plan
+      const todayDb = makeStatefulDb();
+      const todaySvc = new PlanningService(todayDb.tx as unknown as PrismaService);
+      const todayRes = await todaySvc.today('u');
+      expect(todayDb.getSkillRow()).toEqual(expect.objectContaining({
+        cefrLevel: 'B1',
+        source: 'PLACEMENT',
+        changedAt: placementCompletedAt,
+      }));
+      expect(todayRes.plan?.items.map((i: any) => [i.lessonId, i.reason])).toEqual([
+        ['read-b1', 'Bài mới · đúng mức B1'],
+      ]);
+
+      // 3) progress() also self-heals DEFAULT A1 -> PLACEMENT B1
+      const progressDb = makeStatefulDb();
+      const progressSvc = new PlanningService(progressDb.tx as unknown as PrismaService);
+      const progressRes: any = await progressSvc.progress('u');
+      expect(progressDb.getSkillRow()).toEqual(expect.objectContaining({
+        cefrLevel: 'B1',
+        source: 'PLACEMENT',
+      }));
+      expect(progressRes.recommendedLevels?.reading).toEqual(expect.objectContaining({
+        cefrLevel: 'B1',
+        source: 'PLACEMENT',
+      }));
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('prioritizes target-level reading lessons in ROTATION while keeping oldest practice within the same tier', () => {
+    const t0 = new Date('2026-11-01T06:00:00Z');
+    const t1 = new Date('2026-11-02T06:00:00Z');
+    const t2 = new Date('2026-11-03T06:00:00Z');
+    const t3 = new Date('2026-11-04T06:00:00Z');
+    const t4 = new Date('2026-11-05T06:00:00Z');
+
+    // 1) All Reading lessons completed earlier at lower levels (A1, A2) than B1 under 10m budget -> rotates B1 (8m), not A1+A2.
+    const curriculum = [
+      lesson('read-a1', 'READING', 5, 3, 'u-a1', 'A1'),
+      lesson('read-a2-1', 'READING', 5, 5, 'u-a2', 'A2'),
+      lesson('read-a2-2', 'READING', 5, 6, 'u-a2', 'A2'),
+      lesson('read-b1', 'READING', 8, 7, 'u-b1', 'B1'),
+    ];
+    const completedAsc = [
+      attempt('att-a1', 'read-a1', 5, t0),
+      attempt('att-a2-1', 'read-a2-1', 5, t1),
+      attempt('att-a2-2', 'read-a2-2', 5, t2),
+      attempt('att-b1', 'read-b1', 5, t3),
+    ];
+    const rotated = chooseDailyItems(
+      curriculum,
+      completedAsc,
+      '2026-11-16',
+      10,
+      ['READING'],
+      [],
+      undefined,
+      { cefrLevel: 'B1', strictCeiling: true },
+    );
+    expect(rotated.map(i => [i.lessonId, i.reasonCode])).toEqual([['read-b1', 'ROTATION']]);
+
+    // 2) Duplicate lower-tier timestamps (t0, t0) + opposite sortOrder must still pick older B1 (t1) before newer B1 (t2) and newer non-Reading (t4).
+    const sameTierLessons = [
+      lesson('read-a1-x', 'READING', 5, 3, 'u-a1', 'A1'),
+      lesson('listen-a1', 'LISTENING', 5, 4, 'u-a1', 'A1'),
+      lesson('read-a1-y', 'READING', 5, 5, 'u-a1', 'A1'),
+      lesson('read-b1-new', 'READING', 8, 7, 'u-b1', 'B1'),
+      lesson('read-b1-old', 'READING', 8, 9, 'u-b1', 'B1'),
+    ];
+    const sameTierHistory = [
+      attempt('sx', 'read-a1-x', 5, t0),
+      attempt('sy', 'read-a1-y', 5, t0),
+      attempt('bo', 'read-b1-old', 5, t1),
+      attempt('bn', 'read-b1-new', 5, t2),
+      attempt('la', 'listen-a1', 5, t4),
+    ];
+    const rotatedSameTier = chooseDailyItems(
+      sameTierLessons,
+      sameTierHistory,
+      '2026-11-16',
+      10,
+      ['READING', 'LISTENING'],
+      [],
+      undefined,
+      { cefrLevel: 'B1', strictCeiling: true },
+    );
+    expect(rotatedSameTier.map(i => [i.lessonId, i.reasonCode])).toEqual([['read-b1-old', 'ROTATION']]);
+
+    // 3) Cross-kind chronological fairness: oldest non-Reading (t0) still precedes Reading's reassigned slot (t1 -> read-b1 ahead of read-a1).
+    const crossKindLessons = [
+      lesson('listen-oldest', 'LISTENING', 2, 4, 'u-a1', 'A1'),
+      lesson('read-a1-older', 'READING', 5, 3, 'u-a1', 'A1'),
+      lesson('read-b1-newer', 'READING', 8, 7, 'u-b1', 'B1'),
+    ];
+    const crossKindHistory = [
+      attempt('c-listen', 'listen-oldest', 5, t0),
+      attempt('c-r1', 'read-a1-older', 5, t1),
+      attempt('c-rb1', 'read-b1-newer', 5, t3),
+    ];
+    const rotatedCross = chooseDailyItems(
+      crossKindLessons,
+      crossKindHistory,
+      '2026-11-16',
+      10,
+      ['READING', 'LISTENING'],
+      [],
+      undefined,
+      { cefrLevel: 'B1', strictCeiling: true },
+    );
+    expect(rotatedCross.map(i => [i.lessonId, i.reasonCode])).toEqual([
+      ['listen-oldest', 'ROTATION'],
+      ['read-b1-newer', 'ROTATION'],
+    ]);
   });
 });
