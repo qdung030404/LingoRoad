@@ -89,6 +89,7 @@ Mỗi thư mục tính năng bao gồm bộ tứ tài liệu: `prd.md`, `rfc.md`
 - **Feature 26: Skill Practice Engine**
   - [26-01 Instant Feedback Practice](features/26-skill-practice-engine/01-instant-feedback-practice/spec.md) - Chế độ luyện tập phản hồi tức thì
   - [26-02 Interactive AI Scaffolding](features/26-skill-practice-engine/02-interactive-ai-scaffolding/spec.md) - Giàn giáo hỗ trợ học tập thích ứng AI
+  - [26-03 Listening Practice v1](../../openspec/changes/add-listening-practice-v1/specs/listening-practice/spec.md) - Luồng nghe/chữa bài đã triển khai cục bộ với một bài A1 tổng hợp demo. [Thiết kế](../../openspec/changes/add-listening-practice-v1/design.md) · [Checklist](../../openspec/changes/add-listening-practice-v1/tasks.md) · [Bằng chứng và giới hạn](../../openspec/changes/add-listening-practice-v1/implementation.md)
 
 ### Nhóm Gamification, Admin & Bảo mật Dữ liệu (Features 19 – 23)
 - **Feature 19: Gamification Streak & Rewards**
