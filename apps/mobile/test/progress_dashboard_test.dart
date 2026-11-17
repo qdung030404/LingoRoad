@@ -40,6 +40,9 @@ class _StubLearningRepository implements LearningRepository {
       throw UnimplementedError();
 
   @override
+  Future<void> cancel(String id) async {}
+
+  @override
   Future<Json> explainReadingAnswer(String id, String questionId) =>
       throw UnimplementedError();
 

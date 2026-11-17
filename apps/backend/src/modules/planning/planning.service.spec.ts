@@ -20,6 +20,7 @@ function lesson(
 }
 function attempt(id: string, lessonId: string, score: number | null, submittedAt = new Date('2026-11-01T06:00:00Z')): LearningAttempt {
   return { id, userId: 'u', lessonId, status: score == null ? 'IN_PROGRESS' : 'COMPLETED', version: 0, phase: 'QUIZ', positionIndex: 0,
+    contentVersion: 1, eligibleForLevelEval: true,
     lessonSnapshot: {}, contentSnapshot: {}, correctCount: score, totalQuestions: 5, startedAt: submittedAt, updatedAt: submittedAt,
     submittedAt: score == null ? null : submittedAt };
 }
@@ -31,10 +32,10 @@ describe('Daily planning policy', () => {
     expect(learningDate(new Date('2026-11-01T17:00:00Z'))).toBe('2026-11-02');
     expect(learningDayStart('2026-11-02').toISOString()).toBe('2026-11-01T17:00:00.000Z');
   });
-  it('prioritizes an unfinished lesson before new material', () => {
-    const result = chooseDailyItems([lesson('new'), lesson('active')], [attempt('a', 'active', null)], '2026-11-02', 5, kinds);
-    expect(result.map(i => i.lessonId)).toEqual(['active']);
-    expect(result[0].reasonCode).toBe('RESUME');
+  it('does not prioritize unfinished IN_PROGRESS attempts ahead of new material', () => {
+    const result = chooseDailyItems([lesson('new', 'READING', 5, 1), lesson('abandoned', 'READING', 5, 2)], [attempt('a', 'abandoned', null)], '2026-11-02', 5, kinds);
+    expect(result.map(i => i.lessonId)).toEqual(['new']);
+    expect(result[0].reasonCode).toBe('NEW');
   });
   it('chooses new material before at most one low-score review', () => {
     const lessons = [lesson('weak'), lesson('otherweak'), lesson('new')];
@@ -58,12 +59,12 @@ describe('Daily planning policy', () => {
     expect(new Set(result.map(i => i.lessonId)).size).toBe(2);
     expect(chooseDailyItems([lesson('long', 'GRAMMAR', 10), lesson('fits')], [], '2026-11-02', 5, kinds).map(i => i.lessonId)).toEqual(['fits']);
   });
-  it('preserves completed and active snapshots when lowering the goal', () => {
-    const lessons = [lesson('done'), lesson('active'), lesson('fresh')];
+  it('preserves completed snapshots when lowering the goal without keeping unsubmitted progress', () => {
+    const lessons = [lesson('done'), lesson('second'), lesson('fresh')];
     const previous = chooseDailyItems(lessons, [], '2026-11-02', 20, kinds);
-    const history = [attempt('done', 'done', 0, now), attempt('active', 'active', null)];
+    const history = [attempt('done', 'done', 0, now), attempt('second', 'second', null)];
     const result = chooseDailyItems(lessons, history, '2026-11-02', 5, kinds, previous);
-    expect(result.map(i => i.lessonId)).toEqual(['done', 'active']);
+    expect(result.map(i => i.lessonId)).toEqual(['done']);
     expect(result[0].id).toBe(previous.find(i => i.lessonId === 'done')!.id);
   });
   it('rotates previously completed lessons by oldest practice, not repeatedly by weakest score', () => {
@@ -151,7 +152,7 @@ describe('Daily planning policy', () => {
     const overLevelOnly = chooseDailyItems([b1Lesson, b2Lesson], [], '2026-11-02', 5, kinds, [], placement);
     expect(overLevelOnly).toEqual([]);
   });
-  it('keeps over-level IN_PROGRESS (RESUME) and COMPLETED_TODAY items in the daily plan', () => {
+  it('keeps COMPLETED_TODAY items in the daily plan while ignoring over-level IN_PROGRESS attempts', () => {
     const placement = { reading: { estimatedCefr: 'A2', correctCount: 2, totalItems: 5 } };
     const c1Active = lesson('read-c1-active', 'READING', 5, 1, 'u-c1', 'C1');
     const c1DoneToday = lesson('read-c1-done', 'READING', 5, 2, 'u-c1', 'C1');
@@ -164,7 +165,6 @@ describe('Daily planning policy', () => {
     const result = chooseDailyItems([c1Active, c1DoneToday, b1Over], history, '2026-11-02', 30, kinds, [], placement);
     expect(result.map(i => [i.lessonId, i.reasonCode])).toEqual([
       ['read-c1-done', 'COMPLETED_TODAY'],
-      ['read-c1-active', 'RESUME'],
     ]);
   });
 });

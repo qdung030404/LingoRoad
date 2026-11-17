@@ -163,7 +163,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await screenshot('learning-15-b1-ai-retried');
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
 
     // 3. B2 Câu 6 (Not Given): kiểm tra Giải thích AI cho dạng TRUE_FALSE_NOT_GIVEN.
     final readingB2 = lessons.firstWhere(
@@ -203,7 +205,9 @@ void main() {
     );
     await tester.pumpAndSettle();
     await screenshot('learning-16-b2-not-given-ai');
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();

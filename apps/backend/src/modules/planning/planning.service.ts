@@ -157,25 +157,22 @@ export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAtt
   minutes: number, preferred: LearningKind[], previous: PlanItem[] = [], placement?: Record<string, unknown> | null): PlanItem[] {
   const selected: PlanItem[] = [];
   const seen = new Set<string>();
-  const byId = new Map(lessons.map(l => [l.id, l]));
   const completeToday = new Set(attempts.filter(a => finishedOn(a, date)).map(a => a.lessonId));
-  const active = attempts.filter(a => a.status === 'IN_PROGRESS')
-    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || a.id.localeCompare(b.id));
   const add = (lesson: PlannedLesson, reasonCode: string, reason: string, force = false) => {
     if (seen.has(lesson.id)) return false;
     const used = selected.reduce((sum, item) => sum + item.estimatedMinutes, 0);
     if (!force && used + lesson.estimatedMinutes > minutes) return false;
     const old = previous.find(item => item.lessonId === lesson.id);
-    selected.push(old ?? { id: randomUUID(), lessonId: lesson.id, title: lesson.title, kind: lesson.kind, estimatedMinutes: lesson.estimatedMinutes, reasonCode, reason });
+    if (old && completeToday.has(lesson.id)) {
+      selected.push(old);
+    } else {
+      selected.push({ id: old?.id ?? randomUUID(), lessonId: lesson.id, title: lesson.title, kind: lesson.kind, estimatedMinutes: lesson.estimatedMinutes, reasonCode, reason });
+    }
     seen.add(lesson.id); return true;
   };
   // Keep already completed snapshots, even if the catalogue was unpublished later.
   for (const item of previous) if (completeToday.has(item.lessonId)) { selected.push(item); seen.add(item.lessonId); }
   for (const lesson of lessons) if (completeToday.has(lesson.id)) add(lesson, 'COMPLETED_TODAY', 'Đã hoàn thành hôm nay', true);
-  for (const attempt of active) {
-    const lesson = byId.get(attempt.lessonId);
-    if (lesson && !completeToday.has(lesson.id)) add(lesson, 'RESUME', 'Tiếp tục bài đang học', previous.some(item => item.lessonId === lesson.id));
-  }
   const placementScore = (kind: LearningKind): number => {
     const key = kind === 'READING' ? 'reading' : kind === 'LISTENING' ? 'listening' : null;
     const value = key && placement?.[key] as { correctCount?: number; totalItems?: number } | undefined;
@@ -211,16 +208,12 @@ export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAtt
     for (const lesson of rotation) add(lesson, 'ROTATION', 'Luyện lại bài lâu chưa học');
   }
   if (!selected.length) {
-    const candidate =
-      active.map(a => byId.get(a.lessonId)).find((l): l is PlannedLesson => !!l) ??
-      fresh[0] ??
-      eligible[0];
+    const candidate = fresh[0] ?? eligible[0];
     if (candidate) {
-      const inProgress = active.some(a => a.lessonId === candidate.id);
       add(
         candidate,
-        inProgress ? 'RESUME' : fresh.includes(candidate) ? 'NEW' : 'ROTATION',
-        inProgress ? 'Tiếp tục bài đang học' : fresh.includes(candidate) ? 'Bài mới' : 'Luyện lại bài lâu chưa học',
+        fresh.includes(candidate) ? 'NEW' : 'ROTATION',
+        fresh.includes(candidate) ? 'Bài mới' : 'Luyện lại bài lâu chưa học',
         true,
       );
     }
@@ -312,13 +305,15 @@ export class PlanningService {
     const attempts = await this.prisma.learningAttempt.findMany({ where: { userId: plan.userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }] });
     const items = (plan.items as unknown as PlanItem[]).map(item => {
       const completed = attempts.find(a => a.lessonId === item.lessonId && finishedOn(a, plan.date));
-      const active = attempts.find(a => a.lessonId === item.lessonId && a.status === 'IN_PROGRESS');
-      return { ...item, completed: !!completed, activeAttemptId: active?.id ?? null, completedAttemptId: completed?.id ?? null };
+      const normalized = item.reasonCode === 'RESUME'
+        ? { ...item, reasonCode: completed ? 'COMPLETED_TODAY' : 'NEW', reason: completed ? 'Đã hoàn thành hôm nay' : 'Bài mới' }
+        : item;
+      return { ...normalized, completed: !!completed, activeAttemptId: null, completedAttemptId: completed?.id ?? null };
     });
     const next = items.find(item => !item.completed);
     return { id: plan.id, date: plan.date, timeZone: LEARNING_TIME_ZONE, version: plan.version, dailyGoalMinutes: plan.dailyGoalMinutes,
       estimatedMinutes: items.reduce((sum, item) => sum + item.estimatedMinutes, 0), completedCount: items.filter(item => item.completed).length,
-      totalCount: items.length, items, continueLessonId: next?.lessonId ?? null, continueAttemptId: next?.activeAttemptId ?? null };
+      totalCount: items.length, items, continueLessonId: next?.lessonId ?? null, continueAttemptId: null };
   }
 
   /** UTC ranges are unioned across devices before summing. Time is never inferred from attempts. */
@@ -379,11 +374,10 @@ export class PlanningService {
 
   async summary(userId: string) {
     const [progress, today] = await Promise.all([this.progress(userId), this.today(userId)]);
-    const fallback = today.plan ? null : await this.prisma.learningAttempt.findFirst({ where: { userId, status: 'IN_PROGRESS' }, orderBy: { updatedAt: 'desc' } });
-    const fresh = today.plan || fallback ? null : await this.prisma.learningLesson.findFirst({ where: { published: true,
+    const fresh = today.plan ? null : await this.prisma.learningLesson.findFirst({ where: { published: true,
       attempts: { none: { userId, status: 'COMPLETED' } } }, orderBy: { sortOrder: 'asc' } });
-    return { ...progress.totals, continueLessonId: today.plan?.continueLessonId ?? fallback?.lessonId ?? fresh?.id ?? null,
-      continueAttemptId: today.plan?.continueAttemptId ?? fallback?.id ?? null };
+    return { ...progress.totals, continueLessonId: today.plan?.continueLessonId ?? fresh?.id ?? null,
+      continueAttemptId: null };
   }
 
   async openActivity(userId: string, attemptId: string, clientRunId: string) {

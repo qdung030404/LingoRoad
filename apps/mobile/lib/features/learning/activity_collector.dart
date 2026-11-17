@@ -68,6 +68,16 @@ class ActivityOutbox {
     await persist();
   }
 
+  Future<void> discardSession(String sessionId) async {
+    await restore();
+    await _writes;
+    final before = entries.length;
+    entries.removeWhere((e) => e['sessionId'] == sessionId);
+    if (entries.length != before) {
+      await persist();
+    }
+  }
+
   Future<void> flush() =>
       _sending ??= _flush().whenComplete(() => _sending = null);
   Future<void> _flush() async {
@@ -107,6 +117,11 @@ class ActivityOutbox {
                   .toList(),
             );
           } on ApiFailure catch (e) {
+            if (e.status == 404) {
+              entries.removeWhere((row) => row['sessionId'] == id);
+              await persist();
+              break;
+            }
             if (e.code == 'LEARNING_ACTIVITY_UPLOAD_EXPIRED') {
               for (final row in rows) {
                 row['expired'] = true;
@@ -192,20 +207,24 @@ class ActivityCollector extends ChangeNotifier {
       _seq = 0,
       _ticks = 0;
   int? _segmentStart;
-  bool foreground = true, disposed = false, _sampling = false;
+  bool foreground = true,
+      disposed = false,
+      _sampling = false,
+      _discarded = false;
   int? _audioAt;
   Timer? timer;
   String? error;
   Future<void> start() async {
+    if (_discarded) return;
     try {
       error = null;
       await outbox.restore();
-      if (!outbox.owner.active || disposed) return;
+      if (!outbox.owner.active || disposed || _discarded) return;
       final opened = await outbox.owner.repository.openActivity(
         attemptId,
         runId,
       );
-      if (!outbox.owner.active || disposed) return;
+      if (!outbox.owner.active || disposed || _discarded) return;
       _monoReference = await clock.milliseconds();
       session = opened;
       _offsetReference = DateTime.parse(session!['serverNow'] as String)
@@ -236,7 +255,11 @@ class ActivityCollector extends ChangeNotifier {
   }
 
   Future<void> sample() async {
-    if (_sampling || disposed || session == null || !outbox.owner.active) {
+    if (_sampling ||
+        disposed ||
+        _discarded ||
+        session == null ||
+        !outbox.owner.active) {
       return;
     }
     _sampling = true;
@@ -277,7 +300,7 @@ class ActivityCollector extends ChangeNotifier {
   Future<void> closeSegment(int end) async {
     final start = _segmentStart;
     _segmentStart = null;
-    if (session == null || start == null || end <= start) return;
+    if (_discarded || session == null || start == null || end <= start) return;
     for (var s = start; s < end; s += 15000) {
       await outbox.add({
         'sessionId': session!['sessionId'],
@@ -316,6 +339,19 @@ class ActivityCollector extends ChangeNotifier {
     timer?.cancel();
     await closeSegment(_last);
     unawaited(outbox.flush());
+  }
+
+  Future<void> discard() async {
+    _discarded = true;
+    foreground = false;
+    timer?.cancel();
+    _segmentStart = null;
+    audioStopped();
+    final sessionId = session?['sessionId'] as String?;
+    session = null;
+    if (sessionId != null) {
+      await outbox.discardSession(sessionId);
+    }
   }
 
   @override

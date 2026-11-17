@@ -33,6 +33,17 @@ function fixture(ml?: Partial<MlClientService>) {
         Object.assign(attempt, updates); attempt.version++; return { count: 1 };
       }),
       findMany: jest.fn(async () => [structuredClone(attempt)]),
+      create: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+        ...structuredClone(attempt),
+        ...data,
+        id: 'fresh-attempt',
+        status: 'IN_PROGRESS',
+        version: 0,
+        positionIndex: 0,
+        answers: [],
+      })),
+      delete: jest.fn(async () => structuredClone(attempt)),
+      deleteMany: jest.fn(async () => ({ count: 1 })),
     },
     learningAttemptAnswer: {
       upsert: jest.fn(async ({ where, create, update }: { where: { attemptId_questionId: { questionId: string } }; create: LearningAttemptAnswer; update: Partial<LearningAttemptAnswer> }) => {
@@ -42,6 +53,7 @@ function fixture(ml?: Partial<MlClientService>) {
       }),
     },
     learningLesson: { findMany: jest.fn(async () => [lesson]), findFirst: jest.fn(async () => lesson) },
+    $queryRaw: jest.fn(async () => []),
     $transaction: jest.fn(),
   };
   db.$transaction.mockImplementation(async (work: (tx: unknown) => Promise<unknown>) => work(db));
@@ -145,7 +157,7 @@ describe('LearningService', () => {
     expect(state.result?.correctCount).toBe(5);
   });
 
-  it('counts distinct lessons separately from attempts and chooses latest active', async () => {
+  it('counts distinct completed lessons without resuming unsubmitted attempts', async () => {
     const { service, db, attempt } = fixture();
     db.learningAttempt.findMany.mockResolvedValue([
       { ...attempt, id: 'active' },
@@ -153,7 +165,27 @@ describe('LearningService', () => {
       { ...attempt, id: 'old2', status: 'COMPLETED', correctCount: 0 },
     ]);
     const summary = await service.summary('owner');
-    expect(summary).toMatchObject({ totalLessons: 1, completedLessonCount: 1, completedAttemptCount: 2, activeAttemptCount: 1, continueAttemptId: 'active' });
+    expect(summary).toMatchObject({ totalLessons: 1, completedLessonCount: 1, completedAttemptCount: 2, activeAttemptCount: 0, continueAttemptId: null });
+    const catalogue = await service.catalogue('owner');
+    expect(catalogue.items[0]).toMatchObject({ state: 'COMPLETED', activeAttemptId: null });
+  });
+
+  it('starts a fresh attempt by discarding leftover IN_PROGRESS progress and supports explicit cancel', async () => {
+    const { service, db, attempt } = fixture();
+    const fresh = await service.start('owner', 'lesson');
+    expect(db.learningAttempt.deleteMany).toHaveBeenCalledWith({
+      where: { userId: 'owner', lessonId: 'lesson', status: 'IN_PROGRESS' },
+    });
+    expect(fresh.id).toBe('fresh-attempt');
+    expect(fresh.position).toEqual({ phase: 'STUDY', index: 0 });
+
+    await expect(service.cancel('other', 'attempt')).rejects.toBeInstanceOf(NotFoundException);
+    const cancelled = await service.cancel('owner', 'attempt');
+    expect(cancelled).toEqual({ cancelledAttemptId: 'attempt' });
+    expect(db.learningAttempt.delete).toHaveBeenCalledWith({ where: { id: 'attempt' } });
+
+    attempt.status = 'COMPLETED';
+    await expect(service.cancel('owner', 'attempt')).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('validates 3-10 questions, GAP_FILL, TRUE_FALSE_NOT_GIVEN, keyVocabulary, and reading evidence constraints', () => {
@@ -245,7 +277,7 @@ describe('LearningService', () => {
         evidence: ['Sentence zero.', 'Sentence one.', 'Sentence two.', 'Sentence three.', 'Sentence four.'][index],
       })),
     };
-    const { service, lesson, attempt } = fixture();
+    const { service, db, lesson, attempt } = fixture();
     lesson.kind = 'READING';
     lesson.content = structuredClone(readingContent) as unknown as Prisma.JsonValue;
     attempt.phase = 'QUIZ';
@@ -264,6 +296,7 @@ describe('LearningService', () => {
     expect(checked.answers[1]).not.toHaveProperty('evidence');
 
     const listed = await service.history('owner');
+    expect(db.learningAttempt.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'owner', status: 'COMPLETED' } }));
     expect(listed.items[0].lesson.questionCount).toBe(5);
   });
 

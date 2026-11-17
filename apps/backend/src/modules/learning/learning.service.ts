@@ -141,10 +141,9 @@ export class LearningService {
     ]);
     return { items: lessons.map((lesson) => {
       const records = attempts.filter((attempt) => attempt.lessonId === lesson.id);
-      const active = records.find((attempt) => attempt.status === 'IN_PROGRESS');
       const latest = records.find((attempt) => attempt.status === 'COMPLETED');
-      return { ...this.lessonInfo(lesson), state: active ? 'IN_PROGRESS' : latest ? 'COMPLETED' : 'NOT_STARTED',
-        activeAttemptId: active?.id ?? null, latestResult: latest ? this.result(latest) : null };
+      return { ...this.lessonInfo(lesson), state: latest ? 'COMPLETED' : 'NOT_STARTED',
+        activeAttemptId: null, latestResult: latest ? this.result(latest) : null };
     }) };
   }
 
@@ -157,30 +156,33 @@ export class LearningService {
   }
 
   async start(userId: string, lessonId: string) {
-    try {
-      const attempt = await this.prisma.$transaction(async (tx) => {
-        // Serialize start requests for one account, and retain the partial unique index as the final invariant.
-        await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
-        const active = await tx.learningAttempt.findFirst({ where: { userId, lessonId, status: 'IN_PROGRESS' }, include: includeAnswers });
-        if (active) return active;
-        const lesson = await tx.learningLesson.findFirst({ where: { id: lessonId, published: true }, include: includeUnitLevel });
-        if (!lesson) throw new NotFoundException({ code: 'LEARNING_LESSON_NOT_FOUND', message: 'Không tìm thấy bài học.' });
-        const content = lesson.content as unknown as LearningContent;
-        try { validateLearningContent(content); } catch {
-          throw new ServiceUnavailableException({ code: 'LEARNING_CONTENT_UNAVAILABLE', message: 'Nội dung bài học chưa sẵn sàng.' });
-        }
-        return tx.learningAttempt.create({ data: { userId, lessonId, phase: content.steps.length ? 'STUDY' : 'QUIZ',
-          totalQuestions: content.questions.length, contentSnapshot: lesson.content as Prisma.InputJsonValue,
-          lessonSnapshot: this.lessonInfo(lesson) as unknown as Prisma.InputJsonValue }, include: includeAnswers });
-      });
-      return this.publicAttempt(attempt);
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        const winner = await this.prisma.learningAttempt.findFirst({ where: { userId, lessonId, status: 'IN_PROGRESS' }, include: includeAnswers });
-        if (winner) return this.publicAttempt(winner);
+    const attempt = await this.prisma.$transaction(async (tx) => {
+      // Serialize start requests for one account and discard any leftover unfinished attempt.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      const lesson = await tx.learningLesson.findFirst({ where: { id: lessonId, published: true }, include: includeUnitLevel });
+      if (!lesson) throw new NotFoundException({ code: 'LEARNING_LESSON_NOT_FOUND', message: 'Không tìm thấy bài học.' });
+      const content = lesson.content as unknown as LearningContent;
+      try { validateLearningContent(content); } catch {
+        throw new ServiceUnavailableException({ code: 'LEARNING_CONTENT_UNAVAILABLE', message: 'Nội dung bài học chưa sẵn sàng.' });
       }
-      throw error;
-    }
+      await tx.learningAttempt.deleteMany({ where: { userId, lessonId, status: 'IN_PROGRESS' } });
+      return tx.learningAttempt.create({ data: { userId, lessonId, phase: content.steps.length ? 'STUDY' : 'QUIZ',
+        totalQuestions: content.questions.length, contentSnapshot: lesson.content as Prisma.InputJsonValue,
+        lessonSnapshot: this.lessonInfo(lesson) as unknown as Prisma.InputJsonValue }, include: includeAnswers });
+    });
+    return this.publicAttempt(attempt);
+  }
+
+  async cancel(userId: string, attemptId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      const attempt = await this.owned(tx, userId, attemptId);
+      if (attempt.status !== 'IN_PROGRESS') {
+        throw new ConflictException({ code: 'LEARNING_STATE_CONFLICT', message: 'Bài học đã hoàn thành không thể hủy.' });
+      }
+      await tx.learningAttempt.delete({ where: { id: attempt.id } });
+      return { cancelledAttemptId: attempt.id };
+    });
   }
 
   async attempt(userId: string, attemptId: string) {
@@ -264,7 +266,7 @@ export class LearningService {
 
   async history(userId: string, cursor?: string, limit = 20) {
     if (cursor) await this.owned(this.prisma, userId, cursor);
-    const attempts = await this.prisma.learningAttempt.findMany({ where: { userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    const attempts = await this.prisma.learningAttempt.findMany({ where: { userId, status: 'COMPLETED' }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       take: limit + 1, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
     return { items: attempts.slice(0, limit).map((attempt) => this.summaryItem(attempt)), nextCursor: attempts.length > limit ? attempts[limit - 1].id : null };
   }
@@ -273,11 +275,10 @@ export class LearningService {
     if (this.planning) return this.planning.summary(userId);
     const [catalogue, attempts] = await Promise.all([this.catalogue(userId), this.prisma.learningAttempt.findMany({ where: { userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }] })]);
     const completed = attempts.filter((attempt) => attempt.status === 'COMPLETED');
-    const active = attempts.filter((attempt) => attempt.status === 'IN_PROGRESS');
     const next = catalogue.items.find((lesson) => lesson.state === 'NOT_STARTED');
     return { totalLessons: catalogue.items.length, completedLessonCount: new Set(completed.map((attempt) => attempt.lessonId)).size,
-      completedAttemptCount: completed.length, activeAttemptCount: active.length,
-      continueLessonId: active[0]?.lessonId ?? next?.id ?? null, continueAttemptId: active[0]?.id ?? null };
+      completedAttemptCount: completed.length, activeAttemptCount: 0,
+      continueLessonId: next?.id ?? null, continueAttemptId: null };
   }
 
   /** Explain a checked reading question from snapshot context, falling back to curriculum explanation cleanly. */

@@ -208,12 +208,12 @@ class LearningAttemptController extends ChangeNotifier {
   Future<void> select(String questionId, String optionId) async {
     if (!active ||
         busy ||
-        syncing ||
         attempt == null ||
         attempt!.completed ||
         attempt!.answer(questionId)?['checked'] == true) {
       return;
     }
+    _timer?.cancel();
     _pending = {
       'expectedVersion': attempt!.version,
       'phase': phase,
@@ -231,13 +231,7 @@ class LearningAttemptController extends ChangeNotifier {
         error = _message(e);
         notifyListeners();
       }
-      return;
     }
-    if (!active) return;
-    _timer?.cancel();
-    _timer = Timer(const Duration(milliseconds: 500), () {
-      flush();
-    });
   }
 
   Future<bool> flush() {
@@ -264,8 +258,10 @@ class LearningAttemptController extends ChangeNotifier {
       final result = await repository.progress(attempt!.id, pending);
       if (!active) return false;
       attempt = result;
-      _pending = null;
-      await _persist();
+      if (identical(_pending, pending)) {
+        _pending = null;
+        await _persist();
+      }
       return true;
     } catch (e) {
       if (!active) return false;
@@ -290,7 +286,10 @@ class LearningAttemptController extends ChangeNotifier {
     }
   }
 
-  Future<void> _action(Future<LearningAttempt> Function() action) async {
+  Future<void> _action(
+    Future<LearningAttempt> Function() action, {
+    bool flushPending = true,
+  }) async {
     if (!active || busy) return;
     busy = true;
     _failedAction = null;
@@ -298,7 +297,7 @@ class LearningAttemptController extends ChangeNotifier {
     notice = null;
     notifyListeners();
     try {
-      if (!await flush() || !active) return;
+      if (flushPending && (!await flush() || !active)) return;
       final result = await action();
       if (!active) return;
       attempt = result;
@@ -330,10 +329,10 @@ class LearningAttemptController extends ChangeNotifier {
 
   Future<void> retry() async {
     if (!active || busy || syncing) return;
-    if (_pending != null) {
+    if (_failedAction != null) {
+      await _action(_failedAction!, flushPending: false);
+    } else if (_pending != null) {
       await flush();
-    } else if (_failedAction != null) {
-      await _action(_failedAction!);
     }
   }
 
@@ -350,19 +349,57 @@ class LearningAttemptController extends ChangeNotifier {
       await _persist();
     }
     return result;
-  });
-  Future<void> check(String questionId) => _action(() {
+  }, flushPending: false);
+
+  Future<void> check(String questionId) => _action(() async {
     final option = selected(questionId);
     if (option == null) {
       throw const ApiFailure('Chọn một đáp án trước khi kiểm tra.');
     }
-    return repository.check(attempt!.id, questionId, {
+    final result = await repository.check(attempt!.id, questionId, {
       'expectedVersion': attempt!.version,
       'optionId': option,
     });
-  });
+    if (active && _pending?['questionId'] == questionId) {
+      _pending = null;
+      await _persist();
+    }
+    return result;
+  }, flushPending: _pending != null && _pending?['questionId'] != questionId);
   Future<void> submit() =>
       _action(() => repository.submit(attempt!.id, attempt!.version));
+
+  Future<bool> cancel() async {
+    final current = attempt;
+    if (!active || current == null || current.completed) return true;
+    if (busy) return false;
+    _timer?.cancel();
+    busy = true;
+    error = null;
+    notice = null;
+    notifyListeners();
+    try {
+      await _flush?.catchError((_) => false);
+      if (!active) return false;
+      _pending = null;
+      await _persist().catchError((_) {});
+      if (!active) return false;
+      await repository.cancel(current.id);
+      return true;
+    } on ApiFailure catch (e) {
+      if (e.status == 404) return true;
+      if (active) error = e.message;
+      return false;
+    } catch (_) {
+      if (active) error = 'Không hủy được bài học. Hãy thử lại.';
+      return false;
+    } finally {
+      if (active) {
+        busy = false;
+        notifyListeners();
+      }
+    }
+  }
 
   Future<void> explainQuestion(String questionId) async {
     final current = attempt;

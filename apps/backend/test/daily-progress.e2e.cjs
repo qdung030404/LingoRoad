@@ -76,8 +76,8 @@ describe('Daily plans and observed learning time', () => {
   const plan = async owner => (await api(owner, 'post', '/learning/plan/today', {}).expect(200)).body.data.plan;
   const progress = async owner => (await api(owner, 'get', '/learning/progress').expect(200)).body.data;
   const start = async (owner, lesson) => (await api(owner, 'post', `/learning/lessons/${lesson.id}/attempts`, {}).expect(201)).body.data;
-  async function finish(owner, lesson, correctCount = 5) {
-    let attempt = await start(owner, lesson);
+  async function finish(owner, lesson, correctCount = 5, existingAttempt = null) {
+    let attempt = existingAttempt ?? await start(owner, lesson);
     for (const [index, question] of lesson.content.questions.entries()) {
       const optionId = index < correctCount ? question.correctOptionId
         : question.options.find(option => option.id !== question.correctOptionId).id;
@@ -144,7 +144,10 @@ describe('Daily plans and observed learning time', () => {
     const updated = await plan(owner);
     assert.equal(updated.dailyGoalMinutes, 5);
     assert.ok(updated.items.some(row => row.id === completedItemId && row.completed && row.completedAttemptId === done.id));
-    assert.ok(updated.items.some(row => row.activeAttemptId === active.id));
+    assert.ok(updated.items.every(row => row.activeAttemptId === null && row.reasonCode !== 'RESUME'));
+    assert.equal(updated.continueAttemptId, null);
+    assert.ok(active.id);
+    await api(owner, 'delete', `/learning/attempts/${active.id}`).expect(200);
     const stats = await progress(owner);
     assert.equal(stats.today.completedLessonCount, 1);
     assert.equal(stats.today.activeSeconds, 0);
@@ -208,6 +211,13 @@ describe('Daily plans and observed learning time', () => {
     const summary = (await api(owner, 'get', '/learning/summary').expect(200)).body.data;
     assert.equal(summary.activeSeconds, stats.totals.activeSeconds);
     assert.equal(summary.completedAttemptCount, stats.totals.completedAttemptCount);
+    // Cancelling an unfinished attempt removes all of its recorded activity time as well.
+    const cancelledAttempt = await start(owner, lessons.GRAMMAR);
+    const cancelledSession = await anchored(owner, cancelledAttempt, new Date(Date.now() - 30000));
+    await send(owner, cancelledSession, [{ seq: 0, startOffsetMs: 0, endOffsetMs: 10000 }]).expect(200);
+    assert.equal((await progress(owner)).today.activeSeconds, 355);
+    await api(owner, 'delete', `/learning/attempts/${cancelledAttempt.id}`).expect(200);
+    assert.equal((await progress(owner)).today.activeSeconds, 345);
   });
 
   it('splits uploaded offline intervals at Vietnam midnight and preserves old data as unmeasured', async () => {
@@ -232,7 +242,7 @@ describe('Daily plans and observed learning time', () => {
   it('accepts valid late intervals before submission, clips later intervals, and never opens a new completed timer', async () => {
     const owner = await account(), attempt = await start(owner, lessons.READING);
     const anchor = new Date(Date.now() - 60000), sessionId = await anchored(owner, attempt, anchor);
-    const done = await finish(owner, lessons.READING, 5);
+    const done = await finish(owner, lessons.READING, 5, attempt);
     // Set an exact earlier submission boundary on our own test row.
     const submittedAt = new Date(anchor.getTime() + 20000);
     await prisma.learningAttempt.update({ where: { id: done.id }, data: { submittedAt } });

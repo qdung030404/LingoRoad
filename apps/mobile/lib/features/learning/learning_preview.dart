@@ -482,7 +482,6 @@ class _LearningPreviewState extends State<LearningPreview>
                   context,
                   learning!,
                   lessonId: lesson.id,
-                  attemptId: lesson.activeAttemptId,
                 );
               } else {
                 switchTab(1);

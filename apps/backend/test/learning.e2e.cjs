@@ -136,9 +136,13 @@ describe('Persisted learning workflow', () => {
       attempt = (await send(owner, 'patch', `/learning/attempts/${attempt.id}/progress`, {
         expectedVersion: attempt.version, phase, index,
       }).expect(200)).body.data;
-      const resumed = await start(owner, lesson);
-      assert.equal(resumed.id, attempt.id);
-      assert.deepEqual(resumed.position, { phase, index });
+      const fetched = (await send(owner, 'get', `/learning/attempts/${attempt.id}`).expect(200)).body.data;
+      assert.deepEqual(fetched.position, { phase, index });
+      // Starting the lesson again discards unfinished progress and restarts from index 0.
+      const restarted = await start(owner, lesson);
+      assert.notEqual(restarted.id, attempt.id);
+      assert.deepEqual(restarted.position, { phase: lesson.content.steps.length ? 'STUDY' : 'QUIZ', index: 0 });
+      attempt = restarted;
       await send(owner, 'post', `/learning/attempts/${attempt.id}/submit`, { expectedVersion: attempt.version }).expect(400);
       attempt = await checkAll(owner, attempt, lesson, true);
       const submitted = (await send(owner, 'post', `/learning/attempts/${attempt.id}/submit`, {
@@ -147,8 +151,11 @@ describe('Persisted learning workflow', () => {
       assert.equal(submitted.status, 'COMPLETED');
       assert.deepEqual(submitted.result, { correctCount: 0, totalQuestions: 5, scoreRatio: 0 });
       if (lesson.kind === 'LISTENING') assert.equal(submitted.content.transcript, lesson.content.transcript);
+      await send(owner, 'delete', `/learning/attempts/${submitted.id}`).expect(409);
       const retake = await start(owner, lesson);
       assert.notEqual(retake.id, submitted.id);
+      await send(owner, 'delete', `/learning/attempts/${retake.id}`).expect(200);
+      await send(owner, 'get', `/learning/attempts/${retake.id}`).expect(404);
       const previous = await send(owner, 'get', `/learning/attempts/${submitted.id}`).expect(200);
       assert.equal(previous.body.data.status, 'COMPLETED');
       assert.equal(previous.body.data.result.correctCount, 0);
@@ -156,7 +163,8 @@ describe('Persisted learning workflow', () => {
     const summary = (await send(owner, 'get', '/learning/summary').expect(200)).body.data;
     assert.equal(summary.completedLessonCount, 4);
     assert.equal(summary.completedAttemptCount, 4);
-    assert.equal(summary.activeAttemptCount, 4);
+    assert.equal(summary.activeAttemptCount, 0);
+    assert.equal(summary.continueAttemptId, null);
     const all = [];
     let cursor;
     do {
@@ -164,8 +172,9 @@ describe('Persisted learning workflow', () => {
       all.push(...page.items);
       cursor = page.nextCursor;
     } while (cursor);
-    assert.equal(all.length, 8);
-    assert.equal(new Set(all.map(row => row.id)).size, 8);
+    assert.equal(all.length, 4);
+    assert.equal(new Set(all.map(row => row.id)).size, 4);
+    assert.ok(all.every(row => row.status === 'COMPLETED'));
   });
 
   it('lists the A2 reading lesson and preserves its passage and level when reopening from history', async () => {
@@ -186,12 +195,16 @@ describe('Persisted learning workflow', () => {
     const draft = (await send(owner, 'patch', `/learning/attempts/${started.id}/progress`, {
       expectedVersion: started.version, phase: 'QUIZ', index: 0, questionId: first.id, optionId: first.correctOptionId,
     }).expect(200)).body.data;
-    const resumed = await start(owner, lesson);
-    assert.equal(resumed.id, draft.id);
-    assert.deepEqual(resumed.answers.find(answer => answer.questionId === first.id), {
+    assert.deepEqual(draft.answers.find(answer => answer.questionId === first.id), {
       questionId: first.id, optionId: first.correctOptionId, checked: false,
     });
-    const checked = await checkAll(owner, resumed, original);
+    await send(owner, 'delete', `/learning/attempts/${draft.id}`).expect(200);
+    const fresh = await start(owner, lesson);
+    assert.notEqual(fresh.id, draft.id);
+    assert.deepEqual(fresh.answers.find(answer => answer.questionId === first.id), {
+      questionId: first.id, optionId: null, checked: false,
+    });
+    const checked = await checkAll(owner, fresh, original);
     assert.equal(checked.answers[0].evidence, first.evidence);
     await send(owner, 'post', `/learning/attempts/${checked.id}/submit`, { expectedVersion: checked.version }).expect(200);
     const history = (await send(owner, 'get', '/learning/history').expect(200)).body.data.items;
@@ -252,10 +265,10 @@ describe('Persisted learning workflow', () => {
 
   it('serializes concurrent starts and rejects stale progress without overwriting saved drafts', async () => {
     const owner = await account(), lesson = seeds[2];
-    const calls = await Promise.all(Array.from({ length: 5 }, () => start(owner, lesson)));
-    assert.equal(new Set(calls.map(row => row.id)).size, 1);
-    let attempt = calls[0];
+    await Promise.all(Array.from({ length: 5 }, () => start(owner, lesson)));
     assert.equal(await prisma.learningAttempt.count({ where: { userId: owner.userId, lessonId: lesson.id, status: 'IN_PROGRESS' } }), 1);
+    const winner = await prisma.learningAttempt.findFirstOrThrow({ where: { userId: owner.userId, lessonId: lesson.id, status: 'IN_PROGRESS' } });
+    let attempt = (await send(owner, 'get', `/learning/attempts/${winner.id}`).expect(200)).body.data;
     const question = attempt.questions[0];
     const responses = await Promise.all(question.options.slice(0, 2).map(option => send(owner, 'patch', `/learning/attempts/${attempt.id}/progress`, {
       expectedVersion: attempt.version, phase: 'QUIZ', index: 0, questionId: question.id, optionId: option.id,
@@ -303,6 +316,7 @@ describe('Persisted learning workflow', () => {
     await send(b, 'patch', `/learning/attempts/${attempt.id}/progress`, { expectedVersion: attempt.version, phase: 'QUIZ', index: 0 }).expect(404);
     await send(b, 'put', `/learning/attempts/${attempt.id}/answers/${question.id}/check`, { expectedVersion: attempt.version, optionId: question.options[0].id }).expect(404);
     await send(b, 'post', `/learning/attempts/${attempt.id}/submit`, { expectedVersion: attempt.version }).expect(404);
+    await send(b, 'delete', `/learning/attempts/${attempt.id}`).expect(404);
     assert.deepEqual((await send(b, 'get', '/learning/history').expect(200)).body.data.items, []);
     await send(a, 'patch', `/learning/attempts/${attempt.id}/progress`, { expectedVersion: attempt.version, phase: 'QUIZ', index: 0, userId: b.userId }).expect(400);
     await send(a, 'patch', `/learning/attempts/${attempt.id}/progress`, { expectedVersion: attempt.version, phase: 'QUIZ', index: 999 }).expect(400);

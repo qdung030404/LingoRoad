@@ -108,7 +108,9 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
                 ),
               if (lesson?.kind == 'VOCABULARY')
                 learningBody('Học 10 từ về gia đình trước phần luyện tập.'),
-              learningBody('Bạn có thể thoát và tiếp tục từ tiến độ đã lưu.'),
+              learningBody(
+                'Nếu thoát trước khi nộp bài, tiến độ và thời gian lượt này sẽ bị hủy để lần sau làm lại từ đầu.',
+              ),
             ],
           ),
         ],
@@ -184,7 +186,6 @@ class _LearningCatalogueState extends State<LearningCatalogue> {
               context,
               controller,
               lessonId: lesson.id,
-              attemptId: lesson.activeAttemptId,
             ),
             children: [
               learningHeading(lesson.title),
@@ -201,11 +202,7 @@ class _LearningCatalogueState extends State<LearningCatalogue> {
                   ),
                   LearningPill('${lesson.minutes} phút', small: true),
                   LearningPill(
-                    switch (lesson.state) {
-                      'COMPLETED' => 'Hoàn thành',
-                      'IN_PROGRESS' => 'Đang học',
-                      _ => 'Chưa học',
-                    },
+                    lesson.state == 'COMPLETED' ? 'Hoàn thành' : 'Chưa học',
                     small: true,
                     selected: lesson.state == 'COMPLETED',
                   ),
@@ -408,10 +405,57 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
 
   Future<void> leave() async {
     if (_leaving) return;
+    final current = controller.attempt;
+    if (current == null || current.completed) {
+      _leaving = true;
+      try {
+        await _checkpointActivity();
+        await controller.flush();
+        if (mounted) Navigator.pop(context);
+      } finally {
+        _leaving = false;
+      }
+      return;
+    }
     _leaving = true;
-    await _checkpointActivity();
-    await controller.flush();
-    if (mounted) Navigator.pop(context);
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Hủy bài đang làm?'),
+          content: const Text(
+            'Nếu thoát bây giờ, tiến độ đang làm và thời gian học của lượt này sẽ bị hủy. Lần sau bạn sẽ làm lại từ đầu.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Ở lại'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Hủy bài & thoát'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || confirmed != true) return;
+      await activity?.discard();
+      final cancelled = await controller.cancel();
+      if (!mounted) return;
+      if (!cancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              controller.error ?? 'Không hủy được bài học. Hãy thử lại.',
+            ),
+          ),
+        );
+        return;
+      }
+      Navigator.pop(context);
+    } finally {
+      _leaving = false;
+    }
   }
 
   @override
@@ -450,7 +494,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
       final questionId = study ? null : item['id'] as String;
       final answer = questionId == null ? null : attempt.answer(questionId);
       final checked = answer?['checked'] == true;
-      final blocked = controller.busy || controller.syncing;
+      final blocked = controller.busy;
       final last = index == items.length - 1;
       return Listener(
         onPointerDown: (_) => activity?.touch(),
@@ -465,7 +509,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
             title: reading ? 'Luyện Đọc' : attempt.lesson.title,
             titleStyle: reading ? null : designHeading(18),
             leading: IconButton(
-              tooltip: 'Lưu và thoát',
+              tooltip: 'Thoát',
               onPressed: leave,
               icon: reading
                   ? const FigmaAsset(

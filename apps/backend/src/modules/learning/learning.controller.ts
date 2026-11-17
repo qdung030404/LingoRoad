@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CheckLearningAnswerDto, LearningCatalogueQuery, LearningHistoryQuery, LearningProgressDto, VersionDto } from './learning.dto';
@@ -49,6 +49,11 @@ export class LearningController {
   @Post('attempts/:attemptId/submit') @HttpCode(200)
   async submit(@CurrentUser('sub') userId: string, @Param('attemptId', ParseUUIDPipe) attemptId: string, @Body() dto: VersionDto) {
     return { success: true, data: await this.learning.submit(userId, attemptId, dto.expectedVersion) };
+  }
+
+  @Delete('attempts/:attemptId') @HttpCode(200)
+  async cancel(@CurrentUser('sub') userId: string, @Param('attemptId', ParseUUIDPipe) attemptId: string) {
+    return { success: true, data: await this.learning.cancel(userId, attemptId) };
   }
 
   @Get('history')

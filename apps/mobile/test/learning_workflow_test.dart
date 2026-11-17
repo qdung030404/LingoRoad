@@ -12,6 +12,7 @@ import 'package:mobile/features/learning/learning_pages.dart';
 import 'package:mobile/features/learning/learning_repository.dart';
 import 'package:mobile/features/vocabulary/vocabulary_controller.dart';
 import 'package:mobile/features/vocabulary/vocabulary_repository.dart';
+import 'package:mobile/shared/app_button.dart';
 
 Json copy(Json data) =>
     Map<String, dynamic>.from(jsonDecode(jsonEncode(data)) as Map);
@@ -43,8 +44,12 @@ class MemoryLearningRepository implements LearningRepository {
     'result': null,
   };
   bool offline = false;
+  bool failCancel = false;
   bool dropCheckResponse = false;
   int checks = 0;
+  int progressCalls = 0;
+  final List<String> cancelledIds = [];
+  int _seq = 1;
   Completer<void>? delayed;
   final Map<String, String> questionEvidence = {};
   LearningAttempt snapshot() => LearningAttempt(copy(state));
@@ -65,6 +70,7 @@ class MemoryLearningRepository implements LearningRepository {
 
   @override
   Future<LearningAttempt> progress(String id, Json body) async {
+    progressCalls++;
     await delayed?.future;
     _guard(body);
     state['position'] = {'phase': body['phase'], 'index': body['index']};
@@ -126,6 +132,23 @@ class MemoryLearningRepository implements LearningRepository {
     };
     state['version'] = version + 1;
     return snapshot();
+  }
+
+  @override
+  Future<void> cancel(String id) async {
+    if (offline || failCancel) throw const ApiFailure('Offline');
+    cancelledIds.add(id);
+    state['id'] = 'attempt-${++_seq}';
+    state['version'] = 0;
+    state['status'] = 'IN_PROGRESS';
+    state['position'] = {
+      'phase': ((state['content'] as Json)['steps'] as List).isNotEmpty
+          ? 'STUDY'
+          : 'QUIZ',
+      'index': 0,
+    };
+    state['answers'] = [];
+    state['result'] = null;
   }
 
   @override
@@ -1153,6 +1176,201 @@ void main() {
       owner.dispose();
     },
   );
+  testWidgets(
+    'confirming exit cancels attempt, clears outbox and draft, and resets on next start',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      var clockMs = 10000;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(NativeActivityClock.channel, (call) async {
+            if (call.method == 'elapsedRealtimeMilliseconds') {
+              return clockMs += 500;
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(NativeActivityClock.channel, null),
+      );
+      final repository = MemoryLearningRepository();
+      final dailyRepository = _MemoryDailyRepository();
+      final daily = DailyLearningController(
+        repository: dailyRepository,
+        accountId: 'alice',
+        isCurrent: () => true,
+      );
+      final owner = LearningController(
+        repository: repository,
+        accountId: 'alice',
+        daily: daily,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        LearningAttemptPage(owner: owner, lessonId: 'lesson'),
+                  ),
+                ),
+                child: const Text('Open lesson'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open lesson'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('learning-option-a')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('learningPrimaryAction')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('learningPrimaryAction')));
+      await tester.pumpAndSettle();
+      expect(find.text('Câu 2/5'), findsOneWidget);
+
+      final sessionId = dailyRepository.lastSessionId!;
+      await owner.activity!.add({
+        'sessionId': sessionId,
+        'seq': 99,
+        'startOffsetMs': 0,
+        'endOffsetMs': 4000,
+      });
+
+      // Tapping Thoát opens confirmation; Ở lại preserves current question.
+      await tester.tap(find.byTooltip('Thoát'));
+      await tester.pumpAndSettle();
+      expect(find.text('Hủy bài đang làm?'), findsOneWidget);
+      await tester.tap(find.text('Ở lại'));
+      await tester.pumpAndSettle();
+      expect(find.text('Câu 2/5'), findsOneWidget);
+      expect(repository.cancelledIds, isEmpty);
+
+      // Confirming Hủy bài & thoát cancels attempt and pops back.
+      await tester.tap(find.byTooltip('Thoát'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hủy bài & thoát'));
+      await tester.pumpAndSettle();
+      expect(find.text('Open lesson'), findsOneWidget);
+      expect(repository.cancelledIds, ['attempt']);
+      expect(
+        owner.activity!.entries.where((e) => e['sessionId'] == sessionId),
+        isEmpty,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getKeys().where((k) => k.startsWith('learning.pending.')),
+        isEmpty,
+      );
+
+      // Reopening starts from scratch at Câu 1/5 with clean answers.
+      await tester.tap(find.text('Open lesson'));
+      await tester.pumpAndSettle();
+      expect(find.text('Câu 1/5'), findsOneWidget);
+      expect(repository.snapshot().answers, isEmpty);
+
+      await tester.pumpWidget(const SizedBox());
+      owner.dispose();
+      daily.dispose();
+    },
+  );
+  testWidgets(
+    'exiting completed result screen leaves without cancel confirmation',
+    (tester) async {
+      final repository = MemoryLearningRepository();
+      final owner = LearningController(
+        repository: repository,
+        accountId: 'alice',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) =>
+                        LearningAttemptPage(owner: owner, lessonId: 'lesson'),
+                  ),
+                ),
+                child: const Text('Open lesson'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open lesson'));
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 5; i++) {
+        await tester.tap(find.byKey(const ValueKey('learning-option-a')));
+        await tester.pump();
+        await tester.tap(find.byKey(const Key('learningPrimaryAction')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('learningPrimaryAction')));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text('Kết quả bài học'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+      expect(find.text('Hủy bài đang làm?'), findsNothing);
+      expect(find.text('Open lesson'), findsOneWidget);
+      expect(repository.cancelledIds, isEmpty);
+
+      await tester.pumpWidget(const SizedBox());
+      owner.dispose();
+    },
+  );
+  testWidgets(
+    'selecting and changing options stays responsive without debounced progress lock',
+    (tester) async {
+      final repository = MemoryLearningRepository()
+        ..delayed = Completer<void>();
+      final owner = LearningController(
+        repository: repository,
+        accountId: 'alice',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: LearningAttemptPage(owner: owner, lessonId: 'lesson'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('learning-option-a')));
+      await tester.pump();
+      expect(
+        tester
+            .widget<CustomAppButton>(find.byKey(const Key('learningPrimaryAction')))
+            .onPressed,
+        isNotNull,
+      );
+
+      // Even past the legacy 500ms debounce window, no progress sync locks UI.
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(repository.progressCalls, 0);
+
+      await tester.tap(find.byKey(const ValueKey('learning-option-b')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('learningPrimaryAction')));
+      await tester.pumpAndSettle();
+
+      expect(repository.progressCalls, 0);
+      expect(repository.checks, 1);
+      expect(find.text('Server explanation'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      owner.dispose();
+    },
+  );
+
 }
 
 class _MemoryVocabularyRepository implements VocabularyRepository {
@@ -1204,10 +1422,12 @@ class _MemoryVocabularyRepository implements VocabularyRepository {
 class _MemoryDailyRepository implements DailyRepository {
   final List<String> openedAttempts = [];
   final List<Json> sentSegments = [];
+  String? lastSessionId;
 
   @override
   Future<Json> openActivity(String attemptId, String runId) async {
     openedAttempts.add(attemptId);
+    lastSessionId = runId;
     return {
       'sessionId': runId,
       'anchorAt': '2026-11-02T00:00:00Z',

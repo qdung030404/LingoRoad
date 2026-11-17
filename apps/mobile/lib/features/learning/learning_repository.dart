@@ -53,6 +53,7 @@ abstract class LearningRepository {
   Future<LearningAttempt> progress(String id, Json body);
   Future<LearningAttempt> check(String id, String questionId, Json body);
   Future<LearningAttempt> submit(String id, int version);
+  Future<void> cancel(String id);
   Future<Json> explainReadingAnswer(String id, String questionId);
   Future<Json> history({String? cursor});
   String audioUrl(String path);
@@ -102,6 +103,10 @@ class ApiLearningRepository implements LearningRepository {
           data: {'expectedVersion': version},
         ),
       );
+  @override
+  Future<void> cancel(String id) async {
+    await api.request('DELETE', '/learning/attempts/$id');
+  }
   @override
   Future<Json> explainReadingAnswer(String id, String questionId) =>
       api.request(

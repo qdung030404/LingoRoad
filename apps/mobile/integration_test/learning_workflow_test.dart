@@ -100,22 +100,28 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 800)),
     );
     await tester.pumpAndSettle();
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
+    await waitFor(find.byKey(ValueKey('learning-lesson-${reading['id']}')));
 
-    // Recreate the whole learning shell and its controllers. Saved position and
-    // checked answers must come from HTTP/PostgreSQL, not the old widget tree.
+    // Recreate the whole learning shell and its controllers. Cancelling mid-way
+    // must discard the incomplete attempt so reopening starts from Câu 1/5.
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     await mount();
     await tap(find.byKey(ValueKey('learning-lesson-${reading['id']}')));
+    await tap(find.byKey(const Key('learningStart')));
+    await waitFor(find.text('Câu 1/5'));
+    final restartedOption = find.byKey(const ValueKey('learning-option-A'));
+    expect(tester.widget<AnswerOption>(restartedOption).selected, isFalse);
+    await tap(restartedOption);
+    await tap(find.byKey(const Key('learningPrimaryAction')));
+    await waitFor(find.text('Tiếp theo'));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
     await waitFor(find.text('Câu 2/5'));
-    final resumedOption = find.byKey(const ValueKey('learning-option-A'));
-    expect(tester.widget<AnswerOption>(resumedOption).selected, isTrue);
-    await screenshot('learning-02-resumed-draft');
     for (var index = 1; index < 5; index++) {
-      if (index > 1) {
-        await tap(find.byKey(const ValueKey('learning-option-A')));
-      }
+      await tap(find.byKey(const ValueKey('learning-option-A')));
       await tap(find.byKey(const Key('learningPrimaryAction')));
       await waitFor(find.text(index == 4 ? 'Nộp bài' : 'Tiếp theo'));
       await tap(find.byKey(const Key('learningPrimaryAction')));
@@ -142,12 +148,13 @@ void main() {
     await tester.runAsync(() async {
       final history = await api.request('GET', '/learning/history');
       final items = (history['items'] as List).cast<Map>();
-      expect(items.length, 2);
-      expect(items.first['id'], isNot(completedId));
-      expect(items.first['status'], 'IN_PROGRESS');
-      expect(items.last['status'], 'COMPLETED');
+      expect(items.length, 1);
+      expect(items.first['id'], completedId);
+      expect(items.first['status'], 'COMPLETED');
     });
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
     await tap(find.byTooltip('Quay lại'));
     await tap(find.byKey(const Key('previewTab0')));
 
@@ -174,9 +181,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Không tải được audio'), findsNothing);
     await screenshot('learning-04-listening');
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
 
-    // Vocabulary must restore the exact word step, not reset to the first word.
+    // Vocabulary must also cancel cleanly and restart from Học 1/10 on next entry.
     final vocabulary = lesson('VOCABULARY');
     await tap(find.byKey(ValueKey('learning-lesson-${vocabulary['id']}')));
     await tap(find.byKey(const Key('learningStart')));
@@ -185,12 +194,15 @@ void main() {
     await waitFor(find.text('Học 2/10'));
     await tap(find.byKey(const Key('learningPrimaryAction')));
     await waitFor(find.text('Học 3/10'));
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
     await tap(find.byKey(ValueKey('learning-lesson-${vocabulary['id']}')));
-    await waitFor(find.text('Học 3/10'));
-    expect(find.text('sister'), findsWidgets);
-    await screenshot('learning-05-vocabulary-resume');
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byKey(const Key('learningStart')));
+    await waitFor(find.text('Học 1/10'));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
 
     // New A2 v2 reading attempt: inspect start evidence on Q1 card, end evidence in Q5 BottomSheet, and history review.
     final readingA2 = lessons.firstWhere(
@@ -291,7 +303,7 @@ void main() {
     await tap(find.byIcon(Icons.arrow_back));
     await tap(find.byTooltip('Quay lại'));
 
-    // Đợt 2: B1 Pre-reading STUDY -> exit & resume -> GAP_FILL -> save reading word -> reopen verify.
+    // B1: cancel Pre-reading, restart from the first step, then check GAP_FILL and save a word.
     await tap(find.byKey(const Key('previewTab0')));
     final readingB1 = lessons.firstWhere(
       (row) => row['code'] == 'reading-b1-hybrid-workday',
@@ -303,10 +315,15 @@ void main() {
     await screenshot('learning-09-b1-study');
     await tap(find.byKey(const Key('learningPrimaryAction')));
     await waitFor(find.text('Học 2/3'));
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
 
-    // Reopen B1 directly: must resume at STUDY step 2/3, then reach QUIZ.
+    // Reopen B1 after cancel: must start fresh from STUDY step 1/3, then reach QUIZ.
     await tap(find.byKey(ValueKey('learning-lesson-${readingB1['id']}')));
+    await tap(find.byKey(const Key('learningStart')));
+    await waitFor(find.text('Học 1/3'));
+    await tap(find.byKey(const Key('learningPrimaryAction')));
     await waitFor(find.text('Học 2/3'));
     await tap(find.byKey(const Key('learningPrimaryAction')));
     await waitFor(find.text('Học 3/3'));
@@ -340,24 +357,8 @@ void main() {
     await screenshot('learning-11-b1-saved-word');
     Navigator.of(tester.element(find.byType(BottomSheet))).pop();
     await tester.pumpAndSettle();
-    await tap(find.byTooltip('Lưu và thoát'));
-
-    // Reopen B1 and verify saved word state persists from server.
-    await tap(find.byKey(ValueKey('learning-lesson-${readingB1['id']}')));
-    await waitFor(find.text('Câu 6/6'));
-    await tester.ensureVisible(find.text('Xem toàn bộ'));
-    await tester.pumpAndSettle();
-    await tap(find.text('Xem toàn bộ'));
-    await waitFor(find.byType(BottomSheet));
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('reading-save-word-b1-kv-1')),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Đã lưu'), findsOneWidget);
-    await screenshot('learning-12-b1-reopened-word');
-    Navigator.of(tester.element(find.byType(BottomSheet))).pop();
-    await tester.pumpAndSettle();
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byTooltip('Thoát'));
+    await tap(find.text('Hủy bài & thoát'));
 
     // Đợt 2: B2 Pre-reading STUDY -> Q6 TRUE_FALSE_NOT_GIVEN ('Not Given') checks with explanation & no evidence.
     final readingB2 = lessons.firstWhere(
@@ -396,7 +397,9 @@ void main() {
     await tester.drag(find.byType(ListView), const Offset(0, -250));
     await tester.pumpAndSettle();
     await screenshot('learning-13-b2-q6-not-given');
-    await tap(find.byTooltip('Lưu và thoát'));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
