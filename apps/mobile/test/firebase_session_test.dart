@@ -155,6 +155,34 @@ void main() {
       expect(session.stage, SessionStage.error);
       expect(offline.signedIn, isTrue);
       expect(offline.logouts, 0);
+
+      final conflictAuth = identity()..active = false;
+      final conflictSession = SessionController(
+        client(
+          conflictAuth,
+          (_) async => response(
+            {
+              'success': false,
+              'error': {
+                'code': 'AUTH_ACCOUNT_LINK_REQUIRED',
+                'message':
+                    'Email đã thuộc tài khoản cũ. Cần chuyển đổi tài khoản trước khi đăng nhập bằng Firebase.',
+              },
+            },
+            409,
+          ),
+        ),
+      );
+      addTearDown(conflictSession.dispose);
+      await conflictSession.initialize();
+      await conflictSession.authenticateWithGoogle();
+      expect(conflictSession.stage, SessionStage.signedOut);
+      expect(
+        conflictSession.error,
+        'Email đã thuộc tài khoản cũ. Cần chuyển đổi tài khoản trước khi đăng nhập bằng Firebase.',
+      );
+      expect(conflictAuth.signedIn, isFalse);
+      expect(conflictAuth.logouts, 1);
     },
   );
 

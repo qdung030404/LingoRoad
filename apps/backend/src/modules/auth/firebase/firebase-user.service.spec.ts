@@ -88,12 +88,25 @@ describe('Firebase account ownership', () => {
     const data = prisma.user.create.mock.calls[0][0].data;
     expect(data.name).toBe('learner');
   });
-  it('rejects token with missing uid or email', async () => {
-    const invalidToken1 = { ...token, uid: '' } as unknown as DecodedIdToken;
+  it('rejects google sso login for admin account even after P2002 race recovery', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ ...row, role: UserRole.ADMIN });
+    prisma.user.create.mockRejectedValue(new Prisma.PrismaClientKnownRequestError('unique', { code: 'P2002', clientVersion: '5' }));
+    await expect(service.resolve(token)).rejects.toThrow(
+      new ForbiddenException({
+        code: 'AUTH_ADMIN_GOOGLE_LINK_RESTRICTED',
+        message: 'Tài khoản Quản trị viên không được phép đăng nhập qua Google SSO.',
+      }),
+    );
+  });
+  it('rejects token with missing or whitespace-only uid or email', async () => {
+    const invalidToken1 = { ...token, uid: '   ' } as unknown as DecodedIdToken;
     await expect(service.resolve(invalidToken1)).rejects.toBeInstanceOf(UnauthorizedException);
 
     const invalidToken2 = { ...token, email: undefined } as unknown as DecodedIdToken;
     await expect(service.resolve(invalidToken2)).rejects.toBeInstanceOf(UnauthorizedException);
+
+    const invalidToken3 = { ...token, email: '   ' } as unknown as DecodedIdToken;
+    await expect(service.resolve(invalidToken3)).rejects.toBeInstanceOf(UnauthorizedException);
   });
   it('converts uppercase email to lowercase on create', async () => {
     prisma.user.findUnique.mockResolvedValue(null);

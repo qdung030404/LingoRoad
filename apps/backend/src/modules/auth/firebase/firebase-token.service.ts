@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { applicationDefault, cert, getApps, initializeApp } from 'firebase-admin/app';
-import type { Auth } from 'firebase-admin/auth';
+import { applicationDefault, cert, Credential, getApps, initializeApp } from 'firebase-admin/app';
+import type { Auth, DecodedIdToken } from 'firebase-admin/auth';
 
 export function maskEmail(email?: string | null): string {
   if (!email) return '<anonymous>';
@@ -17,9 +17,9 @@ export class FirebaseTokenService implements OnModuleInit {
   private auth?: Auth;
   constructor(private readonly config: ConfigService) {}
 
-  get enabled() { return this.config.get<string>('AUTH_PROVIDER', 'firebase') === 'firebase'; }
+  get enabled(): boolean { return this.config.get<string>('AUTH_PROVIDER', 'firebase') === 'firebase'; }
 
-  onModuleInit() {
+  onModuleInit(): void {
     if (!['firebase', 'legacy'].includes(this.config.get('AUTH_PROVIDER', 'firebase'))) {
       throw new Error('AUTH_PROVIDER must be firebase or legacy');
     }
@@ -37,13 +37,13 @@ export class FirebaseTokenService implements OnModuleInit {
     }
   }
 
-  private client() {
+  private client(): Auth {
     if (this.auth) return this.auth;
     const projectId = this.config.get<string>('FIREBASE_PROJECT_ID');
     if (!projectId) throw new ServiceUnavailableException({ code: 'AUTH_NOT_CONFIGURED', message: 'Máy chủ chưa được cấu hình Firebase.' });
     const name = `lingoroad-auth-${projectId}`;
 
-    let credential;
+    let credential: Credential | undefined;
     if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
       credential = undefined;
     } else {
@@ -97,7 +97,7 @@ export class FirebaseTokenService implements OnModuleInit {
     return this.auth;
   }
 
-  async verify(token: string, checkRevoked = false) {
+  async verify(token: string, checkRevoked = false): Promise<DecodedIdToken> {
     try {
       this.logger.debug(`Đang xác thực Firebase ID Token (độ dài: ${token.length})...`);
       const decoded = await this.client().verifyIdToken(token, checkRevoked);
@@ -119,5 +119,5 @@ export class FirebaseTokenService implements OnModuleInit {
     }
   }
 
-  async revoke(uid: string) { await this.client().revokeRefreshTokens(uid); }
+  async revoke(uid: string): Promise<void> { await this.client().revokeRefreshTokens(uid); }
 }

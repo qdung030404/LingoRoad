@@ -115,9 +115,16 @@ class SessionController extends ChangeNotifier {
       await loadAccount(epoch: epoch);
     } on ApiFailure catch (e) {
       if (_disposed || epoch != _epoch) return;
-      if (e.unauthorized) {
-        await api.clearSession();
+      final shouldSignOut =
+          e.unauthorized ||
+          e.status == 403 ||
+          e.status == 409 ||
+          e.code == 'AUTH_ACCOUNT_LINK_REQUIRED';
+      if (shouldSignOut) {
+        if (!e.unauthorized) error = e.message;
         stage = SessionStage.signedOut;
+        await api.clearSession();
+        if (_disposed || epoch != _epoch) return;
       } else {
         error = e.message;
         stage = e.code == 'AUTH_CONFIGURATION'

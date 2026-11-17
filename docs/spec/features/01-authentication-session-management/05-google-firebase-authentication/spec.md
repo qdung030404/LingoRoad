@@ -8,19 +8,19 @@
 
 # 1. Feature Overview (Tổng quan Tính năng)
 
-Tính năng cung cấp cổng API `POST /auth/google` cho phép các ứng dụng Client (Mobile Flutter, Web Next.js) chuyển giao Firebase ID Token đã xác thực từ Google. Backend NestJS sẽ giải mã token qua Firebase Admin SDK, tự động tìm kiếm hoặc khởi tạo User/UserProfile trong cơ sở dữ liệu PostgreSQL, và cấp phát cặp JWT Access Token cùng Refresh Token theo chuẩn phiên của LingoRoad.
+Tính năng cung cấp cổng API `POST /auth/google` và bộ bảo vệ `JwtAuthGuard` cho phép các ứng dụng Client (Mobile Flutter, Web Next.js) xác thực bằng Firebase ID Token từ Google. Backend NestJS giải mã token qua Firebase Admin SDK (`FirebaseTokenService`), tự động tìm kiếm hoặc khởi tạo `User`/`UserProfile` theo `firebaseUid` trong cơ sở dữ liệu PostgreSQL (`FirebaseUserService`), và trả về hồ sơ `{ user }` đồng bộ với phiên Firebase SDK.
 
 ---
 
 # 2. User Stories (Câu chuyện Người dùng)
 
 - **Là một**: Người học mới tải app LingoRoad về điện thoại.
-- **Tôi muốn**: Bấm "Đăng nhập bằng Google" để vào ứng dụng ngay mà không cần gõ form đăng ký mật khẩu.
+- **Tôi muốn**: Bấm "Tiếp tục với Google" để vào ứng dụng ngay mà không cần gõ form đăng ký mật khẩu.
 - **Để tôi có thể**: Bắt đầu làm bài kiểm tra trình độ (Placement Test) và học tập nhanh chóng.
 
-- **Là một**: Người dùng đã từng đăng ký tài khoản bằng email `example@gmail.com`.
-- **Tôi muốn**: Sử dụng nút "Đăng nhập bằng Google" với đúng địa chỉ email này.
-- **Để tôi có thể**: Truy cập liền mạch vào tài khoản cũ của mình mà không bị tạo thành tài khoản thứ hai bị trùng lặp.
+- **Là một**: Người dùng đã đăng ký tài khoản bằng Google trên LingoRoad.
+- **Tôi muốn**: Sử dụng nút "Tiếp tục với Google" trên thiết bị mới để đăng nhập lại vào đúng tài khoản của mình theo `firebaseUid` cố định.
+- **Để tôi có thể**: Tiếp tục lộ trình học tập mà không bị mất dữ liệu hay bị chiếm đoạt tài khoản qua email chưa liên kết.
 
 ---
 
@@ -101,8 +101,8 @@ x-device-id: <uuid-hoặc-chuỗi-định-danh-thiết-bị-client> (Tùy chọn
   }
   ```
 
-- **403 Forbidden** (`AUTH_USER_SUSPENDED`):
-  Tài khoản người dùng đã bị khóa bởi Quản trị viên.
+- **403 Forbidden** (`AUTH_USER_SUSPENDED` / `AUTH_USER_DELETED` / `AUTH_ADMIN_GOOGLE_LINK_RESTRICTED`):
+  Tài khoản người dùng đã bị khóa/xóa hoặc là tài khoản Quản trị viên (`ADMIN`) không được phép đăng nhập qua Google SSO.
   ```json
   {
     "success": false,
@@ -136,43 +136,15 @@ x-device-id: <uuid-hoặc-chuỗi-định-danh-thiết-bị-client> (Tùy chọn
 
 ---
 
-# 4. State Machine & Account Linking Logic
+# 4. State Machine & Account Resolution Logic
 
-```
-                    [Nhận idToken từ Client]
-                                │
-                                ▼
-                   [Firebase Admin verifyIdToken]
-                                │
-             ┌──────────────────┴──────────────────┐
-        (Token Hợp lệ)                       (Token Không hợp lệ)
-             │                                     │
-             ▼                                     ▼
-   [Chuẩn hóa Email & UID]                    [Ném Lỗi 401]
-             │
-             ▼
-   [Truy vấn User theo Email hoặc firebaseUid]
-             │
-     ┌───────┴─────────────────────────────┐
-(Tìm thấy User)                       (Chưa có User)
-     │                                     │
-     ├─ Trạng thái == SUSPENDED?           ▼
-     │  └─ Đúng ──> [Ném Lỗi 403]     [Tạo mới User & UserProfile]
-     │                                     │
-     ├─ Có firebaseUid chưa?               │
-     │  ├─ Chưa có ──> [Liên kết UID]      │
-     │  └─ Có rồi  ──> [Bỏ qua]            │
-     └─────────────────┬───────────────────┘
-                       │
-                       ▼
-          [Tạo bản ghi RefreshSession mới]
-                       │
-                       ▼
-     [Phát hành Access Token & Refresh Token LingoRoad]
-                       │
-                       ▼
-               [Trả về HTTP 200]
-```
+- **Bước 1**: Nhận `idToken` từ Client (kiểm tra độ dài ≤ 4096 ký tự).
+- **Bước 2**: Giải mã và xác thực chữ ký qua `FirebaseTokenService.verify()` (`401 AUTH_INVALID_TOKEN` nếu không hợp lệ).
+- **Bước 3**: Chuẩn hóa `uid` và `email`, kiểm tra `email_verified === true` đối với provider `google.com`.
+- **Bước 4**: Truy vấn `User` theo `firebaseUid`:
+  - Nếu chưa có: Tạo mới `User` (`provider = GOOGLE`) kèm `UserProfile` mặc định (`targetCefr = B1`, `dailyGoalMinutes = 10`). Nếu gặp xung đột `P2002`, truy vấn lại theo `firebaseUid`; nếu vẫn không tìm thấy (trùng email với tài khoản cũ), ném `409 AUTH_ACCOUNT_LINK_REQUIRED`.
+- **Bước 5**: Kiểm tra bảo vệ tài khoản Quản trị viên (`role === ADMIN && provider === 'google.com'` → `403 AUTH_ADMIN_GOOGLE_LINK_RESTRICTED`) và trạng thái hoạt động (`status !== ACTIVE` → `403 AUTH_USER_SUSPENDED` / `AUTH_USER_DELETED`).
+- **Bước 6**: Trả về `{ user }` (`HTTP 200 OK`) từ `ProfileService.get(principal.sub)`.
 
 ---
 

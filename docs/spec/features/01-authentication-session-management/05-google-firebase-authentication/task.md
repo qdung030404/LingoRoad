@@ -11,9 +11,9 @@ Kế hoạch phân rã các đầu việc kỹ thuật chi tiết theo từng b�
 - **Feature**: Google Authentication via Firebase (`05-google-firebase-authentication`)
 - **Module**: `apps/backend/src/modules/auth`, `apps/backend/src/modules/security`
 - **Tài liệu Tham chiếu**:
-  - PRD: [prd.md](file:///c:/Users/dung/Documents/DATN/LingoRoad/docs/spec/features/01-authentication-session-management/05-google-firebase-authentication/prd.md)
-  - RFC: [rfc.md](file:///c:/Users/dung/Documents/DATN/LingoRoad/docs/spec/features/01-authentication-session-management/05-google-firebase-authentication/rfc.md)
-  - Spec: [spec.md](file:///c:/Users/dung/Documents/DATN/LingoRoad/docs/spec/features/01-authentication-session-management/05-google-firebase-authentication/spec.md)
+  - PRD: [prd.md](file:///home/quang-dung/DATN/LingoRoad/docs/spec/features/01-authentication-session-management/05-google-firebase-authentication/prd.md)
+  - RFC: [rfc.md](file:///home/quang-dung/DATN/LingoRoad/docs/spec/features/01-authentication-session-management/05-google-firebase-authentication/rfc.md)
+  - Spec: [spec.md](file:///home/quang-dung/DATN/LingoRoad/docs/spec/features/01-authentication-session-management/05-google-firebase-authentication/spec.md)
 
 ---
 
@@ -130,8 +130,8 @@ Kế hoạch phân rã các đầu việc kỹ thuật chi tiết theo từng b�
 - [x] Tài khoản tạo qua Google có `provider = 'GOOGLE'`, `passwordHash = null`, và có `UserProfile` mặc định (`targetCefr = B1, dailyGoalMinutes = 10, reminderEnabled = true`).
 - [x] Xử lý xung đột email an toàn (Zero Account Takeover): Ném `409 AUTH_ACCOUNT_LINK_REQUIRED`, không tự động liên kết tài khoản cũ theo email đơn thuần.
 - [x] Phân loại nhật ký và che giấu PII: Ẩn email người dùng (`maskEmail`), chuyển các lỗi token client sang log `warn` không có stack trace.
-- [x] Toàn bộ Backend Unit Test chạy pass 100% (38/38 Test Suites, 267 tests passed) không có lỗi linter/strict type.
-- [x] Tích hợp Client Flutter hoàn chỉnh với Firebase Core, Firebase Auth, Google Sign-In và xử lý đầy đủ các trạng thái loading/canceled/error.
+- [x] Toàn bộ Backend Unit Test chạy pass 100% (4/4 Auth/Firebase Test Suites, 49/49 tests passed) không có lỗi linter/strict type.
+- [x] Tích hợp Client Flutter hoàn chỉnh với Firebase Core, Firebase Auth, Google Sign-In và xử lý đầy đủ các trạng thái loading/canceled/error, tự động `clearSession()` khi Backend từ chối tài khoản (`401`/`403`/`409`).
 - [x] Chặn rò rỉ Firebase credentials: Đã đưa `google-services.json`, `GoogleService-Info.plist` và `*firebase-adminsdk*.json` vào `.gitignore`.
-- [x] Toàn bộ Mobile Unit & Widget Test chạy pass 100%, `flutter analyze` sạch không lỗi.
+- [x] Toàn bộ Mobile Unit & Widget Test chạy pass 100%, `flutter analyze --no-pub` sạch 0 lỗi.
 
