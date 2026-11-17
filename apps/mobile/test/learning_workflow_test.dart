@@ -10,9 +10,11 @@ import 'package:mobile/features/learning/daily_learning.dart';
 import 'package:mobile/features/learning/learning_controller.dart';
 import 'package:mobile/features/learning/learning_pages.dart';
 import 'package:mobile/features/learning/learning_repository.dart';
+import 'package:mobile/features/learning/learning_widgets.dart';
 import 'package:mobile/features/vocabulary/vocabulary_controller.dart';
 import 'package:mobile/features/vocabulary/vocabulary_repository.dart';
 import 'package:mobile/shared/app_button.dart';
+import 'package:mobile/shared/figma_widgets.dart';
 
 Json copy(Json data) =>
     Map<String, dynamic>.from(jsonDecode(jsonEncode(data)) as Map);
@@ -153,6 +155,12 @@ class MemoryLearningRepository implements LearningRepository {
 
   @override
   Future<Json> catalogue() async => {'items': []};
+
+  @override
+  Future<Json> lesson(String lessonId) async => {
+    ...(state['lesson'] as Json),
+    'content': state['content'],
+  };
   @override
   Future<Json> explainReadingAnswer(String id, String questionId) async {
     explainCalls++;
@@ -377,8 +385,16 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('learningStart')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('learning-option-a')));
+      final option = find.byKey(const ValueKey('learning-option-a'));
+      await tester.tap(option);
       await tester.pump();
+      expect(tester.widget<AnswerOption>(option).selected, isTrue);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is FigmaAsset && widget.asset == 'reading/imgCheck',
+        ),
+        findsNothing,
+      );
       await tester.tap(find.text('Xem toàn bộ'));
       await tester.pumpAndSettle();
       expect(find.byType(BottomSheet), findsOneWidget);
@@ -543,7 +559,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Q1: evidence near the start highlights both in the 3-line preview card and in the full-passage BottomSheet.
-      expect(find.textContaining('Dẫn chứng: "'), findsNothing);
+      expect(find.text('Dẫn chứng trong bài'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('learning-option-a')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('learningPrimaryAction')));
@@ -551,7 +567,8 @@ void main() {
 
       await tester.drag(find.byType(ListView), const Offset(0, -300));
       await tester.pumpAndSettle();
-      expect(find.text('Dẫn chứng: "$startEvidence"'), findsOneWidget);
+      expect(find.text('Dẫn chứng trong bài'), findsOneWidget);
+      expect(find.text('"$startEvidence"'), findsOneWidget);
 
       await tester.drag(find.byType(ListView), const Offset(0, 300));
       await tester.pumpAndSettle();
@@ -593,7 +610,8 @@ void main() {
 
       await tester.drag(find.byType(ListView), const Offset(0, -300));
       await tester.pumpAndSettle();
-      expect(find.text('Dẫn chứng: "$endEvidence"'), findsOneWidget);
+      expect(find.text('Dẫn chứng trong bài'), findsOneWidget);
+      expect(find.text('"$endEvidence"'), findsOneWidget);
 
       await tester.drag(find.byType(ListView), const Offset(0, 300));
       await tester.pumpAndSettle();
@@ -621,17 +639,20 @@ void main() {
 
       expect(find.text('Kết quả bài học'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('Dẫn chứng: "$startEvidence"'),
+        find.text('"$startEvidence"'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('Dẫn chứng: "$startEvidence"'), findsOneWidget);
+      expect(find.byType(LearningResultQuestionCard), findsWidgets);
+      expect(find.text('Dẫn chứng trong bài'), findsWidgets);
+      expect(find.text('"$startEvidence"'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('Dẫn chứng: "$endEvidence"'),
+        find.text('"$endEvidence"'),
         200,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('Dẫn chứng: "$endEvidence"'), findsOneWidget);
+      expect(find.byType(LearningResultQuestionCard), findsWidgets);
+      expect(find.text('"$endEvidence"'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       owner.dispose();
@@ -872,9 +893,20 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme,
-          home: LearningAttemptPage(owner: owner, lessonId: 'reading-b1'),
+          home: LearningLessonIntroPage(owner: owner, lessonId: 'reading-b1'),
         ),
       );
+      await tester.pumpAndSettle();
+      expect(find.text('Từ vựng trọng tâm'), findsOneWidget);
+      final saveWord = find.byKey(const ValueKey('reading-save-word-w1'));
+      await tester.ensureVisible(saveWord);
+      await tester.tap(saveWord);
+      await tester.pumpAndSettle();
+      expect(find.text('Đã lưu'), findsOneWidget);
+      expect(vocabRepo.savedBodies, hasLength(1));
+      expect(vocabRepo.savedBodies.single['english'], 'asynchronous');
+      expect(vocabRepo.savedBodies.single['commandId'], isNotEmpty);
+      await tester.tap(find.byKey(const Key('learningStart')));
       await tester.pumpAndSettle();
 
       // STUDY phase hides question-picker button and advances to QUIZ.
@@ -890,19 +922,13 @@ void main() {
       await tester.tap(find.byKey(const Key('learningPrimaryAction')));
       await tester.pumpAndSettle();
 
-      // Q1 GAP_FILL shows badge and saves keyVocabulary inside BottomSheet.
-      expect(find.text('Điền khuyết'), findsOneWidget);
+      // Q1 shows the passage without the vocabulary section from the intro.
+      expect(find.text('Staff share ___ updates every morning.'), findsOneWidget);
+      expect(find.text('Điền khuyết'), findsNothing);
       await tester.tap(find.text('Xem toàn bộ'));
       await tester.pumpAndSettle();
-      expect(find.text('Từ vựng trọng tâm'), findsOneWidget);
-      expect(find.text('Lưu'), findsOneWidget);
-
-      await tester.tap(find.byKey(const ValueKey('reading-save-word-w1')));
-      await tester.pumpAndSettle();
-      expect(find.text('Đã lưu'), findsOneWidget);
-      expect(vocabRepo.savedBodies, hasLength(1));
-      expect(vocabRepo.savedBodies.single['english'], 'asynchronous');
-      expect(vocabRepo.savedBodies.single['commandId'], isNotEmpty);
+      expect(find.text('Từ vựng trọng tâm'), findsNothing);
+      expect(saveWord, findsNothing);
 
       Navigator.of(tester.element(find.byType(BottomSheet))).pop();
       await tester.pumpAndSettle();
@@ -915,33 +941,31 @@ void main() {
       await tester.tap(find.byKey(const Key('learningPrimaryAction')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Đúng / Sai / Không đề cập'), findsOneWidget);
+      expect(find.text('The company pays for home internet bills.'), findsOneWidget);
+      expect(find.text('Đúng / Sai / Không đề cập'), findsNothing);
+      expect(find.text('Trắc nghiệm'), findsNothing);
       await tester.drag(find.byType(ListView), const Offset(0, -250));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('learning-option-c')));
       await tester.pump();
       await tester.tap(find.byKey(const Key('learningPrimaryAction')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('Dẫn chứng: "'), findsNothing);
+      expect(find.text('Dẫn chứng trong bài'), findsNothing);
 
-      // Reopen attempt after deleting word on server: UI must revert back to 'Lưu'.
+      // Reopen the intro after deleting the word on the server.
       vocabRepo.activeItems.clear();
       await tester.pumpWidget(const SizedBox());
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme,
-          home: LearningAttemptPage(owner: owner, attemptId: 'attempt-b1'),
+          home: LearningLessonIntroPage(owner: owner, lessonId: 'reading-b1'),
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Xem toàn bộ'));
-      await tester.pumpAndSettle();
       expect(find.text('Lưu'), findsOneWidget);
       expect(find.text('Đã lưu'), findsNothing);
 
-      Navigator.of(tester.element(find.byType(BottomSheet))).pop();
-      await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
       vocabController.dispose();
       owner.dispose();
@@ -1005,15 +1029,15 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme,
-          home: LearningAttemptPage(owner: owner, lessonId: 'reading-race'),
+          home: LearningLessonIntroPage(owner: owner, lessonId: 'reading-race'),
         ),
       );
       await tester.pumpAndSettle();
 
-      // Open BottomSheet and tap Lưu BEFORE initial GET /vocabulary/reading-words resolves.
-      await tester.tap(find.text('Xem toàn bộ'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('reading-save-word-w1')));
+      // Save from the intro before the initial saved-word request resolves.
+      final saveWord = find.byKey(const ValueKey('reading-save-word-w1'));
+      await tester.ensureVisible(saveWord);
+      await tester.tap(saveWord);
       await tester.pumpAndSettle();
       expect(find.text('Đã lưu'), findsOneWidget);
 
@@ -1023,8 +1047,6 @@ void main() {
       expect(find.text('Đã lưu'), findsOneWidget);
       expect(find.text('Lưu'), findsNothing);
 
-      Navigator.of(tester.element(find.byType(BottomSheet))).pop();
-      await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
       vocabController.dispose();
       owner.dispose();
@@ -1146,6 +1168,15 @@ void main() {
       });
       await tester.pumpAndSettle();
       expect(find.text('Giải thích AI'), findsOneWidget);
+      expect(find.byType(ReadingAnswerFeedbackCard), findsOneWidget);
+      expect(find.byType(ReadingAiExplainCard), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(ReadingAnswerFeedbackCard),
+          matching: find.byType(ReadingAiExplainCard),
+        ),
+        findsNothing,
+      );
       expect(
         find.text('Đoạn văn nêu rõ "cool nearby streets" nên đáp án đúng là Nearby streets.'),
         findsOneWidget,
@@ -1174,6 +1205,64 @@ void main() {
 
       await tester.pumpWidget(const SizedBox());
       owner.dispose();
+    },
+  );
+  testWidgets(
+    'strips redundant Markdown explanation headers and renders inline bold safely',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  const ReadingAnswerFeedbackCard(
+                    isCorrect: true,
+                    explanation: 'Đáp án khớp câu dẫn chứng.',
+                    evidence: 'manicured lawns with decorative fences',
+                  ),
+                  const SizedBox(height: 12),
+                  ReadingAiExplainCard(
+                    questionId: 'q-md',
+                    originalExplanation: 'Đáp án khớp câu dẫn chứng.',
+                    ai: const {
+                      'source': 'AI',
+                      'explanation':
+                          'Lựa chọn của bạn chính xác.\n\n**Giải thích:**\nTác giả nhắc **manicured lawns** như ví dụ.',
+                    },
+                    explaining: false,
+                    errorText: null,
+                    onExplain: () {},
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dẫn chứng trong bài'), findsOneWidget);
+      expect(
+        find.text('"manicured lawns with decorative fences"'),
+        findsOneWidget,
+      );
+      expect(find.text('Giải thích AI'), findsOneWidget);
+      expect(find.textContaining('**'), findsNothing);
+      final boldSpans = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((widget) => widget.textSpan)
+          .whereType<TextSpan>()
+          .expand((root) => root.children ?? const <InlineSpan>[])
+          .whereType<TextSpan>()
+          .where(
+            (span) =>
+                span.text == 'manicured lawns' &&
+                span.style?.fontWeight == FontWeight.w600,
+          );
+      expect(boldSpans, hasLength(1));
     },
   );
   testWidgets(

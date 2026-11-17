@@ -18,6 +18,9 @@ class _StubLearningRepository implements LearningRepository {
   Future<Json> catalogue() async => {'items': []};
 
   @override
+  Future<Json> lesson(String lessonId) => throw UnimplementedError();
+
+  @override
   Future<Json> summary() async => {};
 
   @override

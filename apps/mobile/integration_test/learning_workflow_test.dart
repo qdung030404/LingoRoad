@@ -217,7 +217,8 @@ void main() {
     await tap(find.byKey(const ValueKey('learning-option-B')));
     await tap(find.byKey(const Key('learningPrimaryAction')));
     await waitFor(find.text('Chính xác!'));
-    await waitFor(find.text('Dẫn chứng: "$a2StartEvidence"'));
+    await waitFor(find.text('Dẫn chứng trong bài'));
+    await waitFor(find.text('"$a2StartEvidence"'));
     final q1CardHighlight = tester
         .widgetList<Text>(find.byType(Text))
         .map((widget) => widget.textSpan)
@@ -243,7 +244,8 @@ void main() {
     await waitFor(find.text('Câu 5/5'));
     await tap(find.byKey(const ValueKey('learning-option-B')));
     await tap(find.byKey(const Key('learningPrimaryAction')));
-    await waitFor(find.text('Dẫn chứng: "$a2EndEvidence"'));
+    await waitFor(find.text('Dẫn chứng trong bài'));
+    await waitFor(find.text('"$a2EndEvidence"'));
     await tester.ensureVisible(find.text('Xem toàn bộ'));
     await tester.pumpAndSettle();
     await tap(find.text('Xem toàn bộ'));
@@ -294,21 +296,42 @@ void main() {
     await tap(find.byKey(ValueKey('learning-history-$a2CompletedId')));
     await waitFor(find.text('Kết quả bài học'));
     await tester.scrollUntilVisible(
-      find.text('Dẫn chứng: "$a2EndEvidence"'),
+      find.text('"$a2EndEvidence"'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    expect(find.text('Dẫn chứng: "$a2EndEvidence"'), findsOneWidget);
+    expect(find.text('"$a2EndEvidence"'), findsOneWidget);
     await screenshot('learning-08-a2-history-review');
     await tap(find.byIcon(Icons.arrow_back));
     await tap(find.byTooltip('Quay lại'));
 
-    // B1: cancel Pre-reading, restart from the first step, then check GAP_FILL and save a word.
+    // B1: save a word in the intro, then resume STUDY and verify GAP_FILL.
     await tap(find.byKey(const Key('previewTab0')));
     final readingB1 = lessons.firstWhere(
       (row) => row['code'] == 'reading-b1-hybrid-workday',
     );
     await tap(find.byKey(ValueKey('learning-lesson-${readingB1['id']}')));
+    await waitFor(find.text('Từ vựng trọng tâm'));
+    final saveB1Word = find.byKey(const ValueKey('reading-save-word-b1-kv-1'));
+    await tester.scrollUntilVisible(
+      saveB1Word,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tap(saveB1Word);
+    await waitFor(find.text('Đã lưu'));
+    await screenshot('learning-11-b1-saved-word');
+    await tap(find.byTooltip('Quay lại'));
+
+    await tap(find.byKey(ValueKey('learning-lesson-${readingB1['id']}')));
+    await waitFor(find.text('Từ vựng trọng tâm'));
+    await tester.scrollUntilVisible(
+      saveB1Word,
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await waitFor(find.text('Đã lưu'));
+    await screenshot('learning-12-b1-reopened-word');
     await tap(find.byKey(const Key('learningStart')));
     await waitFor(find.text('Học 1/3'));
     expect(find.text('hybrid arrangement'), findsWidgets);
@@ -338,7 +361,7 @@ void main() {
       await tap(find.byKey(const Key('learningPrimaryAction')));
     }
     await waitFor(find.text('Câu 6/6'));
-    expect(find.text('Điền khuyết'), findsOneWidget);
+    expect(find.text('Điền khuyết'), findsNothing);
     await tap(find.byKey(const ValueKey('learning-option-A')));
     await tap(find.byKey(const Key('learningPrimaryAction')));
     await waitFor(find.text('Chính xác!'));
@@ -348,16 +371,12 @@ void main() {
     await tester.pumpAndSettle();
     await tap(find.text('Xem toàn bộ'));
     await waitFor(find.byType(BottomSheet));
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('reading-save-word-b1-kv-1')),
-    );
-    await tester.pumpAndSettle();
-    await tap(find.byKey(const ValueKey('reading-save-word-b1-kv-1')));
-    await waitFor(find.text('Đã lưu'));
-    await screenshot('learning-11-b1-saved-word');
+    expect(find.text('Từ vựng trọng tâm'), findsNothing);
+    expect(saveB1Word, findsNothing);
     Navigator.of(tester.element(find.byType(BottomSheet))).pop();
     await tester.pumpAndSettle();
     await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
     await tap(find.text('Hủy bài & thoát'));
 
     // Đợt 2: B2 Pre-reading STUDY -> Q6 TRUE_FALSE_NOT_GIVEN ('Not Given') checks with explanation & no evidence.
@@ -381,7 +400,7 @@ void main() {
       await tap(find.byKey(const Key('learningPrimaryAction')));
     }
     await waitFor(find.text('Câu 6/6'));
-    expect(find.text('Đúng / Sai / Không đề cập'), findsOneWidget);
+    expect(find.text('Đúng / Sai / Không đề cập'), findsNothing);
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('learning-option-C')),
       200,
@@ -393,7 +412,7 @@ void main() {
     await tap(find.byKey(const ValueKey('learning-option-C')));
     await tap(find.byKey(const Key('learningPrimaryAction')));
     await waitFor(find.text('Chính xác!'));
-    expect(find.textContaining('Dẫn chứng: "'), findsNothing);
+    expect(find.text('Dẫn chứng trong bài'), findsNothing);
     await tester.drag(find.byType(ListView), const Offset(0, -250));
     await tester.pumpAndSettle();
     await screenshot('learning-13-b2-q6-not-given');

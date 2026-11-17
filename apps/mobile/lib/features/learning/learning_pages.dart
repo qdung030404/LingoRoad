@@ -19,12 +19,6 @@ String learningKindLabel(String kind) => switch (kind) {
   _ => kind,
 };
 
-String readingQuestionTypeLabel(String? type) => switch (type) {
-  'GAP_FILL' => 'Điền khuyết',
-  'TRUE_FALSE_NOT_GIVEN' => 'Đúng / Sai / Không đề cập',
-  _ => 'Trắc nghiệm',
-};
-
 Future<void> openLearningLesson(
   BuildContext context,
   LearningController controller, {
@@ -58,13 +52,112 @@ class LearningLessonIntroPage extends StatefulWidget {
 }
 
 class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
+  final ValueNotifier<Set<String>> _savedWordKeys = ValueNotifier({});
+  final ValueNotifier<Set<String>> _savingWordKeys = ValueNotifier({});
+  final Set<String> _sessionSavedWordKeys = {};
   bool opening = false;
+  late Future<List<Json>> _keyVocabulary = _loadKeyVocabulary();
+
+  LearningLesson? get _catalogueLesson {
+    for (final lesson in widget.owner.lessons) {
+      if (lesson.id == widget.lessonId) return lesson;
+    }
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final kind = _catalogueLesson?.kind;
+    if (kind == null || kind == 'READING') {
+      unawaited(_loadSavedReadingWords());
+    }
+  }
+
+  Future<List<Json>> _loadKeyVocabulary() async {
+    final lesson = await widget.owner.repository.lesson(widget.lessonId);
+    final content = lesson['content'] as Json?;
+    return learningItems(content?['keyVocabulary']);
+  }
+
+  Future<void> _loadSavedReadingWords() async {
+    final vocabulary = widget.owner.vocabulary;
+    if (vocabulary == null) return;
+    try {
+      final data = await vocabulary.readingWords();
+      if (!mounted || !widget.owner.active) return;
+      final items = learningItems(data['items']);
+      _savedWordKeys.value = {
+        for (final item in items)
+          readingWordSaveKey(
+            item['english'] as String? ?? '',
+            item['meaning'] as String? ?? '',
+          ),
+        ..._sessionSavedWordKeys,
+      };
+    } catch (_) {
+      // Leave current state untouched if background word sync fails.
+    }
+  }
+
+  Future<void> _saveReadingWord(Map<String, dynamic> item) async {
+    final vocabulary = widget.owner.vocabulary;
+    if (vocabulary == null) return;
+    final english = (item['word'] as String? ?? '').trim();
+    final meaning = (item['meaning'] as String? ?? '').trim();
+    if (english.isEmpty || meaning.isEmpty) return;
+    final key = readingWordSaveKey(english, meaning);
+    if (_savedWordKeys.value.contains(key) ||
+        _savingWordKeys.value.contains(key)) {
+      return;
+    }
+    _savingWordKeys.value = {..._savingWordKeys.value, key};
+    try {
+      await vocabulary.saveReadingWord({
+        'english': english,
+        'meaning': meaning,
+        if (item['phonetic'] case final String phonetic
+            when phonetic.trim().isNotEmpty)
+          'phonetic': phonetic.trim(),
+        if (item['example'] case final String example
+            when example.trim().isNotEmpty)
+          'example': example.trim(),
+        if (item['translation'] case final String translation
+            when translation.trim().isNotEmpty)
+          'translation': translation.trim(),
+      });
+      if (!mounted) return;
+      _sessionSavedWordKeys.add(key);
+      _savedWordKeys.value = {..._savedWordKeys.value, key};
+    } catch (e) {
+      if (!mounted) return;
+      final text = e is ApiFailure
+          ? e.message
+          : 'Không lưu được từ vựng. Hãy thử lại.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(text)),
+      );
+    } finally {
+      if (mounted) {
+        _savingWordKeys.value = {
+          for (final existing in _savingWordKeys.value)
+            if (existing != key) existing,
+        };
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _savedWordKeys.dispose();
+    _savingWordKeys.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    LearningLesson? lesson;
-    for (final candidate in widget.owner.lessons) {
-      if (candidate.id == widget.lessonId) lesson = candidate;
-    }
+    final lesson = _catalogueLesson;
+    final canSaveWords = widget.owner.vocabulary != null;
     return FigmaPage(
       title: lesson == null ? 'Bài học' : learningKindLabel(lesson.kind),
       bottom: CustomAppButton(
@@ -113,6 +206,48 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
               ),
             ],
           ),
+          if (lesson == null || lesson.kind == 'READING')
+            FutureBuilder<List<Json>>(
+              future: _keyVocabulary,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: LinearProgressIndicator(),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return LearningError(
+                    'Không tải được từ vựng trọng tâm.',
+                    retry: () => setState(() {
+                      _keyVocabulary = _loadKeyVocabulary();
+                    }),
+                  );
+                }
+                final items = snapshot.data!;
+                if (items.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Từ vựng trọng tâm', style: designHeading(18)),
+                      const SizedBox(height: 12),
+                      KeyVocabularySection(
+                        items: items,
+                        savedWordKeysListenable: canSaveWords
+                            ? _savedWordKeys
+                            : null,
+                        savingWordKeysListenable: canSaveWords
+                            ? _savingWordKeys
+                            : null,
+                        onSaveWord: canSaveWords ? _saveReadingWord : null,
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -257,13 +392,9 @@ class LearningAttemptPage extends StatefulWidget {
 class _LearningAttemptPageState extends State<LearningAttemptPage>
     with WidgetsBindingObserver {
   late final controller = LearningAttemptController(owner: widget.owner);
-  final ValueNotifier<Set<String>> _savedWordKeys = ValueNotifier({});
-  final ValueNotifier<Set<String>> _savingWordKeys = ValueNotifier({});
-  final Set<String> _sessionSavedWordKeys = {};
   ActivityCollector? activity;
   bool _leaving = false;
   bool _viewingPassage = false;
-  String? _loadedReadingAttemptId;
   @override
   void initState() {
     super.initState();
@@ -285,13 +416,6 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
   void _attemptChanged() {
     final attempt = controller.attempt;
     if (attempt == null || controller.loading) return;
-    if (attempt.lesson.kind == 'READING' &&
-        widget.owner.vocabulary != null &&
-        _loadedReadingAttemptId != attempt.id) {
-      _loadedReadingAttemptId = attempt.id;
-      _sessionSavedWordKeys.clear();
-      unawaited(_loadSavedReadingWords(attempt.id));
-    }
     if (attempt.completed) {
       activity?.finish();
       return;
@@ -317,73 +441,6 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
     if (mounted) setState(() {});
   }
 
-  Future<void> _loadSavedReadingWords(String attemptId) async {
-    final vocabulary = widget.owner.vocabulary;
-    if (vocabulary == null) return;
-    try {
-      final data = await vocabulary.readingWords();
-      if (!mounted || _loadedReadingAttemptId != attemptId) return;
-      final items = learningItems(data['items']);
-      _savedWordKeys.value = {
-        for (final item in items)
-          readingWordSaveKey(
-            item['english'] as String? ?? '',
-            item['meaning'] as String? ?? '',
-          ),
-        ..._sessionSavedWordKeys,
-      };
-    } catch (_) {
-      // Leave current state untouched if background word sync fails.
-    }
-  }
-
-  Future<void> _saveReadingWord(Map<String, dynamic> item) async {
-    final vocabulary = widget.owner.vocabulary;
-    if (vocabulary == null) return;
-    final english = (item['word'] as String? ?? '').trim();
-    final meaning = (item['meaning'] as String? ?? '').trim();
-    if (english.isEmpty || meaning.isEmpty) return;
-    final key = readingWordSaveKey(english, meaning);
-    if (_savedWordKeys.value.contains(key) ||
-        _savingWordKeys.value.contains(key)) {
-      return;
-    }
-    _savingWordKeys.value = {..._savingWordKeys.value, key};
-    try {
-      await vocabulary.saveReadingWord({
-        'english': english,
-        'meaning': meaning,
-        if (item['phonetic'] case final String phonetic
-            when phonetic.trim().isNotEmpty)
-          'phonetic': phonetic.trim(),
-        if (item['example'] case final String example
-            when example.trim().isNotEmpty)
-          'example': example.trim(),
-        if (item['translation'] case final String translation
-            when translation.trim().isNotEmpty)
-          'translation': translation.trim(),
-      });
-      if (!mounted) return;
-      _sessionSavedWordKeys.add(key);
-      _savedWordKeys.value = {..._savedWordKeys.value, key};
-    } catch (e) {
-      if (!mounted) return;
-      final text = e is ApiFailure
-          ? e.message
-          : 'Không lưu được từ vựng. Hãy thử lại.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(text)),
-      );
-    } finally {
-      if (mounted) {
-        _savingWordKeys.value = {
-          for (final existing in _savingWordKeys.value)
-            if (existing != key) existing,
-        };
-      }
-    }
-  }
-
   Future<void> _checkpointActivity() async {
     try {
       await activity?.checkpoint().timeout(const Duration(seconds: 2));
@@ -398,8 +455,6 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
     controller.removeListener(_attemptChanged);
     activity?.dispose();
     controller.dispose();
-    _savedWordKeys.dispose();
-    _savingWordKeys.dispose();
     super.dispose();
   }
 
@@ -489,7 +544,8 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
       final index = controller.index.clamp(0, items.length - 1);
       final item = items[index];
       final passage = study ? null : attempt.content['passage'] as String?;
-      final reading = passage != null && attempt.lesson.kind == 'READING';
+      final isReadingLesson = attempt.lesson.kind == 'READING';
+      final reading = passage != null && isReadingLesson;
       final options = study ? const <Json>[] : learningItems(item['options']);
       final questionId = study ? null : item['id'] as String;
       final answer = questionId == null ? null : attempt.answer(questionId);
@@ -521,17 +577,19 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
             bottom: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (controller.unsynced)
-                  Text(
-                    'Chưa đồng bộ · Bản nháp đã giữ trên thiết bị',
-                    style: designText(12, color: AppColors.grey800),
-                  ),
-                if ((widget.owner.activity?.pendingSeconds ?? 0) > 0)
-                  Text(
-                    'Chờ đồng bộ thời gian: ${widget.owner.activity!.pendingSeconds} giây',
-                    key: const Key('activityPending'),
-                    style: designText(12),
-                  ),
+                if (!isReadingLesson) ...[
+                  if (controller.unsynced && controller.error != null)
+                    Text(
+                      'Chưa đồng bộ · Bản nháp đã giữ trên thiết bị',
+                      style: designText(12, color: AppColors.grey800),
+                    ),
+                  if ((widget.owner.activity?.pendingSeconds ?? 0) > 0)
+                    Text(
+                      'Chờ đồng bộ thời gian: ${widget.owner.activity!.pendingSeconds} giây',
+                      key: const Key('activityPending'),
+                      style: designText(12),
+                    ),
+                ],
                 if (activity?.error != null)
                   LearningError(activity!.error!, retry: activity!.start),
                 if (widget.owner.activity?.error != null)
@@ -686,20 +744,12 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                     ),
                     const SizedBox(height: 16),
                   ],
-                  if (reading) ...[
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: LearningPill(
-                        readingQuestionTypeLabel(item['type'] as String?),
-                        small: true,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                  if (reading)
                     Text(
                       item['prompt'] as String,
                       style: designText(18, weight: FontWeight.w600),
-                    ),
-                  ] else
+                    )
+                  else
                     learningHeading(item['prompt'] as String, size: 24),
                   const SizedBox(height: 16),
                   for (final (optionIndex, option) in options.indexed) ...[
@@ -710,6 +760,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                         text: option['text'] as String,
                         selected:
                             controller.selected(questionId!) == option['id'],
+                        showSelectionCheck: false,
                         chosen: answer?['optionId'] == option['id'],
                         correct: checked
                             ? answer!['correctOptionId'] == option['id']
@@ -725,27 +776,25 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                       _answerOption(option, questionId!, answer, blocked),
                     const SizedBox(height: 12),
                   ],
-                  if (checked)
-                    LearningCard(
-                      children: [
-                        learningHeading(
-                          answer!['isCorrect'] == true
-                              ? 'Chính xác!'
-                              : 'Chưa chính xác',
-                        ),
-                        learningBody(answer['explanation'] as String? ?? ''),
-                        if (answer['evidence'] case final String evidence
-                            when evidence.trim().isNotEmpty)
-                          learningBody('Dẫn chứng: "$evidence"'),
-                        if (reading) ...[
-                          ..._readingExplainWidgets(
-                            context,
-                            questionId!,
-                            answer['explanation'] as String? ?? '',
-                          ),
-                        ],
-                      ],
+                  if (checked) ...[
+                    ReadingAnswerFeedbackCard(
+                      isCorrect: answer!['isCorrect'] == true,
+                      explanation: answer['explanation'] as String? ?? '',
+                      evidence: answer['evidence'] as String?,
                     ),
+                    if (reading) ...[
+                      const SizedBox(height: 12),
+                      ReadingAiExplainCard(
+                        questionId: questionId!,
+                        originalExplanation:
+                            answer['explanation'] as String? ?? '',
+                        ai: controller.aiExplanation(questionId),
+                        explaining: controller.isExplaining(questionId),
+                        errorText: controller.explainError(questionId),
+                        onExplain: () => controller.explainQuestion(questionId),
+                      ),
+                    ],
+                  ],
                 ],
               ],
             ),
@@ -754,66 +803,6 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
       );
     },
   );
-  List<Widget> _readingExplainWidgets(
-    BuildContext context,
-    String questionId,
-    String originalExplanation,
-  ) {
-    final ai = controller.aiExplanation(questionId);
-    final explaining = controller.isExplaining(questionId);
-    final errorText = controller.explainError(questionId);
-
-    Widget button(String label) => Align(
-      alignment: Alignment.centerLeft,
-      child: OutlinedButton(
-        key: ValueKey('learning-ai-explain-$questionId'),
-        onPressed: explaining
-            ? null
-            : () => controller.explainQuestion(questionId),
-        child: Text(explaining ? 'Đang giải thích...' : label),
-      ),
-    );
-
-    if (ai == null) {
-      return [
-        if (errorText != null)
-          Text(
-            errorText,
-            style: designText(13, color: Theme.of(context).colorScheme.error),
-          ),
-        button('Hỏi AI giải thích thêm'),
-      ];
-    }
-
-    final text = (ai['explanation'] as String? ?? '').trim();
-    if (ai['source'] == 'AI') {
-      return [
-        const Divider(height: 20),
-        learningHeading('Giải thích AI', size: 16),
-        if (text.isNotEmpty && text != originalExplanation.trim())
-          learningBody(text),
-      ];
-    }
-
-    final retryable = ai['retryable'] != false;
-    return [
-      const Divider(height: 20),
-      learningHeading('Giải thích từ học liệu', size: 16),
-      learningBody(
-        retryable
-            ? 'AI tạm thời chưa phản hồi. Bạn có thể giữ lời giải trên hoặc thử lại.'
-            : 'Câu hỏi này cần toàn bộ ngữ cảnh bài đọc nên dùng lời giải từ học liệu.',
-      ),
-      if (text.isNotEmpty && text != originalExplanation.trim())
-        learningBody(text),
-      if (errorText != null)
-        Text(
-          errorText,
-          style: designText(13, color: Theme.of(context).colorScheme.error),
-        ),
-      if (retryable) button('Thử lại giải thích AI'),
-    ];
-  }
 
   Widget _answerOption(
     Json option,
@@ -925,25 +914,12 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
             ),
             const SizedBox(height: 16),
           ],
-          for (final q in attempt.questions) ...[
-            LearningCard(
-              children: [
-                learningHeading(q['prompt'] as String),
-                for (final o in learningItems(q['options']))
-                  Text(
-                    '${o['id'] == attempt.answer(q['id'] as String)?['optionId'] ? 'Đã chọn: ' : ''}${o['text']}${o['id'] == attempt.answer(q['id'] as String)?['correctOptionId'] ? ' ✓' : ''}',
-                    style: designText(16),
-                  ),
-                learningBody(
-                  attempt.answer(q['id'] as String)?['explanation']
-                          as String? ??
-                      '',
-                ),
-                if (attempt.answer(q['id'] as String)?['evidence']
-                    case final String evidence
-                    when evidence.trim().isNotEmpty)
-                  learningBody('Dẫn chứng: "$evidence"'),
-              ],
+          for (final (qIndex, q) in attempt.questions.indexed) ...[
+            LearningResultQuestionCard(
+              index: qIndex,
+              prompt: q['prompt'] as String,
+              options: learningItems(q['options']),
+              answer: attempt.answer(q['id'] as String),
             ),
             const SizedBox(height: 12),
           ],
@@ -953,14 +929,9 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
   }
 
   Widget _passageCard(String passage, {String? highlightText}) {
-    final canSaveWords = widget.owner.vocabulary != null;
     return PassageCard(
       passage: passage,
       highlightText: highlightText,
-      keyVocabulary: learningItems(controller.attempt?.content['keyVocabulary']),
-      savedWordKeysListenable: canSaveWords ? _savedWordKeys : null,
-      savingWordKeysListenable: canSaveWords ? _savingWordKeys : null,
-      onSaveWord: canSaveWords ? _saveReadingWord : null,
       onExpandedChanged: (expanded) => _viewingPassage = expanded,
       onInteraction: () => activity?.touch(),
     );

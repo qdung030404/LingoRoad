@@ -201,19 +201,11 @@ class PassageCard extends StatelessWidget {
     super.key,
     required this.passage,
     this.highlightText,
-    this.keyVocabulary = const [],
-    this.savedWordKeysListenable,
-    this.savingWordKeysListenable,
-    this.onSaveWord,
     this.onExpandedChanged,
     this.onInteraction,
   });
   final String passage;
   final String? highlightText;
-  final List<Map<String, dynamic>> keyVocabulary;
-  final ValueListenable<Set<String>>? savedWordKeysListenable;
-  final ValueListenable<Set<String>>? savingWordKeysListenable;
-  final Future<void> Function(Map<String, dynamic> word)? onSaveWord;
   final ValueChanged<bool>? onExpandedChanged;
   final VoidCallback? onInteraction;
 
@@ -287,19 +279,6 @@ class PassageCard extends StatelessWidget {
                     Text('Đoạn văn', style: designHeading(20)),
                     const SizedBox(height: 24),
                     _buildPassageText(designText(16, height: 1.6)),
-                    if (keyVocabulary.isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      const Divider(color: AppColors.grey200, height: 1),
-                      const SizedBox(height: 20),
-                      Text('Từ vựng trọng tâm', style: designHeading(18)),
-                      const SizedBox(height: 12),
-                      _KeyVocabularySection(
-                        items: keyVocabulary,
-                        savedWordKeysListenable: savedWordKeysListenable,
-                        savingWordKeysListenable: savingWordKeysListenable,
-                        onSaveWord: onSaveWord,
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -357,8 +336,9 @@ class PassageCard extends StatelessWidget {
   );
 }
 
-class _KeyVocabularySection extends StatelessWidget {
-  const _KeyVocabularySection({
+class KeyVocabularySection extends StatelessWidget {
+  const KeyVocabularySection({
+    super.key,
     required this.items,
     required this.savedWordKeysListenable,
     required this.savingWordKeysListenable,
@@ -529,10 +509,12 @@ class AnswerOption extends StatelessWidget {
     this.onTap,
     this.correct,
     this.chosen = false,
+    this.showSelectionCheck = true,
   });
   final int index;
   final String text;
   final bool selected, chosen;
+  final bool showSelectionCheck;
   final bool? correct;
   final VoidCallback? onTap;
   @override
@@ -625,7 +607,7 @@ class AnswerOption extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (selected && correct == null)
+                  if (showSelectionCheck && selected && correct == null)
                     const Padding(
                       padding: EdgeInsets.only(left: 8),
                       child: FigmaAsset('reading/imgCheck'),

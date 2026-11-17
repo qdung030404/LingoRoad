@@ -47,6 +47,7 @@ class LearningAttempt {
 
 abstract class LearningRepository {
   Future<Json> catalogue();
+  Future<Json> lesson(String lessonId);
   Future<Json> summary();
   Future<LearningAttempt> start(String lessonId);
   Future<LearningAttempt> attempt(String id);
@@ -64,6 +65,9 @@ class ApiLearningRepository implements LearningRepository {
   final ApiClient api;
   @override
   Future<Json> catalogue() => api.request('GET', '/learning/lessons');
+  @override
+  Future<Json> lesson(String lessonId) =>
+      api.request('GET', '/learning/lessons/$lessonId');
   @override
   Future<Json> summary() => api.request('GET', '/learning/summary');
   @override

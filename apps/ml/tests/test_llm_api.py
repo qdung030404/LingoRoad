@@ -170,10 +170,11 @@ def test_reading_explain_build_messages_includes_grounding_fields():
     )
     assert len(msgs) == 2
     assert msgs[0]["role"] == "system"
+    assert 'xưng "bạn"' in msgs[0]["content"]
     user_msg = msgs[1]["content"]
     assert "True / False / Not Given" in user_msg
     assert "lower street heat by 2 degrees" in user_msg
-    assert "Học viên đã chọn: False" in user_msg
+    assert "Bạn đã chọn: False" in user_msg
     assert "Đáp án đúng: True" in user_msg
 
 

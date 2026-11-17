@@ -1,7 +1,8 @@
 import os
 
 SYSTEM = """Bạn là trợ giảng luyện đọc tiếng Anh cho người Việt.
-Giải thích NGẮN GỌN (3-5 câu) bằng tiếng Việt vì sao đáp án đúng chính xác và vì sao lựa chọn của học viên đúng hoặc chưa đúng.
+Hãy xưng "bạn" với người học và giải thích ngắn gọn (3-5 câu) bằng tiếng Việt vì sao đáp án đúng chính xác và vì sao lựa chọn của bạn đúng hoặc chưa đúng.
+Viết thành đoạn văn tự nhiên, KHÔNG mở đầu bằng tiêu đề (như "Giải thích:") và hạn chế dùng ký hiệu Markdown như dấu sao.
 CHỈ dựa trên đoạn văn, câu hỏi, các lựa chọn và dẫn chứng được cung cấp. Không suy đoán thêm thông tin không có trong đoạn văn."""
 
 _TYPE_LABELS = {
@@ -46,7 +47,7 @@ def build_messages(
         f"Đoạn văn:\n{passage.strip()}",
         f"Câu hỏi: {question_prompt.strip()}",
         f"Các lựa chọn:\n{options_txt}",
-        f"Học viên đã chọn: {selected_option.strip()}",
+        f"Bạn đã chọn: {selected_option.strip()}",
         f"Đáp án đúng: {correct_option.strip()}",
         f"Dẫn chứng trong bài: {evidence.strip()}" if evidence and evidence.strip() else "Dẫn chứng trong bài: (không có trích đoạn riêng)",
         f"Giải thích gốc: {curriculum_explanation.strip()}" if curriculum_explanation.strip() else None,
