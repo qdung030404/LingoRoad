@@ -7,6 +7,7 @@ import { CheckLearningAnswerDto, LearningProgressDto } from './learning.dto';
 import { LearningContent, LessonSnapshot, validateLearningContent } from './learning.types';
 import { MlClientService } from '../ml/ml-client.service';
 import { PlanningService } from '../planning/planning.service';
+import { validateListeningAudio } from './listening-media';
 
 export const MAX_READING_EXPLAIN_PASSAGE_CHARS = 4000;
 const GLOBAL_READING_SKILLS = new Set([
@@ -76,6 +77,7 @@ export class LearningService {
     return { id: lesson.id, code: lesson.code, kind: lesson.kind, title: lesson.title, description: lesson.description,
       estimatedMinutes: lesson.estimatedMinutes, contentVersion: lesson.contentVersion,
       questionCount: Array.isArray(content?.questions) ? content.questions.length : 5,
+      ...(content.audioDurationMs ? { audioDurationMs: content.audioDurationMs } : {}),
       ...(lesson.unit ? { cefrLevel: lesson.unit.cefrLevel } : {}) };
   }
 
@@ -85,7 +87,7 @@ export class LearningService {
         ...(step.word ? { word: step.word } : {}), ...(step.phonetic ? { phonetic: step.phonetic } : {}),
         ...(step.meaning ? { meaning: step.meaning } : {}), ...(step.example ? { example: step.example } : {}),
         ...(step.audioUrl ? { audioUrl: step.audioUrl } : {}) })),
-      ...(content.passage ? { passage: content.passage } : {}),
+      ...(content.listeningVersion !== 1 && content.passage ? { passage: content.passage } : {}),
       ...(content.keyVocabulary?.length ? { keyVocabulary: content.keyVocabulary.map((item) => ({
         id: item.id, word: item.word, meaning: item.meaning,
         ...(item.phonetic ? { phonetic: item.phonetic } : {}),
@@ -93,7 +95,14 @@ export class LearningService {
         ...(item.translation ? { translation: item.translation } : {}),
       })) } : {}),
       ...(content.audioUrl ? { audioUrl: content.audioUrl } : {}),
+      ...(content.listeningVersion === 1 ? { listeningVersion: 1,
+        audioDurationMs: content.audioDurationMs,
+        preparation: { situation: content.preparation?.situation, objective: content.preparation?.objective } } : {}),
       ...(completed && content.transcript ? { transcript: content.transcript } : {}),
+      ...(completed && content.transcriptSegments ? { transcriptSegments: content.transcriptSegments.map((segment) => ({
+        id: segment.id, speaker: segment.speaker, startMs: segment.startMs, endMs: segment.endMs,
+        text: segment.text, translationVi: segment.translationVi,
+      })) } : {}),
     };
   }
 
@@ -128,7 +137,8 @@ export class LearningService {
         const answer = answers.get(question.id);
         return { questionId: question.id, optionId: answer?.optionId ?? null, checked: answer?.checked ?? false,
           ...(answer?.checked ? { isCorrect: answer.isCorrect, correctOptionId: question.correctOptionId, explanation: question.explanation,
-            ...(question.evidence ? { evidence: question.evidence } : {}) } : {}) };
+            ...(content.listeningVersion !== 1 && question.evidence ? { evidence: question.evidence } : {}),
+            ...(attempt.status === 'COMPLETED' && question.evidenceSegmentIds ? { evidenceSegmentIds: [...question.evidenceSegmentIds] } : {}) } : {}) };
       }),
     };
   }
@@ -162,7 +172,10 @@ export class LearningService {
       const lesson = await tx.learningLesson.findFirst({ where: { id: lessonId, published: true }, include: includeUnitLevel });
       if (!lesson) throw new NotFoundException({ code: 'LEARNING_LESSON_NOT_FOUND', message: 'Không tìm thấy bài học.' });
       const content = lesson.content as unknown as LearningContent;
-      try { validateLearningContent(content); } catch {
+      try {
+        validateLearningContent(content, lesson.kind);
+        validateListeningAudio(content, learningMediaRoot());
+      } catch {
         throw new ServiceUnavailableException({ code: 'LEARNING_CONTENT_UNAVAILABLE', message: 'Nội dung bài học chưa sẵn sàng.' });
       }
       await tx.learningAttempt.deleteMany({ where: { userId, lessonId, status: 'IN_PROGRESS' } });

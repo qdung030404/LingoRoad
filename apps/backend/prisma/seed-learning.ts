@@ -2,7 +2,9 @@ import 'dotenv/config';
 import { CefrLevel, LearningKind, Prisma, PrismaClient } from '@prisma/client';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { LearningContent, LearningQuestion, READING_SKILL_CODES, validateLearningContent } from '../src/modules/learning/learning.types';
+import { LearningContent, LearningQuestion, LISTENING_SKILL_CODES, READING_SKILL_CODES, validateLearningContent } from '../src/modules/learning/learning.types';
+import { validateListeningAudio } from '../src/modules/learning/listening-media';
+import { loadCampusCafeListening } from './listening-content/load-listening';
 
 export interface LearningUnitSeed {
   code: string;
@@ -147,6 +149,9 @@ export function loadLearningContent(): LearningSeed[] {
       content: { steps: [], passage: transcript, questions: comprehension('reading') } },
     { code: 'listening-greetings-introductions', kind: 'LISTENING', title: 'Greetings and Introductions', description: 'Nghe Anna tự giới thiệu. Được nghe lại và tua không giới hạn.', estimatedMinutes: 5, sortOrder: 4, contentVersion: 1, unitCode: 'a1-unit-1',
       content: { steps: [], audioUrl: '/media/learning/v1/listening.wav', transcript, questions: comprehension('listening') } },
+    { code: 'listening-campus-cafe', kind: 'LISTENING', title: 'At the campus café',
+      description: 'Nghe hội thoại gọi món, kiểm tra từng câu rồi nghe lại lời thoại để chữa bài.',
+      estimatedMinutes: 6, sortOrder: 50, contentVersion: 1, unitCode: 'a1-unit-2', content: loadCampusCafeListening() },
     {
       code: 'reading-a2-club-meeting', kind: 'READING', title: 'A New Time for the Club Meeting',
       description: 'Đọc email đổi lịch câu lạc bộ và xác định thời gian, địa điểm cùng việc cần làm.',
@@ -482,12 +487,20 @@ export function validateLearningSeeds(seeds = loadLearningContent()): void {
   ) {
     throw new Error('READING_SKILL_CODES is out of sync with apps/ml/data/skills.json.');
   }
+  const canonicalListeningCodes = new Set((rawSkills.skills ?? [])
+    .filter((item) => item.category === 'listening' && typeof item.code === 'string' && item.code.startsWith('listening.'))
+    .map((item) => item.code as string));
+  if (canonicalListeningCodes.size !== LISTENING_SKILL_CODES.length
+    || LISTENING_SKILL_CODES.some((code) => !canonicalListeningCodes.has(code))) {
+    throw new Error('LISTENING_SKILL_CODES is out of sync with apps/ml/data/skills.json.');
+  }
   const units = loadLearningUnits();
   const unitCodes = new Set(units.map((unit) => unit.code));
   if (unitCodes.size !== units.length) throw new Error('Unit codes must be unique.');
   if (new Set(seeds.map((seed) => seed.code)).size !== seeds.length) throw new Error('Lesson codes must be unique.');
   for (const seed of seeds) {
-    validateLearningContent(seed.content);
+    validateLearningContent(seed.content, seed.kind);
+    validateListeningAudio(seed.content, join(__dirname, '../media/learning'));
     if (!seed.code.trim() || !seed.title.trim() || !seed.description.trim() || seed.contentVersion < 1 || seed.estimatedMinutes < 1 || !seed.unitCode?.trim() || !unitCodes.has(seed.unitCode)) throw new Error('Invalid lesson metadata.');
     if (seed.kind === 'LISTENING' && (!seed.content.audioUrl || !seed.content.transcript)) throw new Error('Listening audio and transcript are required.');
     if (seed.kind === 'READING') {
@@ -500,7 +513,7 @@ export function validateLearningSeeds(seeds = loadLearningContent()): void {
     }
     const urls = [seed.content.audioUrl, ...seed.content.steps.map((step) => step.audioUrl)].filter((url): url is string => !!url);
     for (const url of urls) {
-      if (!/^\/media\/learning\/v1\/[a-z]+\.wav$/.test(url)) throw new Error('Invalid curriculum audio path.');
+      if (!/^\/media\/learning\/v1\/[a-z0-9]+(?:-[a-z0-9]+)*\.wav$/.test(url)) throw new Error('Invalid curriculum audio path.');
       const file = join(__dirname, '..', url.replace(/^\/media\//, 'media/'));
       if (!existsSync(file) || readFileSync(file).toString('ascii', 0, 4) !== 'RIFF') throw new Error(`Missing or invalid learning audio: ${url}`);
     }

@@ -1,4 +1,6 @@
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { LearningAttempt, LearningAttemptAnswer, LearningLesson, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MlClientService } from '../ml/ml-client.service';
@@ -84,6 +86,101 @@ function fixture(ml?: Partial<MlClientService>) {
 }
 
 describe('LearningService', () => {
+  function listeningFixture() {
+    const state = fixture();
+    const listening = JSON.parse(readFileSync(join(__dirname, '../../../prisma/listening-content/campus-cafe-v1.json'), 'utf8')) as LearningContent;
+    state.lesson.kind = 'LISTENING';
+    state.lesson.content = structuredClone(listening) as unknown as Prisma.JsonValue;
+    state.attempt.phase = 'QUIZ';
+    state.attempt.contentSnapshot = structuredClone(listening) as unknown as Prisma.JsonValue;
+    state.attempt.lessonSnapshot = { ...(state.attempt.lessonSnapshot as object), kind: 'LISTENING' };
+    return { ...state, listening };
+  }
+
+  function expectNoListeningReview(value: unknown): void {
+    if (value === null || typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value)) {
+      expect(['transcript', 'transcriptSegments', 'translationVi', 'evidenceSegmentIds', 'evidence', 'contentSnapshot']).not.toContain(key);
+      expectNoListeningReview(child);
+    }
+  }
+
+  it('exposes listening preparation and duration but keeps review private through detail/start/progress/check', async () => {
+    const { service, listening } = listeningFixture();
+    const catalogue = await service.catalogue('owner', 'LISTENING');
+    expect(catalogue.items[0].audioDurationMs).toBe(listening.audioDurationMs);
+    const detail = await service.lesson('owner', 'lesson');
+    expect(detail.content.preparation).toEqual(listening.preparation);
+    expectNoListeningReview(detail);
+    const started = await service.start('owner', 'lesson');
+    expect(started.position.phase).toBe('QUIZ');
+    expectNoListeningReview(started);
+    const saved = await service.progress('owner', 'attempt', { expectedVersion: 0, phase: 'QUIZ', index: 0 });
+    expectNoListeningReview(saved);
+    const checked = await service.check('owner', 'attempt', listening.questions[0].id, {
+      optionId: listening.questions[0].correctOptionId, expectedVersion: saved.version,
+    });
+    expect(checked.answers[0].explanation).toBe(listening.questions[0].explanation);
+    expectNoListeningReview(checked);
+    expectNoListeningReview(await service.attempt('owner', 'attempt'));
+    await expect(service.attempt('stranger', 'attempt')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('opens only whitelisted listening segments and evidence after submit, using immutable snapshots and retry', async () => {
+    const { service, attempt, lesson, listening } = listeningFixture();
+    (attempt.contentSnapshot as unknown as LearningContent).transcriptSegments![0] = {
+      ...listening.transcriptSegments![0], privateField: 'never public',
+    } as unknown as NonNullable<LearningContent['transcriptSegments']>[number];
+    let version = 0;
+    for (const question of listening.questions) {
+      const checked = await service.check('owner', 'attempt', question.id, { optionId: question.correctOptionId, expectedVersion: version });
+      version = checked.version;
+    }
+    lesson.content = {};
+    const result = await service.submit('owner', 'attempt', version);
+    expect(result.result?.correctCount).toBe(5);
+    expect(result.content.transcript).toBe(listening.transcript);
+    expect(result.content.transcriptSegments).toEqual(listening.transcriptSegments);
+    expect(result.answers[0].evidenceSegmentIds).toEqual(listening.questions[0].evidenceSegmentIds);
+    expect(result.questions[0]).not.toHaveProperty('evidenceSegmentIds');
+    expect(result.levelChange).toBeNull();
+    const retry = await service.submit('owner', 'attempt', version);
+    expect(retry.version).toBe(result.version);
+    expect(retry.content).toEqual(result.content);
+  });
+
+  it('does not leak review through legacy passage/evidence fields accidentally added to a v1 record', async () => {
+    const { service, lesson, attempt, listening } = listeningFixture();
+    const corrupt = structuredClone(listening);
+    corrupt.passage = 'Private transcript accidentally assigned to legacy passage.';
+    corrupt.questions[0].evidence = 'Private listening evidence.';
+    lesson.content = corrupt as unknown as Prisma.JsonValue;
+    attempt.contentSnapshot = corrupt as unknown as Prisma.JsonValue;
+    expectNoListeningReview(await service.lesson('owner', 'lesson'));
+    const checked = await service.check('owner', 'attempt', corrupt.questions[0].id, {
+      expectedVersion: 0, optionId: corrupt.questions[0].correctOptionId,
+    });
+    expectNoListeningReview(checked);
+    expect(checked.content).not.toHaveProperty('passage');
+  });
+
+  it('validates listening kind/profile and media before deleting an unfinished attempt', async () => {
+    for (const patch of [
+      { audioUrl: '/media/learning/v1/does-not-exist.wav' },
+      { audioDurationMs: 90001 }, { preparation: null },
+    ]) {
+      const { service, db, lesson, listening } = listeningFixture();
+      lesson.content = { ...listening, ...patch } as unknown as Prisma.JsonValue;
+      await expect(service.start('owner', 'lesson')).rejects.toBeInstanceOf(ServiceUnavailableException);
+      expect(db.learningAttempt.deleteMany).not.toHaveBeenCalled();
+      expect(db.learningAttempt.create).not.toHaveBeenCalled();
+    }
+    const { service, lesson, db } = listeningFixture();
+    lesson.kind = 'READING';
+    await expect(service.start('owner', 'lesson')).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(db.learningAttempt.deleteMany).not.toHaveBeenCalled();
+  });
+
   it('does not reveal ungraded keys, explanations or listening transcript', async () => {
     const { service } = fixture();
     const state = await service.attempt('owner', 'attempt');

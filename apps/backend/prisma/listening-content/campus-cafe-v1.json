@@ -1,0 +1,277 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-campus-cafe-v1.wav",
+  "audioDurationMs": 54305,
+  "preparation": {
+    "situation": "Bạn nghe một cuộc trao đổi tại quán trong trường.",
+    "objective": "Theo dõi lựa chọn cuối cùng của khách, số tiền cần trả và nơi nhận đồ."
+  },
+  "keyVocabulary": [
+    {
+      "word": "menu",
+      "meaning": "thực đơn",
+      "example": "The menu is on the table.",
+      "translation": "Thực đơn ở trên bàn.",
+      "id": "v01"
+    },
+    {
+      "word": "order",
+      "meaning": "gọi món",
+      "example": "Can I order now?",
+      "translation": "Bây giờ tôi gọi món được không?",
+      "id": "v02"
+    },
+    {
+      "word": "ready",
+      "meaning": "sẵn sàng, xong",
+      "example": "Your room is ready.",
+      "translation": "Phòng của bạn đã sẵn sàng.",
+      "id": "v03"
+    },
+    {
+      "word": "pay",
+      "meaning": "thanh toán",
+      "example": "Can I pay by card?",
+      "translation": "Tôi thanh toán bằng thẻ được không?",
+      "id": "v04"
+    }
+  ],
+  "transcript": "Hello. What would you like for lunch today? A cheese sandwich, please. I have a short break before my next class. Certainly. Would you like a drink with that? Yes, an apple juice, please. A small one is fine. All right. That is six pounds altogether. Here you are. Where do I get my food when it is ready? At the counter by the window. Please wait here for a minute. Thank you. Can I have a bag, too? Of course. Are you eating here? No. I am taking my lunch back to my room.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Staff",
+      "text": "Hello. What would you like for lunch today?",
+      "translationVi": "Chào bạn. Hôm nay bạn muốn dùng gì cho bữa trưa?",
+      "startMs": 0,
+      "endMs": 4449
+    },
+    {
+      "id": "s02",
+      "speaker": "Ben",
+      "text": "A cheese sandwich, please. I have a short break before my next class.",
+      "translationVi": "Cho tôi một bánh mì kẹp phô mai. Tôi có một khoảng nghỉ ngắn trước buổi học tiếp theo.",
+      "startMs": 4749,
+      "endMs": 12053
+    },
+    {
+      "id": "s03",
+      "speaker": "Staff",
+      "text": "Certainly. Would you like a drink with that?",
+      "translationVi": "Được chứ. Bạn có muốn dùng thêm đồ uống không?",
+      "startMs": 12353,
+      "endMs": 16937
+    },
+    {
+      "id": "s04",
+      "speaker": "Ben",
+      "text": "Yes, an apple juice, please. A small one is fine.",
+      "translationVi": "Có, cho tôi một ly nước táo. Ly nhỏ là được.",
+      "startMs": 17237,
+      "endMs": 24131
+    },
+    {
+      "id": "s05",
+      "speaker": "Staff",
+      "text": "All right. That is six pounds altogether.",
+      "translationVi": "Được rồi. Tổng cộng là sáu bảng.",
+      "startMs": 24431,
+      "endMs": 29330
+    },
+    {
+      "id": "s06",
+      "speaker": "Ben",
+      "text": "Here you are. Where do I get my food when it is ready?",
+      "translationVi": "Tiền đây ạ. Tôi nhận đồ ở đâu khi đồ đã làm xong?",
+      "startMs": 29630,
+      "endMs": 35068
+    },
+    {
+      "id": "s07",
+      "speaker": "Staff",
+      "text": "At the counter by the window. Please wait here for a minute.",
+      "translationVi": "Ở quầy cạnh cửa sổ. Bạn vui lòng đợi ở đây một phút.",
+      "startMs": 35368,
+      "endMs": 40792
+    },
+    {
+      "id": "s08",
+      "speaker": "Ben",
+      "text": "Thank you. Can I have a bag, too?",
+      "translationVi": "Cảm ơn. Cho tôi xin thêm một túi nhé?",
+      "startMs": 41092,
+      "endMs": 45856
+    },
+    {
+      "id": "s09",
+      "speaker": "Staff",
+      "text": "Of course. Are you eating here?",
+      "translationVi": "Tất nhiên rồi. Bạn dùng tại đây phải không?",
+      "startMs": 46156,
+      "endMs": 50101
+    },
+    {
+      "id": "s10",
+      "speaker": "Ben",
+      "text": "No. I am taking my lunch back to my room.",
+      "translationVi": "Không. Tôi sẽ mang bữa trưa về phòng mình.",
+      "startMs": 50401,
+      "endMs": 54305
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "Which sentence describes Ben's plan?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Get lunch for a friend"
+        },
+        {
+          "id": "B",
+          "text": "Have lunch at a table in the café"
+        },
+        {
+          "id": "C",
+          "text": "Cook lunch after class"
+        },
+        {
+          "id": "D",
+          "text": "Buy lunch and eat in his room"
+        }
+      ],
+      "correctOptionId": "D",
+      "skillCode": "listening.gist",
+      "evidenceSegmentIds": [
+        "s01",
+        "s02",
+        "s08",
+        "s09",
+        "s10"
+      ],
+      "explanation": "Ben mua bữa trưa và chọn mang về phòng để ăn."
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "Which drink does Ben order?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Orange juice"
+        },
+        {
+          "id": "B",
+          "text": "Apple juice"
+        },
+        {
+          "id": "C",
+          "text": "Water"
+        },
+        {
+          "id": "D",
+          "text": "Tea"
+        }
+      ],
+      "correctOptionId": "B",
+      "skillCode": "listening.specific_information",
+      "evidenceSegmentIds": [
+        "s03",
+        "s04"
+      ],
+      "explanation": "Đồ uống Ben chọn là nước táo."
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "What food does Ben order?",
+      "options": [
+        {
+          "id": "A",
+          "text": "A chicken sandwich"
+        },
+        {
+          "id": "B",
+          "text": "A bowl of soup"
+        },
+        {
+          "id": "C",
+          "text": "A cheese sandwich"
+        },
+        {
+          "id": "D",
+          "text": "A cheese salad"
+        }
+      ],
+      "correctOptionId": "C",
+      "skillCode": "listening.specific_information",
+      "evidenceSegmentIds": [
+        "s01",
+        "s02"
+      ],
+      "explanation": "Món Ben gọi là bánh mì kẹp phô mai."
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "How much does Ben pay in total?",
+      "options": [
+        {
+          "id": "A",
+          "text": "£6"
+        },
+        {
+          "id": "B",
+          "text": "£5"
+        },
+        {
+          "id": "C",
+          "text": "£7"
+        },
+        {
+          "id": "D",
+          "text": "£8"
+        }
+      ],
+      "correctOptionId": "A",
+      "skillCode": "listening.numbers_dates_times",
+      "evidenceSegmentIds": [
+        "s05"
+      ],
+      "explanation": "Tổng tiền nhân viên báo cho Ben là sáu bảng."
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "Where should Ben collect his food?",
+      "options": [
+        {
+          "id": "A",
+          "text": "At the door"
+        },
+        {
+          "id": "B",
+          "text": "At his table"
+        },
+        {
+          "id": "C",
+          "text": "Outside the café"
+        },
+        {
+          "id": "D",
+          "text": "At the counter by the window"
+        }
+      ],
+      "correctOptionId": "D",
+      "skillCode": "listening.specific_information",
+      "evidenceSegmentIds": [
+        "s06",
+        "s07"
+      ],
+      "explanation": "Nhân viên chỉ Ben nhận đồ ở quầy cạnh cửa sổ."
+    }
+  ]
+}
