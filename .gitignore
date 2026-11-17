@@ -76,6 +76,9 @@ AGENTS.md
 
 # Local Firebase configuration and Admin credentials
 /google-services.json
+**/GoogleService-Info.plist
+!**/GoogleService-Info.example.plist
 **/firebase-config.local.json
 **/*firebase-adminsdk*.json
+**/service-account*.json
 firebase-debug.log*

@@ -27,7 +27,9 @@ ResponseBody response(Json data, [int status = 200]) => ResponseBody.fromString(
         ? {'success': true, 'data': data}
         : {
             'success': false,
-            'error': {'message': 'Phiên hết hạn', 'code': 'UNAUTHORIZED'},
+            'error':
+                data['error'] ??
+                {'message': 'Phiên hết hạn', 'code': 'UNAUTHORIZED'},
           },
   ),
   status,

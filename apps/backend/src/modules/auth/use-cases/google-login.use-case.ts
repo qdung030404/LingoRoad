@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { GoogleLoginDto } from '../dto/google-login.dto';
 import { FirebaseAdminService } from '../../security/firebase-admin.service';
 import { FirebaseTokenService } from '../firebase/firebase-token.service';
@@ -11,28 +11,34 @@ export interface GoogleAuthResult {
 
 @Injectable()
 export class GoogleLoginUseCase {
+  private readonly logger = new Logger(GoogleLoginUseCase.name);
   constructor(
     private readonly firebaseAdmin: FirebaseAdminService,
     private readonly firebase: FirebaseTokenService,
     private readonly users: FirebaseUserService,
     private readonly profile: ProfileService,
-  ) {}
+  ) { }
 
   async execute(dto: GoogleLoginDto): Promise<GoogleAuthResult> {
+    this.logger.log('Bắt đầu xử lý đăng nhập Google (POST /auth/google)...');
     if (!this.firebase.enabled) {
+      this.logger.error('AUTH_FIREBASE_DISABLED: Máy chủ chưa bật chế độ Firebase.');
       throw new BadRequestException({
         code: 'AUTH_FIREBASE_DISABLED',
         message: 'Đăng nhập Google yêu cầu chế độ xác thực Firebase.',
       });
     }
     const token = await this.firebaseAdmin.verifyIdToken(dto.idToken);
+    this.logger.debug(`ID Token hợp lệ. Provider: ${token.firebase?.sign_in_provider}`);
     if (token.firebase?.sign_in_provider !== 'google.com') {
+      this.logger.warn(`Provider không phải google.com (${token.firebase?.sign_in_provider})`);
       throw new BadRequestException({
         code: 'AUTH_GOOGLE_REQUIRED',
         message: 'Vui lòng đăng nhập bằng tài khoản Google.',
       });
     }
     if (!token.email || !token.email_verified) {
+      this.logger.warn('Email chưa xác thực hoặc không có email');
       throw new BadRequestException({
         code: 'AUTH_EMAIL_NOT_VERIFIED',
         message: 'Tài khoản Google cần có email đã xác thực.',
@@ -42,6 +48,7 @@ export class GoogleLoginUseCase {
     // The same verified UID always owns the same internal UUID. Never link by
     // email or issue a second token family alongside the Firebase SDK session.
     const principal = await this.users.resolve(token);
+    this.logger.log(`Hoàn tất xử lý đăng nhập Google cho user (sub: ${principal.sub})`);
     return { user: await this.profile.get(principal.sub) };
   }
 }

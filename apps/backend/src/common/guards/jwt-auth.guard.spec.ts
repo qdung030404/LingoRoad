@@ -23,4 +23,17 @@ describe('Firebase protected routes', () => {
     await expect(guard.canActivate(context(req))).resolves.toBe(true);
     expect(req.user).toEqual({ sub: 'uuid', role: 'LEARNER' });
   });
+  it('rejects tokens exceeding 4096 characters to prevent DoS', async () => {
+    const longToken = 'a'.repeat(4097);
+    const req = { headers: { authorization: `Bearer ${longToken}` } };
+    await expect(guard.canActivate(context(req))).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(verify).not.toHaveBeenCalled();
+  });
+  it('allows token with exact 4096 characters', async () => {
+    const exactToken = 'a'.repeat(4096);
+    const req = { headers: { authorization: `Bearer ${exactToken}` }, user: undefined };
+    verify.mockResolvedValue({ uid: 'uid' }); resolve.mockResolvedValue({ sub: 'uuid', role: 'LEARNER' });
+    await expect(guard.canActivate(context(req))).resolves.toBe(true);
+    expect(verify).toHaveBeenCalledWith(exactToken);
+  });
 });
