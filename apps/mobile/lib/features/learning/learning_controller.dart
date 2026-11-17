@@ -388,6 +388,19 @@ class LearningAttemptController extends ChangeNotifier {
       return true;
     } on ApiFailure catch (e) {
       if (e.status == 404) return true;
+      if (e.status == 409 && active) {
+        try {
+          final latest = await repository.attempt(current.id);
+          if (!active) return false;
+          attempt = latest;
+          if (latest.completed) {
+            notice = 'Bài học đã được hoàn thành trên thiết bị khác.';
+            return false;
+          }
+        } catch (_) {
+          /* Preserve the cancellation error for retry. */
+        }
+      }
       if (active) error = e.message;
       return false;
     } catch (_) {
