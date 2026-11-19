@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../../core/api/api_client.dart';
 import 'vocabulary_models.dart';
@@ -18,6 +17,9 @@ class VocabularyController extends ChangeNotifier {
   final VocabularyPendingStore store;
   Json? summary;
   List<VocabularyDeck> decks = [];
+  List<Map<String, dynamic>> curatedTopics = [];
+  bool loadingCuratedTopics = false;
+  String? curatedTopicsError;
   String? nextCursor, error;
   bool loading = false, busy = false, stale = false, conflict = false;
   bool _disposed = false;
@@ -25,6 +27,7 @@ class VocabularyController extends ChangeNotifier {
   int _deckEpoch = 0;
   Json? pending;
   bool _preparing = false;
+  final Map<String, List<Map<String, String>>> _suggestCache = {};
   bool get active => !_disposed && isCurrent();
   @override
   void notifyListeners() {
@@ -139,6 +142,135 @@ class VocabularyController extends ChangeNotifier {
   );
   Future<Json> createWord(String deckId, Json body) =>
       mutate('POST', '/vocabulary/decks/$deckId/words', body);
+  Future<Json> createBatchWords(String deckId, List<Json> words) =>
+      mutate('POST', '/vocabulary/decks/$deckId/words/batch', {'words': words});
+  Future<String?> uploadImage(String filePath) async {
+    final res = await repository.uploadImage(filePath);
+    return res['url'] as String?;
+  }
+  Future<List<Map<String, String>>> suggestWords(String query) async {
+    final clean = query.trim().toLowerCase();
+    if (clean.isEmpty) return const [];
+    if (_suggestCache.containsKey(clean)) {
+      return _suggestCache[clean]!;
+    }
+    try {
+      final res = await repository.request(
+        'GET',
+        vocabularyQuery('/vocabulary/suggest', {'query': clean}),
+      );
+      if (res['suggestions'] is List) {
+        final list = (res['suggestions'] as List).map((e) {
+          if (e is Map) {
+            return {
+              'word': e['word']?.toString() ?? '',
+              'pos': e['pos']?.toString() ?? '',
+            };
+          }
+          return {'word': e.toString(), 'pos': ''};
+        }).where((m) => m['word']!.isNotEmpty).toList();
+        if (_suggestCache.length >= 100) {
+          _suggestCache.remove(_suggestCache.keys.first);
+        }
+        _suggestCache[clean] = list;
+        return list;
+      }
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+  Future<Json?> lookupWord(String word) async {
+    final clean = word.trim();
+    if (clean.isEmpty) return null;
+    try {
+      final res = await repository.request(
+        'GET',
+        vocabularyQuery('/vocabulary/lookup', {'word': clean}),
+      );
+      return res.isNotEmpty ? res : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchCuratedTopics({bool force = false}) async {
+    if (curatedTopics.isNotEmpty && !force) return curatedTopics;
+    loadingCuratedTopics = true;
+    curatedTopicsError = null;
+    notifyListeners();
+    try {
+      final res = await repository.request('GET', '/vocabulary/curated-topics');
+      if (res['topics'] is List) {
+        curatedTopics = (res['topics'] as List)
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+      return curatedTopics;
+    } catch (e) {
+      curatedTopicsError = message(e);
+      return curatedTopics;
+    } finally {
+      loadingCuratedTopics = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> loadCuratedTopicWords(
+    String slug, {
+    int page = 1,
+    int limit = 50,
+    String? search,
+  }) async {
+    final query = <String, String?>{
+      'page': page.toString(),
+      'limit': limit.toString(),
+      'search': search,
+    };
+    return await repository.request(
+      'GET',
+      vocabularyQuery('/vocabulary/curated-topics/$slug/words', query),
+    );
+  }
+
+  Future<Map<String, dynamic>> cloneCuratedTopic(String slug) async {
+    if (!active) throw const ApiFailure('Phiên đăng nhập đã thay đổi.');
+    final res = await repository.request(
+      'POST',
+      '/vocabulary/curated-topics/$slug/clone',
+    );
+    await refresh();
+    return res;
+  }
+
+  bool isTopicCloned(String titleVi) {
+    final list = summary?['decks'];
+    if (list is! List) return false;
+    final normalized = titleVi.trim().toLowerCase();
+    return list.any((d) {
+      if (d is Map && d['name'] is String) {
+        final name = (d['name'] as String).trim().toLowerCase();
+        return name == normalized;
+      }
+      return false;
+    });
+  }
+
+  String? getClonedDeckId(String titleVi) {
+    final list = summary?['decks'];
+    if (list is! List) return null;
+    final normalized = titleVi.trim().toLowerCase();
+    for (final d in list) {
+      if (d is Map && d['name'] is String) {
+        final name = (d['name'] as String).trim().toLowerCase();
+        if (name == normalized) {
+          return d['id'] as String?;
+        }
+      }
+    }
+    return null;
+  }
   Future<Json> updateWord(VocabularyWord word, Json body) => mutate(
     'PATCH',
     '/vocabulary/words/${word.id}',
@@ -172,7 +304,7 @@ class VocabularyController extends ChangeNotifier {
         final old = vocabularyJson(pending!['body'])..remove('commandId');
         if (pending!['method'] != method ||
             pending!['path'] != path ||
-            jsonEncode(old) != jsonEncode(body)) {
+            !mapEquals(old, body)) {
           throw const ApiFailure(
             'Có thao tác chưa xác nhận. Hãy thử lại thao tác đó trước.',
           );
@@ -265,6 +397,7 @@ class VocabularyController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _epoch++;
+    _suggestCache.clear();
     super.dispose();
   }
 }

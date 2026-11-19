@@ -1,0 +1,2546 @@
+[
+  {
+    "topic": {
+      "slug": "travel",
+      "titleEn": "Travel & Tourism",
+      "titleVi": "Du lịch & Lữ hành",
+      "description": "Từ vựng thông dụng khi đi du lịch, đặt vé, sân bay và khách sạn.",
+      "icon": "airplane",
+      "displayOrder": 1
+    },
+    "words": [cd
+      {
+        "word": "trip",
+        "phonetic": "/tɹɪp/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Cuộc đi chơi, cuộc dạo chơi, cuộc du ngoạn.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=trip&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "traveler",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Người đi, người đi du lịch, người đi du hành, lữ khách, người hay đi.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=traveler&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "journey",
+        "phonetic": "/ˈd͡ʒɜːni/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Cuộc hành trình (thường là bằng đường bộ).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=journey&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "transport",
+        "phonetic": "/træns.ˈpɔrt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự chuyên chở, sự vận tải.",
+        "exampleEn": "the transport of passengers and goods",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=transport&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "traveller",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Người đi du lịch, người du hành.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=traveller&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "vacation",
+        "phonetic": "/veɪ.ˈkeɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự bỏ trống, sự bỏ không.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=vacation&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "tourism",
+        "phonetic": "/ˈtʊr.ˌɪ.zəm/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự du lịch.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=tourism&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "excursion",
+        "phonetic": "/ɪk.ˈskɜː.ʒən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Cuộc đi chơi; cuộc đi chơi tập thể (bằng xe lửa, tàu thuỷ... ) với giá hạ có định hạn ngày đi ngày về); cuộc đi tham quan.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=excursion&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "passport",
+        "phonetic": "/ˈpæs.ˌpɔrt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Hộ chiếu.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=passport&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "commuting",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của commute.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=commuting&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sightseeing",
+        "phonetic": "/ˈsɑɪt.ˌs.iiɳ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đi tham quan.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sightseeing&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "tourist",
+        "phonetic": "/ˈtʊr.ɪst/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Nhà du lịch, khách du lịch.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=tourist&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "transit",
+        "phonetic": "/ˈtrænt.sət/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đi qua, sự vượt qua.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=transit&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "moving",
+        "phonetic": "/ˈmuːvɪŋ/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Động, hoạt động.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=moving&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "relocate",
+        "phonetic": "/ˌri.ˈloʊ.ˌkeɪt/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Di chuyển tới; xây dựng lại.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=relocate&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "relocation",
+        "phonetic": "/ˈri.ˌloʊ.ˈkeɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự di chuyển tới; sự xây dựng lại.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=relocation&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "walk",
+        "phonetic": "/ˈwɔk/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đi bộ; sự bước.",
+        "exampleEn": "to come at a walk",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=walk&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "accommodation",
+        "phonetic": "/ə.ˌkɑː.mə.ˈdeɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự điều tiết, sự thích nghi, sự làm cho phù hợp.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=accommodation&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "mobility",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Tính chuyển động, tính di động; tính lưu động.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=mobility&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "touring",
+        "phonetic": "/ˈtɔːɹɪŋ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đi, sự đi du lịch.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=touring&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "technology",
+      "titleEn": "Technology & Computing",
+      "titleVi": "Công nghệ & Máy tính",
+      "description": "Từ vựng về phần mềm, phần cứng, Internet và công nghệ số.",
+      "icon": "laptop",
+      "displayOrder": 2
+    },
+    "words": [
+      {
+        "word": "technological",
+        "phonetic": "/ˌtɛk.nə.ˈlɑː.dʒɪ.kəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Kỹ thuật, có tính chất kỹ thuật.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=technological&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "science",
+        "phonetic": "/ˈsaɪ.əns/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Khoa học.",
+        "exampleEn": "man of science",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=science&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "tech",
+        "phonetic": "/ˈtɛk/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "(thuộc) Kỹ thuật cao, (thuộc) công nghệ cao.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=tech&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "innovation",
+        "phonetic": "/ˌɪ.nə.ˈveɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Cải tiến, sự đưa vào những cái mới.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=innovation&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "advancements",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Số nhiều của advancement",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=advancements&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "equipment",
+        "phonetic": "/ɪ.ˈkwɪp.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự trang bị.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=equipment&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "biotechnology",
+        "phonetic": "/ˌbɑɪ.oʊ.tɛk.ˈnɑː.lə.dʒi/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "công nghệ sinh học.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=biotechnology&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "engineering",
+        "phonetic": "/ˌɛn(d)ʒɪˈnɪə.ɹɪŋ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của engineer.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=engineering&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "development",
+        "phonetic": "/dɪ.ˈvɛ.ləp.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự trình bày, sự bày tỏ, sự thuyết minh (vấn đề, luận điểm, ý kiến... ).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=development&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "electronics",
+        "phonetic": "/ɪ.ˌlɛk.ˈtrɑː.nɪks/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Điện tử học.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=electronics&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "hardware",
+        "phonetic": "/ˈhɑːrd.wɛɻ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Phần cứng , cương liệu.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=hardware&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "art",
+        "phonetic": "/ˈɑɹt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Tài khéo léo, kỹ xảo.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=art&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "devices",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Số nhiều của device",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=devices&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "machinery",
+        "phonetic": "/mə.ˈʃi.nə.ri/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Máy móc,cơ giới",
+        "exampleEn": "They do not use much big machinery that uses gasoline",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=machinery&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "computing",
+        "phonetic": "/kəm.ˈpjuː.tiɳ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Điện toán; tính toán; máy điện toán.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=computing&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "technique",
+        "phonetic": "/tɛk.ˈnik/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Kỹ xảo.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=technique&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "expertise",
+        "phonetic": "/ˌɛk.ˌspɜː.ˈtiz/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự thành thạo, sự tinh thông.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=expertise&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "technical",
+        "phonetic": "/ˈtɛk.nɪ.kəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Kỹ thuật, chuyên môn.",
+        "exampleEn": "technical school",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=technical&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "informatics",
+        "phonetic": "/ˌɪn.fɜː.ˈmæ.tɪks/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Khoa học về thông tin, tin học.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=informatics&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "technics",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Kỹ thuật.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=technics&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "business",
+      "titleEn": "Business & Finance",
+      "titleVi": "Kinh doanh & Tài chính",
+      "description": "Từ vựng về đàm phán, thương mại, tài chính doanh nghiệp.",
+      "icon": "briefcase",
+      "displayOrder": 3
+    },
+    "words": [
+      {
+        "word": "company",
+        "phonetic": "/ˈkɒm-/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự cùng đi; sự cùng ở; sự có bầu có bạn.",
+        "exampleEn": "I shall be glad of your company",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=company&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "corporate",
+        "phonetic": "/ˈkɔr.pə.rət/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Đoàn thể; hợp thành đoàn thể.",
+        "exampleEn": "corporate body",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=corporate&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "biz",
+        "phonetic": "/ˈbɪz/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Việc buôn bán, việc kinh doanh, việc thương mai.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=biz&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "entrepreneurial",
+        "phonetic": "",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Nghề thầu khoán.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=entrepreneurial&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "mercantile",
+        "phonetic": "/ˈmɜː.kən.ˌtil/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Buôn, buôn bán.",
+        "exampleEn": "mercantile marine",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=mercantile&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "clientele",
+        "phonetic": "/ˌklɑɪ.ən.ˈtɛɫ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Một nhóm khách hàng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=clientele&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "entrepreneurship",
+        "phonetic": "/ˌɑːⁿn.trə.prə.ˈnɜː.ˌʃɪp/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Khả năng, sự làm chủ của doanh nghiệp.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=entrepreneurship&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "commercial",
+        "phonetic": "/kə.ˈmɜː.ʃəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Buôn bán; (thuộc) thương mại; (thuộc) thương nghiệp.",
+        "exampleEn": "commercial school",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=commercial&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "economic",
+        "phonetic": "/ˌɛ.kə.ˈnɑː.mɪk/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Kinh tế.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=economic&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "marketing",
+        "phonetic": "/ˈmɑɹkɪtɪŋ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của market.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=marketing&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "economy",
+        "phonetic": "/iːˈkɑ.nə.mi/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự quản lý kinh tế; nền kinh tế; tổ chức kinh tế.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=economy&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "services",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Động từ chia ở ngôi thứ ba số ít của service",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=services&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "management",
+        "phonetic": "/ˈmæ.nɪdʒ.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự trông nom, sự quản lý.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=management&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "investment",
+        "phonetic": "/ɪn.ˈvɛst.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đầu tư; vốn đầu tư; cái được đầu tư.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=investment&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "businessman",
+        "phonetic": ".ˌmæn",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Nhà kinh doanh, thương gia.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=businessman&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "industrial",
+        "phonetic": "/ɪn.ˈdəs.tri.əl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Công nghiệp.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=industrial&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "organizational",
+        "phonetic": "/.ʃnəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Tổ chức, cơ quan.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=organizational&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "career",
+        "phonetic": "/kə.ˈrɪr/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Nghề, nghề nghiệp.",
+        "exampleEn": "to choose a career",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=career&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "employer",
+        "phonetic": "/ɪm.ˈplɔ.ɪɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Chủ.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=employer&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "firm",
+        "phonetic": "/ˈfɜːm/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Hãng, công ty.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=firm&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "food",
+      "titleEn": "Food & Dining",
+      "titleVi": "Ẩm thực & Ăn uống",
+      "description": "Từ vựng về món ăn, nguyên liệu, nấu nướng và nhà hàng.",
+      "icon": "utensils",
+      "displayOrder": 4
+    },
+    "words": [
+      {
+        "word": "foodstuff",
+        "phonetic": "/ˈfuːd.ˌstəf/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Thực phẩm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=foodstuff&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "nutrition",
+        "phonetic": "/nʊ.ˈtrɪ.ʃən/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Sự nuôi dưỡng, sự dinh dưỡng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=nutrition&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "alimentary",
+        "phonetic": "/ˌæ.lə.ˈmɛn.t(ə.)ri/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Đồ ăn; nuôi dưỡng, dinh dưỡng.",
+        "exampleEn": "alimentary products",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=alimentary&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "eating",
+        "phonetic": "/ˈi.tiɳ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự ăn.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=eating&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "nutritious",
+        "phonetic": "/nʊ.ˈtrɪ.ʃəs/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Bổ, có chất bổ; dinh dưỡng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=nutritious&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "edible",
+        "phonetic": "/ˈɛ.də.bəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Có thể ăn được (không độc).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=edible&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "cooking",
+        "phonetic": "/ˈkʊk.ɪŋ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "nấu nướng, nấu ăn",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=cooking&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "nutritional",
+        "phonetic": "",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Dinh dưỡng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=nutritional&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "culinary",
+        "phonetic": "/ˈkə.lə.ˌnɛr.i/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Nấu nướng, (thuộc) việc bếp núc.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=culinary&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "meat",
+        "phonetic": "/mit/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Thịt.",
+        "exampleEn": "flesh meat",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=meat&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "nourishment",
+        "phonetic": "/ˈnɜː.ɪʃ.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự nuôi, sự nuôi dưỡng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=nourishment&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "meal",
+        "phonetic": "/mil/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Bột ((thường) xay chưa mịn).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=meal&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "gastronomic",
+        "phonetic": "",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Sự ăn ngon; sành ăn.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=gastronomic&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "consumption",
+        "phonetic": "/kən.ˈsəɱ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự tiêu thụ, sự tiêu dùng (hàng hoá, điện, than, nước... ).",
+        "exampleEn": "home consumption",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=consumption&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "dietary",
+        "phonetic": "/ˈdɑɪ.ə.ˌtɛr.i/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Chế độ ăn uống; chế độ ăn kiêng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=dietary&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "agriculture",
+        "phonetic": "/ˈæ.ɡrɪ.ˌkəl.tʃɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Nông nghiệp.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=agriculture&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "kitchen",
+        "phonetic": "/ˈkɪ.tʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Phòng bếp, nhà bếp.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=kitchen&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "dining",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của dine.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=dining&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "cuisine",
+        "phonetic": "/kwɪ.ˈzin/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Ẩm thực, cách nấu nướng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=cuisine&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "eater",
+        "phonetic": "/ˈi.tɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Người ăn.",
+        "exampleEn": "a big eater",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=eater&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "health",
+      "titleEn": "Health & Medicine",
+      "titleVi": "Sức khỏe & Y tế",
+      "description": "Từ vựng về bệnh viện, triệu chứng, thuốc men và lối sống lành mạnh.",
+      "icon": "heart-pulse",
+      "displayOrder": 5
+    },
+    "words": [
+      {
+        "word": "healthful",
+        "phonetic": "/ˈhɛɫθ.fəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Lành mạnh.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=healthful&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "care",
+        "phonetic": "/ˈkɛr/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự chăm sóc, sự chăm nom, sự giữ gìn, sự bảo dưỡng.",
+        "exampleEn": "to be in (under) somebody's care",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=care&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "hygiene",
+        "phonetic": "/ˈhɑɪ.ˌdʒin/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Vệ sinh.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=hygiene&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "promotive",
+        "phonetic": "/.ˈmoʊ.tɪv/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Đẩy mạnh, xúc tiến, khuyến khích.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=promotive&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "welfare",
+        "phonetic": "/ˈwɛlˌfɛə/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Hạnh phúc; phúc lợi.",
+        "exampleEn": "to work for the welfare of the nation",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=welfare&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "fitness",
+        "phonetic": "/ˈfɪt.nəs/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự thích hợp, sự phù hợp, sự vừa vặn; sự xứng dáng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=fitness&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sanitation",
+        "phonetic": "/ˌsæ.nə.ˈteɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự cải thiện điều kiện vệ sinh.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sanitation&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "safety",
+        "phonetic": "/ˈseɪf.ti/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự an toàn, sự chắc chắn.",
+        "exampleEn": "to be in safety",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=safety&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "healthy",
+        "phonetic": "/ˈhɛɫ.θi/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Có lợi cho sức khoẻ.",
+        "exampleEn": "a healthy climate",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=healthy&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sick",
+        "phonetic": "",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Ốm, đau; ốm yếu; (từ Mỹ, nghĩa Mỹ) khó ở, thấy kinh.",
+        "exampleEn": "a sick man",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sick&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "public",
+        "phonetic": "/ˈpə.blɪk/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Chung, công, công cộng.",
+        "exampleEn": "public holiday",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=public&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "unhealthy",
+        "phonetic": "/.ˈhɛɫ.θi/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Ốm yếu, yếu đuối ốm đau.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=unhealthy&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sickness",
+        "phonetic": "/ˈsɪk.nəs/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đau yếu; bệnh hoạn.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sickness&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "hygienic",
+        "phonetic": "/ˌhɑɪ.ˈdʒi.nɪk/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Vệ sinh, hợp vệ sinh.",
+        "exampleEn": "hygienic conditions",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=hygienic&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "social",
+        "phonetic": "/ˈsoʊ.ʃəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Có tính chất xã hội, có tính chất thành viên của một tập thể, sống thành xã hội.",
+        "exampleEn": "man is a social animal",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=social&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "illness",
+        "phonetic": "/ˈɪɫ.nəs/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đau yếu, sự ốm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=illness&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "life",
+        "phonetic": "/ˈlɑɪf/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự sống.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=life&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "insurance",
+        "phonetic": "/ɪn.ˈʃʊr.ənts/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự bảo hiểm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=insurance&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sanitary",
+        "phonetic": "/ˈsæ.nə.ˌtɛr.i/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Vệ sinh.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sanitary&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "wholesome",
+        "phonetic": "/ˈhoʊl.səm/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Lành, không độc.",
+        "exampleEn": "wholesome climate",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=wholesome&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "education",
+      "titleEn": "Education & School",
+      "titleVi": "Giáo dục & Học tập",
+      "description": "Từ vựng về trường học, thi cử, bằng cấp và nghiên cứu.",
+      "icon": "graduation-cap",
+      "displayOrder": 6
+    },
+    "words": [
+      {
+        "word": "schooling",
+        "phonetic": "/ˈskuː.liɳ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "hiện tại phân từ của school",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=schooling&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "inculcation",
+        "phonetic": "/ɪn.ˌkəl.ˈkeɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự ghi nhớ, sự khắc sâu, sự in sâu (vào tâm trí).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=inculcation&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "research",
+        "phonetic": "/ɹɪˈsɜːtʃ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự nghiên cứu.",
+        "exampleEn": "to be engaged in research work",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=research&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "knowledge",
+        "phonetic": "/ˈnɑː.lɪdʒ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự biết.",
+        "exampleEn": "to have no knowledge of",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=knowledge&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "pedagogy",
+        "phonetic": "/ˈpɛdəˌɡoʊd͡ʒi/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Khoa sư phạm, giáo dục học.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=pedagogy&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "literacy",
+        "phonetic": "/ˈlɪ.tə.rə.si/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự biết viết, sự biết đọc.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=literacy&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "curriculum",
+        "phonetic": "/.ləm/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Chương trình giảng dạy.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=curriculum&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "educated",
+        "phonetic": "/ˈɛ.dʒə.ˌkeɪ.təd/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Quá khứ và phân từ quá khứ của educate",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=educated&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "studies",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Động từ chia ở ngôi thứ ba số ít của study",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=studies&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "learning",
+        "phonetic": "/ˈlɜːnɪŋ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của learn.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=learning&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "teacher",
+        "phonetic": "/ˈtit͡ʃɚ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Giáo viên, cán bộ giảng dạy.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=teacher&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "information",
+        "phonetic": "/ˌɪn.fə.ˈmeɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự cung cấp tin tức; sự thông tin.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=information&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "educative",
+        "phonetic": "/ˈɛ.dʒə.ˌkeɪ.tɪv/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Có tác dụng giáo dục.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=educative&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "instruction",
+        "phonetic": "/ɪn.ˈstrək.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự dạy.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=instruction&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "science",
+        "phonetic": "/ˈsaɪ.əns/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Khoa học.",
+        "exampleEn": "man of science",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=science&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "pedagogic",
+        "phonetic": "",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Sư phạm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=pedagogic&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "educator",
+        "phonetic": "/ˈɛ.dʒə.ˌkeɪ.tɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Thầy dạy.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=educator&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "teaching",
+        "phonetic": "/ˈtiː.ʧɪŋ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự dạy, sự giảng dạy; sự dạy bảo.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=teaching&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "advocacy",
+        "phonetic": "/ˈæd.və.kə.si/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Nhiệm vụ luật sư.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=advocacy&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "pedagogical",
+        "phonetic": "/ˌpɛ.də.ˈɡɑː.dʒɪ.kəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Sư phạm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=pedagogical&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "environment",
+      "titleEn": "Environment & Nature",
+      "titleVi": "Môi trường & Tự nhiên",
+      "description": "Từ vựng về khí hậu, động thực vật, năng lượng tái tạo.",
+      "icon": "leaf",
+      "displayOrder": 7
+    },
+    "words": [
+      {
+        "word": "surroundings",
+        "phonetic": "/səˈɹaʊndɪŋz/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Số nhiều của surrounding",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=surroundings&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "atmosphere",
+        "phonetic": "/ˈæt.mə.ˌsfɪr/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Quyển khí.",
+        "exampleEn": "upper atmosphere",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=atmosphere&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "milieu",
+        "phonetic": "/mil.ˈjər/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Môi trường, hoàn cảnh.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=milieu&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "landscape",
+        "phonetic": "/ˈlænd.ˌskeɪp/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Phong cảnh, thắng cảnh.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=landscape&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "environs",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Vùng xung quanh, vùng ven (thành phố).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=environs&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "ambience",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Môi trường, không khí của một địa điểm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=ambience&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "development",
+        "phonetic": "/dɪ.ˈvɛ.ləp.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự trình bày, sự bày tỏ, sự thuyết minh (vấn đề, luận điểm, ý kiến... ).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=development&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "world",
+        "phonetic": "/ˈwɜː.əld/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Thế giới, hoàn cầu, địa cầu.",
+        "exampleEn": "to go round the world",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=world&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "situation",
+        "phonetic": "/ˌsɪ.tʃə.ˈweɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Vị trí, địa thế.",
+        "exampleEn": "unrivalled for situation",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=situation&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "ambiance",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Môi trường, không khí của một địa điểm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=ambiance&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "countryside",
+        "phonetic": "/ˈkən.tri.ˌsɑɪd/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Nông thôn, miền quê, vùng quê, địa phương (ở nông thôn).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=countryside&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "arena",
+        "phonetic": "/əˈɹiːnə/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Trường đấu (ở La mã).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=arena&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "ambient",
+        "phonetic": "/ˈæm.bi.ənt/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Bao quanh, vây quanh, ở xung quanh.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=ambient&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "scenario",
+        "phonetic": "/sə.ˈnɛr.i.ˌoʊ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Trường hợp.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=scenario&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "framework",
+        "phonetic": "/ˈfreɪm.ˌwɜːk/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sườn (nhà, tàu... ); khung (máy).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=framework&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "realm",
+        "phonetic": "/ˈrɛɫm/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Vương quốc.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=realm&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "way",
+        "phonetic": "/ˈweɪ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Đường, đường đi, lối đi.",
+        "exampleEn": "way in",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=way&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "neighbourhood",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Hàng xóm, láng giềng; tình hàng xóm.",
+        "exampleEn": "all the neighbourhood likes him",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=neighbourhood&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "setting",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Phương cách hoặc các nơi mà các vật được đặt; thiết định.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=setting&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "neighborhood",
+        "phonetic": "/ˈneɪ.bɜː.ˌhʊd/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "(dân) hàng xóm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=neighborhood&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "sports",
+      "titleEn": "Sports & Fitness",
+      "titleVi": "Thể thao & Thể hình",
+      "description": "Từ vựng về các môn thể thao, tập luyện và thi đấu.",
+      "icon": "dumbbell",
+      "displayOrder": 8
+    },
+    "words": [
+      {
+        "word": "athletics",
+        "phonetic": "/æθ.ˈlɛ.tɪks/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Điền kinh; thể thao.",
+        "exampleEn": "track and tield athletics",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=athletics&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "athletic",
+        "phonetic": "/æθ.ˈlɛ.tɪk/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Có tính chất lực sĩ, lực lưỡng, khoẻ mạnh.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=athletic&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "athletes",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Số nhiều của athlete",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=athletes&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "athlete",
+        "phonetic": "/ˈæθ.ˌlit/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Vận động viên.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=athlete&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sportsman",
+        "phonetic": "/ˈspɔrts.mən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Người thích thể thao; nhà thể thao.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sportsman&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "games",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Động từ chia ở ngôi thứ ba số ít của game",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=games&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "leisure",
+        "phonetic": "/ˈli.ʒɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Thì giờ rỗi rãi, lúc thư nhàn.",
+        "exampleEn": "at leisure",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=leisure&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "activities",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Số nhiều của activity",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=activities&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "recreational",
+        "phonetic": "/ˌrɛ.kri.ˈeɪ.ʃnəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Sự giải trí, (thuộc) sự tiêu khiển; có tính chất giải trí, có tính chất tiêu khiển.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=recreational&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "competitions",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Số nhiều của competition",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=competitions&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sportswear",
+        "phonetic": "/ˈspɔrts.ˌwɛr/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Quần áo thể thao.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sportswear&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "stadium",
+        "phonetic": "/ˈsteɪ.di.əm/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sân vận động.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=stadium&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "gym",
+        "phonetic": "/ˈdʒɪm/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Gymnasium.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=gym&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sporty",
+        "phonetic": "/ˈspɔr.ti/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Thể thao, có tính chất thể thao.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sporty&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "disciplines",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Động từ chia ở ngôi thứ ba số ít của discipline",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=disciplines&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "enthusiast",
+        "phonetic": "/-tʰjuː-/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Người hăng hái, người có nhiệt tình; người say mê.",
+        "exampleEn": "a music enthusiast",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=enthusiast&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "enthusiasts",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Số nhiều của enthusiast",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=enthusiasts&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "adventure",
+        "phonetic": "/əd.ˈvɛn.tʃɜː/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Phiêu lưu, mạo hiểm, liều.",
+        "exampleEn": "to adventure to do something",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=adventure&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "exercise",
+        "phonetic": "/ˈɛk.sɜː.ˌsɑɪz/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự thi hành, sự thực hiện; sự sử dụng (quyền, nghề nghiệp, chức năng... ).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=exercise&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "olympic",
+        "phonetic": "/ə.ˈlɪm.pɪk/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "ô-lim-pích.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=olympic&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "entertainment",
+      "titleEn": "Arts & Entertainment",
+      "titleVi": "Nghệ thuật & Giải trí",
+      "description": "Từ vựng về điện ảnh, âm nhạc, hội họa và biểu diễn.",
+      "icon": "film",
+      "displayOrder": 9
+    },
+    "words": [
+      {
+        "word": "amusement",
+        "phonetic": "/ə.ˈmjuːz.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự vui chơi; trò vui, trò giải trí, trò tiêu khiển.",
+        "exampleEn": "to do something for amusement",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=amusement&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "recreation",
+        "phonetic": "/ˌrɛ.kri.ˈeɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự giải lao, sự giải trí, sự tiêu khiển.",
+        "exampleEn": "to walk for recreation",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=recreation&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "gaming",
+        "phonetic": "/ˈɡeɪmɪŋ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của game.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=gaming&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "entertaining",
+        "phonetic": "/ˌɛntəɹˈteɪnɪŋ/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Giải trí, vui thú, thú vị.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=entertaining&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "entertainer",
+        "phonetic": "/ˌɛn.tɜː.ˈteɪ.nɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Người tiếp đãi, người chiêu đãi.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=entertainer&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "spectacle",
+        "phonetic": "/ˈspɛk.tɪ.kəl/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Cảnh tượng, quang cảnh.",
+        "exampleEn": "a charming spectacle",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=spectacle&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "enjoyment",
+        "phonetic": "/ɪn.ˈdʒɔɪ.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự thích thú, sự khoái trá.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=enjoyment&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "dining",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của dine.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=dining&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "theater",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Rạp hát, nhà hát.",
+        "exampleEn": "to go to the theater",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=theater&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sport",
+        "phonetic": "/spo(ː)ɹt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Thể thao.",
+        "exampleEn": "intervarsity sport",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sport&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "hospitality",
+        "phonetic": "/ˌhɑːs.pə.ˈtæ.lə.ti/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Lòng mến khách.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=hospitality&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "recreational",
+        "phonetic": "/ˌrɛ.kri.ˈeɪ.ʃnəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Sự giải trí, (thuộc) sự tiêu khiển; có tính chất giải trí, có tính chất tiêu khiển.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=recreational&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "fun",
+        "phonetic": "/ˈfən/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Thú vị, thích thú, vui.",
+        "exampleEn": "We had a fun time at the party.",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=fun&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "pastime",
+        "phonetic": "/ˈpæs.ˌtɑɪm/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Trò tiêu khiển.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=pastime&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "spectacles",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Kính mắt.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=spectacles&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "concert",
+        "phonetic": "/ˈkɑːnt.sɜːt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự phối hợp, sự hoà hợp.",
+        "exampleEn": "to act in concert with",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=concert&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "civic",
+        "phonetic": "/ˈsɪ.vɪk/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Công dân.",
+        "exampleEn": "civic rights",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=civic&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "showmanship",
+        "phonetic": "/ˈʃoʊ.mən.ˌʃɪp/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Nghệ thuật quảng cáo của ông bầu.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=showmanship&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "pleasure",
+        "phonetic": "/ˈplɛ.ʒɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Niềm vui thích, điều thích thú, điều thú vị, điều vui thú, điều khoái trá.",
+        "exampleEn": "a day of pleasure",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=pleasure&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "merriment",
+        "phonetic": "/ˈmɛr.ɪ.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự vui vẻ, sự hớn hở; sự vui chơi.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=merriment&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "shopping",
+      "titleEn": "Shopping & Fashion",
+      "titleVi": "Mua sắm & Thời trang",
+      "description": "Từ vựng về hàng hóa, thanh toán, trang phục và xu hướng.",
+      "icon": "shopping-bag",
+      "displayOrder": 10
+    },
+    "words": [
+      {
+        "word": "mall",
+        "phonetic": "/ˈmɔl/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Búa nặng, búa tạ.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=mall&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "groceries",
+        "phonetic": "/ˈɡɹoʊs(ə)ɹiz/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Hàng tạp phẩm, hàng tạp hóa, nhu yếu phẩm, thực phẩm, được bán lẻ ở cửa hàng tạp hóa.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=groceries&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "supermarket",
+        "phonetic": "/.ˌmɑːr.kət/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Cửa hàng tự động lớn (bán đồ ăn và đồ dùng trong nhà).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=supermarket&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "grocery",
+        "phonetic": "/ˈɡroʊs.ri/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Việc buôn bán tạp phẩm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=grocery&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "shopper",
+        "phonetic": "/ˈʃɑː.pɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Người đi mua hàng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=shopper&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "retail",
+        "phonetic": "/ˈri.ˌteɪɫ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự bán lẻ.",
+        "exampleEn": "retail price",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=retail&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "retailing",
+        "phonetic": "/ˈri.ˌteɪ.ɫiɳ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của retail.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=retailing&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "dining",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của dine.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=dining&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "buying",
+        "phonetic": "/ˈbaɪ.ɪŋ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của buy",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=buying&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "sightseeing",
+        "phonetic": "/ˈsɑɪt.ˌs.iiɳ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đi tham quan.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=sightseeing&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "stores",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Động từ chia ở ngôi thứ ba số ít của store",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=stores&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "spree",
+        "phonetic": "/ˈspri/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Cuộc vui chơi miệt mài; sự chè chén lu bù, sự ăn uống lu bù.",
+        "exampleEn": "to go (to be) on the spree",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=spree&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "purchases",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Động từ chia ở ngôi thứ ba số ít của purchase",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=purchases&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "store",
+        "phonetic": "/ˈstɔr/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự có nhiều, sự dồi dào.",
+        "exampleEn": "a store of wisdom",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=store&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "purchasing",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của purchase.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=purchasing&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "commerce",
+        "phonetic": "/ˈkɑː.ˌmɜːs/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự buôn bán; thương mại; thương nghiệp.",
+        "exampleEn": "home commerce",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=commerce&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "centre",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Điểm giữa, tâm; trung tâm; trung khu; trung ương.",
+        "exampleEn": "the centre of a circle",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=centre&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "trading",
+        "phonetic": "/tɹeɪdɪŋ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của trade.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=trading&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "arcade",
+        "phonetic": "/ɑːr.ˈkeɪd/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Đường có mái vòm.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=arcade&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "consumerism",
+        "phonetic": "/kən.ˈsuː.mə.ˌrɪ.zəm/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Chủ nghĩa tiêu thụ, sự tiêu dùng.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=consumerism&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "transportation",
+      "titleEn": "Transportation & Traffic",
+      "titleVi": "Giao thông & Phương tiện",
+      "description": "Từ vựng về xe cộ, luật giao thông, đường bộ và đường sắt.",
+      "icon": "car",
+      "displayOrder": 11
+    },
+    "words": [
+      {
+        "word": "transport",
+        "phonetic": "/træns.ˈpɔrt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự chuyên chở, sự vận tải.",
+        "exampleEn": "the transport of passengers and goods",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=transport&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "transit",
+        "phonetic": "/ˈtrænt.sət/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đi qua, sự vượt qua.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=transit&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "freight",
+        "phonetic": "/ˈfreɪt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Hàng hóa được chuyên chở.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=freight&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "rail",
+        "phonetic": "/ɹeɪl/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Tay vịn (cầu thang, lan can... ); bao lơn, lan can, thành (cầu tàu... ); lá chắn (xe bò... ).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=rail&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "shipping",
+        "phonetic": "/ˈʃɪp.piɳ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "hiện tại phân từ của ship",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=shipping&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "trucking",
+        "phonetic": "/ˈtrə.kiɳ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "hiện tại phân từ của truck",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=trucking&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "travel",
+        "phonetic": "/ˈtɹævəl/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đi du lịch; cuộc du hành, cuộc lữ hành .",
+        "exampleEn": "to go on a travel",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=travel&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "transporting",
+        "phonetic": "/trænts.ˈpɔr.tiɳ/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "hiện tại phân từ của transport",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=transporting&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "conveyance",
+        "phonetic": "/kən.ˈveɪ.ənts/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự chở, sự chuyên chở, sự vận chuyển.",
+        "exampleEn": "means of conveyance",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=conveyance&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "mobility",
+        "phonetic": "",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Tính chuyển động, tính di động; tính lưu động.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=mobility&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "cargo",
+        "phonetic": "/ˈkɑːr.ˌɡoʊ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Hàng hoá (chở trên tàu thuỷ).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=cargo&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "vehicle",
+        "phonetic": "/ˈvi.ə.kəl/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Xe, xe cộ.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=vehicle&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "commuting",
+        "phonetic": "",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Dạng phân từ hiện tại và danh động từ (gerund) của commute.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=commuting&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "passenger",
+        "phonetic": "/ˈpæ.sᵊn.dʒɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Hành khách (đi tàu xe... ).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=passenger&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "delivery",
+        "phonetic": "/dɪ.ˈlɪ.və.ri/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự phân phát (thư); sự phân phối, sự giao hàng.",
+        "exampleEn": "the early (first) delivery",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=delivery&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "trip",
+        "phonetic": "/tɹɪp/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Cuộc đi chơi, cuộc dạo chơi, cuộc du ngoạn.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=trip&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "traffic",
+        "phonetic": "/ˈtræ.fɪk/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự đi lại, sự giao thông.",
+        "exampleEn": "block in the traffic",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=traffic&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "road",
+        "phonetic": "/ˈroʊd/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Con đường.",
+        "exampleEn": "high road",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=road&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "shipment",
+        "phonetic": "/.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự xếp (hàng) xuống tàu.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=shipment&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "maritime",
+        "phonetic": "/ˈmær.ə.ˌtɑɪm/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "Biển; (thuộc) ngành hàng hải.",
+        "exampleEn": "maritime law",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=maritime&lang=en",
+        "frequency": 1
+      }
+    ]
+  },
+  {
+    "topic": {
+      "slug": "work",
+      "titleEn": "Jobs & Career",
+      "titleVi": "Công việc & Sự nghiệp",
+      "description": "Từ vựng về tuyển dụng, nơi làm việc, kỹ năng và thăng tiến.",
+      "icon": "user-tie",
+      "displayOrder": 12
+    },
+    "words": [
+      {
+        "word": "job",
+        "phonetic": "/ˈdʒɑːb/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "việc, việc làm, công việc; việc làm thuê, việc làm khoán.",
+        "exampleEn": "to make a goof job of it",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=job&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "elaboration",
+        "phonetic": "/ɪ.ˌlæ.bə.rə.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự thảo tỉ mỉ, sự thảo kỹ lưỡng, sự sửa soạn công phu; sự làm công phu; sự dựng lên.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=elaboration&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "process",
+        "phonetic": "/ˈprɑː.ˌsɛs/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Quá trình, sự tiến triển.",
+        "exampleEn": "the process of economic rehabilitation",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=process&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "task",
+        "phonetic": "/tæsk/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Nhiệm vụ, nghĩa vụ, phận sự.",
+        "exampleEn": "a difficult task",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=task&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "study",
+        "phonetic": "/ˈstə.di/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự học tập; sự nghiên cứu.",
+        "exampleEn": "to give one's hours to study",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=study&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "oeuvre",
+        "phonetic": "/µ[oe]ùvrᵊ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": ".",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=oeuvre&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "employment",
+        "phonetic": "/ɪm.ˈplɔɪ.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự dùng, sự thuê làm (công... ).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=employment&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "plow",
+        "phonetic": "/ˈplɑʊ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Cái cày.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=plow&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "make",
+        "phonetic": "/meɪk/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Hình dáng, cấu tạo (của một vật); kiểu (quần áo); tầm vóc, dáng, tư thế (người).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=make&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "assignment",
+        "phonetic": "/ə.ˈsɑɪn.mənt/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự giao việc, sự phân công; (từ Mỹ, nghĩa Mỹ) việc được giao, việc được phân công.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=assignment&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "workday",
+        "phonetic": "/ˈwɜːk.ˌdeɪ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Ngày làm việc, ngày công.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=workday&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "employ",
+        "phonetic": "/ɛmˈplɔɪ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự dùng (người).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=employ&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "employer",
+        "phonetic": "/ɪm.ˈplɔ.ɪɜː/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Chủ.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=employer&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "play",
+        "phonetic": "/ˈpleɪ/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự vui chơi, sự nô đùa, sự đùa giỡn; trò chơi, trò đùa.",
+        "exampleEn": "to be at play",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=play&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "workforce",
+        "phonetic": "/ˈwɜːk.ˌfɔrs/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Lực lượng lao động.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=workforce&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "exercise",
+        "phonetic": "/ˈɛk.sɜː.ˌsɑɪz/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Sự thi hành, sự thực hiện; sự sử dụng (quyền, nghề nghiệp, chức năng... ).",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=exercise&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "contribute",
+        "phonetic": "/kən.ˈtrɪ.bjət/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Đóng góp, góp phần.",
+        "exampleEn": "to contribute an article to a magazine",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=contribute&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "vocation",
+        "phonetic": "/voʊ.ˈkeɪ.ʃən/",
+        "partOfSpeech": "Danh từ",
+        "meaningVi": "Thiên hướng.",
+        "exampleEn": "to have vocation for music",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=vocation&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "cultivate",
+        "phonetic": "/ˈkəl.tə.ˌveɪt/",
+        "partOfSpeech": "Động từ",
+        "meaningVi": "Cày cấy, trồng trọt.",
+        "exampleEn": "",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=cultivate&lang=en",
+        "frequency": 1
+      },
+      {
+        "word": "professional",
+        "phonetic": "/prə.ˈfɛʃ.nəl/",
+        "partOfSpeech": "Tính từ",
+        "meaningVi": "(Thuộc) nghề, (thuộc) nghề nghiệp.",
+        "exampleEn": "professional skill",
+        "exampleVi": "",
+        "audioUrl": "https://dict.minhqnd.com/api/v1/tts?word=professional&lang=en",
+        "frequency": 1
+      }
+    ]
+  }
+]

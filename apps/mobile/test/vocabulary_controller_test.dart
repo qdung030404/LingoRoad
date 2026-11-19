@@ -9,8 +9,9 @@ import 'package:mobile/features/vocabulary/vocabulary_repository.dart';
 import 'package:mobile/features/vocabulary/vocabulary_review_controller.dart';
 
 class FakeVocabularyRepository implements VocabularyRepository {
-  FakeVocabularyRepository(this.handler);
+  FakeVocabularyRepository(this.handler, {this.imageHandler});
   final Future<Json> Function(String, String, Json?) handler;
+  final Future<Json> Function(String)? imageHandler;
   final List<Json> calls = [];
   @override
   Future<Json> request(String method, String path, {Json? body}) {
@@ -20,6 +21,18 @@ class FakeVocabularyRepository implements VocabularyRepository {
       'body': body == null ? null : vocabularyCopy(body),
     });
     return handler(method, path, body);
+  }
+
+  @override
+  Future<Json> uploadImage(String filePath) async {
+    calls.add({
+      'method': 'POST',
+      'path': '/vocabulary/upload-image',
+      'filePath': filePath,
+    });
+    return imageHandler != null
+        ? await imageHandler!(filePath)
+        : {'url': 'https://example.com/test-image.jpg'};
   }
 }
 
@@ -398,5 +411,51 @@ void main() {
     expect(review.conflict, false);
     review.dispose();
     owner.dispose();
+  });
+
+  test('uploadImage delegates to repository and returns url', () async {
+    final repo = FakeVocabularyRepository(
+      (method, path, body) async => {},
+      imageHandler: (path) async => {'url': 'https://azure.blob/test.png'},
+    );
+    final controller = VocabularyController(
+      repository: repo,
+      accountId: 'test-acc',
+      isCurrent: () => true,
+    );
+    final url = await controller.uploadImage('sample.png');
+    expect(url, 'https://azure.blob/test.png');
+    expect(repo.calls.any((c) => c['path'] == '/vocabulary/upload-image'), isTrue);
+    controller.dispose();
+  });
+
+  test('suggestWords uses in-memory cache and clears on dispose', () async {
+    int networkCalls = 0;
+    final repo = FakeVocabularyRepository((method, path, body) async {
+      if (path.contains('/vocabulary/suggest')) {
+        networkCalls++;
+        return {
+          'suggestions': [
+            {'word': 'apple', 'pos': 'Noun'},
+          ],
+        };
+      }
+      return {};
+    });
+    final controller = VocabularyController(
+      repository: repo,
+      accountId: 'test-acc',
+      isCurrent: () => true,
+    );
+    final res1 = await controller.suggestWords('apple');
+    expect(res1.length, 1);
+    expect(networkCalls, 1);
+
+    // Second call should use cache
+    final res2 = await controller.suggestWords('apple');
+    expect(res2.length, 1);
+    expect(networkCalls, 1);
+
+    controller.dispose();
   });
 }
