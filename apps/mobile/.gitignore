@@ -48,3 +48,6 @@ app.*.map.json
 /.local-backups/
 /android/app/google-services.json
 !/android/app/google-services.json.example
+/ios/Runner/GoogleService-Info.plist
+!/ios/Runner/GoogleService-Info.example.plist
+/firebase-config.local.json

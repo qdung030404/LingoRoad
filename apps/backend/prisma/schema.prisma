@@ -546,6 +546,7 @@ model VocabularyWord {
   partOfSpeech String @default("") @map("part_of_speech") @db.VarChar(50)
   example String @default("") @db.VarChar(1000)
   translation String @default("") @db.VarChar(1000)
+  imageUrl String? @map("image_url") @db.VarChar(500)
   acceptedAnswers String[] @map("accepted_answers")
   contentVersion Int @default(1) @map("content_version")
   version Int @default(0)
@@ -631,4 +632,32 @@ model SpeakingGameProgress {
   updatedAt DateTime @updatedAt @map("updated_at")
   @@id([userId, promptId, contentVersion])
   @@map("speaking_game_progress")
+}
+
+model CuratedTopic {
+  id String @id @default(uuid()) @db.Uuid
+  slug String @unique @db.VarChar(60)
+  titleEn String @map("name_en") @db.VarChar(100)
+  titleVi String @map("name_vi") @db.VarChar(100)
+  description String? @db.VarChar(500)
+  icon String? @map("icon_url") @db.VarChar(50)
+  displayOrder Int @default(0) @map("order_index")
+  createdAt DateTime @default(now()) @map("created_at")
+  words CuratedTopicWord[]
+  @@map("vocabulary_topics")
+}
+
+model CuratedTopicWord {
+  id String @id @default(uuid()) @db.Uuid
+  topicId String @map("topic_id") @db.Uuid
+  word String @map("english") @db.VarChar(100)
+  phonetic String @default("") @db.VarChar(100)
+  partOfSpeech String @default("") @map("part_of_speech") @db.VarChar(50)
+  meaningVi String @map("meaning") @db.VarChar(500)
+  exampleEn String @default("") @map("example") @db.VarChar(1000)
+  exampleVi String @default("") @map("translation") @db.VarChar(1000)
+  audioUrl String? @map("audio_url") @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at")
+  topic CuratedTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  @@map("topic_words")
 }

@@ -27,6 +27,7 @@
     "seed:demo": "ts-node prisma/seed-placement.ts",
     "seed:learning": "ts-node prisma/seed-learning.ts",
     "seed:speaking": "ts-node prisma/seed-speaking.ts",
+    "seed:topic-vocab": "ts-node prisma/seed-topic-vocabulary.ts",
     "test:speaking:e2e": "node --test test/speaking.e2e.cjs",
     "test:speaking:live": "node --test test/speaking-live.e2e.cjs",
     "speaking:device-server": "node test/speaking-device-server.cjs",
@@ -35,6 +36,7 @@
     "prisma:migrate": "prisma migrate deploy"
   },
   "dependencies": {
+    "@azure/storage-blob": "^12.34.0",
     "@nestjs/axios": "^3.1.3",
     "@nestjs/common": "^10.3.3",
     "@nestjs/config": "^3.2.0",

@@ -28,7 +28,8 @@ RFC định nghĩa giải pháp kỹ thuật cho `VocabularyService` và `Vocabu
 
 # 4. Non-Goals (Ngoài mục tiêu)
 
-- Tra cứu tự động từ API từ điển trả phí bên thứ ba.
+- Tra cứu tự động từ API từ điển thương mại trả phí theo lượt gọi (hệ thống tích hợp nguồn từ điển mở miễn phí kèm cơ chế cache 1 giờ và client cache).
+- Tự động nhận diện từ vựng qua camera OCR (tính năng đang được nghiên cứu & thử nghiệm cho giai đoạn sau).
 
 ---
 
@@ -40,7 +41,16 @@ Mobile (VocabularyController)
   ├── GET /vocabulary/summary | /decks | /decks/:id/words
   │     └──> VocabularyService (RepeatableRead Transaction) ──> VocabularyRepository
   │
-  └── POST / PATCH / DELETE (/decks, /words)
+  ├── POST /vocabulary/upload-image
+  │     └──> AzureBlobStorageService ──> Azure Blob Storage (Container: vocabulary, public blob read)
+  │
+  ├── GET /vocabulary/suggest | /lookup
+  │     └──> VocabularyController ──> Third-party Dict Service (Cached in-memory 1h)
+  │
+  ├── GET /curated-topics | /curated-topics/:slug/words | POST .../clone
+  │     └──> CuratedVocabularyService ──> Prisma CuratedTopic / CuratedTopicWord
+  │
+  └── POST / PATCH / DELETE (/decks, /words, /words/batch)
         └──> VocabularyService ──> VocabularyCommandService.execute()
                                      ├── Lock user row (FOR UPDATE)
                                      ├── Check VocabularyCommandReceipt (SHA-256)
@@ -60,7 +70,9 @@ Mobile (VocabularyController)
 # 7. Data Model Changes (Thay đổi Mô hình Dữ liệu)
 
 - Bảng `vocabulary_decks`: `id`, `userId`, `name` (tối đa 60 ký tự), `version`, `createdAt`, `updatedAt`, `deletedAt`.
-- Bảng `vocabulary_words`: `id`, `deckId`, `english` (100), `meaning` (500), `phonetic` (100), `partOfSpeech` (50), `example` (1000), `translation` (1000), `acceptedAnswers` (`String[]`), `contentVersion`, `version`, `learningState` (`NEEDS_REVIEW` | `REMEMBERED`), `lastPresentedAt`, `lastReviewedAt`, `lastReviewItemId`, `deletedAt`.
+- Bảng `vocabulary_words`: `id`, `deckId`, `english` (100), `meaning` (500), `phonetic` (100), `partOfSpeech` (50), `example` (1000), `translation` (1000), `imageUrl` (500), `acceptedAnswers` (`String[]`), `contentVersion`, `version`, `learningState` (`NEEDS_REVIEW` | `REMEMBERED`), `lastPresentedAt`, `lastReviewedAt`, `lastReviewItemId`, `deletedAt`.
+- Bảng `curated_topics`: `id`, `titleVi`, `titleEn`, `slug`, `description`, `icon`, `order`, `createdAt`, `updatedAt`.
+- Bảng `curated_topic_words`: `id`, `topicId`, `english`, `meaning`, `phonetic`, `partOfSpeech`, `example`, `translation`, `imageUrl`, `acceptedAnswers`.
 
 ---
 
@@ -101,10 +113,46 @@ Mobile (VocabularyController)
     "partOfSpeech": "adj",
     "example": "She is a diligent student.",
     "translation": "Cô ấy là một học sinh chăm chỉ.",
+    "imageUrl": "https://lingoroadmedia.blob.core.windows.net/vocabulary/uuid.jpg",
     "acceptedAnswers": ["diligent", "hard-working"]
   }
   ```
 - **Response**: `201 Created` (hoặc `200 OK` qua controller).
+
+### 3. `POST /vocabulary/upload-image`
+- **Request**: `multipart/form-data` (field: `image`, max: 5MB, MIME: JPG/PNG/WEBP/GIF)
+- **Response**: `201 Created`
+  ```json
+  {
+    "url": "https://lingoroadmedia.blob.core.windows.net/vocabulary/e5d6c7b8-1111-2222-3333-444455556666.jpg"
+  }
+  ```
+
+### 4. `POST /vocabulary/decks/:id/words/batch`
+- **Request Body**:
+  ```json
+  {
+    "commandId": "a2b3c4d5-1111-2222-3333-444455556666",
+    "words": [
+      {
+        "english": "Punctual",
+        "meaning": "Đúng giờ",
+        "partOfSpeech": "adj",
+        "example": "Always be punctual.",
+        "imageUrl": "https://lingoroadmedia.blob.core.windows.net/vocabulary/uuid2.jpg"
+      }
+    ]
+  }
+  ```
+- **Response**: `200 OK` / `201 Created` (Tự động bỏ qua các mục trùng `english + partOfSpeech`).
+
+### 5. `GET /vocabulary/suggest` & `GET /vocabulary/lookup`
+- **Query `suggest`**: `?query=dilig` → Gợi ý nhanh danh sách `[{ "word": "diligent", "pos": "adj" }]`.
+- **Query `lookup`**: `?word=diligent` → Trả về phát âm, `availablePos`, và nhóm nghĩa theo từ loại `meaningsByPos`.
+
+### 6. `GET /vocabulary/curated-topics` & `POST /vocabulary/curated-topics/:slug/clone`
+- **GET**: Trả về danh sách chủ đề tuyển chọn hệ thống kèm tổng số từ.
+- **POST Clone**: Sao chép toàn bộ từ của chủ đề vào một bộ thẻ cá nhân mới của người dùng hiện tại.
 
 ---
 

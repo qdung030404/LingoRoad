@@ -14,6 +14,15 @@ class FirebaseIdentity implements AuthIdentity {
     'FIREBASE_AUTH_EMULATOR_HOST',
   );
   static const _projectId = String.fromEnvironment('FIREBASE_PROJECT_ID');
+  static const _serverId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+  static const _clientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
+
+  Future<void> _ensureGoogleSetup() async {
+    await (_googleSetup ??= GoogleSignIn.instance.initialize(
+      serverClientId: _serverId.isEmpty ? null : _serverId,
+      clientId: _clientId.isEmpty ? null : _clientId,
+    ));
+  }
 
   @override
   Future<void> initialize() async {
@@ -28,7 +37,8 @@ class FirebaseIdentity implements AuthIdentity {
 
   Future<void> _initialize() async {
     if (_emulatorHost.isNotEmpty &&
-        const String.fromEnvironment('APP_ENV', defaultValue: 'dev') != 'dev') {
+        (kReleaseMode ||
+            const String.fromEnvironment('APP_ENV', defaultValue: 'dev') != 'dev')) {
       throw const ApiFailure(
         'Chỉ được dùng Firebase Auth Emulator trong môi trường dev.',
         code: 'AUTH_CONFIGURATION',
@@ -77,8 +87,21 @@ class FirebaseIdentity implements AuthIdentity {
   @override
   bool get signedIn => _auth?.currentUser != null;
   @override
-  Stream<String?> get userChanges =>
-      _auth!.authStateChanges().map((user) => user?.uid);
+  Stream<String?> get userChanges async* {
+    if (_auth == null) {
+      try {
+        await initialize();
+      } catch (_) {
+        yield null;
+        return;
+      }
+    }
+    if (_auth != null) {
+      yield* _auth!.authStateChanges().map((user) => user?.uid);
+    } else {
+      yield null;
+    }
+  }
 
   Future<T> _run<T>(Future<T> Function(FirebaseAuth auth) action) async {
     await initialize();
@@ -117,26 +140,56 @@ class FirebaseIdentity implements AuthIdentity {
   @override
   Future<void> signInWithGoogle() => _run((auth) async {
     if (kIsWeb) {
+      if (kDebugMode) {
+        debugPrint('[FirebaseIdentity] Đăng nhập Google trên Web (signInWithPopup)...');
+      }
       await auth.signInWithPopup(GoogleAuthProvider());
       return;
     }
-    const serverId = String.fromEnvironment(
-      'GOOGLE_SERVER_CLIENT_ID',
-      defaultValue: (_projectId == '' || _projectId == 'lingoroad-7fb29')
-          ? '741177056758-hsr0l8gk3avp17ui9ef42fhsdjhj47u3.apps.googleusercontent.com'
-          : '',
-    );
-    const clientId = String.fromEnvironment('GOOGLE_CLIENT_ID');
+
+    if (kDebugMode) {
+      debugPrint('[FirebaseIdentity] === BẮT ĐẦU ĐĂNG KÝ/ĐĂNG NHẬP GOOGLE ===');
+      debugPrint('[FirebaseIdentity] Cấu hình:');
+      debugPrint('  - Project ID: ${_projectId.isEmpty ? "<DefaultFirebaseOptions>" : _projectId}');
+      debugPrint('  - Server Client ID: ${_serverId.isEmpty ? "<Trống>" : "<Configured>"}');
+      debugPrint('  - Client ID: ${_clientId.isEmpty ? "<Trống>" : "<Configured>"}');
+    }
+
     try {
-      await (_googleSetup ??= GoogleSignIn.instance.initialize(
-        serverClientId: serverId.isEmpty ? null : serverId,
-        clientId: clientId.isEmpty ? null : clientId,
-      ));
+      if (kDebugMode) debugPrint('[FirebaseIdentity] 1. Khởi tạo GoogleSignIn instance...');
+      await _ensureGoogleSetup();
+
+      if (kDebugMode) debugPrint('[FirebaseIdentity] 2. Mở popup tài khoản Google (authenticate)...');
       final user = await GoogleSignIn.instance.authenticate();
-      await auth.signInWithCredential(
-        GoogleAuthProvider.credential(idToken: user.authentication.idToken),
+      final idToken = user.authentication.idToken;
+
+      if (kDebugMode) {
+        debugPrint('[FirebaseIdentity] 3. Google Authenticate thành công:');
+        debugPrint('  - Display Name: ${user.displayName}');
+        debugPrint('  - idToken tồn tại: ${idToken != null && idToken.isNotEmpty}');
+      }
+
+      if (idToken == null || idToken.isEmpty) {
+        throw const ApiFailure(
+          'Không nhận được token xác thực từ Google. Vui lòng thử lại.',
+          code: 'AUTH_GOOGLE_EMPTY_ID_TOKEN',
+        );
+      }
+
+      if (kDebugMode) debugPrint('[FirebaseIdentity] 4. Đăng nhập Firebase Auth với Google Credential...');
+      final credential = await auth.signInWithCredential(
+        GoogleAuthProvider.credential(idToken: idToken),
       );
-    } on GoogleSignInException catch (e) {
+      if (kDebugMode) {
+        debugPrint('[FirebaseIdentity] 5. Firebase Auth thành công: UID=${credential.user?.uid}');
+        debugPrint('[FirebaseIdentity] === HOÀN TẤT ĐĂNG KÝ/ĐĂNG NHẬP GOOGLE ===');
+      }
+    } on GoogleSignInException catch (e, st) {
+      _googleSetup = null;
+      if (kDebugMode) {
+        debugPrint('[FirebaseIdentity] ❌ LỖI GoogleSignInException: code=${e.code}, chi tiết=$e');
+        debugPrint('[FirebaseIdentity] StackTrace:\n$st');
+      }
       if (e.code == GoogleSignInExceptionCode.canceled) {
         throw const ApiFailure(
           'Đã hủy đăng nhập Google.',
@@ -144,8 +197,26 @@ class FirebaseIdentity implements AuthIdentity {
         );
       }
       throw const ApiFailure(
-        'Không đăng nhập được Google. Kiểm tra cấu hình Firebase và thử lại.',
+        'Không thể hoàn tất đăng nhập Google. Vui lòng thử lại.',
         code: 'AUTH_GOOGLE',
+      );
+    } on FirebaseAuthException catch (e, st) {
+      _googleSetup = null;
+      if (kDebugMode) {
+        debugPrint('[FirebaseIdentity] ❌ LỖI FirebaseAuthException: code=${e.code}, message=${e.message}');
+        debugPrint('[FirebaseIdentity] StackTrace:\n$st');
+      }
+      throw _failure(e);
+    } catch (e, st) {
+      _googleSetup = null;
+      if (kDebugMode) {
+        debugPrint('[FirebaseIdentity] ❌ LỖI không xác định (${e.runtimeType}): $e');
+        debugPrint('[FirebaseIdentity] StackTrace:\n$st');
+      }
+      if (e is ApiFailure) rethrow;
+      throw const ApiFailure(
+        'Đăng nhập Google thất bại. Vui lòng thử lại sau.',
+        code: 'AUTH_GOOGLE_ERROR',
       );
     }
   });
@@ -156,9 +227,9 @@ class FirebaseIdentity implements AuthIdentity {
   @override
   Future<void> signOut() async {
     await _auth?.signOut();
-    if (_googleSetup != null && !kIsWeb) {
+    if (!kIsWeb) {
       try {
-        await _googleSetup;
+        await _ensureGoogleSetup();
         await GoogleSignIn.instance.signOut();
       } catch (_) {
         // Firebase has already ended the session; allow offline logout.

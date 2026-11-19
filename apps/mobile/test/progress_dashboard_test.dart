@@ -78,6 +78,10 @@ class _StubDailyRepository implements DailyRepository {
 
 class _StubVocabularyRepository implements VocabularyRepository {
   @override
+  Future<Json> uploadImage(String filePath) =>
+      throw UnsupportedError('Unexpected image upload');
+
+  @override
   Future<Json> request(String method, String path, {Json? body}) async => {};
 }
 

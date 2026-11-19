@@ -1554,6 +1554,10 @@ void main() {
 }
 
 class _MemoryVocabularyRepository implements VocabularyRepository {
+  @override
+  Future<Json> uploadImage(String filePath) =>
+      throw UnsupportedError('Unexpected image upload');
+
   final List<Json> activeItems = [];
   final List<Json> savedBodies = [];
   Completer<void>? delayedGetReadingWords;

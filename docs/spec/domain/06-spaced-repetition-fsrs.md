@@ -17,9 +17,10 @@ Phân hệ Spaced Repetition & Vocabulary Review Engine chịu trách nhiệm ch
   - Bảo toàn tính toàn vẹn dữ liệu tuyệt đối qua cơ chế khóa hành trình theo người dùng (`SELECT id FROM users WHERE id = $1 FOR UPDATE`), mức cô lập giao dịch `RepeatableRead` cho truy vấn đọc và biên lai chống trùng lệnh `VocabularyCommandReceipt` băm SHA-256 (`canonicalPayloadHash`).
   - Hỗ trợ chế độ Guest Offline (`WordLibrary` & `SrsReviewPage`) lưu trữ cục bộ và tính toán chu kỳ ôn tập ngắt quãng theo mức đánh giá.
 - **Stack Công nghệ & Tích hợp (Technology Stack & Integrations)**:
-  - **Backend Framework**: NestJS (TypeScript) với `VocabularyModule` (`VocabularyController`, `VocabularyService`, `VocabularyReviewService`, `VocabularyCommandService`, `VocabularyRepository`).
-  - **Database & ORM**: PostgreSQL qua Prisma ORM (`VocabularyDeck`, `VocabularyWord`, `VocabularyReviewAttempt`, `VocabularyReviewItem`, `VocabularyCommandReceipt`).
-  - **Mobile Client**: Flutter (`VocabularyController`, `VocabularyReviewController`, `VocabularyPendingStore`, `SrsReviewPage`, `WordLibrary`).
+  - **Backend Framework**: NestJS (TypeScript) với `VocabularyModule` (`VocabularyController`, `VocabularyService`, `VocabularyReviewService`, `VocabularyCommandService`, `CuratedVocabularyService`, `AzureBlobStorageService`, `VocabularyRepository`).
+  - **Database & ORM**: PostgreSQL qua Prisma ORM (`VocabularyDeck`, `VocabularyWord`, `VocabularyReviewAttempt`, `VocabularyReviewItem`, `VocabularyCommandReceipt`, `CuratedTopic`, `CuratedTopicWord`).
+  - **Mobile Client**: Flutter (`VocabularyController`, `VocabularyReviewController`, `VocabularyPendingStore`, `SrsReviewPage`, `WordLibrary`, `CuratedTopicsWidgets`, `VocabularyBatchAddPage`).
+  - **Tích hợp bên thứ ba**: Azure Blob Storage (`@azure/storage-blob`) lưu ảnh minh họa từ vựng (container `vocabulary`, giới hạn 5MB, định dạng JPG/PNG/WEBP/GIF); API tra cứu/gợi ý từ trực tuyến `dict.minhqnd.com` (có cache in-memory TTL 1 giờ) cho chức năng Autocomplete và Lookup.
 
 ---
 
@@ -38,9 +39,19 @@ Phân hệ Spaced Repetition & Vocabulary Review Engine chịu trách nhiệm ch
 ├────────────────────────┤        ├────────────────────────┤        ├────────────────────────┤
 │ • VocabularyDeck CRUD  │        │ • Scope: NEEDS_REVIEW  │        │ • Per-User FOR UPDATE  │
 │ • VocabularyWord CRUD  │        │   or ALL               │        │ • SHA-256 Payload Hash │
-│ • Soft Delete & Version│        │ • Phases: FRONT,       │        │ • VocabularyPendingStore│
-│ • Answer Normalization │        │   MEANING, RECALL      │        │ • Guest SrsReviewPage  │
-└────────────────────────┘        └────────────────────────┘        └────────────────────────┘
+│ • Batch Add (≤50/lần)  │        │ • Phases: FRONT,       │        │ • VocabularyPendingStore│
+│ • Soft Delete & Version│        │   MEANING, RECALL      │        │ • Guest SrsReviewPage  │
+│ • Answer Normalization │        └────────────────────────┘        └────────────────────────┘
+│ • Trùng từ+PartOfSpeech│
+└────────────────────────┘
+          │
+          ▼
+┌────────────────────────┐        ┌────────────────────────┐
+│ Curated Topics Catalog │        │ Image & Online Lookup  │
+├────────────────────────┤        ├────────────────────────┤
+│ • CuratedTopic (public)│        │ • Azure Blob Upload    │
+│ • Clone sang User Deck │        │ • Suggest/Lookup Cache │
+└────────────────────────┘        └────────────────────────┘
 ```
 
 ---
@@ -50,7 +61,8 @@ Phân hệ Spaced Repetition & Vocabulary Review Engine chịu trách nhiệm ch
 | Thuật ngữ (English) | Thuật ngữ Tiếng Việt | Định nghĩa & Phạm vi sử dụng |
 | :--- | :--- | :--- |
 | **Vocabulary Deck (Aggregate Root)** | Bộ Thẻ Từ vựng | Tập hợp các từ vựng được người học phân nhóm theo chủ đề, hỗ trợ xóa mềm (`deletedAt`) và kiểm soát phiên bản (`version`). |
-| **Vocabulary Word** | Mục Từ vựng | Đơn vị từ vựng thuộc một `VocabularyDeck`, lưu trữ từ tiếng Anh (`english`), nghĩa (`meaning`), phiên âm (`phonetic`), từ loại (`partOfSpeech`), câu ví dụ (`example`), bản dịch (`translation`), các đáp án chấp nhận (`acceptedAnswers`) và trạng thái học (`learningState`). |
+| **Vocabulary Word** | Mục Từ vựng | Đơn vị từ vựng thuộc một `VocabularyDeck`, lưu trữ từ tiếng Anh (`english`), nghĩa (`meaning`), phiên âm (`phonetic`), từ loại (`partOfSpeech`), câu ví dụ (`example`), bản dịch (`translation`), ảnh minh họa (`imageUrl`, tùy chọn), các đáp án chấp nhận (`acceptedAnswers`) và trạng thái học (`learningState`). |
+| **Curated Topic (Aggregate Root)** | Chủ đề Từ vựng Tuyển chọn | Danh mục chủ đề từ vựng công khai do hệ thống biên soạn (`CuratedTopic`, nạp qua seed script), có `slug`, tiêu đề song ngữ, mô tả và tập `CuratedTopicWord`; người học có thể sao chép (`clone`) toàn bộ từ của chủ đề vào một `VocabularyDeck` cá nhân mới. |
 | **Learning State** | Trạng thái Ghi nhớ | Trạng thái hiện tại của từ vựng: `NEEDS_REVIEW` (cần ôn tập lại) hoặc `REMEMBERED` (đã thuộc). |
 | **Vocabulary Review Attempt** | Phiên Ôn tập Từ vựng | Một lượt ôn tập bộ từ vựng với bản chụp bất biến (`deckSnapshot`), hàng đợi (`queue` chứa các `wordId` còn lại) và pha hiển thị hiện tại (`phase`: `FRONT` → `MEANING` → `RECALL`). |
 | **Vocabulary Review Item** | Mục Ôn tập trong Phiên | Trạng thái kết quả của từng từ trong một phiên ôn tập: `PENDING`, `REVIEWED`, hoặc `SKIPPED`, kèm mức đánh giá (`EASY`, `MEDIUM`, `HARD`) và nguồn kết quả (`SELF_REPORT` hoặc `RECALL_AFTER_REVEAL`). |
@@ -109,6 +121,7 @@ classDiagram
         +String partOfSpeech
         +String example
         +String translation
+        +String imageUrl
         +String[] acceptedAnswers
         +Int contentVersion
         +Int version
@@ -334,6 +347,12 @@ sequenceDiagram
    - Khi nộp phiên ôn tập (`SUBMIT`), hệ thống chỉ cập nhật `VocabularyWord.learningState` cho các từ chưa bị xóa mềm và không có phiên ôn tập nào mới hơn đã cập nhật từ đó:
      - `rating === 'EASY' || rating === 'MEDIUM'` → `learningState = 'REMEMBERED'`.
      - `rating === 'HARD'` → `learningState = 'NEEDS_REVIEW'`.
+4. **Chống Trùng Từ trong Bộ Thẻ (`english` + `partOfSpeech`)**:
+   - Khi thêm từ đơn lẻ (`POST /vocabulary/decks/:id/words`) hoặc cập nhật từ (`PATCH /vocabulary/words/:id`), hệ thống từ chối nếu đã tồn tại từ khác (chưa xóa mềm) cùng `english` (không phân biệt hoa/thường) và cùng `partOfSpeech` trong cùng `deckId` (`400 Bad Request`).
+   - Khi thêm theo lô (`POST /vocabulary/decks/:id/words/batch`, tối đa `50` từ/lần qua `VocabularyCreateBatchWordsDto`), các từ trùng `english` + `partOfSpeech` với từ đã tồn tại trong bộ hoặc trùng lặp nội bộ trong chính lô đó sẽ bị bỏ qua thầm lặng (không lỗi), chỉ các từ hợp lệ còn lại được tạo và trả về trong `result.wordIds`.
+5. **Ảnh minh họa & Tra cứu Trực tuyến**:
+   - `VocabularyWord.imageUrl` là trường tùy chọn, lưu URL ảnh đã tải lên Azure Blob Storage qua `POST /vocabulary/upload-image` (giới hạn 5MB, định dạng JPG/PNG/WEBP/GIF).
+   - `GET /vocabulary/suggest` (giới hạn `40 req/phút`) và `GET /vocabulary/lookup` (giới hạn `20 req/phút`) là endpoint công khai (`@Public()`, không cần JWT), gọi API bên thứ ba `dict.minhqnd.com` với cache in-memory TTL 1 giờ, tối đa 1000 mục mỗi cache (đào thải FIFO khi đầy).
 
 ---
 
@@ -347,9 +366,17 @@ sequenceDiagram
 | `PATCH /vocabulary/decks/:id` | Đổi tên bộ thẻ (kiểm tra `expectedVersion` và `commandId`). |
 | `DELETE /vocabulary/decks/:id` | Xóa mềm bộ thẻ và các từ bên trong (chặn xóa nếu đang có phiên ôn tập `IN_PROGRESS`). |
 | `GET /vocabulary/decks/:id/words` | Lấy danh sách từ vựng trong bộ thẻ (lọc theo `state: ALL | NEEDS_REVIEW | REMEMBERED`, tìm kiếm `q`, phân trang `cursor`). |
-| `POST /vocabulary/decks/:id/words` | Thêm từ vựng mới vào bộ thẻ (`english`, `meaning`, `phonetic`, `partOfSpeech`, `example`, `translation`, `acceptedAnswers`). |
-| `PATCH /vocabulary/words/:id` | Cập nhật nội dung từ vựng (tăng `contentVersion` nếu đổi từ tiếng Anh hoặc `acceptedAnswers`). |
+| `POST /vocabulary/decks/:id/words` | Thêm từ vựng mới vào bộ thẻ (`english`, `meaning`, `phonetic`, `partOfSpeech`, `example`, `translation`, `imageUrl`, `acceptedAnswers`); từ chối nếu trùng `english` + `partOfSpeech` trong bộ. |
+| `POST /vocabulary/decks/:id/words/batch` | Thêm tối đa `50` từ cùng lúc vào bộ thẻ; tự động bỏ qua các mục trùng `english` + `partOfSpeech` (trong bộ hoặc trùng nội bộ lô) mà không báo lỗi. |
+| `PATCH /vocabulary/words/:id` | Cập nhật nội dung từ vựng (tăng `contentVersion` nếu đổi từ tiếng Anh hoặc `acceptedAnswers`); từ chối nếu đổi thành `english` + `partOfSpeech` trùng từ khác trong bộ. |
 | `DELETE /vocabulary/words/:id` | Xóa mềm từ vựng khỏi bộ thẻ. |
+| `POST /vocabulary/upload-image` | Tải ảnh minh họa (≤5MB, JPG/PNG/WEBP/GIF) lên Azure Blob Storage, trả về `url` để gán vào `imageUrl` của từ. |
+| `GET /vocabulary/suggest` | (Công khai) Gợi ý nhanh từ tiếng Anh theo `query` qua `dict.minhqnd.com`, kèm từ loại (`pos`), có cache 1 giờ. |
+| `GET /vocabulary/lookup` | (Công khai) Tra cứu nghĩa đầy đủ của một `word` qua `dict.minhqnd.com`, trả về `meaningsByPos` và `availablePos` theo từng từ loại, có cache 1 giờ. |
+| `GET /vocabulary/curated-topics` | (Công khai) Danh sách chủ đề từ vựng tuyển chọn kèm tổng số từ mỗi chủ đề. |
+| `GET /vocabulary/curated-topics/:slug/words` | (Công khai) Danh sách từ vựng theo chủ đề (phân trang, tìm kiếm `search`). |
+| `POST /vocabulary/curated-topics/:slug/clone` | Sao chép toàn bộ từ của một chủ đề tuyển chọn vào một `VocabularyDeck` mới của người dùng hiện tại. |
+
 | `POST /vocabulary/decks/:id/reviews` | Khởi tạo hoặc tiếp tục phiên ôn tập (`scope: NEEDS_REVIEW | ALL`) cho bộ thẻ. |
 | `GET /vocabulary/reviews/:id` | Lấy chi tiết trạng thái phiên ôn tập hiện tại. |
 | `POST /vocabulary/reviews/:id/commands` | Thực thi lệnh trong phiên ôn tập (`SAVE_PROGRESS`, `CHECK_RECALL`, `RATE`, `ADVANCE`, `SKIP`, `REQUEUE`, `SUBMIT`, `ABANDON`). |

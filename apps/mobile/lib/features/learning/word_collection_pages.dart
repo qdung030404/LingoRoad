@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
+import '../vocabulary/vocabulary_word_card.dart';
 import 'learning_widgets.dart';
 import 'sample_audio.dart';
 import 'srs_review_page.dart';
@@ -442,95 +443,42 @@ class _WordCard extends StatelessWidget {
       'son',
       'family',
     ].contains(audioKey);
-    final split = word.example.toLowerCase().indexOf(word.word.toLowerCase());
-    final prefix = split >= 0
-        ? word.example.substring(0, split + word.word.length)
-        : '';
-    final suffix = split >= 0
-        ? word.example.substring(split + word.word.length)
-        : word.example;
-    return FigmaCard(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: const FigmaAsset(
-              'word-list/imgFrame',
-              width: double.infinity,
-              height: 160,
-              fit: BoxFit.cover,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    learningHeading(word.word, size: 24),
-                    if (word.phonetic.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      learningBody('${word.phonetic} · danh từ', size: 14),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      'Định nghĩa : ${word.meaning}',
-                      style: designText(16, height: 1.5),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (hasAudio)
-                SampleAudio(
-                  key: ValueKey(word.id),
-                  asset: audioKey,
-                  dark: true,
-                  label: 'Nghe ${word.word}',
-                )
-              else
-                IconButton(
-                  tooltip: 'Phát âm',
-                  onPressed: () => previewMessage(
-                    context,
-                    'Từ này chưa có audio trong bản mẫu.',
-                  ),
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppColors.grey900,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(48, 48),
-                  ),
-                  icon: const FigmaAsset(
-                    'word-list/imgVuesaxLinearVolumeHigh',
-                    size: 20,
-                  ),
-                ),
-            ],
-          ),
-          if (word.example.isNotEmpty) ...[
-            const Divider(height: 32, color: AppColors.grey100),
-            Text.rich(
-              TextSpan(
-                style: designText(16),
-                children: [
-                  TextSpan(
-                    text: prefix,
-                    style: const TextStyle(
-                      color: AppColors.primary500,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                  TextSpan(text: suffix),
-                ],
-              ),
-            ),
-          ],
-        ],
+
+    return VocabularyWordCard(
+      english: word.word,
+      phonetic: word.phonetic,
+      partOfSpeech: 'danh từ',
+      meaning: word.meaning,
+      example: word.example,
+      topAction: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(
+          child: FigmaAsset('word-list/imgVuesaxOutlineMore', size: 18),
+        ),
       ),
+      onPlayAudio: () {
+        if (hasAudio) {
+          previewPush(
+            context,
+            SampleAudio(
+              key: ValueKey(word.id),
+              asset: audioKey,
+              dark: true,
+              label: 'Nghe ${word.word}',
+            ),
+          );
+        } else {
+          previewMessage(
+            context,
+            'Từ này chưa có audio trong bản mẫu.',
+          );
+        }
+      },
     );
   }
 }
