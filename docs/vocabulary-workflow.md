@@ -38,8 +38,22 @@ Envelope `{success:true,data:{...}}`. Body không nhận userId, isCorrect hoặ
 | `POST /vocabulary/reviews/:attemptId/commands` | SAVE_PROGRESS, CHECK_RECALL, RATE, ADVANCE, SKIP, REQUEUE, SUBMIT, ABANDON |
 | `GET /vocabulary/history` | Lịch sử từ riêng theo tài khoản/bộ |
 | `GET /vocabulary/summary` | Tổng từ, Đã nhớ/Cần ôn, các bộ phục vụ Home |
+| `GET /vocabulary/suggest` | Gợi ý từ nhanh trực tuyến (Autocomplete) kèm loại từ |
+| `GET /vocabulary/lookup` | Tra cứu nghĩa đa loại từ, phân nhóm `meaningsByPos` & `availablePos` |
+| `POST /vocabulary/upload-image` | Tải ảnh minh họa lên Azure Blob Storage (Container `vocabulary`) |
+| `GET /vocabulary/curated-topics` | Danh sách chủ đề từ vựng tuyển chọn hệ thống |
+| `GET /vocabulary/curated-topics/:slug/words` | Danh sách từ vựng theo chủ đề tuyển chọn |
+| `POST /vocabulary/curated-topics/:slug/clone` | Sao chép toàn bộ từ của chủ đề vào Bộ từ cá nhân |
 
 Mutation có commandId; sửa/xóa và command lượt ôn có expectedVersion. Receipt cùng user/commandId và cùng payload trả lại kết quả đã nhận; đổi payload cùng ID trả 409. Revision cũ của command mới cũng trả 409. Receipt và thay đổi dữ liệu được commit trong cùng transaction. Replay không làm lùi state hiện tại hoặc nhân đôi thống kê. Ngoài tài khoản/không có quyền nhận 404 nhất quán.
+
+## Lưu ý cấu hình Cloud & Tối ưu Client
+
+- **Azure Blob Storage**: Storage account (`AZURE_STORAGE_CONNECTION_STRING`) cần cấu hình **`Allow Blob anonymous access: Enabled`** trong Settings > Configuration trên Azure Portal. Container `vocabulary` được khởi tạo với quyền đọc công khai cho Blob (`access: 'blob'`) để Mobile app có thể tải và hiển thị ảnh minh họa từ đường dẫn Blob URL.
+- **Client Cache & Debounce (Mobile)**:
+  - `VocabularyController` tích hợp bộ nhớ đệm in-memory `_suggestCache` lưu tối đa 100 truy vấn gợi ý từ vựng gần nhất (LRU eviction), tự động dọn dẹp khi controller `dispose()`.
+  - Hộp thoại `VocabularyWordEditDialog` và `VocabularyBatchAddPage` tự động hủy timer debounce 350ms khi người dùng bấm chọn một từ gợi ý, loại bỏ hoàn toàn Race Condition ghi đè state.
+  - Chọn ảnh trực tiếp từ Gallery thiết bị qua `VocabularyImageHelper`, thẩm định scheme URL `http`/`https` trước khi gán và lưu.
 
 ## Offline và ranh giới thống kê
 

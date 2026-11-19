@@ -11,6 +11,7 @@ import '../speaking/speaking_controller.dart';
 import '../speaking/speaking_recorder.dart';
 import '../speaking/speaking_repository.dart';
 import '../speaking/speaking_topic_catalogue.dart';
+import '../vocabulary/curated_topics_widgets.dart';
 import '../vocabulary/vocabulary_controller.dart';
 import '../vocabulary/vocabulary_pages.dart';
 import '../vocabulary/vocabulary_repository.dart';
@@ -554,6 +555,8 @@ class _LearningPreviewState extends State<LearningPreview>
 
   List<Widget> road() {
     if (learning != null) {
+      final vocabLessons =
+          learning!.lessons.where((l) => l.kind == 'VOCABULARY').toList();
       return [
         learningSegments(
           ['Ngữ pháp', 'Từ vựng'],
@@ -561,10 +564,24 @@ class _LearningPreviewState extends State<LearningPreview>
           (i) => setState(() => vocabulary = i == 1),
         ),
         const SizedBox(height: 24),
-        LearningCatalogue(
-          controller: learning!,
-          kinds: [vocabulary ? 'VOCABULARY' : 'GRAMMAR'],
-        ),
+        if (!vocabulary)
+          LearningCatalogue(
+            controller: learning!,
+            kinds: const ['GRAMMAR'],
+          )
+        else ...[
+          if (vocabLessons.isNotEmpty) ...[
+            LearningCatalogue(
+              controller: learning!,
+              kinds: const ['VOCABULARY'],
+            ),
+            const SizedBox(height: 24),
+          ],
+          CuratedTopicsCatalogue(
+            controller: vocabularyController,
+            onOpenDeck: openWordDeck,
+          ),
+        ],
       ];
     }
     final names = vocabulary
@@ -600,27 +617,34 @@ class _LearningPreviewState extends State<LearningPreview>
         (i) => setState(() => vocabulary = i == 1),
       ),
       const SizedBox(height: 24),
-      Row(
-        children: [
-          Expanded(child: learningHeading('Chặng 1')),
-          learningBody(vocabulary ? '1/4' : '1/3', size: 20),
-        ],
-      ),
-      const SizedBox(height: 12),
-      for (var i = 0; i < names.length; i++) ...[
-        learningCatalogCard(
-          names[i],
-          subtitles[i],
-          i,
-          () => previewPush(
-            context,
-            vocabulary
-                ? VocabularyLessonPage(model: model)
-                : GrammarLessonPage(model: model),
-          ),
-          source: vocabulary ? 'vocabulary-road' : 'grammar-road',
+      if (vocabulary && vocabularyController != null)
+        CuratedTopicsCatalogue(
+          controller: vocabularyController,
+          onOpenDeck: openWordDeck,
+        )
+      else ...[
+        Row(
+          children: [
+            Expanded(child: learningHeading('Chặng 1')),
+            learningBody(vocabulary ? '1/4' : '1/3', size: 20),
+          ],
         ),
         const SizedBox(height: 12),
+        for (var i = 0; i < names.length; i++) ...[
+          learningCatalogCard(
+            names[i],
+            subtitles[i],
+            i,
+            () => previewPush(
+              context,
+              vocabulary
+                  ? VocabularyLessonPage(model: model)
+                  : GrammarLessonPage(model: model),
+            ),
+            source: vocabulary ? 'vocabulary-road' : 'grammar-road',
+          ),
+          const SizedBox(height: 12),
+        ],
       ],
     ];
   }

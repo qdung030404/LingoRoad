@@ -8,7 +8,7 @@ export function vocabInvalid(message: string, code = 'VOCAB_INVALID_INPUT'): nev
 export function vocabConflict(code = 'VOCAB_REVIEW_CONFLICT'): never { throw new ConflictException({ code, message: 'Dữ liệu đã thay đổi. Hãy tải lại trước khi tiếp tục.' }); }
 export function wordView(word: VocabularyWord) {
   return { id: word.id, deckId: word.deckId, english: word.english, meaning: word.meaning, phonetic: word.phonetic,
-    partOfSpeech: word.partOfSpeech, example: word.example, translation: word.translation,
+    partOfSpeech: word.partOfSpeech, example: word.example, translation: word.translation, imageUrl: word.imageUrl,
     contentVersion: word.contentVersion, version: word.version, learningState: word.learningState,
     lastReviewedAt: word.lastReviewedAt, deletedAt: word.deletedAt, createdAt: word.createdAt };
 }
