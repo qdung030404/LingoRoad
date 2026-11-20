@@ -2,16 +2,23 @@ import { BadRequestException, ConflictException, GoneException, Injectable, NotF
 import { OnEvent } from '@nestjs/event-emitter';
 import { CefrLevel, LearningAttempt, LearningDayPlan, LearningKind, LearningLesson, LearningSkillLevel, LearningUnit, Prisma } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityBatchDto, LearningPreferencesDto } from './planning.dto';
-import { AdaptiveReadingTarget, decideReadingLevel, initialReadingLevel, ReadingEvidenceCandidate } from './skill-level.policy';
+import { AdaptiveReadingTarget, decideReadingLevel, initialReadingLevel, isEligibleReadingEvidence } from './skill-level.policy';
+import {
+  chooseReadingFocus, countFocusQuestions, readingEvidence, READING_FOCUS_LABELS, ReadingFocusCode, selectReadingFocusAttempts,
+} from './reading-focus.policy';
 
 export const LEARNING_TIME_ZONE = 'Asia/Ho_Chi_Minh';
-export const CURRENT_PLAN_POLICY_VERSION = 'adaptive-v1';
+export const CURRENT_PLAN_POLICY_VERSION = 'adaptive-v2';
 const DAY_MS = 86400000;
 type Db = Prisma.TransactionClient;
 export type SkillLevelChange = { kind: LearningKind; from: CefrLevel; to: CefrLevel; direction: 'UP' | 'DOWN' };
-export type PlanItem = { id: string; lessonId: string; title: string; kind: LearningKind; estimatedMinutes: number; reasonCode: string; reason: string };
+export type PlanItem = {
+  id: string; lessonId: string; title: string; kind: LearningKind; estimatedMinutes: number;
+  reasonCode: string; reason: string; focusSkillCode?: ReadingFocusCode;
+};
 export type PlannedLesson = LearningLesson & {
   unit?: { cefrLevel: CefrLevel } | null;
 };
@@ -168,10 +175,26 @@ export function computeScoreStats(attempts: LearningAttempt[], now: Date): Progr
 /** Deterministic baseline; completion is activity, not mastery. */
 export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAttempt[], date: string,
   minutes: number, preferred: LearningKind[], previous: PlanItem[] = [], placement?: Record<string, unknown> | null,
-  readingTarget?: AdaptiveReadingTarget | null): PlanItem[] {
+  readingTarget?: AdaptiveReadingTarget | null, readingFocus?: ReadingFocusCode): PlanItem[] {
   const selected: PlanItem[] = [];
   const seen = new Set<string>();
   const completeToday = new Set(attempts.filter(a => finishedOn(a, date)).map(a => a.lessonId));
+  const focusCounts = new Map<string, number>();
+  if (readingFocus && readingTarget) {
+    for (const lesson of lessons) {
+      if (lesson.kind === 'READING' && lesson.unit?.cefrLevel === readingTarget.cefrLevel) {
+        focusCounts.set(lesson.id, countFocusQuestions(lesson.content, readingFocus));
+      }
+    }
+  }
+  const rankReadingFocus = (candidates: PlannedLesson[]): PlannedLesson[] => {
+    if (!focusCounts.size) return candidates;
+    const matchingTier = candidates.filter(lesson => focusCounts.has(lesson.id)).sort(
+      (a, b) => focusCounts.get(b.id)! - focusCounts.get(a.id)!,
+    );
+    let index = 0;
+    return candidates.map(lesson => focusCounts.has(lesson.id) ? matchingTier[index++] : lesson);
+  };
   const add = (lesson: PlannedLesson, reasonCode: string, reason: string, force = false) => {
     if (seen.has(lesson.id)) return false;
     const used = selected.reduce((sum, item) => sum + item.estimatedMinutes, 0);
@@ -180,7 +203,13 @@ export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAtt
     if (old && completeToday.has(lesson.id)) {
       selected.push(old);
     } else {
-      selected.push({ id: old?.id ?? randomUUID(), lessonId: lesson.id, title: lesson.title, kind: lesson.kind, estimatedMinutes: lesson.estimatedMinutes, reasonCode, reason });
+      const focusSkillCode = !completeToday.has(lesson.id) && (focusCounts.get(lesson.id) ?? 0) > 0 ? readingFocus : undefined;
+      selected.push({
+        id: old?.id ?? randomUUID(), lessonId: lesson.id, title: lesson.title, kind: lesson.kind,
+        estimatedMinutes: lesson.estimatedMinutes, reasonCode,
+        reason: focusSkillCode ? `Luyện thêm · ${READING_FOCUS_LABELS[focusSkillCode]}` : reason,
+        ...(focusSkillCode ? { focusSkillCode } : {}),
+      });
     }
     seen.add(lesson.id); return true;
   };
@@ -217,7 +246,7 @@ export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAtt
     || mixOrder(a) - mixOrder(b)
     || a.code.localeCompare(b.code));
   const eligible = ordered.filter(l => isCefrEligible(l, placement, readingTarget));
-  const fresh = eligible.filter(l => !recentFinished(attempts, l.id) && !seen.has(l.id));
+  const fresh = rankReadingFocus(eligible.filter(l => !recentFinished(attempts, l.id) && !seen.has(l.id)));
   // Reserve an opportunity to progress before offering a review.
   for (const lesson of fresh) if (add(lesson, 'NEW', newReason(lesson))) break;
   const review = eligible.filter(l => {
@@ -232,7 +261,7 @@ export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAtt
   });
   let rotationFallback: PlannedLesson | undefined;
   if (fresh.length) {
-    for (const lesson of review) {
+    for (const lesson of rankReadingFocus(review)) {
       const result = recentFinished(attempts, lesson.id)!;
       if (add(lesson, 'REVIEW', `Kết quả gần nhất ${result.correctCount}/${result.totalQuestions}`)) break;
     }
@@ -258,12 +287,12 @@ export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAtt
       });
     }
     const rotationTime = (lesson: PlannedLesson): number => rotationTimeMap.get(lesson.id) ?? practicedAt(lesson);
-    const rotation = [...pool].sort((a, b) =>
+    const rotation = rankReadingFocus(pool.sort((a, b) =>
       Number(!preferred.includes(a.kind)) - Number(!preferred.includes(b.kind))
       || rotationTime(a) - rotationTime(b)
       || (rotationSubRank.get(a.id) ?? 0) - (rotationSubRank.get(b.id) ?? 0)
       || mixOrder(a) - mixOrder(b)
-      || a.code.localeCompare(b.code));
+      || a.code.localeCompare(b.code)));
     rotationFallback = rotation[0];
     for (const lesson of rotation) add(lesson, 'ROTATION', 'Luyện lại bài lâu chưa học');
   }
@@ -433,23 +462,7 @@ export class PlanningService {
       }),
     ]);
     const exposureByLesson = new Map(exposures.map((e) => [e.lessonId, e.firstAttemptId]));
-    const candidates: ReadingEvidenceCandidate[] = attempts.map((a) => {
-      const snap = a.lessonSnapshot as { kind?: string; cefrLevel?: CefrLevel; code?: string };
-      return {
-        id: a.id,
-        lessonId: a.lessonId,
-        lessonCode: snap?.code ?? null,
-        contentVersion: a.contentVersion,
-        status: a.status,
-        submittedAt: a.submittedAt,
-        correctCount: a.correctCount,
-        totalQuestions: a.totalQuestions,
-        eligibleForLevelEval: a.eligibleForLevelEval,
-        exposedAttemptId: exposureByLesson.get(a.lessonId) ?? null,
-        lessonSnapshotKind: snap?.kind ?? null,
-        lessonSnapshotCefr: snap?.cefrLevel ?? null,
-      };
-    });
+    const candidates = attempts.map(attempt => readingEvidence(attempt, exposureByLesson.get(attempt.lessonId) ?? null));
     const publishedCountAt = (level: CefrLevel) =>
       readingLessons.filter((l) => l.unit?.cefrLevel === level).length;
     const unexposedPublishedCountAt = (level: CefrLevel) =>
@@ -462,7 +475,13 @@ export class PlanningService {
       publishedCountAt,
       unexposedPublishedCountAt,
     });
-    if (!decision) return null;
+    if (!decision) {
+      const evidence = readingEvidence(submittedAttempt, exposureByLesson.get(submittedAttempt.lessonId) ?? null);
+      if (isEligibleReadingEvidence(evidence, skillLevel.cefrLevel, skillLevel.changedAt)) {
+        await this.refreshExistingReadingPlan(tx, userId, skillLevel, exposureByLesson);
+      }
+      return null;
+    }
 
     const updated = await tx.learningSkillLevel.update({
       where: { id: skillLevel.id },
@@ -483,13 +502,7 @@ export class PlanningService {
         direction: decision.direction,
       },
     });
-    const todayPlan = await tx.learningDayPlan.findUnique({
-      where: { userId_date: { userId, date: learningDate(new Date()) } },
-      select: { id: true },
-    });
-    if (todayPlan) {
-      await this.ensureIn(tx, userId, { force: true, skillLevel: updated });
-    }
+    await this.refreshExistingReadingPlan(tx, userId, updated, exposureByLesson);
     return {
       kind: 'READING',
       from: skillLevel.cefrLevel,
@@ -498,10 +511,26 @@ export class PlanningService {
     };
   }
 
-  private async ensureIn(db: Db, userId: string, opts?: { force?: boolean; skillLevel?: LearningSkillLevel }) {
-    const profile = await this.profile(db, userId), date = learningDate(new Date());
-    const [existing, placement] = await Promise.all([
-      db.learningDayPlan.findUnique({ where: { userId_date: { userId, date } } }),
+  private async refreshExistingReadingPlan(
+    db: Db,
+    userId: string,
+    skillLevel: LearningSkillLevel,
+    exposureByLesson: ReadonlyMap<string, string>,
+  ) {
+    await this.ensureIn(db, userId, { force: true, existingOnly: true, skillLevel, exposureByLesson });
+  }
+
+  private async ensureIn(db: Db, userId: string, opts?: {
+    force?: boolean;
+    existingOnly?: boolean;
+    skillLevel?: LearningSkillLevel;
+    exposureByLesson?: ReadonlyMap<string, string>;
+  }) {
+    const now = new Date(), date = learningDate(now);
+    const existing = await db.learningDayPlan.findUnique({ where: { userId_date: { userId, date } } });
+    if (opts?.existingOnly && !existing) return null;
+    const [profile, placement] = await Promise.all([
+      this.profile(db, userId),
       db.placementSession.findFirst({ where: { userId, status: 'COMPLETED' }, orderBy: { completedAt: 'desc' }, select: { skillResults: true, completedAt: true } }),
     ]);
     const resolved = opts?.skillLevel
@@ -512,17 +541,11 @@ export class PlanningService {
     const skillLevel = resolved?.skillLevel ?? null;
     const upgraded = resolved?.upgraded ?? false;
     const planStaleFromPlacement = placement?.completedAt != null && existing != null && existing.updatedAt < placement.completedAt;
-    if (
-      !opts?.force &&
-      !upgraded &&
-      !planStaleFromPlacement &&
-      existing &&
-      existing.policyVersion === CURRENT_PLAN_POLICY_VERSION &&
-      existing.preferencesVersion === profile.preferencesVersion &&
-      existing.dailyGoalMinutes === profile.dailyGoalMinutes
-    ) {
-      return existing;
-    }
+    const currentPlan = !upgraded && !planStaleFromPlacement && existing
+      && existing.policyVersion === CURRENT_PLAN_POLICY_VERSION
+      && existing.preferencesVersion === profile.preferencesVersion
+      && existing.dailyGoalMinutes === profile.dailyGoalMinutes;
+    if (!opts?.force && currentPlan) return existing;
     const [lessons, attempts] = await Promise.all([
       db.learningLesson.findMany({
         where: { published: true },
@@ -534,12 +557,28 @@ export class PlanningService {
     const readingTarget: AdaptiveReadingTarget | null = skillLevel
       ? { cefrLevel: skillLevel.cefrLevel, strictCeiling: skillLevel.source === 'ADAPTIVE' }
       : null;
+    let readingFocus: ReadingFocusCode | undefined;
+    if (skillLevel && attempts.some(attempt => attempt.status === 'COMPLETED')) {
+      const exposureByLesson = opts?.exposureByLesson ?? new Map((await db.learningAnswerExposure.findMany({
+        where: { userId }, select: { lessonId: true, firstAttemptId: true },
+      })).map(exposure => [exposure.lessonId, exposure.firstAttemptId]));
+      const evidence = selectReadingFocusAttempts(attempts, exposureByLesson, skillLevel, now);
+      if (evidence.length >= 2) {
+        const answers = await db.learningAttemptAnswer.findMany({
+          where: { attemptId: { in: evidence.map(attempt => attempt.id) }, checked: true },
+          select: { attemptId: true, questionId: true, isCorrect: true },
+        });
+        readingFocus = chooseReadingFocus(evidence, answers);
+      }
+    }
     const items = chooseDailyItems(
       lessons, attempts, date, profile.dailyGoalMinutes, profile.preferredKinds,
       existing?.items as unknown as PlanItem[] ?? [],
       placement?.skillResults as Record<string, unknown> | undefined,
       readingTarget,
+      readingFocus,
     );
+    if (currentPlan && isDeepStrictEqual(items, existing.items)) return existing;
     return db.learningDayPlan.upsert({
       where: { userId_date: { userId, date } },
       create: {
@@ -555,7 +594,7 @@ export class PlanningService {
 
   async ensureToday(userId: string) {
     const plan = await this.prisma.$transaction(async tx => { await this.lock(tx, userId); return this.ensureIn(tx, userId); });
-    return { plan: await this.planDto(plan) };
+    return { plan: plan ? await this.planDto(plan) : null };
   }
   async today(userId: string) {
     const plan = await this.prisma.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });

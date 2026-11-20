@@ -122,9 +122,9 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(today.estimatedMinutes, 5);
     await preferences(owner, 120);
     today = await plan(owner);
-    assert.equal(today.totalCount, 6);
-    assert.equal(today.estimatedMinutes, 40);
-    assert.equal(new Set(today.items.map(item => item.lessonId)).size, 6);
+    assert.equal(today.totalCount, 7);
+    assert.equal(today.estimatedMinutes, 45);
+    assert.equal(new Set(today.items.map(item => item.lessonId)).size, 7);
     const me = (await api(owner, 'get', '/auth/me').expect(200)).body.data;
     assert.equal(me.profile.dailyGoalMinutes, 120);
   });
@@ -286,7 +286,7 @@ describe('Daily plans and observed learning time', () => {
     const owner = await account();
     const initial = await progress(owner);
     assert.equal(initial.units.length, 8);
-    assert.equal(initial.units.find(unit => unit.cefrLevel === 'A2').totalLessons, 2);
+    assert.equal(initial.units.find(unit => unit.cefrLevel === 'A2').totalLessons, 3);
     assert.equal(initial.units[0].status, 'IN_PROGRESS');
     assert.equal(initial.units[0].totalLessons, 3);
     assert.equal(initial.scoreStats.averageScore, null);

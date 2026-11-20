@@ -8,18 +8,24 @@ import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/features/learning/learning_preview.dart';
 
-// Đợt F1 acceptance on MuMu: starts with a clean A2-eligible account against real Flutter -> NestJS -> PostgreSQL,
-// completes both A2 reading lessons (club-meeting v4 & weekend-market), verifies the B1 upgrade banner,
-// daily plan replanning to reading-b1-hybrid-workday, and ProgressRecommendedLevelCard.
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   testWidgets(
-    'adaptive reading A2->B1 promotes on 2nd A2 completion, updates daily plan and progress card',
+    'A2 reading updates the recommended level or the reading skill in the daily plan',
     (tester) async {
       const emulator = String.fromEnvironment('LEARNING_TEST_EMULATOR');
       const email = String.fromEnvironment('F1_TEST_EMAIL');
       const password = String.fromEnvironment('F1_TEST_PASSWORD');
+      const scenario = String.fromEnvironment(
+        'READING_PLAN_CASE',
+        defaultValue: 'promotion',
+      );
       const capture = bool.fromEnvironment('CAPTURE_EVIDENCE');
+      expect([
+        'promotion',
+        'legacy-promotion',
+        'skill-focus',
+      ], contains(scenario));
       expect(emulator, isNotEmpty, reason: 'Requires a local Auth Emulator.');
       expect(email, isNotEmpty, reason: 'Requires seeded test account email.');
       expect(password, isNotEmpty, reason: 'Requires test account password.');
@@ -58,6 +64,7 @@ void main() {
           lessons.firstWhere((row) => row['code'] == code)['id'] as String;
       final clubId = lessonId('reading-a2-club-meeting');
       final marketId = lessonId('reading-a2-weekend-market');
+      final libraryId = lessonId('reading-a2-library-pickup');
       final b1Id = lessonId('reading-b1-hybrid-workday');
 
       Future<void> waitFor(
@@ -115,8 +122,9 @@ void main() {
 
       Future<void> completeReadingLesson(
         String id,
-        List<String> optionLetters,
-      ) async {
+        List<String> optionLetters, {
+        int? correctCount,
+      }) async {
         await tap(find.byKey(ValueKey('daily-plan-$id')), scroll: true);
         await tap(find.byKey(const Key('learningStart')));
         await waitFor(find.text('Câu 1/${optionLetters.length}'));
@@ -134,7 +142,9 @@ void main() {
         }
         await waitFor(find.text('Kết quả bài học'));
         expect(
-          find.text('${optionLetters.length}/${optionLetters.length} câu đúng'),
+          find.text(
+            '${correctCount ?? optionLetters.length}/${optionLetters.length} câu đúng',
+          ),
           findsOneWidget,
         );
       }
@@ -153,15 +163,70 @@ void main() {
       }
       await waitFor(find.byKey(const Key('dailyTaskProgress')));
 
-      // 1. Complete 1st A2 Reading lesson (reading-a2-club-meeting v4) -> still A2, no banner yet.
-      await completeReadingLesson(clubId, const ['B', 'D', 'A', 'C', 'B']);
+      if (scenario == 'skill-focus') {
+        await completeReadingLesson(clubId, const [
+          'A',
+          'A',
+          'B',
+          'A',
+          'A',
+        ], correctCount: 0);
+        await tap(find.byIcon(Icons.arrow_back));
+        await waitFor(find.byKey(ValueKey('daily-plan-$marketId')));
+        await completeReadingLesson(marketId, const [
+          'A',
+          'A',
+          'A',
+          'A',
+          'A',
+        ], correctCount: 0);
+        expect(
+          find.byKey(const Key('learningLevelChangeBanner')),
+          findsNothing,
+        );
+        await tap(find.byIcon(Icons.arrow_back));
+
+        final suggestion = find.byKey(ValueKey('daily-plan-$libraryId'));
+        final reason = find.descendant(
+          of: suggestion,
+          matching: find.textContaining('Luyện thêm · Tìm chi tiết'),
+        );
+        await waitFor(reason);
+        await reveal(suggestion, alignment: 0.65);
+        await screenshot('reading-b-mumu-scanning');
+        await tester.runAsync(() async {
+          final progress = await api.request('GET', '/learning/progress');
+          expect(progress['recommendedLevels']['reading']['cefrLevel'], 'A2');
+          final today = await api.request('GET', '/learning/plan/today');
+          final item = (today['plan']['items'] as List)
+              .cast<Json>()
+              .singleWhere((row) => row['lessonId'] == libraryId);
+          expect(item['focusSkillCode'], 'reading.scanning');
+        });
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        account.dispose();
+        api.dio.close();
+        return;
+      }
+
+      final legacy = scenario == 'legacy-promotion';
+      await completeReadingLesson(
+        legacy ? marketId : clubId,
+        legacy
+            ? const ['B', 'B', 'C', 'C', 'B']
+            : const ['B', 'D', 'A', 'C', 'B'],
+      );
       expect(find.byKey(const Key('learningLevelChangeBanner')), findsNothing);
       await tap(find.byIcon(Icons.arrow_back));
       await waitFor(find.byKey(const Key('dailyTaskProgress')));
-      await waitFor(find.textContaining('1/4 bài kế hoạch hoàn thành'));
 
-      // 2. Complete 2nd A2 Reading lesson (reading-a2-weekend-market) -> triggers A2 -> B1 banner.
-      await completeReadingLesson(marketId, const ['B', 'B', 'C', 'C', 'B']);
+      await completeReadingLesson(
+        legacy ? libraryId : marketId,
+        legacy
+            ? const ['B', 'D', 'A', 'C', 'A']
+            : const ['B', 'B', 'C', 'C', 'B'],
+      );
       await waitFor(find.byKey(const Key('learningLevelChangeBanner')));
       expect(find.text('Mức luyện tập đề xuất: Đọc B1 ↑'), findsOneWidget);
       expect(
@@ -174,7 +239,9 @@ void main() {
         find.byKey(const Key('learningLevelChangeBanner')).evaluate().first,
         alignment: 0.1,
       );
-      await screenshot('f1-01-mumu-banner-b1');
+      await screenshot(
+        legacy ? 'reading-a2-mumu-legacy-promotion' : 'f1-01-mumu-banner-b1',
+      );
 
       // 3. Return to Home -> daily plan refreshes and suggests reading-b1-hybrid-workday.
       await tap(find.byIcon(Icons.arrow_back));
@@ -195,7 +262,9 @@ void main() {
         ),
         findsOneWidget,
       );
-      await screenshot('f1-02-mumu-plan-b1');
+      await screenshot(
+        legacy ? 'reading-a2-mumu-plan-b1' : 'f1-02-mumu-plan-b1',
+      );
 
       // 4. Switch to Tiến độ tab -> verify ProgressRecommendedLevelCard renders B1 ↑.
       await tap(find.byKey(const Key('previewTab4')));
@@ -220,7 +289,9 @@ void main() {
         find.descendant(of: recommendedCard, matching: find.text('B1 ↑')),
         findsOneWidget,
       );
-      await screenshot('f1-03-mumu-progress-card');
+      await screenshot(
+        legacy ? 'reading-a2-mumu-progress-b1' : 'f1-03-mumu-progress-card',
+      );
 
       await tester.runAsync(() async {
         final progress = await api.request('GET', '/learning/progress');

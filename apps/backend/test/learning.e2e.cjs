@@ -494,7 +494,43 @@ describe('Persisted learning workflow', () => {
     return (await send(owner, 'post', `/learning/attempts/${checked.id}/submit`, { expectedVersion: checked.version }).expect(200)).body.data;
   }
 
-  it('blocks promotion after answer exposure + cancel, promotes A2->B1 with retry idempotency, separates budget cases, and upgrades baseline-v1 plans', async () => {
+  it('suggests library reading for scanning after independent mistakes without changing the A2 level', async () => {
+    const owner = await account();
+    await seedReadingPlacement(owner, 'A2', 15);
+    const catalog = await prisma.learningLesson.findMany({
+      where: { code: { in: ['reading-a2-club-meeting', 'reading-a2-weekend-market', 'reading-a2-library-pickup'] } },
+    });
+    const lesson = suffix => catalog.find(row => row.code === `reading-a2-${suffix}`);
+    const club = lesson('club-meeting'), market = lesson('weekend-market'), library = lesson('library-pickup');
+    const initial = (await send(owner, 'post', '/learning/plan/today', {}).expect(200)).body.data.plan;
+    const clubItem = initial.items.find(item => item.lessonId === club.id);
+    assert.ok(clubItem);
+    await completeReadingLesson(owner, club, true);
+    const afterOne = (await send(owner, 'get', '/learning/plan/today').expect(200)).body.data.plan;
+    assert.ok(afterOne.items.every(item => item.focusSkillCode === undefined));
+
+    const result = await completeReadingLesson(owner, market, true);
+    assert.equal(result.levelChange, null);
+    const focused = (await send(owner, 'get', '/learning/plan/today').expect(200)).body.data.plan;
+    assert.equal(focused.policyVersion, 'adaptive-v2');
+    assert.equal(focused.estimatedMinutes, 15);
+    assert.equal(focused.completedCount, 2);
+    assert.ok(focused.items.some(item => item.id === clubItem.id && item.completed));
+    const suggestion = focused.items.find(item => item.lessonId === library.id);
+    assert.equal(suggestion?.completed, false);
+    assert.equal(suggestion.focusSkillCode, 'reading.scanning');
+    assert.equal(suggestion.reason, 'Luyện thêm · Tìm chi tiết');
+    assert.equal(suggestion.id, initial.items.find(item => item.lessonId === library.id)?.id);
+
+    await send(owner, 'post', `/learning/attempts/${result.id}/submit`, { expectedVersion: result.version - 1 }).expect(200);
+    const stable = (await send(owner, 'post', '/learning/plan/today', {}).expect(200)).body.data.plan;
+    assert.equal(stable.version, focused.version);
+    assert.deepEqual(stable.items, focused.items);
+    const progress = (await send(owner, 'get', '/learning/progress').expect(200)).body.data;
+    assert.equal(progress.recommendedLevels.reading.cefrLevel, 'A2');
+  });
+
+  it('blocks promotion after answer exposure + cancel, promotes A2->B1 with retry idempotency, separates budget cases, and upgrades adaptive-v1 plans', async () => {
     const a2Primary = await prisma.learningLesson.findUniqueOrThrow({ where: { code: 'reading-a2-club-meeting' } });
     const a2Secondary = await prisma.learningLesson.findUniqueOrThrow({ where: { code: 'reading-a2-weekend-market' } });
     const b1Lesson = await prisma.learningLesson.findUniqueOrThrow({ where: { code: 'reading-b1-hybrid-workday' } });
@@ -519,19 +555,19 @@ describe('Persisted learning workflow', () => {
     assert.equal(secondAfterExpose.levelChange, null);
     assert.equal((await send(exposedUser, 'get', '/learning/progress').expect(200)).body.data.recommendedLevels.reading.cefrLevel, 'A2');
 
-    // Also test legacy baseline-v1 stored plan upgrades immediately to adaptive-v1 on GET/POST plan/today.
+    // Upgrade a stored adaptive-v1 plan on GET.
     await prisma.learningDayPlan.create({
       data: {
         userId: exposedUser.userId,
         date: new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10),
         preferencesVersion: 1,
         dailyGoalMinutes: 20,
-        policyVersion: 'baseline-v1',
+        policyVersion: 'adaptive-v1',
         items: [],
       },
     });
     const upgradedPlan = (await send(exposedUser, 'get', '/learning/plan/today').expect(200)).body.data.plan;
-    assert.equal(upgradedPlan.policyVersion, 'adaptive-v1');
+    assert.equal(upgradedPlan.policyVersion, 'adaptive-v2');
     assert.ok(upgradedPlan.items.length > 0);
 
     // Real-catalog demotion guard: 2 weak A2 completions (<50%) do NOT demote A2 -> A1 while A1 has only 1 reading lesson.
@@ -705,7 +741,7 @@ describe('Persisted learning workflow', () => {
       update: { dailyGoalMinutes: 10, preferredKinds: ['READING', 'LISTENING'] },
     });
     const prePlan = (await send(todayUser, 'post', '/learning/plan/today').expect(200)).body.data;
-    assert.equal(prePlan.plan.policyVersion, 'adaptive-v1');
+    assert.equal(prePlan.plan.policyVersion, 'adaptive-v2');
     assert.ok(!prePlan.plan.items.some((item) => item.lessonId === b1Seed.id));
 
     const preProgress = (await send(todayUser, 'get', '/learning/progress').expect(200)).body.data;
@@ -785,7 +821,13 @@ describe('Persisted learning workflow', () => {
       expectedVersion: legacyClub.version,
     }).expect(200)).body.data;
     assert.equal(legacyClubSubmitted.levelChange, null);
-    await prisma.learningAttempt.update({ where: { id: legacyClubSubmitted.id }, data: { contentVersion: 3 } });
+    await prisma.learningAttempt.update({ where: { id: legacyClubSubmitted.id }, data: {
+      contentVersion: 3, lessonSnapshot: { ...legacyClubSubmitted.lesson, contentVersion: 3 },
+    } });
+    await prisma.learningAnswerExposure.update({
+      where: { userId_lessonId: { userId: legacyUser.userId, lessonId: clubSeed.id } },
+      data: { contentVersion: 3 },
+    });
 
     let legacyMarket = await start(legacyUser, marketSeed);
     legacyMarket = await checkAll(legacyUser, legacyMarket, marketSeed, false);
@@ -795,6 +837,16 @@ describe('Persisted learning workflow', () => {
     assert.equal(legacyMarketSubmitted.levelChange, null);
     const legacyProgress = (await send(legacyUser, 'get', '/learning/progress').expect(200)).body.data;
     assert.equal(legacyProgress.recommendedLevels.reading.cefrLevel, 'A2');
+
+    const librarySeed = await prisma.learningLesson.findUniqueOrThrow({ where: { code: 'reading-a2-library-pickup' } });
+    const libraryResult = await completeReadingLesson(legacyUser, librarySeed);
+    const promotion = { kind: 'READING', from: 'A2', to: 'B1', direction: 'UP' };
+    assert.deepEqual(libraryResult.levelChange, promotion);
+    const libraryRetry = (await send(legacyUser, 'post', `/learning/attempts/${libraryResult.id}/submit`, {
+      expectedVersion: libraryResult.version - 1,
+    }).expect(200)).body.data;
+    assert.deepEqual(libraryRetry.levelChange, promotion);
+    assert.equal(await prisma.learningSkillLevelEvent.count({ where: { userId: legacyUser.userId } }), 1);
 
     // 2b) Fresh v4 reading-a2-club-meeting + weekend-market promotes A2 -> B1 with seeded curriculum.
     const v4User = await account();
@@ -842,6 +894,7 @@ describe('Persisted learning workflow', () => {
     const marketSeed = await prisma.learningLesson.findUnique({ where: { code: 'reading-a2-weekend-market' } });
     const b1Seed = await prisma.learningLesson.findUnique({ where: { code: 'reading-b1-hybrid-workday' } });
     const listenSeed = await prisma.learningLesson.findUnique({ where: { code: 'listening-greetings-introductions' } });
+    const librarySeed = await prisma.learningLesson.findUniqueOrThrow({ where: { code: 'reading-a2-library-pickup' } });
     assert.ok(grammarSeed && vocabSeed && a1Seed && clubSeed && marketSeed && b1Seed && listenSeed);
 
     await prisma.userProfile.upsert({
@@ -866,6 +919,7 @@ describe('Persisted learning workflow', () => {
       { lesson: a1Seed, submittedAt: new Date(baseMs + 1000) },
       { lesson: clubSeed, submittedAt: new Date(baseMs + 2000) },
       { lesson: marketSeed, submittedAt: new Date(baseMs + 3000) },
+      { lesson: librarySeed, submittedAt: new Date(baseMs + 3500) },
       { lesson: b1Seed, submittedAt: new Date(baseMs + 4000) },
       { lesson: listenSeed, submittedAt: new Date(baseMs + 5000) },
     ];
@@ -888,7 +942,7 @@ describe('Persisted learning workflow', () => {
     }
 
     const planRes = (await send(rotUser, 'post', '/learning/plan/today').expect(200)).body.data;
-    assert.equal(planRes.plan.policyVersion, 'adaptive-v1');
+    assert.equal(planRes.plan.policyVersion, 'adaptive-v2');
     assert.deepEqual(
       planRes.plan.items.map((item) => [item.lessonId, item.reasonCode]),
       [[b1Seed.id, 'ROTATION']],

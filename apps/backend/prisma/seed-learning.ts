@@ -239,9 +239,49 @@ export function loadLearningContent(): LearningSeed[] {
       },
     },
     {
+      code: 'reading-a2-library-pickup', kind: 'READING', title: 'Picking Up a Library Book',
+      description: 'Đọc thông báo của thư viện để tìm giờ nhận sách và hiểu cần làm gì nếu đến muộn.',
+      estimatedMinutes: 5, sortOrder: 7, contentVersion: 1, unitCode: 'a2-unit-1',
+      content: {
+        steps: [],
+        passage: [
+          'Notice: Collecting Your Library Books',
+          'Did you order a book from Westfield Library? When it is ready, we will send you a text message. Go to the help desk on the ground floor and show your library card. The desk is open until 6 p.m. on weekdays and until 2 p.m. on Saturdays.',
+          'We will keep your book for three days after we send the message. After that, we may give it to the next person on the list. If you need more time, call us before the three days are over. Please do not reply to the text message, because the library cannot read replies.',
+        ].join('\n\n'),
+        keyVocabulary: [
+          { id: 'a2lp-kv-1', word: 'collect', meaning: 'đến lấy, đến nhận', example: 'Lena will collect her repaired bike tomorrow.' },
+          { id: 'a2lp-kv-2', word: 'weekday', meaning: 'ngày trong tuần (thứ Hai đến thứ Sáu)', example: 'I take the bus to class on weekdays.' },
+          { id: 'a2lp-kv-3', word: 'reply', meaning: 'trả lời', example: 'Please reply to my email when you have time.' },
+        ],
+        questions: [
+          question('library-pickup-purpose', 'What is the main purpose of the notice?',
+            ['To ask readers to return books early', 'To explain how to pick up an ordered book', 'To invite readers to buy old books', 'To describe a new library building'], 1,
+            'Thông báo giải thích người đã đặt sách sẽ nhận tin nhắn và làm thủ tục nhận sách như thế nào.',
+            { skillCode: 'reading.main_idea', evidence: 'Did you order a book from Westfield Library? When it is ready, we will send you a text message.' }),
+          question('library-pickup-card', 'What should readers show at the help desk?',
+            ['Their phone charger', 'A list of books to return', 'A printed form', 'Their library card'], 3,
+            'Người đọc cần xuất trình thẻ thư viện tại quầy hỗ trợ.',
+            { skillCode: 'reading.scanning', evidence: 'Go to the help desk on the ground floor and show your library card.' }),
+          question('library-pickup-saturday', 'When does the help desk close on Saturdays?',
+            ['At 2 p.m.', 'At 3 p.m.', 'At 5 p.m.', 'At 6 p.m.'], 0,
+            'Quầy đóng cửa lúc 2 giờ chiều thứ Bảy. Mốc 6 giờ chiều áp dụng cho ngày trong tuần.',
+            { skillCode: 'reading.scanning', evidence: 'The desk is open until 6 p.m. on weekdays and until 2 p.m. on Saturdays.' }),
+          question('library-pickup-contact', 'How should readers ask the library to hold a book longer?',
+            ['Visit Westfield on a Sunday', 'Send a reply to the text', 'Call before the three days end', 'Put a note in the book'], 2,
+            'Nếu cần thêm thời gian, người đọc phải gọi cho thư viện trước khi hết ba ngày.',
+            { skillCode: 'reading.scanning', evidence: 'If you need more time, call us before the three days are over.' }),
+          question('library-pickup-late', 'Ivy received a message four days ago and did not call. Why should she check before going to the library?',
+            ['Her book might now be for another reader', 'She needs to pay to enter the library', 'Her library card probably stopped working', 'Her book must be at a different library'], 0,
+            'Ivy đã quá thời hạn giữ sách và chưa xin thêm thời gian, nên thư viện có thể đã chuyển sách cho người khác trong danh sách.',
+            { skillCode: 'reading.inference', evidence: 'We will keep your book for three days after we send the message. After that, we may give it to the next person on the list.' }),
+        ],
+      },
+    },
+    {
       code: 'reading-b1-hybrid-workday', kind: 'READING', title: 'Lịch làm việc kết hợp của nhóm thiết kế',
       description: 'Đọc thông báo nội bộ về quy tắc làm việc từ xa và phối hợp tại văn phòng.',
-      estimatedMinutes: 8, sortOrder: 7, contentVersion: 2, unitCode: 'b1-unit-1',
+      estimatedMinutes: 8, sortOrder: 8, contentVersion: 2, unitCode: 'b1-unit-1',
       content: {
         steps: [
           {
@@ -317,7 +357,7 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-b2-urban-pocket-parks', kind: 'READING', title: 'Công viên bỏ túi giữa lòng đô thị',
       description: 'Đọc bài phân tích về cách các khoảng xanh nhỏ cải thiện vi khí hậu và gắn kết cư dân.',
-      estimatedMinutes: 10, sortOrder: 8, contentVersion: 3, unitCode: 'b2-unit-1',
+      estimatedMinutes: 10, sortOrder: 9, contentVersion: 3, unitCode: 'b2-unit-1',
       content: {
         steps: [
           {
@@ -390,7 +430,7 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-c1-deep-reading-attention', kind: 'READING', title: 'Đọc sâu trong kỷ nguyên phân mảnh chú ý',
       description: 'Đọc bài luận học thuật về tác động của thói quen đọc lướt đối với tư duy phản biện.',
-      estimatedMinutes: 12, sortOrder: 9, contentVersion: 2, unitCode: 'c1-unit-1',
+      estimatedMinutes: 12, sortOrder: 10, contentVersion: 2, unitCode: 'c1-unit-1',
       content: {
         steps: [
           {

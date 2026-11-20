@@ -27,6 +27,26 @@ function attempt(id: string, lessonId: string, score: number | null, submittedAt
 const kinds = Object.values(LearningKind);
 
 describe('Daily planning policy', () => {
+  it('reorders only target-tier Reading positions and preserves completion and budget', () => {
+    const a2 = { cefrLevel: CefrLevel.A2, strictCeiling: true };
+    const detail = (id: string, order: number, count: number, tier: CefrLevel = 'A2'): PlannedLesson => ({
+      ...lesson(id, 'READING', 5, order, tier, tier),
+      content: { questions: Array.from({ length: count }, (_, i) => ({ id: String(i), skillCode: 'reading.scanning' })) },
+    });
+    const catalog = [detail('plain', 1, 0), lesson('listen', 'LISTENING', 5, 2), detail('drill', 3, 2),
+      detail('too-high', 4, 3, 'B1'), detail('too-low', 5, 3, 'A1')];
+    const makePlan = (history: LearningAttempt[], budget: number) =>
+      chooseDailyItems(catalog, history, '2026-11-02', budget, kinds, [], null, a2, 'reading.scanning');
+    expect(makePlan([], 10).map(item => item.lessonId)).toEqual(['drill', 'listen']);
+    expect(makePlan([], 5)[0]).toMatchObject({ reasonCode: 'NEW', focusSkillCode: 'reading.scanning', reason: 'Luyện thêm · Tìm chi tiết' });
+    const history = [attempt('plain', 'plain', 0), attempt('drill', 'drill', 3)];
+    expect(makePlan(history, 10).map(item => [item.lessonId, item.reasonCode])).toEqual([['listen', 'NEW'], ['drill', 'REVIEW']]);
+    const done = attempt('today', 'listen', 5, now);
+    const all = [...history, done, attempt('lower', 'too-low', 4)];
+    expect(makePlan(all, 10).map(item => [item.lessonId, item.reasonCode])).toEqual([['listen', 'COMPLETED_TODAY'], ['drill', 'ROTATION']]);
+    expect(makePlan(all, 120).find(item => item.lessonId === 'too-low')?.focusSkillCode).toBeUndefined();
+    expect(makePlan(all, 10).filter(item => item.focusSkillCode)).toHaveLength(1);
+  });
   it('uses the Vietnam midnight boundary without the phone timezone', () => {
     expect(learningDate(new Date('2026-11-01T16:59:59Z'))).toBe('2026-11-01');
     expect(learningDate(new Date('2026-11-01T17:00:00Z'))).toBe('2026-11-02');
@@ -388,12 +408,12 @@ describe('Progress roadmap units and score stats', () => {
       jest.useRealTimers();
     }
   });
-  it('upgrades persisted baseline-v1 plans to adaptive-v1 on today() / ensureToday()', async () => {
+  it.each(['baseline-v1', 'adaptive-v1'])('upgrades persisted %s plans to adaptive-v2 on today() / ensureToday()', async (oldPolicyVersion) => {
     jest.useFakeTimers().setSystemTime(now);
     try {
       const legacyPlan = {
         id: 'plan-1', userId: 'u', date: '2026-11-02', version: 0,
-        preferencesVersion: 2, dailyGoalMinutes: 15, policyVersion: 'baseline-v1',
+        preferencesVersion: 2, dailyGoalMinutes: 15, policyVersion: oldPolicyVersion,
         items: [{ id: 'old-item', lessonId: 'read-a2', title: 'Old', kind: 'READING', estimatedMinutes: 5, reasonCode: 'NEW', reason: 'Bài mới' }],
         createdAt: now, updatedAt: now,
       };
@@ -421,7 +441,7 @@ describe('Progress roadmap units and score stats', () => {
       const svc = new PlanningService(db as unknown as PrismaService);
       const res = await svc.today('u');
       expect(upsert).toHaveBeenCalledTimes(1);
-      expect(res.plan?.policyVersion).toBe('adaptive-v1');
+      expect(res.plan?.policyVersion).toBe('adaptive-v2');
       expect(res.plan?.items.map((i: any) => [i.lessonId, i.reason])).toEqual([
         ['read-b1', 'Bài mới · đúng mức B1'],
         ['read-a2', 'Bài mới'],
@@ -497,7 +517,7 @@ describe('Progress roadmap units and score stats', () => {
           version: 0,
           preferencesVersion: 0,
           dailyGoalMinutes: 10,
-          policyVersion: 'adaptive-v1',
+          policyVersion: 'adaptive-v2',
           createdAt: stalePlanAt,
           updatedAt: stalePlanAt,
           items: [

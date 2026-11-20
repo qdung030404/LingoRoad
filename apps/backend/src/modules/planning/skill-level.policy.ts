@@ -54,6 +54,20 @@ export function initialReadingLevel(
   };
 }
 
+export function isEligibleReadingEvidence(
+  attempt: ReadingEvidenceCandidate,
+  current: CefrLevel,
+  changedAt: Date | null,
+): boolean {
+  const minVersion = attempt.lessonCode ? MIN_EVALUABLE_CONTENT_VERSION_BY_CODE[attempt.lessonCode] : undefined;
+  return attempt.status === 'COMPLETED' && attempt.submittedAt != null
+    && attempt.totalQuestions > 0 && attempt.correctCount != null
+    && (!changedAt || attempt.submittedAt > changedAt)
+    && attempt.eligibleForLevelEval && attempt.exposedAttemptId === attempt.id
+    && attempt.lessonSnapshotKind === 'READING' && attempt.lessonSnapshotCefr === current
+    && (minVersion == null || (attempt.contentVersion ?? 0) >= minVersion);
+}
+
 /**
  * Pure policy for adaptive READING level transitions.
  * `attempts` must be ordered newest-first (`submittedAt DESC, id DESC`).
@@ -69,21 +83,7 @@ export function decideReadingLevel(input: {
   const evidence: ReadingEvidenceCandidate[] = [];
 
   for (const attempt of input.attempts) {
-    if (
-      attempt.status !== 'COMPLETED' ||
-      !attempt.submittedAt ||
-      attempt.totalQuestions <= 0 ||
-      attempt.correctCount == null
-    ) {
-      continue;
-    }
-    if (input.changedAt && attempt.submittedAt <= input.changedAt) continue;
-    if (!attempt.eligibleForLevelEval || attempt.exposedAttemptId !== attempt.id) continue;
-    if (attempt.lessonSnapshotKind !== 'READING' || attempt.lessonSnapshotCefr !== input.current) {
-      continue;
-    }
-    const minVersion = attempt.lessonCode ? MIN_EVALUABLE_CONTENT_VERSION_BY_CODE[attempt.lessonCode] : undefined;
-    if (minVersion != null && (attempt.contentVersion ?? 0) < minVersion) continue;
+    if (!isEligibleReadingEvidence(attempt, input.current, input.changedAt)) continue;
     if (seenLessons.has(attempt.lessonId)) continue;
     seenLessons.add(attempt.lessonId);
     evidence.push(attempt);
