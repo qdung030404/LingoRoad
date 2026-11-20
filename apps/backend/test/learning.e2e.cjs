@@ -887,15 +887,13 @@ describe('Persisted learning workflow', () => {
       await prisma.learningLesson.deleteMany({ where: { id: { in: fixtures.splice(0) } } });
     }
     const rotUser = await account();
-    const grammarSeed = await prisma.learningLesson.findUnique({ where: { code: 'grammar-pronouns-to-be' } });
-    const vocabSeed = await prisma.learningLesson.findUnique({ where: { code: 'vocabulary-family' } });
-    const a1Seed = await prisma.learningLesson.findUnique({ where: { code: 'reading-everyday-introductions' } });
-    const clubSeed = await prisma.learningLesson.findUnique({ where: { code: 'reading-a2-club-meeting' } });
-    const marketSeed = await prisma.learningLesson.findUnique({ where: { code: 'reading-a2-weekend-market' } });
-    const b1Seed = await prisma.learningLesson.findUnique({ where: { code: 'reading-b1-hybrid-workday' } });
-    const listenSeed = await prisma.learningLesson.findUnique({ where: { code: 'listening-greetings-introductions' } });
-    const librarySeed = await prisma.learningLesson.findUniqueOrThrow({ where: { code: 'reading-a2-library-pickup' } });
-    assert.ok(grammarSeed && vocabSeed && a1Seed && clubSeed && marketSeed && b1Seed && listenSeed);
+    const publishedLessons = await prisma.learningLesson.findMany({
+      where: { published: true },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+    const a1Seed = publishedLessons.find(lesson => lesson.code === 'reading-everyday-introductions');
+    const b1Seed = publishedLessons.find(lesson => lesson.code === 'reading-b1-hybrid-workday');
+    assert.ok(a1Seed && b1Seed);
 
     await prisma.userProfile.upsert({
       where: { userId: rotUser.userId },
@@ -913,29 +911,24 @@ describe('Persisted learning workflow', () => {
         changedAt: new Date(baseMs - 10_000),
       },
     });
-    const completedRows = [
-      { lesson: grammarSeed, submittedAt: new Date(baseMs + 500) },
-      { lesson: vocabSeed, submittedAt: new Date(baseMs + 800) },
-      { lesson: a1Seed, submittedAt: new Date(baseMs + 1000) },
-      { lesson: clubSeed, submittedAt: new Date(baseMs + 2000) },
-      { lesson: marketSeed, submittedAt: new Date(baseMs + 3000) },
-      { lesson: librarySeed, submittedAt: new Date(baseMs + 3500) },
-      { lesson: b1Seed, submittedAt: new Date(baseMs + 4000) },
-      { lesson: listenSeed, submittedAt: new Date(baseMs + 5000) },
-    ];
-    for (const row of completedRows) {
+    // Complete the current catalogue so newly published lessons cannot switch the plan to NEW.
+    // Make the A1 lesson the oldest to exercise the B1 rotation priority.
+    const completedLessons = [a1Seed, ...publishedLessons.filter(lesson => lesson.id !== a1Seed.id)];
+    for (const [index, lesson] of completedLessons.entries()) {
+      const submittedAt = new Date(baseMs + index * 1000);
+      const totalQuestions = lesson.content.questions.length;
       await prisma.learningAttempt.create({
         data: {
           userId: rotUser.userId,
-          lessonId: row.lesson.id,
+          lessonId: lesson.id,
           status: 'COMPLETED',
-          correctCount: 5,
-          totalQuestions: 5,
-          contentVersion: row.lesson.contentVersion,
+          correctCount: totalQuestions,
+          totalQuestions,
+          contentVersion: lesson.contentVersion,
           eligibleForLevelEval: true,
-          submittedAt: row.submittedAt,
-          startedAt: new Date(row.submittedAt.getTime() - 1000),
-          lessonSnapshot: { code: row.lesson.code, kind: row.lesson.kind, title: row.lesson.title },
+          submittedAt,
+          startedAt: new Date(submittedAt.getTime() - 1000),
+          lessonSnapshot: { code: lesson.code, kind: lesson.kind, title: lesson.title },
           contentSnapshot: {},
         },
       });

@@ -122,9 +122,19 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(today.estimatedMinutes, 5);
     await preferences(owner, 120);
     today = await plan(owner);
-    assert.equal(today.totalCount, 7);
-    assert.equal(today.estimatedMinutes, 45);
-    assert.equal(new Set(today.items.map(item => item.lessonId)).size, 7);
+    const foundationLessons = await prisma.learningLesson.findMany({
+      where: {
+        published: true,
+        OR: [{ unit: null }, { unit: { cefrLevel: { in: ['A1', 'A2'] } } }],
+      },
+      select: { id: true, estimatedMinutes: true },
+    });
+    assert.equal(today.totalCount, foundationLessons.length);
+    assert.equal(today.estimatedMinutes, foundationLessons.reduce((sum, lesson) => sum + lesson.estimatedMinutes, 0));
+    assert.deepEqual(
+      today.items.map(item => item.lessonId).sort(),
+      foundationLessons.map(lesson => lesson.id).sort(),
+    );
     const me = (await api(owner, 'get', '/auth/me').expect(200)).body.data;
     assert.equal(me.profile.dailyGoalMinutes, 120);
   });
