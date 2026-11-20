@@ -34,6 +34,8 @@ export class VocabularyController {
     return response(await this.curated.getTopicWords(slug, q.page, q.limit, q.search));
   }
 
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('curated-topics/:slug/clone')
   async cloneTopicToDeck(
     @CurrentUser('sub') userId: string,
@@ -59,6 +61,8 @@ export class VocabularyController {
     return response(await this.curated.lookupOnline(q.word));
   }
 
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post('upload-image')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   async uploadImage(@UploadedFile() file?: { buffer: Buffer; originalname?: string; mimetype?: string; size?: number }) {
@@ -71,12 +75,12 @@ export class VocabularyController {
   @Post('decks') async createDeck(@CurrentUser('sub') u: string, @Body() d: VocabularyCreateDeckDto) { return response(await this.library.createDeck(u, d)); }
   @Get('decks/:id') async deck(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string) { return response(await this.library.deck(u, id)); }
   @Patch('decks/:id') async updateDeck(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyUpdateDeckDto) { return response(await this.library.updateDeck(u, id, d)); }
-  @Delete('decks/:id') async deleteDeck(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyVersionDto) { return response(await this.library.updateDeck(u, id, d, true)); }
+  @Delete('decks/:id') async deleteDeck(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyVersionDto) { return response(await this.library.deleteDeck(u, id, d)); }
   @Get('decks/:id/words') async words(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Query() q: VocabularyListQuery) { return response(await this.library.words(u, id, q)); }
   @Post('decks/:id/words') async createWord(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyCreateWordDto) { return response(await this.library.createWord(u, id, d)); }
   @Post('decks/:id/words/batch') async createBatchWords(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyCreateBatchWordsDto) { return response(await this.library.createBatchWords(u, id, d)); }
   @Patch('words/:id') async updateWord(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyUpdateWordDto) { return response(await this.library.updateWord(u, id, d)); }
-  @Delete('words/:id') async deleteWord(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyVersionDto) { return response(await this.library.updateWord(u, id, d, true)); }
+  @Delete('words/:id') async deleteWord(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyVersionDto) { return response(await this.library.deleteWord(u, id, d)); }
   @Post('decks/:id/reviews') @HttpCode(200) async start(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyStartDto) { return response(await this.reviews.start(u, id, d)); }
   @Get('reviews/:id') async attempt(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string) { return response(await this.reviews.attempt(u, id)); }
   @Post('reviews/:id/commands') @HttpCode(200) async command(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyReviewCommandDto) { return response(await this.reviews.command(u, id, d)); }
