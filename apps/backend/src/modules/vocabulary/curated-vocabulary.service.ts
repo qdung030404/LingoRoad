@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -21,6 +21,7 @@ export interface CuratedWordItem {
   meaningVi: string;
   exampleEn: string;
   exampleVi?: string;
+  imageUrl?: string | null;
   audioUrl: string | null;
 }
 
@@ -80,15 +81,47 @@ interface SuggestCacheEntry {
 export class CuratedVocabularyService {
   private readonly lookupCache = new Map<string, LookupCacheEntry>();
   private readonly suggestCache = new Map<string, SuggestCacheEntry>();
+  private topicsCache: { topics: CuratedTopicItem[]; cachedAt: number } | null = null;
   private static readonly CACHE_TTL_MS = 60 * 60 * 1000; // 1 giờ
+  private static readonly TOPICS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 phút cache cho danh sách chủ đề
   private static readonly MAX_CACHE_SIZE = 1000;
+  private static readonly DICT_BASE_URL = process.env.DICTIONARY_API_URL?.replace(/\/+$/, '') || 'https://dict.minhqnd.com/api/v1';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
+
+  /**
+   * Chuẩn hóa và kiểm tra hợp lệ chuỗi truy vấn từ vựng:
+   * - Áp dụng chuẩn Unicode NFKC để chuẩn hóa các ký tự homoglyph (như ʼ U+02BC thành ' U+0027).
+   * - Loại bỏ khoảng trắng đầu/cuối.
+   * - Gom các ký tự khoảng trắng thừa (kể cả tab \t, xuống dòng \r, \n) thành 1 dấu cách duy nhất.
+   * - Chặn các chuỗi rỗng, vượt quá 60 ký tự, hoặc chứa ký tự đặc biệt ngoài [a-z '-].
+   */
+  private normalizeWordQuery(input: string): string | null {
+    if (!input || typeof input !== 'string') return null;
+    const clean = input
+      .normalize('NFKC')
+      .replace(/[\u2018\u2019\u02BC\u02BB]/g, "'")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+    if (!clean || clean.length > 60 || !/^[a-z '-]{1,60}$/.test(clean)) {
+      return null;
+    }
+    return clean;
+  }
 
   /**
    * Danh sách toàn bộ chủ đề kèm số lượng từ vựng
+   * Tối ưu hiệu năng: Tích hợp bộ nhớ đệm (In-memory Cache) với TTL 5 phút
    */
   async listTopics(): Promise<{ topics: CuratedTopicItem[] }> {
+    if (
+      this.topicsCache &&
+      Date.now() - this.topicsCache.cachedAt < CuratedVocabularyService.TOPICS_CACHE_TTL_MS
+    ) {
+      return { topics: this.topicsCache.topics };
+    }
+
     const topics = await this.prisma.curatedTopic.findMany({
       orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }],
       include: {
@@ -98,18 +131,23 @@ export class CuratedVocabularyService {
       },
     });
 
-    return {
-      topics: topics.map((t) => ({
-        id: t.id,
-        slug: t.slug,
-        titleEn: t.titleEn,
-        titleVi: t.titleVi,
-        description: t.description,
-        icon: t.icon,
-        displayOrder: t.displayOrder,
-        totalWords: t._count.words,
-      })),
+    const mappedTopics: CuratedTopicItem[] = topics.map((t) => ({
+      id: t.id,
+      slug: t.slug,
+      titleEn: t.titleEn,
+      titleVi: t.titleVi,
+      description: t.description,
+      icon: t.icon,
+      displayOrder: t.displayOrder,
+      totalWords: t._count.words,
+    }));
+
+    this.topicsCache = {
+      topics: mappedTopics,
+      cachedAt: Date.now(),
     };
+
+    return { topics: mappedTopics };
   }
 
   /**
@@ -133,15 +171,38 @@ export class CuratedVocabularyService {
       throw new NotFoundException(`Không tìm thấy chủ đề với mã: ${slug}`);
     }
 
+    const hasExplicitSearch = typeof search === 'string';
+    const cleanSearch = search?.trim();
+
+    // M4: Nếu người dùng chủ động truyền search nhưng chỉ có khoảng trắng, trả về 0 kết quả
+    if (hasExplicitSearch && !cleanSearch) {
+      return {
+        topic: {
+          id: topic.id,
+          slug: topic.slug,
+          titleEn: topic.titleEn,
+          titleVi: topic.titleVi,
+          description: topic.description,
+        },
+        items: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          totalPages: 0,
+        },
+      };
+    }
+
     const whereClause = {
       topicId: topic.id,
-      ...(search?.trim()
+      ...(cleanSearch
         ? {
-            OR: [
-              { word: { contains: search.trim(), mode: 'insensitive' as const } },
-              { meaningVi: { contains: search.trim(), mode: 'insensitive' as const } },
-            ],
-          }
+          OR: [
+            { word: { contains: cleanSearch, mode: 'insensitive' as const } },
+            { meaningVi: { contains: cleanSearch, mode: 'insensitive' as const } },
+          ],
+        }
         : {}),
     };
 
@@ -171,13 +232,14 @@ export class CuratedVocabularyService {
         meaningVi: w.meaningVi,
         exampleEn: w.exampleEn,
         exampleVi: w.exampleVi,
+        imageUrl: w.imageUrl ?? null,
         audioUrl: w.audioUrl,
       })),
       pagination: {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit) || 1,
+        totalPages: total === 0 ? 0 : Math.ceil(total / limit),
       },
     };
   }
@@ -200,12 +262,32 @@ export class CuratedVocabularyService {
       throw new NotFoundException(`Không tìm thấy chủ đề với mã: ${slug}`);
     }
 
+    if (!topic.words || topic.words.length === 0) {
+      throw new BadRequestException('Chủ đề chưa có từ vựng để sao chép.');
+    }
+
+    const deckName = topic.titleVi.slice(0, 60);
+
     return await this.prisma.$transaction(async (tx) => {
+      // H4/H5: Kiểm tra xem user đã sở hữu bộ từ được clone từ chủ đề này chưa dựa trên sourceTopicId
+      const existingDeck = await tx.vocabularyDeck.findFirst({
+        where: {
+          userId,
+          sourceTopicId: topic.id,
+          deletedAt: null,
+        },
+      });
+
+      if (existingDeck) {
+        throw new ConflictException(`Bạn đã sao chép chủ đề "${topic.titleVi}" trước đó.`);
+      }
+
       // Tạo bộ từ mới cho user
       const deck = await tx.vocabularyDeck.create({
         data: {
           userId,
-          name: topic.titleVi.slice(0, 60),
+          sourceTopicId: topic.id,
+          name: deckName,
         },
       });
 
@@ -230,6 +312,7 @@ export class CuratedVocabularyService {
             partOfSpeech: w.partOfSpeech,
             example: w.exampleEn,
             translation: w.exampleVi || '',
+            imageUrl: w.imageUrl ?? null,
             acceptedAnswers: [w.word.toLowerCase()],
           })),
         });
@@ -245,23 +328,27 @@ export class CuratedVocabularyService {
 
   /**
    * Tra cứu từ điển trực tuyến mở rộng qua API dict.minhqnd.com
-   * Có tích hợp bộ nhớ đệm (In-memory Cache) và kiểm tra định dạng an toàn
+   * Có tích hợp bộ nhớ đệm (In-memory LRU Cache) và kiểm tra định dạng an toàn
    */
   async lookupOnline(word: string): Promise<OnlineLookupResult | null> {
-    const cleanWord = word.trim().toLowerCase();
-    // Validate: chỉ chấp nhận từ tiếng Anh độ dài 1-60 ký tự
-    if (!cleanWord || cleanWord.length > 60 || !/^[a-z\s\-']{1,60}$/.test(cleanWord)) {
+    const cleanWord = this.normalizeWordQuery(word);
+    if (!cleanWord) {
       return null;
     }
 
-    // Kiểm tra cache
+    // Kiểm tra cache với cơ chế làm mới vị trí LRU
     const cached = this.lookupCache.get(cleanWord);
-    if (cached && Date.now() - cached.cachedAt < CuratedVocabularyService.CACHE_TTL_MS) {
-      return cached.result;
+    if (cached) {
+      if (Date.now() - cached.cachedAt < CuratedVocabularyService.CACHE_TTL_MS) {
+        this.lookupCache.delete(cleanWord);
+        this.lookupCache.set(cleanWord, cached);
+        return cached.result;
+      }
+      this.lookupCache.delete(cleanWord);
     }
 
     try {
-      const url = `https://dict.minhqnd.com/api/v1/lookup?word=${encodeURIComponent(cleanWord)}&lang=en&def_lang=vi`;
+      const url = `${CuratedVocabularyService.DICT_BASE_URL}/lookup?word=${encodeURIComponent(cleanWord)}&lang=en&def_lang=vi`;
       const res = await axios.get<MinhqndApiResponse>(url, { timeout: 5000 });
 
       if (!res.data?.exists || !res.data.results?.[0]) {
@@ -302,7 +389,7 @@ export class CuratedVocabularyService {
         meanings,
         meaningsByPos,
         availablePos,
-        audioUrl: `https://dict.minhqnd.com/api/v1/tts?word=${encodeURIComponent(cleanWord)}&lang=en`,
+        audioUrl: `${CuratedVocabularyService.DICT_BASE_URL}/tts?word=${encodeURIComponent(cleanWord)}&lang=en`,
       };
 
       this.cacheResult(cleanWord, lookupResult);
@@ -314,36 +401,40 @@ export class CuratedVocabularyService {
 
   /**
    * Gợi ý từ nhanh (Autocomplete) qua API dict.minhqnd.com
+   * Tối ưu hiệu năng: không gọi N+1 lookup HTTP song song;
+   * Nếu từ đã có trong lookupCache thì tận dụng pos, nếu chưa có thì trả về pos rỗng.
    */
   async suggestOnline(query: string): Promise<SuggestionItem[]> {
-    const clean = query.trim().toLowerCase();
-    if (!clean || clean.length > 60 || !/^[a-z\s\-']{1,60}$/.test(clean)) {
+    const clean = this.normalizeWordQuery(query);
+    if (!clean) {
       return [];
     }
 
+    // Kiểm tra cache với cơ chế làm mới vị trí LRU
     const cached = this.suggestCache.get(clean);
-    if (cached && Date.now() - cached.cachedAt < CuratedVocabularyService.CACHE_TTL_MS) {
-      return cached.result;
+    if (cached) {
+      if (Date.now() - cached.cachedAt < CuratedVocabularyService.CACHE_TTL_MS) {
+        this.suggestCache.delete(clean);
+        this.suggestCache.set(clean, cached);
+        return cached.result;
+      }
+      this.suggestCache.delete(clean);
     }
 
     try {
-      const url = `https://dict.minhqnd.com/api/v1/suggest?q=${encodeURIComponent(clean)}&limit=5`;
+      const url = `${CuratedVocabularyService.DICT_BASE_URL}/suggest?q=${encodeURIComponent(clean)}&limit=5`;
       const res = await axios.get<{ suggestions?: string[] }>(url, { timeout: 4000 });
       const words = res.data?.suggestions || [];
 
-      const suggestions: SuggestionItem[] = await Promise.all(
-        words.slice(0, 5).map(async (w) => {
-          try {
-            const lookup = await this.lookupOnline(w);
-            return {
-              word: w,
-              pos: lookup?.partOfSpeech || '',
-            };
-          } catch {
-            return { word: w, pos: '' };
-          }
-        }),
-      );
+      // Map danh sách từ gợi ý trực tiếp mà không kích hoạt 5 HTTP requests lookupOnline phụ
+      const suggestions: SuggestionItem[] = words.slice(0, 5).map((w) => {
+        const wClean = w.trim().toLowerCase();
+        const cachedLookup = this.lookupCache.get(wClean);
+        return {
+          word: w,
+          pos: cachedLookup?.result?.partOfSpeech || '',
+        };
+      });
 
       this.cacheSuggest(clean, suggestions);
       return suggestions;
