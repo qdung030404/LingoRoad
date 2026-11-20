@@ -10,6 +10,7 @@ import '../core/theme/app_spacing.dart';
 import '../core/theme/figma_assets.dart';
 import '../core/theme/learning_assets.dart';
 import '../core/theme/updated_figma_assets.dart';
+import 'app_button.dart';
 
 TextStyle designText(
   double size, {
@@ -203,27 +204,30 @@ class PassageCard extends StatelessWidget {
     this.highlightText,
     this.onExpandedChanged,
     this.onInteraction,
+    this.practice = false,
+    this.evidencePreview = false,
   });
   final String passage;
   final String? highlightText;
   final ValueChanged<bool>? onExpandedChanged;
   final VoidCallback? onInteraction;
+  final bool practice, evidencePreview;
+
+  int get _evidenceStart {
+    final needle = highlightText?.trim();
+    if (needle == null || needle.isEmpty) return -1;
+    return passage.toLowerCase().indexOf(needle.toLowerCase());
+  }
+
+  Color get _highlightColor =>
+      evidencePreview ? AppColors.primary100 : const Color(0xFFFFF3C4);
 
   Widget _buildPassageText(
     TextStyle baseStyle, {
     int? maxLines,
     TextOverflow? overflow,
   }) {
-    final needle = highlightText?.trim();
-    if (needle == null || needle.isEmpty) {
-      return Text(
-        passage,
-        maxLines: maxLines,
-        overflow: overflow,
-        style: baseStyle,
-      );
-    }
-    final matchStart = passage.toLowerCase().indexOf(needle.toLowerCase());
+    final matchStart = _evidenceStart;
     if (matchStart < 0) {
       return Text(
         passage,
@@ -232,7 +236,7 @@ class PassageCard extends StatelessWidget {
         style: baseStyle,
       );
     }
-    final matchEnd = (matchStart + needle.length).clamp(
+    final matchEnd = (matchStart + highlightText!.trim().length).clamp(
       matchStart,
       passage.length,
     );
@@ -244,7 +248,7 @@ class PassageCard extends StatelessWidget {
           TextSpan(
             text: passage.substring(matchStart, matchEnd),
             style: baseStyle.copyWith(
-              backgroundColor: const Color(0xFFFFF3C4),
+              backgroundColor: _highlightColor,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -257,6 +261,91 @@ class PassageCard extends StatelessWidget {
     );
   }
 
+  Widget _buildPreview() {
+    final style = designText(14, color: AppColors.grey800, height: 1.45);
+    final start = evidencePreview ? _evidenceStart : -1;
+    if (start < 0) {
+      return _buildPassageText(
+        style,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+      );
+    }
+    final end = (start + highlightText!.trim().length).clamp(
+      start,
+      passage.length,
+    );
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary25,
+        borderRadius: AppRadius.cardSm,
+        border: Border.all(color: AppColors.primary100),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 3,
+              decoration: BoxDecoration(
+                color: AppColors.primary500,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                passage.substring(start, end),
+                style: designText(
+                  14,
+                  weight: FontWeight.w500,
+                  color: AppColors.grey900,
+                  height: 1.45,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _readingSheet(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('Đoạn văn', style: designHeading(20))),
+              IconButton(
+                tooltip: 'Đóng đoạn văn',
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          Expanded(
+            child: Scrollbar(
+              child: SingleChildScrollView(
+                primary: true,
+                padding: const EdgeInsets.fromLTRB(0, 6, 8, 16),
+                child: _buildPassageText(designText(16, height: 1.6)),
+              ),
+            ),
+          ),
+          CustomAppButton(
+            text: 'Quay lại câu hỏi',
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _expand(BuildContext context) async {
     onExpandedChanged?.call(true);
     try {
@@ -264,24 +353,26 @@ class PassageCard extends StatelessWidget {
         context: context,
         isScrollControlled: true,
         showDragHandle: true,
-        builder: (_) => SafeArea(
+        builder: (sheetContext) => SafeArea(
           child: FractionallySizedBox(
-            heightFactor: .75,
+            heightFactor: practice ? .82 : .75,
             child: Listener(
               onPointerDown: (_) => onInteraction?.call(),
               onPointerMove: (_) => onInteraction?.call(),
               onPointerSignal: (_) => onInteraction?.call(),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Đoạn văn', style: designHeading(20)),
-                    const SizedBox(height: 24),
-                    _buildPassageText(designText(16, height: 1.6)),
-                  ],
-                ),
-              ),
+              child: practice
+                  ? _readingSheet(sheetContext)
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Đoạn văn', style: designHeading(20)),
+                          const SizedBox(height: 24),
+                          _buildPassageText(designText(16, height: 1.6)),
+                        ],
+                      ),
+                    ),
             ),
           ),
         ),
@@ -292,60 +383,311 @@ class PassageCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => FigmaCard(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Đoạn văn', style: designText(18, weight: FontWeight.w500)),
-            Text(
-              '${passage.trim().split(RegExp(r'\s+')).length} từ',
-              style: designText(12, color: AppColors.grey600),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        _buildPassageText(
-          designText(14, color: AppColors.grey800, height: 1.4),
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 16),
-        InkWell(
-          onTap: () => _expand(context),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) {
+    final wordsCount = passage.trim().isEmpty
+        ? 0
+        : passage.trim().split(RegExp(r'\s+')).length;
+    return FigmaCard(
+      padding: EdgeInsets.all(practice ? 16 : AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              const FigmaAsset('reading/imgVuesaxLinearMaximize4', size: 16),
-              const SizedBox(width: 8),
-              Text(
-                'Xem toàn bộ',
-                style: designText(
-                  14,
-                  weight: FontWeight.w500,
-                  color: AppColors.primary500,
+              Expanded(
+                child: Text(
+                  'Đoạn văn',
+                  style: practice
+                      ? designHeading(18, height: 1.2)
+                      : designText(18, weight: FontWeight.w500),
                 ),
               ),
+              const SizedBox(width: 8),
+              if (practice)
+                PracticeCountBadge('$wordsCount từ', accent: false)
+              else
+                Text(
+                  '$wordsCount từ',
+                  style: designText(12, color: AppColors.grey600),
+                ),
             ],
           ),
+          SizedBox(height: practice ? 12 : 24),
+          _buildPreview(),
+          if (evidencePreview && _evidenceStart >= 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Dẫn chứng trong bài',
+              style: designText(
+                12,
+                weight: FontWeight.w500,
+                color: AppColors.primary700,
+              ),
+            ),
+          ],
+          if (practice) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => _expand(context),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary800,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 6,
+                  ),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const FigmaAsset(
+                  'reading/imgVuesaxLinearMaximize4',
+                  size: 16,
+                ),
+                label: const Text('Xem toàn bộ'),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: () => _expand(context),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const FigmaAsset('reading/imgVuesaxLinearMaximize4', size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Xem toàn bộ',
+                    style: designText(
+                      14,
+                      weight: FontWeight.w500,
+                      color: AppColors.primary500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Unified section card header with a circular tinted icon badge and optional trailing widget.
+class PracticeSectionHeader extends StatelessWidget {
+  const PracticeSectionHeader({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.trailing,
+  });
+
+  final String icon;
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(
+        width: 40,
+        height: 40,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: AppColors.primary25,
+          shape: BoxShape.circle,
         ),
-      ],
+        child: FigmaAsset(icon, size: 20),
+      ),
+      const SizedBox(width: 12),
+      Expanded(child: Text(title, style: designHeading(18, height: 1.2))),
+      if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+    ],
+  );
+}
+
+/// Compact pill badge displaying an item or word count inside practice cards.
+class PracticeCountBadge extends StatelessWidget {
+  const PracticeCountBadge(this.label, {super.key, this.accent = true});
+
+  final String label;
+  final bool accent;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: accent ? AppColors.primary25 : AppColors.grey25,
+      borderRadius: AppRadius.pill,
+      border: accent ? null : Border.all(color: AppColors.grey100),
+    ),
+    child: Text(
+      label,
+      style: designText(
+        12,
+        weight: FontWeight.w600,
+        color: accent ? AppColors.primary700 : AppColors.grey700,
+      ),
     ),
   );
+}
+
+/// Reusable vocabulary card displaying an English word/phrase, optional IPA
+/// phonetic pill, Vietnamese meaning, accented example quote, and optional action.
+class PracticeVocabularyCard extends StatelessWidget {
+  const PracticeVocabularyCard({
+    super.key,
+    required this.word,
+    required this.meaning,
+    this.phonetic = '',
+    this.example = '',
+    this.compact = false,
+    this.highlighted = false,
+    this.trailing,
+  });
+
+  final String word;
+  final String meaning;
+  final String phonetic;
+  final String example;
+  final bool compact;
+  final bool highlighted;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedWord = word.trim();
+    final trimmedPhonetic = phonetic.trim();
+    final trimmedMeaning = meaning.trim();
+    final trimmedExample = example.trim();
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: compact ? 10 : 12,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.grey25,
+        borderRadius: AppRadius.cardSm,
+        border: Border.all(
+          color: highlighted ? AppColors.primary200 : AppColors.grey100,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          trimmedWord,
+                          style: designText(
+                            compact ? 15 : 16,
+                            weight: FontWeight.w700,
+                            color: AppColors.grey900,
+                            height: 1.25,
+                          ),
+                        ),
+                        if (trimmedPhonetic.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.grey0,
+                              borderRadius: AppRadius.pill,
+                              border: Border.all(color: AppColors.grey100),
+                            ),
+                            child: Text(
+                              trimmedPhonetic,
+                              style: designText(
+                                12,
+                                color: AppColors.grey700,
+                                height: 1.2,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (trimmedMeaning.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        trimmedMeaning,
+                        style: designText(
+                          14,
+                          weight: FontWeight.w500,
+                          color: AppColors.grey800,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: 10),
+                trailing!,
+              ],
+            ],
+          ),
+          if (trimmedExample.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 2.5,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      trimmedExample,
+                      style: designText(
+                        13,
+                        color: AppColors.grey700,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 class KeyVocabularySection extends StatelessWidget {
   const KeyVocabularySection({
     super.key,
     required this.items,
-    required this.savedWordKeysListenable,
-    required this.savingWordKeysListenable,
-    required this.onSaveWord,
+    this.header,
+    this.compact = false,
+    this.savedWordKeysListenable,
+    this.savingWordKeysListenable,
+    this.onSaveWord,
   });
 
   final List<Map<String, dynamic>> items;
+  final Widget? header;
+  final bool compact;
   final ValueListenable<Set<String>>? savedWordKeysListenable;
   final ValueListenable<Set<String>>? savingWordKeysListenable;
   final Future<void> Function(Map<String, dynamic> word)? onSaveWord;
@@ -366,13 +708,23 @@ class KeyVocabularySection extends StatelessWidget {
   Widget _buildList(BuildContext context) {
     final savedKeys = savedWordKeysListenable?.value ?? const <String>{};
     final savingKeys = savingWordKeysListenable?.value ?? const <String>{};
-    return Column(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(height: 12),
-          _buildWordTile(context, items[i], savedKeys, savingKeys),
+    return FigmaCard(
+      padding: header != null
+          ? EdgeInsets.fromLTRB(16, compact ? 14 : 16, 16, compact ? 14 : 16)
+          : const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (header != null) ...[
+            header!,
+            SizedBox(height: compact ? 12 : 14),
+          ],
+          for (final (index, item) in items.indexed) ...[
+            if (index > 0) SizedBox(height: compact ? 8 : 10),
+            _buildWordTile(context, item, savedKeys, savingKeys),
+          ],
         ],
-      ],
+      ),
     );
   }
 
@@ -391,110 +743,225 @@ class KeyVocabularySection extends StatelessWidget {
     final saved = savedKeys.contains(saveKey);
     final saving = savingKeys.contains(saveKey);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.grey50,
-        borderRadius: AppRadius.card,
-        border: Border.all(color: AppColors.grey200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      word,
-                      style: designText(15, weight: FontWeight.w600),
-                    ),
-                    if (phonetic.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        phonetic,
-                        style: designText(12, color: AppColors.grey500),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (onSaveWord != null) ...[
-                const SizedBox(width: 12),
-                saved
-                    ? OutlinedButton.icon(
-                        key: ValueKey('reading-save-word-${id.isNotEmpty ? id : word}'),
-                        onPressed: null,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0A5D21),
-                          disabledForegroundColor: const Color(0xFF0A5D21),
-                          side: const BorderSide(color: Color(0xFFB7E4C7)),
-                          backgroundColor: const Color(0xFFEAF7EE),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          minimumSize: const Size(0, 34),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        icon: const Icon(Icons.check_rounded, size: 16),
-                        label: Text(
-                          'Đã lưu',
-                          style: designText(
-                            13,
-                            weight: FontWeight.w600,
-                            color: const Color(0xFF0A5D21),
-                          ),
-                        ),
-                      )
-                    : FilledButton(
-                        key: ValueKey('reading-save-word-${id.isNotEmpty ? id : word}'),
-                        onPressed: saving ? null : () => onSaveWord!(item),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.primary500,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6,
-                          ),
-                          minimumSize: const Size(0, 34),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: Text(
-                          saving ? 'Đang lưu...' : 'Lưu',
-                          style: designText(
-                            13,
-                            weight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-              ],
-            ],
+    return PracticeVocabularyCard(
+      word: word,
+      phonetic: phonetic,
+      meaning: meaning,
+      example: example,
+      compact: compact,
+      highlighted: saved,
+      trailing: onSaveWord == null
+          ? null
+          : _buildSaveWordButton(
+              id: id,
+              word: word,
+              saved: saved,
+              saving: saving,
+              item: item,
+            ),
+    );
+  }
+
+  Widget _buildSaveWordButton({
+    required String id,
+    required String word,
+    required bool saved,
+    required bool saving,
+    required Map<String, dynamic> item,
+  }) {
+    final key = ValueKey('reading-save-word-${id.isNotEmpty ? id : word}');
+    final buttonShape = RoundedRectangleBorder(borderRadius: AppRadius.pill);
+    const buttonPadding = EdgeInsets.symmetric(horizontal: 10, vertical: 6);
+    if (saved) {
+      return OutlinedButton.icon(
+        key: key,
+        onPressed: null,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF0A5D21),
+          disabledForegroundColor: const Color(0xFF0A5D21),
+          side: const BorderSide(color: AppColors.primary200),
+          backgroundColor: AppColors.primary25,
+          padding: buttonPadding,
+          minimumSize: const Size(0, 32),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: buttonShape,
+        ),
+        icon: const Icon(Icons.check_rounded, size: 15),
+        label: Text(
+          'Đã lưu',
+          style: designText(
+            12,
+            weight: FontWeight.w600,
+            color: const Color(0xFF0A5D21),
           ),
-          if (meaning.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              meaning,
-              style: designText(14, color: AppColors.grey800, height: 1.4),
+        ),
+      );
+    }
+    return OutlinedButton.icon(
+      key: key,
+      onPressed: saving ? null : () => onSaveWord!(item),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.primary700,
+        side: const BorderSide(color: AppColors.primary200),
+        backgroundColor: AppColors.grey0,
+        padding: buttonPadding,
+        minimumSize: const Size(0, 32),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: buttonShape,
+      ),
+      icon: saving
+          ? const SizedBox(
+              width: 13,
+              height: 13,
+              child: CircularProgressIndicator(strokeWidth: 1.8),
+            )
+          : const Icon(Icons.bookmark_add_outlined, size: 15),
+      label: Text(
+        saving ? 'Đang lưu...' : 'Lưu',
+        style: designText(
+          12,
+          weight: FontWeight.w600,
+          color: AppColors.primary700,
+        ),
+      ),
+    );
+  }
+}
+
+class PracticeAnswerTile extends StatelessWidget {
+  const PracticeAnswerTile({
+    super.key,
+    required this.index,
+    required this.text,
+    this.selected = false,
+    this.correct = false,
+    this.wrong = false,
+    this.showSelectionCheck = true,
+    this.label,
+    this.onTap,
+  });
+
+  final int index;
+  final String text;
+  final bool selected, correct, wrong, showSelectionCheck;
+  final String? label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = wrong
+        ? const Color(0xFFCA8A04)
+        : correct
+        ? const Color(0xFF0A5D21)
+        : selected
+        ? AppColors.primary500
+        : AppColors.grey900;
+    final borderColor = wrong
+        ? const Color(0xFFFFCC01)
+        : correct
+        ? const Color(0xFF049228)
+        : selected
+        ? AppColors.primary500
+        : AppColors.grey100;
+    final fillColor = wrong
+        ? AppColors.warning0
+        : correct
+        ? AppColors.primary25
+        : selected
+        ? AppColors.grey0
+        : AppColors.grey5;
+    final circleFill = wrong
+        ? const Color(0xFFF4DFB2)
+        : correct
+        ? AppColors.primary100
+        : selected
+        ? AppColors.primary25
+        : AppColors.grey25;
+    final circleBorder = wrong
+        ? const Color(0xFFFFCC01)
+        : correct
+        ? const Color(0xFF049228)
+        : selected
+        ? AppColors.primary100
+        : AppColors.grey100;
+    final letter = String.fromCharCode(65 + index);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(99),
+      side: BorderSide(color: borderColor),
+    );
+    return Semantics(
+      button: onTap != null,
+      selected: selected,
+      label: 'Đáp án $letter',
+      child: Material(
+        shape: shape,
+        color: fillColor,
+        child: InkWell(
+          customBorder: shape,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 60),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 9, 16, 9),
+              child: Row(
+                children: [
+                  Container(
+                    constraints: const BoxConstraints(
+                      minWidth: 42,
+                      minHeight: 42,
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: circleFill,
+                      border: Border.all(color: circleBorder),
+                    ),
+                    child: Text(letter, style: designHeading(18, color: tone)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          text,
+                          style: designText(
+                            15,
+                            weight: FontWeight.w500,
+                            color: tone,
+                            height: 1.35,
+                          ),
+                        ),
+                        if (label != null)
+                          Text(
+                            label!,
+                            style: designText(
+                              12,
+                              color: tone,
+                              weight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (correct || wrong) ...[
+                    const SizedBox(width: 8),
+                    FigmaAsset(
+                      wrong
+                          ? 'review/imgVuesaxLinearInfoCircle'
+                          : 'review/imgVuesaxLinearTickCircle',
+                      size: 20,
+                    ),
+                  ] else if (showSelectionCheck && selected) ...[
+                    const SizedBox(width: 8),
+                    const FigmaAsset('listening/imgCheck', size: 20),
+                  ],
+                ],
+              ),
             ),
-          ],
-          if (example.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              example,
-              style: designText(13, color: AppColors.grey600, height: 1.4),
-            ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -510,15 +977,32 @@ class AnswerOption extends StatelessWidget {
     this.correct,
     this.chosen = false,
     this.showSelectionCheck = true,
+    this.compact = false,
   });
   final int index;
   final String text;
   final bool selected, chosen;
-  final bool showSelectionCheck;
+  final bool showSelectionCheck, compact;
   final bool? correct;
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) {
+    if (compact) {
+      return PracticeAnswerTile(
+        index: index,
+        text: text,
+        selected: selected,
+        correct: correct == true,
+        wrong: correct == false && chosen,
+        showSelectionCheck: showSelectionCheck,
+        label: correct == true
+            ? 'Đúng'
+            : correct == false && chosen
+            ? 'Sai'
+            : null,
+        onTap: onTap,
+      );
+    }
     final tone = correct == true
         ? const Color(0xFF0A5D21)
         : correct == false && chosen

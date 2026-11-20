@@ -49,6 +49,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           key: UniqueKey(),
+          debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           home: LearningPreview(account: account),
         ),
@@ -136,7 +137,7 @@ void main() {
       final item = (history['items'] as List).first as Map;
       completedId = item['id'] as String;
       expect(item['status'], 'COMPLETED');
-      expect((item['result'] as Map)['correctCount'], 1);
+      expect((item['result'] as Map)['correctCount'], 2);
     });
     await tap(find.byIcon(Icons.arrow_back));
     await tap(find.byKey(const Key('previewTab4')));
@@ -295,13 +296,23 @@ void main() {
     await tap(find.byKey(const Key('learningHistory')));
     await tap(find.byKey(ValueKey('learning-history-$a2CompletedId')));
     await waitFor(find.text('Kết quả bài học'));
-    await tester.scrollUntilVisible(
-      find.text('"$a2EndEvidence"'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('"$a2EndEvidence"'), findsOneWidget);
+    expect(find.text('Làm lại'), findsOneWidget);
+    expect(find.text('Về danh sách'), findsOneWidget);
+    await tap(find.text('Xem lại đáp án'));
+    await waitFor(find.text('Xem lại câu 1/5'));
+    await tap(find.textContaining('Câu sai ('));
+    expect(find.text('Bạn chọn'), findsOneWidget);
     await screenshot('learning-08-a2-history-review');
+    await tap(find.text('Tất cả'));
+    for (
+      var i = 0;
+      i < 5 && find.text('Xem lại câu 5/5').evaluate().isEmpty;
+      i++
+    ) {
+      await tap(find.text('Câu tiếp theo'));
+    }
+    expect(find.text(a2EndEvidence), findsOneWidget);
+    await tap(find.text('Về kết quả'));
     await tap(find.byIcon(Icons.arrow_back));
     await tap(find.byTooltip('Quay lại'));
 

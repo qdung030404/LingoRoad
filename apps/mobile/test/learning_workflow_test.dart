@@ -384,8 +384,28 @@ void main() {
           ),
         ),
       );
+      void expectWhiteSelectedChip(String label) {
+        final chip = find.widgetWithText(ChoiceChip, label);
+        final text = find.descendant(of: chip, matching: find.text(label));
+        expect(tester.widget<ChoiceChip>(chip).selected, isTrue);
+        expect(
+          DefaultTextStyle.of(tester.element(text)).style.color,
+          Colors.white,
+        );
+        final rawChip = find.descendant(
+          of: chip,
+          matching: find.byType(RawChip),
+        );
+        expect(
+          tester.widget<RawChip>(rawChip).defaultProperties?.checkmarkColor,
+          Colors.white,
+        );
+      }
+
+      expectWhiteSelectedChip('Tất cả');
       await tester.tap(find.widgetWithText(ChoiceChip, 'A2'));
       await tester.pumpAndSettle();
+      expectWhiteSelectedChip('A2');
       expect(find.text('Everyday Introductions'), findsNothing);
       await tester.tap(find.text('A New Time for the Club Meeting'));
       await tester.pumpAndSettle();
@@ -397,7 +417,8 @@ void main() {
       expect(tester.widget<AnswerOption>(option).selected, isTrue);
       expect(
         find.byWidgetPredicate(
-          (widget) => widget is FigmaAsset && widget.asset == 'reading/imgCheck',
+          (widget) =>
+              widget is FigmaAsset && widget.asset == 'reading/imgCheck',
         ),
         findsNothing,
       );
@@ -542,14 +563,13 @@ void main() {
           .widgetList<Text>(scope)
           .where((widget) => widget.textSpan is TextSpan)
           .where(
-            (widget) =>
-                ((widget.textSpan! as TextSpan).children ?? const [])
-                    .whereType<TextSpan>()
-                    .any(
-                      (span) =>
-                          span.text == needle &&
-                          span.style?.backgroundColor == const Color(0xFFFFF3C4),
-                    ),
+            (widget) => ((widget.textSpan! as TextSpan).children ?? const [])
+                .whereType<TextSpan>()
+                .any(
+                  (span) =>
+                      span.text == needle &&
+                      span.style?.backgroundColor == const Color(0xFFFFF3C4),
+                ),
           )
           .toList();
 
@@ -559,7 +579,8 @@ void main() {
           home: LearningLessonIntroPage(owner: owner, lessonId: 'lesson'),
         ),
       );
-      expect(find.text('7 phút · 8 câu luyện tập'), findsOneWidget);
+      expect(find.text('Khoảng 7 phút'), findsOneWidget);
+      expect(find.text('8 câu luyện tập'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('learningStart')));
       await tester.pumpAndSettle();
@@ -609,7 +630,10 @@ void main() {
       }
 
       // Q5: evidence near the end keeps 3-line clipping on card and shows highlight in BottomSheet.
-      await tester.tap(find.byKey(const ValueKey('learning-option-a')));
+      final wrong = find.byKey(const ValueKey('learning-option-b'));
+      await tester.ensureVisible(wrong);
+      await tester.pumpAndSettle();
+      await tester.tap(wrong);
       await tester.pump();
       await tester.tap(find.byKey(const Key('learningPrimaryAction')));
       await tester.pumpAndSettle();
@@ -637,28 +661,46 @@ void main() {
       );
       expect(q5Sheet, hasLength(1));
       expect(q5Sheet.single.maxLines, isNull);
-      Navigator.of(tester.element(find.byType(BottomSheet))).pop();
+      await tester.tap(find.text('Quay lại câu hỏi'));
       await tester.pumpAndSettle();
+      expect(find.text('Câu 5/5'), findsOneWidget);
+      expect(
+        tester
+            .widget<AnswerOption>(
+              find.byKey(const ValueKey('learning-option-b')),
+            )
+            .selected,
+        isTrue,
+      );
 
       await tester.tap(find.byKey(const Key('learningPrimaryAction')));
       await tester.pumpAndSettle();
 
       expect(find.text('Kết quả bài học'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('"$startEvidence"'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.byType(LearningResultQuestionCard), findsWidgets);
-      expect(find.text('Dẫn chứng trong bài'), findsWidgets);
-      expect(find.text('"$startEvidence"'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.text('"$endEvidence"'),
-        200,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.byType(LearningResultQuestionCard), findsWidgets);
-      expect(find.text('"$endEvidence"'), findsOneWidget);
+      expect(find.text('4/5 câu đúng'), findsOneWidget);
+      for (final label in ['Làm lại', 'Về danh sách']) {
+        final action = find.widgetWithText(CustomAppButton, label);
+        expect(tester.widget<CustomAppButton>(action).isSecondary, isTrue);
+      }
+      await tester.tap(find.text('Xem lại đáp án'));
+      await tester.pumpAndSettle();
+      expect(find.text('Xem lại câu 1/5'), findsOneWidget);
+      expect(find.text(startEvidence), findsOneWidget);
+      expect(find.text('Dẫn chứng trong bài'), findsOneWidget);
+      await tester.tap(find.text('Câu tiếp theo'));
+      await tester.pumpAndSettle();
+      expect(find.text('Xem lại câu 2/5'), findsOneWidget);
+      expect(find.text('Dẫn chứng trong bài'), findsNothing);
+      await tester.tap(find.text('Câu sai (1)'));
+      await tester.pumpAndSettle();
+      expect(find.text('Xem lại câu 5/5'), findsOneWidget);
+      expect(find.text(endEvidence), findsOneWidget);
+      expect(find.text('Bạn chọn'), findsOneWidget);
+      expect(find.text('Đáp án đúng'), findsOneWidget);
+      expect(find.text('Về kết quả'), findsOneWidget);
+      await tester.tap(find.text('Về kết quả'));
+      await tester.pumpAndSettle();
+      expect(find.text('Kết quả bài học'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
       owner.dispose();
@@ -693,7 +735,10 @@ void main() {
       };
       learningRepo.state['content'] = {
         'steps': [],
-        'passage': List.filled(40, 'Sample sentence in reading passage.').join(' '),
+        'passage': List.filled(
+          40,
+          'Sample sentence in reading passage.',
+        ).join(' '),
       };
       final owner = LearningController(
         repository: learningRepo,
@@ -929,7 +974,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // Q1 shows the passage without the vocabulary section from the intro.
-      expect(find.text('Staff share ___ updates every morning.'), findsOneWidget);
+      expect(
+        find.text('Staff share ___ updates every morning.'),
+        findsOneWidget,
+      );
       expect(find.text('Điền khuyết'), findsNothing);
       await tester.tap(find.text('Xem toàn bộ'));
       await tester.pumpAndSettle();
@@ -947,7 +995,10 @@ void main() {
       await tester.tap(find.byKey(const Key('learningPrimaryAction')));
       await tester.pumpAndSettle();
 
-      expect(find.text('The company pays for home internet bills.'), findsOneWidget);
+      expect(
+        find.text('The company pays for home internet bills.'),
+        findsOneWidget,
+      );
       expect(find.text('Đúng / Sai / Không đề cập'), findsNothing);
       expect(find.text('Trắc nghiệm'), findsNothing);
       await tester.drag(find.byType(ListView), const Offset(0, -250));
@@ -978,86 +1029,81 @@ void main() {
     },
   );
 
-  testWidgets(
-    'keeps saved state when delayed initial GET resolves after POST',
-    (tester) async {
-      final getGate = Completer<void>();
-      final vocabRepo = _MemoryVocabularyRepository()
-        ..delayedGetReadingWords = getGate;
-      final vocabController = VocabularyController(
-        repository: vocabRepo,
-        accountId: 'alice',
-        isCurrent: () => true,
-      );
-      final learningRepo = MemoryLearningRepository();
-      learningRepo.state = {
-        'id': 'attempt-race',
-        'version': 0,
-        'status': 'IN_PROGRESS',
-        'lesson': {
-          'id': 'reading-race',
-          'title': 'Race Guard Reading',
-          'kind': 'READING',
-          'cefrLevel': 'B1',
-        },
-        'position': {'phase': 'QUIZ', 'index': 0},
-        'content': {
-          'steps': [],
-          'passage': 'Teams rely on asynchronous updates every morning.',
-          'keyVocabulary': [
-            {
-              'id': 'w1',
-              'word': 'asynchronous',
-              'meaning': 'không đồng thời',
-            },
+  testWidgets('keeps saved state when delayed initial GET resolves after POST', (
+    tester,
+  ) async {
+    final getGate = Completer<void>();
+    final vocabRepo = _MemoryVocabularyRepository()
+      ..delayedGetReadingWords = getGate;
+    final vocabController = VocabularyController(
+      repository: vocabRepo,
+      accountId: 'alice',
+      isCurrent: () => true,
+    );
+    final learningRepo = MemoryLearningRepository();
+    learningRepo.state = {
+      'id': 'attempt-race',
+      'version': 0,
+      'status': 'IN_PROGRESS',
+      'lesson': {
+        'id': 'reading-race',
+        'title': 'Race Guard Reading',
+        'kind': 'READING',
+        'cefrLevel': 'B1',
+      },
+      'position': {'phase': 'QUIZ', 'index': 0},
+      'content': {
+        'steps': [],
+        'passage': 'Teams rely on asynchronous updates every morning.',
+        'keyVocabulary': [
+          {'id': 'w1', 'word': 'asynchronous', 'meaning': 'không đồng thời'},
+        ],
+      },
+      'questions': [
+        {
+          'id': 'q0',
+          'type': 'MULTIPLE_CHOICE',
+          'prompt': 'What do teams rely on?',
+          'options': [
+            {'id': 'a', 'text': 'Asynchronous updates'},
+            {'id': 'b', 'text': 'Paper memos'},
           ],
         },
-        'questions': [
-          {
-            'id': 'q0',
-            'type': 'MULTIPLE_CHOICE',
-            'prompt': 'What do teams rely on?',
-            'options': [
-              {'id': 'a', 'text': 'Asynchronous updates'},
-              {'id': 'b', 'text': 'Paper memos'},
-            ],
-          },
-        ],
-        'answers': [],
-        'result': null,
-      };
-      final owner = LearningController(
-        repository: learningRepo,
-        accountId: 'alice',
-        vocabulary: vocabController,
-      );
+      ],
+      'answers': [],
+      'result': null,
+    };
+    final owner = LearningController(
+      repository: learningRepo,
+      accountId: 'alice',
+      vocabulary: vocabController,
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.lightTheme,
-          home: LearningLessonIntroPage(owner: owner, lessonId: 'reading-race'),
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: LearningLessonIntroPage(owner: owner, lessonId: 'reading-race'),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // Save from the intro before the initial saved-word request resolves.
-      final saveWord = find.byKey(const ValueKey('reading-save-word-w1'));
-      await tester.ensureVisible(saveWord);
-      await tester.tap(saveWord);
-      await tester.pumpAndSettle();
-      expect(find.text('Đã lưu'), findsOneWidget);
+    // Save from the intro before the initial saved-word request resolves.
+    final saveWord = find.byKey(const ValueKey('reading-save-word-w1'));
+    await tester.ensureVisible(saveWord);
+    await tester.tap(saveWord);
+    await tester.pumpAndSettle();
+    expect(find.text('Đã lưu'), findsOneWidget);
 
-      // Now let the stale initial GET (captured empty before POST) complete afterwards.
-      getGate.complete();
-      await tester.pumpAndSettle();
-      expect(find.text('Đã lưu'), findsOneWidget);
-      expect(find.text('Lưu'), findsNothing);
+    // Now let the stale initial GET (captured empty before POST) complete afterwards.
+    getGate.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Đã lưu'), findsOneWidget);
+    expect(find.text('Lưu'), findsNothing);
 
-      await tester.pumpWidget(const SizedBox());
-      vocabController.dispose();
-      owner.dispose();
-    },
-  );
+    await tester.pumpWidget(const SizedBox());
+    vocabController.dispose();
+    owner.dispose();
+  });
 
   testWidgets(
     'asks AI to explain checked reading questions, deduplicates fallback text, allows retry on transient failure, and hides retry when context is insufficient',
@@ -1128,7 +1174,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('learning-ai-explain-q0')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('learning-ai-explain-q0')),
+        findsNothing,
+      );
       await tester.tap(find.byKey(const ValueKey('learning-option-a')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('learningPrimaryAction')));
@@ -1139,7 +1188,11 @@ void main() {
         matching: find.byType(Scrollable),
       );
       final explainBtn = find.byKey(const ValueKey('learning-ai-explain-q0'));
-      await tester.scrollUntilVisible(explainBtn, 250, scrollable: listScrollable);
+      await tester.scrollUntilVisible(
+        explainBtn,
+        250,
+        scrollable: listScrollable,
+      );
       await tester.drag(listScrollable, const Offset(0, -140));
       await tester.pumpAndSettle();
       await tester.tap(explainBtn);
@@ -1161,7 +1214,11 @@ void main() {
       expect(find.text('Server explanation'), findsOneWidget);
       expect(find.text('Thử lại giải thích AI'), findsOneWidget);
 
-      await tester.scrollUntilVisible(explainBtn, 200, scrollable: listScrollable);
+      await tester.scrollUntilVisible(
+        explainBtn,
+        200,
+        scrollable: listScrollable,
+      );
       await tester.drag(listScrollable, const Offset(0, -100));
       await tester.pumpAndSettle();
       await tester.tap(explainBtn);
@@ -1169,7 +1226,8 @@ void main() {
       expect(find.text('Đang giải thích...'), findsOneWidget);
       q0RetryGate.complete({
         'questionId': 'q0',
-        'explanation': 'Đoạn văn nêu rõ "cool nearby streets" nên đáp án đúng là Nearby streets.',
+        'explanation':
+            'Đoạn văn nêu rõ "cool nearby streets" nên đáp án đúng là Nearby streets.',
         'source': 'AI',
       });
       await tester.pumpAndSettle();
@@ -1184,7 +1242,9 @@ void main() {
         findsNothing,
       );
       expect(
-        find.text('Đoạn văn nêu rõ "cool nearby streets" nên đáp án đúng là Nearby streets.'),
+        find.text(
+          'Đoạn văn nêu rõ "cool nearby streets" nên đáp án đúng là Nearby streets.',
+        ),
         findsOneWidget,
       );
       expect(explainBtn, findsNothing);
@@ -1443,7 +1503,9 @@ void main() {
       await tester.pump();
       expect(
         tester
-            .widget<CustomAppButton>(find.byKey(const Key('learningPrimaryAction')))
+            .widget<CustomAppButton>(
+              find.byKey(const Key('learningPrimaryAction')),
+            )
             .onPressed,
         isNotNull,
       );
@@ -1496,7 +1558,10 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      expect(find.byKey(const Key('learningLevelChangeBanner')), findsOneWidget);
+      expect(
+        find.byKey(const Key('learningLevelChangeBanner')),
+        findsOneWidget,
+      );
       expect(find.text('Mức luyện tập đề xuất: Đọc B1 ↑'), findsOneWidget);
 
       // Reopening completed attempt from history does not carry transient levelChange banner.

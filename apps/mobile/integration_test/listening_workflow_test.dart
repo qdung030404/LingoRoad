@@ -10,6 +10,8 @@ import 'package:mobile/features/learning/learning_controller.dart';
 import 'package:mobile/features/learning/learning_pages.dart';
 import 'package:mobile/features/learning/learning_repository.dart';
 import 'package:mobile/features/learning/listening_audio.dart';
+import 'package:mobile/features/learning/practice_widgets.dart';
+import 'package:mobile/shared/app_button.dart';
 
 // Local Auth Emulator only; never touches the developer's Firebase SDK account.
 void main() {
@@ -96,6 +98,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         home: Scaffold(
           body: SingleChildScrollView(
@@ -109,6 +112,7 @@ void main() {
     );
     await tap(find.byKey(ValueKey('learning-lesson-${lesson['id']}')));
     await waitFor(find.text('Chuẩn bị nghe'));
+    await capture('listening-preparation');
     await tap(find.byKey(const Key('learningStart')));
     await waitFor(find.text('Câu 1/5'));
     debugPrint('LISTENING: opened native cafe practice');
@@ -159,32 +163,57 @@ void main() {
     }
     await waitFor(find.text('Kết quả bài học'));
     expect(find.text('4/5 câu đúng'), findsOneWidget);
+    final resultActions = tester.widgetList<CustomAppButton>(
+      find.byType(CustomAppButton),
+    );
+    expect(resultActions.where((button) => button.isSecondary), hasLength(2));
+    await capture('listening-result-actions');
     debugPrint('LISTENING: completed cafe attempt with 4/5');
+    await tap(find.text('Xem lại đáp án'));
+    await waitFor(find.text('Xem lại câu 1/5'));
     final review = tester
-        .widget<ListeningAudioControls>(find.byType(ListeningAudioControls))
-        .controller;
+        .widget<PracticeReviewPage>(find.byType(PracticeReviewPage))
+        .audio!;
     expect(identical(review, practiceAudio), false);
     expect(review.playing, false);
     expect(review.rate, 1);
     expect(review.position, Duration.zero);
-    await waitFor(find.text('Bản chép lời'));
-    await tap(find.text('Hiện bản dịch tiếng Việt'));
-    await waitFor(
-      find.text('Chào bạn. Hôm nay bạn muốn dùng gì cho bữa trưa?'),
-    );
-    await tester.scrollUntilVisible(
-      find.text('Nghe đoạn trả lời câu 2'),
-      400,
-      scrollable: find.byType(Scrollable).last,
-      maxScrolls: 25,
-    );
+    await tap(find.text('Câu tiếp theo'));
+    await waitFor(find.text('Xem lại câu 2/5'));
     await tap(find.text('Nghe đoạn trả lời câu 2'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(seconds: 5)),
-    );
-    await tester.pump();
     expect(review.evidenceIds, contains('s04'));
-    await review.pause();
+    await tap(find.text('Câu sai (1)'));
+    expect(find.text('Xem lại câu 1/5'), findsOneWidget);
+    expect(find.text('Bạn chọn'), findsOneWidget);
+    expect(find.text('Đáp án đúng'), findsOneWidget);
+    expect(find.text('Câu tiếp theo'), findsNothing);
+    expect(find.text('Về kết quả'), findsOneWidget);
+    expect(review.evidenceIds, isEmpty);
+    expect(review.playing, false);
+    await capture('listening-cafe-review');
+    await tester.scrollUntilVisible(
+      find.text('Bản chép lời'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tap(find.text('Bản chép lời'));
+    await waitFor(find.text('Hiện bản dịch tiếng Việt'));
+    await tap(find.text('Hiện bản dịch tiếng Việt'));
+    expect(
+      find.text('Chào bạn. Hôm nay bạn muốn dùng gì cho bữa trưa?'),
+      findsOneWidget,
+    );
+    final play = find.text('Phát toàn bài');
+    final playPosition = tester.getTopLeft(play);
+    final messages = find.byKey(const Key('listeningTranscriptMessages'));
+    await tester.drag(messages, const Offset(0, -420));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ListView>(messages).controller!.offset,
+      greaterThan(0),
+    );
+    expect(tester.getTopLeft(play), playPosition);
+    await capture('listening-transcript-scroll');
     late int seconds;
     late String attemptId;
     await tester.runAsync(() async {
@@ -197,12 +226,6 @@ void main() {
                   as Map)['activeSeconds']
               as int;
     });
-    await tester.scrollUntilVisible(
-      find.text('Phát toàn bài'),
-      -400,
-      scrollable: find.byType(Scrollable).last,
-      maxScrolls: 25,
-    );
     await tap(find.text('Phát toàn bài'));
     await settleNetwork();
     await review.pause();
@@ -220,23 +243,27 @@ void main() {
     await tester.pump();
     await tester.pumpWidget(
       MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: LearningAttemptPage(owner: owner, attemptId: attemptId),
+        home: LearningHistoryPage(controller: owner),
       ),
     );
+    await tap(find.byKey(ValueKey('learning-history-$attemptId')));
     await waitFor(find.text('Kết quả bài học'));
     expect(find.text('4/5 câu đúng'), findsOneWidget);
-    await tester.ensureVisible(find.text('Hiện bản dịch tiếng Việt'));
-    await tester.pump();
+    await tap(find.text('Xem lại đáp án'));
+    await waitFor(find.text('Xem lại câu 1/5'));
+    await tester.scrollUntilVisible(
+      find.text('Bản chép lời'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tap(find.text('Bản chép lời'));
+    await waitFor(find.text('Hiện bản dịch tiếng Việt'));
     expect(
       tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
       false,
     );
-    if (const bool.fromEnvironment('CAPTURE_EVIDENCE')) {
-      debugPrint('LISTENING: converting surface for capture');
-      debugPrint('LISTENING: taking review screenshot');
-      await capture('listening-cafe-review');
-    }
     debugPrint('LISTENING: reopened history; translation remains opt-in');
     await tester.pumpWidget(const SizedBox());
     await tester.pump();

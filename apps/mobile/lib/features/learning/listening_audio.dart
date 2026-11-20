@@ -218,12 +218,20 @@ class ListeningAudioController extends ChangeNotifier {
     );
     await _resumeIfCurrent(epoch);
   }, 'Không phát được đoạn nghe. Hãy thử lại.');
-  Future<void> playWhole() async {
+  Future<void> stopEvidence() async {
+    if (evidenceIds.isEmpty && !busy) return;
     _queue = [];
     evidenceIds = {};
-    if (!playing) await toggle();
-    if (active) notifyListeners();
+    await pause();
   }
+
+  Future<void> playWhole() => _run((epoch) async {
+    if (!await _load() || epoch != _playEpoch) return;
+    _queue = [];
+    evidenceIds = {};
+    await _seek(Duration.zero);
+    if (!playing) await _resumeIfCurrent(epoch);
+  }, 'Không phát được audio. Hãy thử lại.');
 
   Future<void> _nextSegment() async {
     _advancing = true;
@@ -272,25 +280,28 @@ class ListeningAudioControls extends StatelessWidget {
     animation: controller,
     builder: (context, _) {
       final c = controller;
+      final skipStyle = IconButton.styleFrom(
+        backgroundColor: AppColors.grey25,
+        foregroundColor: AppColors.grey900,
+        disabledBackgroundColor: AppColors.grey25,
+        minimumSize: const Size(40, 36),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.tagRadius),
+      );
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              IconButton(
-                tooltip: 'Lùi 5 giây',
-                onPressed: c.busy || !c.loaded ? null : () => c.skip(-5),
-                icon: const Icon(Icons.replay_5),
-              ),
-              IconButton.filled(
+              IconButton.outlined(
                 tooltip: c.playing ? 'Tạm dừng' : 'Phát audio',
                 onPressed: c.busy ? null : c.toggle,
                 style: IconButton.styleFrom(
-                  backgroundColor: AppColors.grey900,
-                  foregroundColor: AppColors.grey0,
-                  disabledBackgroundColor: AppColors.grey900,
-                  disabledForegroundColor: AppColors.grey0,
-                  fixedSize: const Size(52, 52),
+                  backgroundColor: AppColors.grey0,
+                  foregroundColor: AppColors.grey900,
+                  disabledBackgroundColor: AppColors.grey0,
+                  side: const BorderSide(color: AppColors.grey200),
+                  fixedSize: const Size(48, 48),
                 ),
                 icon: c.busy
                     ? const SizedBox(
@@ -299,50 +310,131 @@ class ListeningAudioControls extends StatelessWidget {
                         child: CircularProgressIndicator(
                           semanticsLabel: 'Đang tải audio',
                           strokeWidth: 2,
-                          color: AppColors.grey0,
+                          color: AppColors.primary700,
                         ),
                       )
-                    : Icon(
-                        c.playing ? Icons.pause : Icons.play_arrow,
-                        size: 28,
+                    : FigmaAsset(
+                        c.playing
+                            ? 'listening-playing/imgVuesaxLinearPause'
+                            : 'listening/imgVuesaxLinearPlay',
+                        size: 20,
                       ),
               ),
-              IconButton(
-                tooltip: 'Tiến 5 giây',
-                onPressed: c.busy || !c.loaded ? null : () => c.skip(5),
-                icon: const Icon(Icons.forward_5),
-              ),
-              const Spacer(),
-              PopupMenuButton<double>(
-                key: const Key('listeningSpeed'),
-                tooltip: 'Tốc độ phát',
-                enabled: !c.busy,
-                initialValue: c.rate,
-                onSelected: c.setRate,
-                color: AppColors.grey0,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: AppRadius.cardSm,
-                ),
-                itemBuilder: (_) => [
-                  for (final speed in [0.75, 1.0])
-                    PopupMenuItem(
-                      value: speed,
-                      child: Text(
-                        '${speed == 1 ? '1' : '0.75'}×',
-                        style: designText(14, weight: FontWeight.w500),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      height: 32,
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 4,
+                          activeTrackColor: AppColors.primary500,
+                          inactiveTrackColor: AppColors.grey200,
+                          thumbColor: AppColors.primary500,
+                          overlayColor: AppColors.primary25,
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 6,
+                          ),
+                          overlayShape: const RoundSliderOverlayShape(
+                            overlayRadius: 14,
+                          ),
+                          trackShape: const RoundedRectSliderTrackShape(),
+                        ),
+                        child: Slider(
+                          semanticFormatterCallback: (v) =>
+                              '${(v / 1000).round()} giây',
+                          value: c.position.inMilliseconds.toDouble().clamp(
+                            0,
+                            c.duration.inMilliseconds.toDouble(),
+                          ),
+                          max: c.duration.inMilliseconds > 0
+                              ? c.duration.inMilliseconds.toDouble()
+                              : 1,
+                          onChanged: c.busy || !c.loaded
+                              ? null
+                              : (v) => c.seek(Duration(milliseconds: v.round())),
+                        ),
                       ),
                     ),
-                ],
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    minWidth: 64,
-                    minHeight: 48,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _time(c.position),
+                          style: designText(12, color: AppColors.grey600),
+                        ),
+                        Text(
+                          _time(c.duration),
+                          style: designText(12, color: AppColors.grey600),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const Divider(height: 1, color: AppColors.grey100),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Lùi 5 giây',
+                      onPressed: c.busy || !c.loaded ? null : () => c.skip(-5),
+                      style: skipStyle,
+                      icon: const Icon(Icons.replay_5_rounded, size: 20),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Tiến 5 giây',
+                      onPressed: c.busy || !c.loaded ? null : () => c.skip(5),
+                      style: skipStyle,
+                      icon: const Icon(Icons.forward_5_rounded, size: 20),
+                    ),
+                  ],
+                ),
+                PopupMenuButton<double>(
+                  key: const Key('listeningSpeed'),
+                  tooltip: 'Tốc độ phát',
+                  enabled: !c.busy,
+                  initialValue: c.rate,
+                  onSelected: c.setRate,
+                  color: AppColors.grey0,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadius.cardSm,
                   ),
-                  child: Center(
+                  itemBuilder: (_) => [
+                    for (final speed in [0.75, 1.0])
+                      PopupMenuItem(
+                        value: speed,
+                        child: Text(
+                          '${speed == 1 ? '1' : '0.75'}×',
+                          style: designText(14, weight: FontWeight.w500),
+                        ),
+                      ),
+                  ],
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minWidth: 64,
+                      minHeight: 36,
+                    ),
                     child: DecoratedBox(
-                      decoration: const BoxDecoration(
-                        color: AppColors.grey50,
+                      decoration: BoxDecoration(
+                        color: AppColors.grey0,
                         borderRadius: AppRadius.tagRadius,
+                        border: Border.all(color: AppColors.grey200),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -351,6 +443,7 @@ class ListeningAudioControls extends StatelessWidget {
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               '${c.rate == 1 ? '1' : '0.75'}×',
@@ -364,55 +457,8 @@ class ListeningAudioControls extends StatelessWidget {
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Text(
-                _time(c.position),
-                style: designText(12, color: AppColors.grey800),
-              ),
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: SliderTheme(
-                    data: SliderTheme.of(context).copyWith(
-                      trackHeight: 3,
-                      activeTrackColor: AppColors.primary500,
-                      inactiveTrackColor: AppColors.grey200,
-                      thumbColor: AppColors.primary500,
-                      overlayColor: AppColors.primary25,
-                      thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 5,
-                      ),
-                      overlayShape: const RoundSliderOverlayShape(
-                        overlayRadius: 14,
-                      ),
-                      trackShape: const RoundedRectSliderTrackShape(),
-                    ),
-                    child: Slider(
-                      semanticFormatterCallback: (v) =>
-                          '${(v / 1000).round()} giây',
-                      value: c.position.inMilliseconds.toDouble().clamp(
-                        0,
-                        c.duration.inMilliseconds.toDouble(),
-                      ),
-                      max: c.duration.inMilliseconds > 0
-                          ? c.duration.inMilliseconds.toDouble()
-                          : 1,
-                      onChanged: c.busy || !c.loaded
-                          ? null
-                          : (v) => c.seek(Duration(milliseconds: v.round())),
-                    ),
-                  ),
-                ),
-              ),
-              Text(
-                _time(c.duration),
-                style: designText(12, color: AppColors.grey800),
-              ),
-            ],
+              ],
+            ),
           ),
           if (c.error != null)
             Padding(
@@ -436,98 +482,270 @@ class ListeningTranscript extends StatefulWidget {
     required this.controller,
     required this.content,
   });
-  final ListeningAudioController controller;
+  final ListeningAudioController? controller;
   final Json content;
+
   @override
   State<ListeningTranscript> createState() => _ListeningTranscriptState();
 }
 
 class _ListeningTranscriptState extends State<ListeningTranscript> {
-  bool translated = false;
+  final _scroll = ScrollController();
+  late final _playback = Listenable.merge([widget.controller]);
+  bool _translated = false;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final audio = widget.controller;
     final segments = learningItems(widget.content['transcriptSegments']);
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Bản chép lời', style: designHeading(20)),
-          if (segments.isEmpty)
-            Text(
-              widget.content['transcript'] as String? ?? '',
-              style: designText(16),
-            )
-          else ...[
-            Material(
-              type: MaterialType.transparency,
-              child: SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Hiện bản dịch tiếng Việt'),
-                value: translated,
-                onChanged: (value) => setState(() => translated = value),
+    final hasTranslation = segments.any(
+      (segment) => (segment['translationVi'] as String? ?? '').isNotEmpty,
+    );
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) unawaited(audio?.pause());
+      },
+      child: FigmaPage(
+        title: 'Bản chép lời',
+        titleStyle: designHeading(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (audio != null || hasTranslation)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: FigmaCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (audio != null)
+                        ListenableBuilder(
+                          listenable: audio,
+                          builder: (context, _) {
+                            final playingWhole =
+                                audio.playing && audio.evidenceIds.isEmpty;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextButton.icon(
+                                  onPressed: audio.busy
+                                      ? null
+                                      : playingWhole
+                                      ? audio.pause
+                                      : audio.playWhole,
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.primary800,
+                                    backgroundColor: playingWhole
+                                        ? AppColors.primary25
+                                        : AppColors.grey25,
+                                    minimumSize: const Size(0, 44),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 8,
+                                    ),
+                                    shape: const StadiumBorder(),
+                                  ),
+                                  icon: Icon(
+                                    playingWhole
+                                        ? Icons.pause_rounded
+                                        : Icons.play_arrow_rounded,
+                                  ),
+                                  label: Text(
+                                    playingWhole
+                                        ? 'Tạm dừng toàn bài'
+                                        : 'Phát toàn bài',
+                                  ),
+                                ),
+                                if (audio.error case final String error)
+                                  Text(
+                                    error,
+                                    style: designText(
+                                      13,
+                                      color: AppColors.error200,
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                      if (hasTranslation)
+                        Material(
+                          type: MaterialType.transparency,
+                          child: SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            activeTrackColor: AppColors.primary500,
+                            title: Text(
+                              'Hiện bản dịch tiếng Việt',
+                              style: designText(14, weight: FontWeight.w500),
+                            ),
+                            value: _translated,
+                            onChanged: (value) =>
+                                setState(() => _translated = value),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            Expanded(
+              child: Scrollbar(
+                controller: _scroll,
+                child: ListView.separated(
+                  key: const Key('listeningTranscriptMessages'),
+                  controller: _scroll,
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                  itemCount: segments.isEmpty ? 1 : segments.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    if (segments.isEmpty) {
+                      return FigmaCard(
+                        child: Text(
+                          widget.content['transcript'] as String? ?? '',
+                          style: designText(16, height: 1.5),
+                        ),
+                      );
+                    }
+                    final segment = segments[index];
+                    final isFirstSpeaker =
+                        segment['speaker'] == segments.first['speaker'];
+                    return ListenableBuilder(
+                      listenable: _playback,
+                      builder: (context, _) =>
+                          _message(segment, isFirstSpeaker),
+                    );
+                  },
+                ),
               ),
             ),
-            TextButton(
-              onPressed: widget.controller.busy
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _message(Json segment, bool isFirstSpeaker) {
+    final audio = widget.controller;
+    final start = (segment['startMs'] as num).toInt();
+    final elapsed = audio?.position.inMilliseconds ?? 0;
+    final highlighted =
+        audio?.playing == true &&
+        elapsed >= start &&
+        elapsed < (segment['endMs'] as num);
+    final translation = segment['translationVi'] as String? ?? '';
+    const corner = Radius.circular(16);
+    const speakerCorner = Radius.circular(4);
+    final borderColor = highlighted
+        ? AppColors.primary500
+        : isFirstSpeaker
+        ? AppColors.grey100
+        : AppColors.primary100;
+    final fillColor = highlighted
+        ? AppColors.primary25
+        : isFirstSpeaker
+        ? AppColors.grey0
+        : const Color(0xFFF3FBF6);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.only(
+        topLeft: isFirstSpeaker ? speakerCorner : corner,
+        topRight: isFirstSpeaker ? corner : speakerCorner,
+        bottomLeft: corner,
+        bottomRight: corner,
+      ),
+      side: BorderSide(color: borderColor, width: highlighted ? 1.5 : 1),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => Align(
+        alignment: isFirstSpeaker
+            ? Alignment.centerLeft
+            : Alignment.centerRight,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: constraints.maxWidth * .84),
+          child: Material(
+            key: ValueKey('listening-transcript-${segment['id']}'),
+            color: fillColor,
+            shape: shape,
+            child: InkWell(
+              customBorder: shape,
+              onTap: audio == null || audio.busy
                   ? null
-                  : widget.controller.playWhole,
-              child: const Text('Phát toàn bài'),
-            ),
-            for (final segment in segments)
-              Builder(
-                builder: (context) {
-                  final ms = widget.controller.position.inMilliseconds;
-                  final current =
-                      ms >= (segment['startMs'] as num) &&
-                      ms < (segment['endMs'] as num);
-                  final evidence = widget.controller.evidenceIds.contains(
-                    segment['id'],
-                  );
-                  return Card(
-                    color: current ? AppColors.primary25 : null,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: evidence
-                            ? AppColors.primary500
-                            : AppColors.grey200,
+                  : () => audio.playSegments([segment]),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 4,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            "${segment['speaker']} · ${ListeningAudioControls._time(Duration(milliseconds: start))}",
+                            style: designText(
+                              13,
+                              weight: FontWeight.w600,
+                              color: highlighted
+                                  ? AppColors.primary700
+                                  : AppColors.grey800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          highlighted
+                              ? Icons.volume_up_rounded
+                              : Icons.play_circle_outline_rounded,
+                          size: 16,
+                          color: highlighted
+                              ? AppColors.primary600
+                              : AppColors.grey500,
+                        ),
+                      ],
+                    ),
+                    Text(
+                      segment['text'] as String,
+                      style: designText(
+                        15,
+                        weight: FontWeight.w500,
+                        color: AppColors.grey900,
+                        height: 1.45,
                       ),
                     ),
-                    child: InkWell(
-                      onTap: widget.controller.busy
-                          ? null
-                          : () => widget.controller.playSegments([segment]),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${segment['speaker']} · ${ListeningAudioControls._time(Duration(milliseconds: (segment['startMs'] as num).toInt()))}',
-                              style: designText(14, weight: FontWeight.w600),
-                            ),
-                            Text(
-                              segment['text'] as String,
-                              style: designText(16),
-                            ),
-                            if (translated)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  segment['translationVi'] as String? ?? '',
-                                  style: designText(14),
-                                ),
-                              ),
-                          ],
+                    if (_translated && translation.isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.only(top: 6),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: AppColors.grey100),
+                          ),
+                        ),
+                        child: Text(
+                          translation,
+                          style: designText(
+                            14,
+                            color: AppColors.grey800,
+                            height: 1.45,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                  ],
+                ),
               ),
-          ],
-        ],
+            ),
+          ),
+        ),
       ),
     );
   }

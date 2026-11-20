@@ -8,9 +8,8 @@ import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/features/learning/learning_controller.dart';
 import 'package:mobile/features/learning/learning_pages.dart';
 import 'package:mobile/features/learning/learning_repository.dart';
-import 'package:mobile/features/learning/learning_widgets.dart';
 import 'package:mobile/features/learning/listening_audio.dart';
-import 'package:mobile/shared/figma_widgets.dart';
+import 'package:mobile/features/learning/practice_widgets.dart';
 import 'learning_workflow_test.dart' show MemoryLearningRepository;
 
 class FakeListeningEngine implements ListeningAudioEngine {
@@ -327,86 +326,135 @@ void main() {
       owner.dispose();
     },
   );
+  testWidgets('per-question review fits large type and supports legacy audio', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final engine = FakeListeningEngine();
+    final audio = ListeningAudioController(
+      url: 'legacy.wav',
+      isCurrent: () => true,
+      engine: engine,
+    );
+    final attempt = LearningAttempt({
+      'content': {'transcript': 'Welcome to our school.'},
+      'questions': [
+        {
+          'id': 'q1',
+          'prompt': 'Where does the speaker welcome the students?',
+          'options': [
+            {'id': 'a', 'text': 'At the school on their first day of classes'},
+            {'id': 'b', 'text': 'At the local shopping centre'},
+          ],
+        },
+      ],
+      'answers': [
+        {
+          'questionId': 'q1',
+          'optionId': 'a',
+          'correctOptionId': 'a',
+          'isCorrect': true,
+        },
+      ],
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
+          child: PracticeReviewPage(attempt: attempt, audio: audio),
+        ),
+      ),
+    );
+    final wrongFilter = find.widgetWithText(ChoiceChip, 'Câu sai (0)');
+    expect(tester.widget<ChoiceChip>(wrongFilter).onSelected, isNull);
+    expect(find.text('Đáp án đúng · Bạn chọn'), findsOneWidget);
+    expect(find.text('Đoạn dẫn chứng'), findsNothing);
+    expect(find.text('Về kết quả'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Bản chép lời'), 160);
+    await tester.ensureVisible(find.text('Bản chép lời'));
+    await tester.tap(find.text('Bản chép lời'));
+    await tester.pumpAndSettle();
+    expect(find.text('Welcome to our school.'), findsOneWidget);
+    await tester.tap(find.text('Phát toàn bài'));
+    await tester.pumpAndSettle();
+    expect(engine.plays, 1);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    audio.dispose();
+  });
+
   testWidgets(
-    'review translation is opt-in; legacy transcript and large type fit',
+    'transcript messages scroll while playback and translation stay pinned',
     (tester) async {
-      final e = FakeListeningEngine();
-      final c = ListeningAudioController(
+      final engine = FakeListeningEngine();
+      final audio = ListeningAudioController(
         url: 'test.wav',
         isCurrent: () => true,
-        engine: e,
+        engine: engine,
       );
-      await tester.binding.setSurfaceSize(const Size(320, 900));
+      await tester.binding.setSurfaceSize(const Size(320, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme,
-          home: MediaQuery(
-            data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
-            child: Scaffold(
-              body: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: FigmaCard(
-                        padding: const EdgeInsets.all(16),
-                        child: ListeningAudioControls(controller: c),
-                      ),
-                    ),
-                    LearningCard(
-                      children: [
-                        ListeningTranscript(
-                          controller: c,
-                          content: {
-                            'transcriptSegments': [
-                              {
-                                'id': 's1',
-                                'speaker': 'Ben',
-                                'startMs': 0,
-                                'endMs': 2000,
-                                'text': 'Hello.',
-                                'translationVi': 'Xin chào.',
-                              },
-                            ],
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.5)),
+            child: child!,
+          ),
+          home: ListeningTranscript(
+            controller: audio,
+            content: {
+              'transcriptSegments': [
+                for (var i = 0; i < 14; i++)
+                  {
+                    'id': 's$i',
+                    'speaker': i.isEven ? 'Ben' : 'Anna',
+                    'startMs': i * 2000,
+                    'endMs': (i + 1) * 2000,
+                    'text': 'Hello, message $i.',
+                    'translationVi': 'Xin chào, tin nhắn $i.',
+                  },
+              ],
+            },
           ),
         ),
       );
-      expect(find.text('Xin chào.'), findsNothing);
-      expect(
-        tester.widget<Slider>(find.byType(Slider)).semanticFormatterCallback!(
-          12000,
-        ),
-        '12 giây',
+      final toggle = find.text('Hiện bản dịch tiếng Việt');
+      final play = find.text('Phát toàn bài');
+      final playPosition = tester.getTopLeft(play);
+      final togglePosition = tester.getTopLeft(toggle);
+      final left = tester.getRect(
+        find.byKey(const ValueKey('listening-transcript-s0')),
       );
-      await tester.tap(find.byType(Switch));
-      await tester.pump();
-      expect(find.text('Xin chào.'), findsOneWidget);
-      expect(e.plays, 0);
+      final right = tester.getRect(
+        find.byKey(const ValueKey('listening-transcript-s1')),
+      );
+      expect(left.left, lessThan(right.left));
+      expect(left.right, lessThan(right.right));
+      expect(find.text('Xin chào, tin nhắn 0.'), findsNothing);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      expect(find.text('Xin chào, tin nhắn 0.'), findsOneWidget);
+      final messages = find.byKey(const Key('listeningTranscriptMessages'));
+      await tester.scrollUntilVisible(
+        find.text('Xin chào, tin nhắn 13.').hitTestable(),
+        260,
+        scrollable: find.descendant(
+          of: messages,
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(find.text('Xin chào, tin nhắn 13.').hitTestable(), findsOneWidget);
+      expect(tester.getTopLeft(play), playPosition);
+      expect(tester.getTopLeft(toggle), togglePosition);
+      expect(engine.plays, 0);
       expect(tester.takeException(), isNull);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ListeningTranscript(
-              key: UniqueKey(),
-              controller: c,
-              content: {'transcript': 'Legacy transcript'},
-            ),
-          ),
-        ),
-      );
-      expect(find.text('Legacy transcript'), findsOneWidget);
-      expect(find.byType(Switch), findsNothing);
       await tester.pumpWidget(const SizedBox());
-      c.dispose();
+      audio.dispose();
     },
   );
 }
