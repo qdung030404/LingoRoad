@@ -566,7 +566,7 @@ class _RoadmapUnitRow extends StatelessWidget {
                     border: Border.all(
                       color: (isCompleted || isActive)
                           ? AppColors.primary600
-                          : const Color(0xFFB0BDD0),
+                          : AppColors.grey300,
                     ),
                   ),
                   child: isCompleted
@@ -592,7 +592,7 @@ class _RoadmapUnitRow extends StatelessWidget {
                         width: 1,
                         color: isCompleted
                             ? AppColors.primary600
-                            : const Color(0xFFB0BDD0),
+                            : AppColors.grey300,
                       ),
                     ),
                   ),
@@ -951,7 +951,9 @@ class _MiniStudyBars extends StatelessWidget {
                 height: (bars[i].clamp(0.15, 1.0) * 52).toDouble(),
                 decoration: BoxDecoration(
                   color: _palette[i],
-                  borderRadius: BorderRadius.circular(2),
+                  borderRadius: const BorderRadius.all(
+                    Radius.circular(AppRadius.xxs / 2),
+                  ),
                 ),
               ),
             ),

@@ -1151,7 +1151,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
           ? AppColors.grey50
           : Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.cardSm,
         side: BorderSide(
           color: correct
               ? AppColors.primary500
@@ -1164,7 +1164,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
       ),
       child: InkWell(
         key: ValueKey('learning-option-${option['id']}'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppRadius.cardSm,
         onTap: checked || blocked
             ? null
             : () => controller.select(questionId, option['id'] as String),

@@ -15,6 +15,7 @@ export class VocabularyService {
     return (
       await db.vocabularyDeck.findFirst({
         where: { userId, systemKey: READING_DECK_SYSTEM_KEY, deletedAt: null },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       })
     ) ?? db.vocabularyDeck.findFirst({
       where: { userId, deletedAt: null, name: { equals: READING_DECK_DEFAULT_NAME, mode: 'insensitive' } },

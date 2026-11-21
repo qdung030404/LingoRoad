@@ -642,8 +642,8 @@ class _ListeningTranscriptState extends State<ListeningTranscript> {
         elapsed >= start &&
         elapsed < (segment['endMs'] as num);
     final translation = segment['translationVi'] as String? ?? '';
-    const corner = Radius.circular(16);
-    const speakerCorner = Radius.circular(4);
+    final corner = const Radius.circular(AppRadius.lg);
+    final speakerCorner = const Radius.circular(AppRadius.xxs);
     final borderColor = highlighted
         ? AppColors.primary500
         : isFirstSpeaker
@@ -653,7 +653,7 @@ class _ListeningTranscriptState extends State<ListeningTranscript> {
         ? AppColors.primary25
         : isFirstSpeaker
         ? AppColors.grey0
-        : const Color(0xFFF3FBF6);
+        : AppColors.primary25;
     final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.only(
         topLeft: isFirstSpeaker ? speakerCorner : corner,

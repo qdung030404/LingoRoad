@@ -295,9 +295,11 @@ class _PracticeReviewPageState extends State<PracticeReviewPage> {
                             children: [
                               Container(
                                 width: 3,
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: AppColors.primary500,
-                                  borderRadius: BorderRadius.circular(2),
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(AppRadius.xxs / 2),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 10),
