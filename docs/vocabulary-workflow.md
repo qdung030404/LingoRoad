@@ -11,6 +11,17 @@ Firebase Authentication xác thực người dùng; NestJS kiểm tra token, dù
 - Mỗi tài khoản/bộ có tối đa một lượt đang chạy; snapshot tối đa 100 từ. Các lượt tiếp theo ưu tiên từ chưa xuất hiện và từ lâu chưa được chọn, thay vì lặp mãi 100 từ đầu.
 - Dữ liệu mẫu và ratings trong WordLibrary local không tự được nhập thành kết quả học thật. Tài khoản thật mới có thư viện rỗng; preview khách vẫn dùng dữ liệu mẫu riêng.
 
+## Nạp chủ đề từ vựng mẫu
+
+`npm run demo:setup` nạp danh mục mẫu vào database demo. Với backend đã chạy, thực hiện hai lệnh sau trong `apps/backend` trên database mà backend đang sử dụng.
+
+```shell
+npm run prisma:migrate
+npm run seed:topic-vocab -- --from-json
+```
+
+Lệnh seed đọc 12 chủ đề và 240 từ đi kèm repo. Có thể chạy lại để cập nhật danh mục. Sau khi nạp, mở **Học → Từ vựng** và tải lại danh sách.
+
 ## Luồng ôn
 
 Giữ mặt trước tiếng Anh → nghĩa → điền lại tiếng Anh. Chọn độ khó từ flashcard có thể chuyển thẳng sang từ tiếp theo. Vuốt trái bỏ qua trong lượt hiện tại; vuốt phải đưa xuống cuối hàng đợi. Chỉ còn một từ thì vuốt phải giữ từ đó, không tạo bản sao.

@@ -364,4 +364,50 @@ describe('Personal vocabulary and persisted review', () => {
     await api(owner, 'get', `/vocabulary/decks?cursor=${foreignDeck.id}`).expect(404);
     await api(owner, 'get', `/vocabulary/decks/${deck.id}/words?cursor=${foreignWord.id}`).expect(404);
   });
+
+  it('saves reading words atomically without duplicates, survives deck rename, and reflects deletions', async () => {
+    const owner = await account();
+    const initial = (await api(owner, 'get', '/vocabulary/reading-words').expect(200)).body.data;
+    assert.deepEqual(initial, { deck: null, items: [] });
+
+    const payload = { english: 'triage', meaning: 'sàng lọc ưu tiên', phonetic: '/ˈtriːɑːʒ/', example: 'Constant triage shapes reading.' };
+    const concurrent = await Promise.all([
+      api(owner, 'post', '/vocabulary/reading-words', { commandId: randomUUID(), ...payload }).expect(200),
+      api(owner, 'post', '/vocabulary/reading-words', { commandId: randomUUID(), english: '  Triage ', meaning: 'Sàng lọc ưu tiên' }).expect(200),
+    ]);
+    const flags = concurrent.map(r => r.body.data.alreadyExisted).sort();
+    assert.deepEqual(flags, [false, true]);
+    const deck = concurrent[0].body.data.deck;
+    assert.equal(deck.name, 'Từ vựng Bài đọc');
+    assert.equal(deck.totalWords, 1);
+
+    // Same english with distinct meaning is stored as a separate entry.
+    const secondMeaning = (await api(owner, 'post', '/vocabulary/reading-words', {
+      commandId: randomUUID(), english: 'triage', meaning: 'phân loại mức độ',
+    }).expect(200)).body.data;
+    assert.equal(secondMeaning.alreadyExisted, false);
+    assert.equal(secondMeaning.deck.id, deck.id);
+
+    // Renaming the reading deck preserves its stable systemKey for subsequent saves.
+    const renamed = (await api(owner, 'patch', `/vocabulary/decks/${deck.id}`, {
+      commandId: randomUUID(), expectedVersion: secondMeaning.deck.version, name: 'Từ hay B2-C1',
+    }).expect(200)).body.data.deck;
+    const afterRename = (await api(owner, 'post', '/vocabulary/reading-words', {
+      commandId: randomUUID(), english: 'permeable', meaning: 'thấm nước',
+    }).expect(200)).body.data;
+    assert.equal(afterRename.deck.id, renamed.id);
+    assert.equal(afterRename.deck.name, 'Từ hay B2-C1');
+    assert.equal((await api(owner, 'get', '/vocabulary/decks').expect(200)).body.data.items.length, 1);
+
+    // Deleting a saved word updates GET /vocabulary/reading-words and allows re-saving it later.
+    await api(owner, 'delete', `/vocabulary/words/${afterRename.word.id}`, {
+      commandId: randomUUID(), expectedVersion: afterRename.word.version,
+    }).expect(200);
+    const listAfterDelete = (await api(owner, 'get', '/vocabulary/reading-words').expect(200)).body.data;
+    assert.equal(listAfterDelete.items.some(w => w.id === afterRename.word.id), false);
+    const resaved = (await api(owner, 'post', '/vocabulary/reading-words', {
+      commandId: randomUUID(), english: 'permeable', meaning: 'thấm nước',
+    }).expect(200)).body.data;
+    assert.equal(resaved.alreadyExisted, false);
+  });
 });

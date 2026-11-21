@@ -72,5 +72,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Seed demo thất bại' }
     & npm.cmd run seed:learning
     if ($LASTEXITCODE -ne 0) { throw 'Seed bài học thất bại' }
+    & npm.cmd run seed:topic-vocab -- --from-json
+    if ($LASTEXITCODE -ne 0) { throw 'Seed chủ đề từ vựng thất bại' }
 } finally { Pop-Location }
 Write-Host 'Demo và database kiểm thử đã sẵn sàng. Dữ liệu PostgreSQL cổng 5432 được giữ nguyên.'

@@ -28,13 +28,17 @@ describe('Daily plans and observed learning time', () => {
     const { seedLearningContent } = require('../prisma/seed-learning.ts');
     const module = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = module.createNestApplication({ logger: false });
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true,
-      forbidNonWhitelisted: true, transformOptions: { enableImplicitConversion: true } }));
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true, transform: true,
+      forbidNonWhitelisted: true, transformOptions: { enableImplicitConversion: true }
+    }));
     app.useGlobalFilters(new HttpExceptionFilter());
     await app.init();
     prisma = app.get(PrismaService);
     await seedLearningContent(prisma);
-    const published = await prisma.learningLesson.findMany({ where: { published: true } });
+    const published = await prisma.learningLesson.findMany({
+      where: { published: true }, orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
     lessons = Object.fromEntries(kinds.map(kind => [kind, published.find(row => row.kind === kind)]));
     assert.ok(kinds.every(kind => lessons[kind]));
   });
@@ -74,8 +78,8 @@ describe('Daily plans and observed learning time', () => {
   const plan = async owner => (await api(owner, 'post', '/learning/plan/today', {}).expect(200)).body.data.plan;
   const progress = async owner => (await api(owner, 'get', '/learning/progress').expect(200)).body.data;
   const start = async (owner, lesson) => (await api(owner, 'post', `/learning/lessons/${lesson.id}/attempts`, {}).expect(201)).body.data;
-  async function finish(owner, lesson, correctCount = 5) {
-    let attempt = await start(owner, lesson);
+  async function finish(owner, lesson, correctCount = 5, existingAttempt = null) {
+    let attempt = existingAttempt ?? await start(owner, lesson);
     for (const [index, question] of lesson.content.questions.entries()) {
       const optionId = index < correctCount ? question.correctOptionId
         : question.options.find(option => option.id !== question.correctOptionId).id;
@@ -118,9 +122,19 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(today.estimatedMinutes, 5);
     await preferences(owner, 120);
     today = await plan(owner);
-    assert.equal(today.totalCount, 4);
-    assert.equal(today.estimatedMinutes, 30);
-    assert.equal(new Set(today.items.map(item => item.lessonId)).size, 4);
+    const foundationLessons = await prisma.learningLesson.findMany({
+      where: {
+        published: true,
+        OR: [{ unit: null }, { unit: { cefrLevel: { in: ['A1', 'A2'] } } }],
+      },
+      select: { id: true, estimatedMinutes: true },
+    });
+    assert.equal(today.totalCount, foundationLessons.length);
+    assert.equal(today.estimatedMinutes, foundationLessons.reduce((sum, lesson) => sum + lesson.estimatedMinutes, 0));
+    assert.deepEqual(
+      today.items.map(item => item.lessonId).sort(),
+      foundationLessons.map(lesson => lesson.id).sort(),
+    );
     const me = (await api(owner, 'get', '/auth/me').expect(200)).body.data;
     assert.equal(me.profile.dailyGoalMinutes, 120);
   });
@@ -142,7 +156,10 @@ describe('Daily plans and observed learning time', () => {
     const updated = await plan(owner);
     assert.equal(updated.dailyGoalMinutes, 5);
     assert.ok(updated.items.some(row => row.id === completedItemId && row.completed && row.completedAttemptId === done.id));
-    assert.ok(updated.items.some(row => row.activeAttemptId === active.id));
+    assert.ok(updated.items.every(row => row.activeAttemptId === null && row.reasonCode !== 'RESUME'));
+    assert.equal(updated.continueAttemptId, null);
+    assert.ok(active.id);
+    await api(owner, 'delete', `/learning/attempts/${active.id}`).expect(200);
     const stats = await progress(owner);
     assert.equal(stats.today.completedLessonCount, 1);
     assert.equal(stats.today.activeSeconds, 0);
@@ -206,6 +223,13 @@ describe('Daily plans and observed learning time', () => {
     const summary = (await api(owner, 'get', '/learning/summary').expect(200)).body.data;
     assert.equal(summary.activeSeconds, stats.totals.activeSeconds);
     assert.equal(summary.completedAttemptCount, stats.totals.completedAttemptCount);
+    // Cancelling an unfinished attempt removes all of its recorded activity time as well.
+    const cancelledAttempt = await start(owner, lessons.GRAMMAR);
+    const cancelledSession = await anchored(owner, cancelledAttempt, new Date(Date.now() - 30000));
+    await send(owner, cancelledSession, [{ seq: 0, startOffsetMs: 0, endOffsetMs: 10000 }]).expect(200);
+    assert.equal((await progress(owner)).today.activeSeconds, 355);
+    await api(owner, 'delete', `/learning/attempts/${cancelledAttempt.id}`).expect(200);
+    assert.equal((await progress(owner)).today.activeSeconds, 345);
   });
 
   it('splits uploaded offline intervals at Vietnam midnight and preserves old data as unmeasured', async () => {
@@ -230,7 +254,7 @@ describe('Daily plans and observed learning time', () => {
   it('accepts valid late intervals before submission, clips later intervals, and never opens a new completed timer', async () => {
     const owner = await account(), attempt = await start(owner, lessons.READING);
     const anchor = new Date(Date.now() - 60000), sessionId = await anchored(owner, attempt, anchor);
-    const done = await finish(owner, lessons.READING, 5);
+    const done = await finish(owner, lessons.READING, 5, attempt);
     // Set an exact earlier submission boundary on our own test row.
     const submittedAt = new Date(anchor.getTime() + 20000);
     await prisma.learningAttempt.update({ where: { id: done.id }, data: { submittedAt } });
@@ -266,5 +290,61 @@ describe('Daily plans and observed learning time', () => {
     await api(owner, 'patch', '/learning/preferences', { dailyGoalMinutes: 5, preferredKinds: kinds, expectedVersion: pref.version }).expect(409);
     await api(owner, 'patch', '/learning/preferences', { dailyGoalMinutes: 5, preferredKinds: kinds, expectedVersion: pref.version, userId: other.userId }).expect(400);
     assert.equal((await progress(other)).totals.activeSeconds, 0);
+  });
+
+  it('tracks A1 roadmap units and practice score stats across weeks', async () => {
+    const owner = await account();
+    const initial = await progress(owner);
+    assert.equal(initial.units.length, 8);
+    assert.equal(initial.units.find(unit => unit.cefrLevel === 'A2').totalLessons, 3);
+    assert.equal(initial.units[0].status, 'IN_PROGRESS');
+    assert.equal(initial.units[0].totalLessons, 3);
+    assert.equal(initial.scoreStats.averageScore, null);
+
+    // Complete previous week attempt at 3/5 (60%) and current week attempts at 5/5 (100%)
+    const firstDone = await finish(owner, lessons.GRAMMAR, 3);
+    await prisma.learningAttempt.update({
+      where: { id: firstDone.id },
+      data: { submittedAt: new Date(Date.now() - 8 * dayMs) },
+    });
+    await finish(owner, lessons.READING, 5);
+    await finish(owner, lessons.LISTENING, 5);
+
+    const updated = await progress(owner);
+    assert.equal(updated.units[0].status, 'COMPLETED');
+    assert.equal(updated.units[0].completedLessonCount, 3);
+    assert.equal(updated.units[1].status, 'IN_PROGRESS');
+    assert.equal(updated.scoreStats.averageScore, 87);
+    assert.equal(updated.scoreStats.previousWeekAverage, 60);
+    assert.equal(updated.scoreStats.currentWeekAverage, 100);
+    assert.equal(updated.scoreStats.deltaPercent, 40);
+  });
+
+  it('filters daily plan suggestions by skill-specific CEFR ceiling from placement', async () => {
+    const owner = await account();
+    await prisma.placementSession.create({
+      data: {
+        userId: owner.userId,
+        status: 'COMPLETED',
+        completedAt: new Date(),
+        estimatedCefr: 'B1',
+        correctCount: 7,
+        skillResults: {
+          reading: { estimatedCefr: 'B1', correctCount: 4, totalItems: 5, status: 'PROVISIONAL' },
+          listening: { estimatedCefr: 'A2', correctCount: 3, totalItems: 5, status: 'PROVISIONAL' },
+        },
+      },
+    });
+    await preferences(owner, 120);
+    const generated = await plan(owner);
+    const readingLessons = await prisma.learningLesson.findMany({
+      where: { code: { in: ['reading-b1-hybrid-workday', 'reading-b2-urban-pocket-parks', 'reading-c1-deep-reading-attention'] } },
+      select: { id: true, code: true },
+    });
+    const idByCode = Object.fromEntries(readingLessons.map(row => [row.code, row.id]));
+    const plannedIds = new Set(generated.items.map(item => item.lessonId));
+    assert.ok(plannedIds.has(idByCode['reading-b1-hybrid-workday']));
+    assert.ok(!plannedIds.has(idByCode['reading-b2-urban-pocket-parks']));
+    assert.ok(!plannedIds.has(idByCode['reading-c1-deep-reading-attention']));
   });
 });

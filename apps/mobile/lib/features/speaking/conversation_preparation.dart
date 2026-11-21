@@ -417,7 +417,10 @@ class _PreparationListState extends State<_PreparationList> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text(widget.caption, style: designText(13, color: AppColors.grey800)),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: PracticeCountBadge(widget.caption),
+      ),
       const SizedBox(height: 10),
       ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 288),
@@ -469,33 +472,12 @@ class _VocabularyCard extends StatelessWidget {
   final Json item;
 
   @override
-  Widget build(BuildContext context) => _PreparationListCard(
-    children: [
-      Text(
-        item['word'].toString(),
-        style: designText(
-          17,
-          weight: FontWeight.w700,
-          color: AppColors.primary700,
-        ),
-      ),
-      const SizedBox(height: 4),
-      learningBody(item['meaningVi'].toString(), size: 14),
-      const SizedBox(height: 8),
-      DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.grey50,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Text(
-            item['example'].toString(),
-            style: designText(14, height: 1.45),
-          ),
-        ),
-      ),
-    ],
+  Widget build(BuildContext context) => PracticeVocabularyCard(
+    word: (item['word'] ?? '').toString(),
+    phonetic: (item['phonetic'] ?? '').toString(),
+    meaning: (item['meaningVi'] ?? item['meaning'] ?? '').toString(),
+    example: (item['example'] ?? '').toString(),
+    compact: true,
   );
 }
 

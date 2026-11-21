@@ -1,0 +1,2008 @@
+{
+  "schemaVersion": "lingoroad-listening-editorial-v1",
+  "status": "SCRIPT_DRAFT_NOT_RUNTIME_SEED",
+  "createdAt": "2026-11-17",
+  "publishable": false,
+  "sourcePolicy": "Hội thoại và câu hỏi nguyên gốc; nguồn tham khảo chỉ định hướng cấp độ, không sao chép học liệu.",
+  "referenceUrls": [
+    "https://learnenglish.britishcouncil.org/free-resources/listening/a1",
+    "https://learnenglish.britishcouncil.org/free-resources/listening/a2"
+  ],
+  "lessons": [
+    {
+      "code": "listening-new-classmate",
+      "title": "A new classmate",
+      "titleVi": "Làm quen bạn mới",
+      "kind": "LISTENING",
+      "targetCefrLevel": "A1",
+      "order": 1,
+      "scriptVersion": 1,
+      "status": "SCRIPT_DRAFT",
+      "publishable": false,
+      "proposedUnitCode": "a1-unit-1",
+      "estimatedPracticeMinutes": 6,
+      "preparation": {
+        "situation": "Bạn nghe một cuộc trò chuyện trước buổi học.",
+        "objective": "Theo dõi người nói và nhận ra thông tin cá nhân cùng lời rủ ở cuối cuộc trò chuyện."
+      },
+      "pedagogicFocus": "Câu ngắn ở hiện tại đơn; nhận biết quê quán, ngành học, người sống cùng và ngày trong tuần.",
+      "recordingPlan": {
+        "speakers": [
+          "Ella: giọng nữ trẻ, thân thiện",
+          "Sam: giọng nam trẻ, rõ ràng"
+        ],
+        "accent": "Tiếng Anh Anh nhất quán trong bản thu đầu; giọng rõ và tự nhiên.",
+        "targetWordsPerMinute": [
+          90,
+          105
+        ],
+        "targetDurationSeconds": [
+          30,
+          90
+        ],
+        "actualDurationMs": null,
+        "actualAudioUrl": null,
+        "plannedAudioUrl": "/media/learning/v1/listening-new-classmate-v1.wav",
+        "delivery": "Không đọc tên người nói, số segment, tiêu đề hoặc đáp án. Nghỉ ngắn giữa lượt lời; không thêm nhạc hoặc tiếng nền."
+      },
+      "keyVocabulary": [
+        {
+          "word": "seat",
+          "meaning": "chỗ ngồi",
+          "example": "This seat is comfortable.",
+          "translation": "Chỗ ngồi này thoải mái.",
+          "id": "v01"
+        },
+        {
+          "word": "college",
+          "meaning": "trường cao đẳng hoặc trường đại học tùy ngữ cảnh",
+          "example": "The college has a small garden.",
+          "translation": "Trường có một khu vườn nhỏ.",
+          "id": "v02"
+        },
+        {
+          "word": "flat",
+          "meaning": "căn hộ",
+          "example": "Their flat has a blue door.",
+          "translation": "Căn hộ của họ có cửa màu xanh.",
+          "id": "v03"
+        },
+        {
+          "word": "after class",
+          "meaning": "sau giờ học",
+          "example": "I read a book after class.",
+          "translation": "Tôi đọc sách sau giờ học.",
+          "id": "v04"
+        }
+      ],
+      "transcript": "Hi. Is this seat free? My name's Ella. Yes, please sit down. I'm Sam. Are you new here? Yes. I'm from Bristol. This is my first week at the college. Welcome! I study business. What do you study? I study art. I like drawing people and buildings. That sounds nice. Do you live near the college? Yes. I live with my sister. Our flat is near the park. I live with my parents. What do you do after class? I play tennis. I usually play on Saturday. Would you like to come? Yes, thank you. Let's talk after the lesson.",
+      "transcriptSegments": [
+        {
+          "id": "s01",
+          "speaker": "Ella",
+          "text": "Hi. Is this seat free? My name's Ella.",
+          "translationVi": "Chào bạn. Chỗ này có ai ngồi chưa? Mình tên là Ella.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s02",
+          "speaker": "Sam",
+          "text": "Yes, please sit down. I'm Sam. Are you new here?",
+          "translationVi": "Chưa đâu, bạn ngồi đi. Mình là Sam. Bạn mới đến đây à?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s03",
+          "speaker": "Ella",
+          "text": "Yes. I'm from Bristol. This is my first week at the college.",
+          "translationVi": "Đúng vậy. Mình đến từ Bristol. Đây là tuần đầu tiên của mình ở trường.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s04",
+          "speaker": "Sam",
+          "text": "Welcome! I study business. What do you study?",
+          "translationVi": "Chào mừng bạn! Mình học kinh doanh. Bạn học ngành gì?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s05",
+          "speaker": "Ella",
+          "text": "I study art. I like drawing people and buildings.",
+          "translationVi": "Mình học mỹ thuật. Mình thích vẽ người và các tòa nhà.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s06",
+          "speaker": "Sam",
+          "text": "That sounds nice. Do you live near the college?",
+          "translationVi": "Nghe hay đấy. Bạn có sống gần trường không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s07",
+          "speaker": "Ella",
+          "text": "Yes. I live with my sister. Our flat is near the park.",
+          "translationVi": "Có. Mình sống cùng chị/em gái. Căn hộ của bọn mình gần công viên.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s08",
+          "speaker": "Sam",
+          "text": "I live with my parents. What do you do after class?",
+          "translationVi": "Mình sống cùng bố mẹ. Bạn làm gì sau giờ học?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s09",
+          "speaker": "Ella",
+          "text": "I play tennis. I usually play on Saturday. Would you like to come?",
+          "translationVi": "Mình chơi quần vợt. Mình thường chơi vào thứ Bảy. Bạn có muốn tham gia không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s10",
+          "speaker": "Sam",
+          "text": "Yes, thank you. Let's talk after the lesson.",
+          "translationVi": "Có, cảm ơn bạn. Bọn mình nói chuyện tiếp sau buổi học nhé.",
+          "startMs": null,
+          "endMs": null
+        }
+      ],
+      "questions": [
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What does Ella do at the end of the conversation?",
+          "options": [
+            {
+              "id": "A",
+              "text": "She asks Sam to teach a class."
+            },
+            {
+              "id": "B",
+              "text": "She invites Sam to join an activity."
+            },
+            {
+              "id": "C",
+              "text": "She asks Sam to find a flat."
+            },
+            {
+              "id": "D",
+              "text": "She offers Sam a job."
+            }
+          ],
+          "correctOptionId": "B",
+          "skillCode": "listening.gist",
+          "evidenceSegmentIds": [
+            "s08",
+            "s09",
+            "s10"
+          ],
+          "explanation": "Ella kết thúc bằng một lời mời Sam cùng tham gia hoạt động ngoài giờ.",
+          "reviewDistractorNotes": {
+            "A": "Không có đề nghị dạy học.",
+            "C": "Việc tìm nhà không phải lời đề nghị ở cuối đoạn.",
+            "D": "Không có lời mời làm việc."
+          },
+          "id": "q01"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Where is Ella from?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Bath"
+            },
+            {
+              "id": "B",
+              "text": "Brighton"
+            },
+            {
+              "id": "C",
+              "text": "Leeds"
+            },
+            {
+              "id": "D",
+              "text": "Bristol"
+            }
+          ],
+          "correctOptionId": "D",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s03"
+          ],
+          "explanation": "Ella nêu Bristol là nơi mình đến từ.",
+          "reviewDistractorNotes": {
+            "A": "Bath không được nêu.",
+            "B": "Brighton không được nêu.",
+            "C": "Leeds không được nêu."
+          },
+          "id": "q02"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What does Ella study?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Art"
+            },
+            {
+              "id": "B",
+              "text": "Business"
+            },
+            {
+              "id": "C",
+              "text": "Music"
+            },
+            {
+              "id": "D",
+              "text": "Science"
+            }
+          ],
+          "correctOptionId": "A",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s04",
+            "s05"
+          ],
+          "explanation": "Ngành học Ella nói đến là mỹ thuật.",
+          "reviewDistractorNotes": {
+            "B": "Kinh doanh là ngành học của Sam.",
+            "C": "Không có thông tin Ella học âm nhạc.",
+            "D": "Không có thông tin Ella học khoa học."
+          },
+          "id": "q03"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Who does Ella live with?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Her parents"
+            },
+            {
+              "id": "B",
+              "text": "Her friend"
+            },
+            {
+              "id": "C",
+              "text": "Her sister"
+            },
+            {
+              "id": "D",
+              "text": "Her brother"
+            }
+          ],
+          "correctOptionId": "C",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s07",
+            "s08"
+          ],
+          "explanation": "Ella nói mình sống cùng chị/em gái.",
+          "reviewDistractorNotes": {
+            "A": "Bố mẹ là người Sam sống cùng.",
+            "B": "Không có thông tin Ella sống cùng bạn.",
+            "D": "Người được nhắc tới là chị/em gái, không phải anh hoặc em trai."
+          },
+          "id": "q04"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "When does Ella usually play tennis?",
+          "options": [
+            {
+              "id": "A",
+              "text": "On Monday"
+            },
+            {
+              "id": "B",
+              "text": "On Saturday"
+            },
+            {
+              "id": "C",
+              "text": "On Friday"
+            },
+            {
+              "id": "D",
+              "text": "On Sunday"
+            }
+          ],
+          "correctOptionId": "B",
+          "skillCode": "listening.numbers_dates_times",
+          "evidenceSegmentIds": [
+            "s09"
+          ],
+          "explanation": "Ngày Ella thường chơi quần vợt là thứ Bảy.",
+          "reviewDistractorNotes": {
+            "A": "Thứ Hai không được nêu.",
+            "C": "Thứ Sáu không được nêu.",
+            "D": "Chủ nhật không được nêu."
+          },
+          "id": "q05"
+        }
+      ],
+      "editorialReview": {
+        "author": "Bản thảo nguyên gốc do Codex biên soạn theo yêu cầu người dùng",
+        "createdAt": "2026-11-17",
+        "humanLanguageReviewer": null,
+        "audioReviewer": null,
+        "rightsReviewStatus": "PENDING_FOR_RECORDED_VOICES",
+        "cefrValidation": "EDITORIAL_TARGET_ONLY",
+        "wordCount": 100
+      }
+    },
+    {
+      "code": "listening-first-class",
+      "title": "The first class tomorrow",
+      "titleVi": "Buổi học đầu tiên ngày mai",
+      "kind": "LISTENING",
+      "targetCefrLevel": "A1",
+      "order": 2,
+      "scriptVersion": 1,
+      "status": "SCRIPT_DRAFT",
+      "publishable": false,
+      "proposedUnitCode": "a1-unit-1",
+      "estimatedPracticeMinutes": 6,
+      "preparation": {
+        "situation": "Bạn nghe hai người trao đổi trước một buổi học.",
+        "objective": "Xác định việc họ đang trao đổi và ghi nhớ môn học, giờ, phòng cùng đồ cần mang."
+      },
+      "pedagogicFocus": "Câu hỏi đơn giản; phân biệt giờ với số phòng, thông tin đã xác nhận với phỏng đoán.",
+      "recordingPlan": {
+        "speakers": [
+          "Noah: giọng nam trẻ",
+          "Lily: giọng nữ trẻ"
+        ],
+        "accent": "Tiếng Anh Anh nhất quán trong bản thu đầu; giọng rõ và tự nhiên.",
+        "targetWordsPerMinute": [
+          90,
+          105
+        ],
+        "targetDurationSeconds": [
+          30,
+          90
+        ],
+        "actualDurationMs": null,
+        "actualAudioUrl": null,
+        "plannedAudioUrl": "/media/learning/v1/listening-first-class-v1.wav",
+        "delivery": "Không đọc tên người nói, số segment, tiêu đề hoặc đáp án. Nghỉ ngắn giữa lượt lời; không thêm nhạc hoặc tiếng nền."
+      },
+      "keyVocabulary": [
+        {
+          "word": "timetable",
+          "meaning": "thời khóa biểu",
+          "example": "Our timetable is on the wall.",
+          "translation": "Thời khóa biểu của chúng tôi ở trên tường.",
+          "id": "v01"
+        },
+        {
+          "word": "lesson",
+          "meaning": "buổi học",
+          "example": "The lesson is interesting.",
+          "translation": "Buổi học thú vị.",
+          "id": "v02"
+        },
+        {
+          "word": "bring",
+          "meaning": "mang theo",
+          "example": "Please bring an umbrella.",
+          "translation": "Hãy mang theo ô.",
+          "id": "v03"
+        },
+        {
+          "word": "check",
+          "meaning": "kiểm tra",
+          "example": "Please check your email.",
+          "translation": "Hãy kiểm tra email của bạn.",
+          "id": "v04"
+        }
+      ],
+      "transcript": "Hi, Lily. Can you help me? I do not have the new timetable. Of course. What do you want to know? What is our first lesson tomorrow? Is it English? No. Our first lesson is science. We have English after lunch. Does science start at half past nine? It starts at nine. Please come a little early. All right. Which room do we need? Room twelve. It is next to the office. Do I need to bring anything? Bring a notebook. There are books in the classroom.",
+      "transcriptSegments": [
+        {
+          "id": "s01",
+          "speaker": "Noah",
+          "text": "Hi, Lily. Can you help me? I do not have the new timetable.",
+          "translationVi": "Chào Lily. Bạn giúp mình được không? Mình chưa có thời khóa biểu mới.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s02",
+          "speaker": "Lily",
+          "text": "Of course. What do you want to know?",
+          "translationVi": "Tất nhiên rồi. Bạn muốn biết điều gì?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s03",
+          "speaker": "Noah",
+          "text": "What is our first lesson tomorrow? Is it English?",
+          "translationVi": "Buổi học đầu tiên ngày mai là môn gì? Có phải tiếng Anh không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s04",
+          "speaker": "Lily",
+          "text": "No. Our first lesson is science. We have English after lunch.",
+          "translationVi": "Không. Buổi đầu là khoa học. Bọn mình học tiếng Anh sau bữa trưa.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s05",
+          "speaker": "Noah",
+          "text": "Does science start at half past nine?",
+          "translationVi": "Môn khoa học bắt đầu lúc chín giờ rưỡi phải không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s06",
+          "speaker": "Lily",
+          "text": "It starts at nine. Please come a little early.",
+          "translationVi": "Bắt đầu lúc chín giờ. Bạn nhớ đến sớm một chút nhé.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s07",
+          "speaker": "Noah",
+          "text": "All right. Which room do we need?",
+          "translationVi": "Được rồi. Bọn mình học ở phòng nào?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s08",
+          "speaker": "Lily",
+          "text": "Room twelve. It is next to the office.",
+          "translationVi": "Phòng mười hai. Phòng đó ở cạnh văn phòng.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s09",
+          "speaker": "Noah",
+          "text": "Do I need to bring anything?",
+          "translationVi": "Mình có cần mang gì không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s10",
+          "speaker": "Lily",
+          "text": "Bring a notebook. There are books in the classroom.",
+          "translationVi": "Mang theo một quyển vở. Trong lớp đã có sách rồi.",
+          "startMs": null,
+          "endMs": null
+        }
+      ],
+      "questions": [
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Why does Noah talk to Lily?",
+          "options": [
+            {
+              "id": "A",
+              "text": "To cancel a lesson"
+            },
+            {
+              "id": "B",
+              "text": "To borrow some money"
+            },
+            {
+              "id": "C",
+              "text": "To check information about a class"
+            },
+            {
+              "id": "D",
+              "text": "To join a sports club"
+            }
+          ],
+          "correctOptionId": "C",
+          "skillCode": "listening.gist",
+          "evidenceSegmentIds": [
+            "s01",
+            "s02",
+            "s03"
+          ],
+          "explanation": "Noah cần xác nhận thông tin học tập vì chưa có thời khóa biểu mới.",
+          "reviewDistractorNotes": {
+            "A": "Noah không đề nghị hủy buổi học.",
+            "B": "Không có chuyện vay tiền.",
+            "D": "Không có chuyện tham gia câu lạc bộ thể thao."
+          },
+          "id": "q01"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What is the first lesson tomorrow?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Science"
+            },
+            {
+              "id": "B",
+              "text": "English"
+            },
+            {
+              "id": "C",
+              "text": "Art"
+            },
+            {
+              "id": "D",
+              "text": "Music"
+            }
+          ],
+          "correctOptionId": "A",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s03",
+            "s04"
+          ],
+          "explanation": "Môn học đầu tiên được Lily xác nhận là khoa học.",
+          "reviewDistractorNotes": {
+            "B": "Tiếng Anh được nhắc đến nhưng không phải buổi đầu.",
+            "C": "Mỹ thuật không được nêu.",
+            "D": "Âm nhạc không được nêu."
+          },
+          "id": "q02"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What time does the first lesson start?",
+          "options": [
+            {
+              "id": "A",
+              "text": "8:30"
+            },
+            {
+              "id": "B",
+              "text": "9:30"
+            },
+            {
+              "id": "C",
+              "text": "10:00"
+            },
+            {
+              "id": "D",
+              "text": "9:00"
+            }
+          ],
+          "correctOptionId": "D",
+          "skillCode": "listening.numbers_dates_times",
+          "evidenceSegmentIds": [
+            "s05",
+            "s06"
+          ],
+          "explanation": "Giờ bắt đầu đã được Lily xác nhận là chín giờ.",
+          "reviewDistractorNotes": {
+            "A": "Tám giờ rưỡi không được nêu.",
+            "B": "Chín giờ rưỡi chỉ là phỏng đoán của Noah và đã bị sửa.",
+            "C": "Mười giờ không được nêu."
+          },
+          "id": "q03"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Which room is the lesson in?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Room 10"
+            },
+            {
+              "id": "B",
+              "text": "Room 12"
+            },
+            {
+              "id": "C",
+              "text": "Room 20"
+            },
+            {
+              "id": "D",
+              "text": "Room 2"
+            }
+          ],
+          "correctOptionId": "B",
+          "skillCode": "listening.numbers_dates_times",
+          "evidenceSegmentIds": [
+            "s07",
+            "s08"
+          ],
+          "explanation": "Phòng học được xác nhận là phòng mười hai.",
+          "reviewDistractorNotes": {
+            "A": "Phòng mười không được nêu.",
+            "C": "Phòng hai mươi không được nêu.",
+            "D": "Phòng hai không được nêu."
+          },
+          "id": "q04"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What should Noah bring?",
+          "options": [
+            {
+              "id": "A",
+              "text": "A dictionary"
+            },
+            {
+              "id": "B",
+              "text": "A lunch box"
+            },
+            {
+              "id": "C",
+              "text": "A notebook"
+            },
+            {
+              "id": "D",
+              "text": "A textbook"
+            }
+          ],
+          "correctOptionId": "C",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s09",
+            "s10"
+          ],
+          "explanation": "Lily dặn Noah mang theo một quyển vở.",
+          "reviewDistractorNotes": {
+            "A": "Không có yêu cầu mang từ điển.",
+            "B": "Không có yêu cầu mang hộp cơm.",
+            "D": "Sách đã có sẵn; đây không phải thứ Lily dặn Noah mang."
+          },
+          "id": "q05"
+        }
+      ],
+      "editorialReview": {
+        "author": "Bản thảo nguyên gốc do Codex biên soạn theo yêu cầu người dùng",
+        "createdAt": "2026-11-17",
+        "humanLanguageReviewer": null,
+        "audioReviewer": null,
+        "rightsReviewStatus": "PENDING_FOR_RECORDED_VOICES",
+        "cefrValidation": "EDITORIAL_TARGET_ONLY",
+        "wordCount": 87
+      }
+    },
+    {
+      "code": "listening-campus-cafe",
+      "title": "At the campus café",
+      "titleVi": "Gọi món ở quán trong trường",
+      "kind": "LISTENING",
+      "targetCefrLevel": "A1",
+      "order": 3,
+      "scriptVersion": 1,
+      "status": "SCRIPT_DRAFT",
+      "publishable": false,
+      "proposedUnitCode": "a1-unit-2",
+      "estimatedPracticeMinutes": 6,
+      "preparation": {
+        "situation": "Bạn nghe một cuộc trao đổi tại quán trong trường.",
+        "objective": "Theo dõi lựa chọn cuối cùng của khách, số tiền cần trả và nơi nhận đồ."
+      },
+      "pedagogicFocus": "Lời yêu cầu lịch sự, món ăn/đồ uống, giá tiền và vị trí nhận hàng; làm bài mẫu nghiệm thu v1.",
+      "recordingPlan": {
+        "speakers": [
+          "Staff: giọng nữ, lịch sự",
+          "Ben: giọng nam trẻ"
+        ],
+        "accent": "Tiếng Anh Anh nhất quán trong bản thu đầu; giọng rõ và tự nhiên.",
+        "targetWordsPerMinute": [
+          90,
+          105
+        ],
+        "targetDurationSeconds": [
+          30,
+          90
+        ],
+        "actualDurationMs": null,
+        "actualAudioUrl": null,
+        "plannedAudioUrl": "/media/learning/v1/listening-campus-cafe-v1.wav",
+        "delivery": "Không đọc tên người nói, số segment, tiêu đề hoặc đáp án. Nghỉ ngắn giữa lượt lời; không thêm nhạc hoặc tiếng nền."
+      },
+      "keyVocabulary": [
+        {
+          "word": "menu",
+          "meaning": "thực đơn",
+          "example": "The menu is on the table.",
+          "translation": "Thực đơn ở trên bàn.",
+          "id": "v01"
+        },
+        {
+          "word": "order",
+          "meaning": "gọi món",
+          "example": "Can I order now?",
+          "translation": "Bây giờ tôi gọi món được không?",
+          "id": "v02"
+        },
+        {
+          "word": "ready",
+          "meaning": "sẵn sàng, xong",
+          "example": "Your room is ready.",
+          "translation": "Phòng của bạn đã sẵn sàng.",
+          "id": "v03"
+        },
+        {
+          "word": "pay",
+          "meaning": "thanh toán",
+          "example": "Can I pay by card?",
+          "translation": "Tôi thanh toán bằng thẻ được không?",
+          "id": "v04"
+        }
+      ],
+      "transcript": "Hello. What would you like for lunch today? A cheese sandwich, please. I have a short break before my next class. Certainly. Would you like a drink with that? Yes, an apple juice, please. A small one is fine. All right. That is six pounds altogether. Here you are. Where do I get my food when it is ready? At the counter by the window. Please wait here for a minute. Thank you. Can I have a bag, too? Of course. Are you eating here? No. I am taking my lunch back to my room.",
+      "transcriptSegments": [
+        {
+          "id": "s01",
+          "speaker": "Staff",
+          "text": "Hello. What would you like for lunch today?",
+          "translationVi": "Chào bạn. Hôm nay bạn muốn dùng gì cho bữa trưa?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s02",
+          "speaker": "Ben",
+          "text": "A cheese sandwich, please. I have a short break before my next class.",
+          "translationVi": "Cho tôi một bánh mì kẹp phô mai. Tôi có một khoảng nghỉ ngắn trước buổi học tiếp theo.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s03",
+          "speaker": "Staff",
+          "text": "Certainly. Would you like a drink with that?",
+          "translationVi": "Được chứ. Bạn có muốn dùng thêm đồ uống không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s04",
+          "speaker": "Ben",
+          "text": "Yes, an apple juice, please. A small one is fine.",
+          "translationVi": "Có, cho tôi một ly nước táo. Ly nhỏ là được.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s05",
+          "speaker": "Staff",
+          "text": "All right. That is six pounds altogether.",
+          "translationVi": "Được rồi. Tổng cộng là sáu bảng.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s06",
+          "speaker": "Ben",
+          "text": "Here you are. Where do I get my food when it is ready?",
+          "translationVi": "Tiền đây ạ. Tôi nhận đồ ở đâu khi đồ đã làm xong?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s07",
+          "speaker": "Staff",
+          "text": "At the counter by the window. Please wait here for a minute.",
+          "translationVi": "Ở quầy cạnh cửa sổ. Bạn vui lòng đợi ở đây một phút.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s08",
+          "speaker": "Ben",
+          "text": "Thank you. Can I have a bag, too?",
+          "translationVi": "Cảm ơn. Cho tôi xin thêm một túi nhé?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s09",
+          "speaker": "Staff",
+          "text": "Of course. Are you eating here?",
+          "translationVi": "Tất nhiên rồi. Bạn dùng tại đây phải không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s10",
+          "speaker": "Ben",
+          "text": "No. I am taking my lunch back to my room.",
+          "translationVi": "Không. Tôi sẽ mang bữa trưa về phòng mình.",
+          "startMs": null,
+          "endMs": null
+        }
+      ],
+      "questions": [
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Which sentence describes Ben's plan?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Get lunch for a friend"
+            },
+            {
+              "id": "B",
+              "text": "Have lunch at a table in the café"
+            },
+            {
+              "id": "C",
+              "text": "Cook lunch after class"
+            },
+            {
+              "id": "D",
+              "text": "Buy lunch and eat in his room"
+            }
+          ],
+          "correctOptionId": "D",
+          "skillCode": "listening.gist",
+          "evidenceSegmentIds": [
+            "s01",
+            "s02",
+            "s08",
+            "s09",
+            "s10"
+          ],
+          "explanation": "Ben mua bữa trưa và chọn mang về phòng để ăn.",
+          "reviewDistractorNotes": {
+            "A": "Không có thông tin Ben mua cho bạn.",
+            "B": "Ben từ chối dùng bữa tại quán.",
+            "C": "Ben đang mua đồ ăn, không nói sẽ tự nấu."
+          },
+          "id": "q01"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Which drink does Ben order?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Orange juice"
+            },
+            {
+              "id": "B",
+              "text": "Apple juice"
+            },
+            {
+              "id": "C",
+              "text": "Water"
+            },
+            {
+              "id": "D",
+              "text": "Tea"
+            }
+          ],
+          "correctOptionId": "B",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s03",
+            "s04"
+          ],
+          "explanation": "Đồ uống Ben chọn là nước táo.",
+          "reviewDistractorNotes": {
+            "A": "Không có lựa chọn nước cam.",
+            "C": "Nước lọc không được chọn.",
+            "D": "Trà không được chọn."
+          },
+          "id": "q02"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What food does Ben order?",
+          "options": [
+            {
+              "id": "A",
+              "text": "A chicken sandwich"
+            },
+            {
+              "id": "B",
+              "text": "A bowl of soup"
+            },
+            {
+              "id": "C",
+              "text": "A cheese sandwich"
+            },
+            {
+              "id": "D",
+              "text": "A cheese salad"
+            }
+          ],
+          "correctOptionId": "C",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s01",
+            "s02"
+          ],
+          "explanation": "Món Ben gọi là bánh mì kẹp phô mai.",
+          "reviewDistractorNotes": {
+            "A": "Không có bánh mì kẹp thịt gà.",
+            "B": "Ben không gọi súp.",
+            "D": "Phô mai đúng nhưng loại món là bánh mì kẹp, không phải salad."
+          },
+          "id": "q03"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "How much does Ben pay in total?",
+          "options": [
+            {
+              "id": "A",
+              "text": "£6"
+            },
+            {
+              "id": "B",
+              "text": "£5"
+            },
+            {
+              "id": "C",
+              "text": "£7"
+            },
+            {
+              "id": "D",
+              "text": "£8"
+            }
+          ],
+          "correctOptionId": "A",
+          "skillCode": "listening.numbers_dates_times",
+          "evidenceSegmentIds": [
+            "s05"
+          ],
+          "explanation": "Tổng tiền nhân viên báo cho Ben là sáu bảng.",
+          "reviewDistractorNotes": {
+            "B": "Năm bảng không được nêu.",
+            "C": "Bảy bảng không được nêu.",
+            "D": "Tám bảng không được nêu."
+          },
+          "id": "q04"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Where should Ben collect his food?",
+          "options": [
+            {
+              "id": "A",
+              "text": "At the door"
+            },
+            {
+              "id": "B",
+              "text": "At his table"
+            },
+            {
+              "id": "C",
+              "text": "Outside the café"
+            },
+            {
+              "id": "D",
+              "text": "At the counter by the window"
+            }
+          ],
+          "correctOptionId": "D",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s06",
+            "s07"
+          ],
+          "explanation": "Nhân viên chỉ Ben nhận đồ ở quầy cạnh cửa sổ.",
+          "reviewDistractorNotes": {
+            "A": "Cửa ra vào không phải nơi được chỉ dẫn.",
+            "B": "Không có phục vụ đồ tại bàn của Ben.",
+            "C": "Nhân viên không hướng dẫn Ben ra ngoài."
+          },
+          "id": "q05"
+        }
+      ],
+      "editorialReview": {
+        "author": "Bản thảo nguyên gốc do Codex biên soạn theo yêu cầu người dùng",
+        "createdAt": "2026-11-17",
+        "humanLanguageReviewer": null,
+        "audioReviewer": null,
+        "rightsReviewStatus": "PENDING_FOR_RECORDED_VOICES",
+        "cefrValidation": "EDITORIAL_TARGET_ONLY",
+        "wordCount": 95
+      }
+    },
+    {
+      "code": "listening-study-centre",
+      "title": "Finding the study centre",
+      "titleVi": "Tìm khu tự học",
+      "kind": "LISTENING",
+      "targetCefrLevel": "A2",
+      "order": 4,
+      "scriptVersion": 1,
+      "status": "SCRIPT_DRAFT",
+      "publishable": false,
+      "proposedUnitCode": "a2-unit-2",
+      "estimatedPracticeMinutes": 8,
+      "preparation": {
+        "situation": "Bạn nghe một sinh viên hỏi nhân viên trong khuôn viên trường.",
+        "objective": "Kết hợp lý do hỏi với các bước chỉ đường và điều kiện sử dụng một nơi trong trường."
+      },
+      "pedagogicFocus": "Chuỗi chỉ dẫn nhiều bước và quan hệ vị trí; không yêu cầu bản đồ hoặc kiến thức trường thực.",
+      "recordingPlan": {
+        "speakers": [
+          "May: giọng nữ trẻ",
+          "Receptionist: giọng nam, bình tĩnh"
+        ],
+        "accent": "Tiếng Anh Anh nhất quán trong bản thu đầu; giọng rõ và tự nhiên.",
+        "targetWordsPerMinute": [
+          110,
+          125
+        ],
+        "targetDurationSeconds": [
+          30,
+          90
+        ],
+        "actualDurationMs": null,
+        "actualAudioUrl": null,
+        "plannedAudioUrl": "/media/learning/v1/listening-study-centre-v1.wav",
+        "delivery": "Không đọc tên người nói, số segment, tiêu đề hoặc đáp án. Nghỉ ngắn giữa lượt lời; không thêm nhạc hoặc tiếng nền."
+      },
+      "keyVocabulary": [
+        {
+          "word": "courtyard",
+          "meaning": "sân trong",
+          "example": "They are talking in the courtyard.",
+          "translation": "Họ đang nói chuyện trong sân trong.",
+          "id": "v01"
+        },
+        {
+          "word": "stairs",
+          "meaning": "cầu thang bộ",
+          "example": "The stairs are very wide.",
+          "translation": "Cầu thang bộ rất rộng.",
+          "id": "v02"
+        },
+        {
+          "word": "entrance",
+          "meaning": "lối vào",
+          "example": "Please keep the entrance clear.",
+          "translation": "Hãy giữ lối vào thông thoáng.",
+          "id": "v03"
+        },
+        {
+          "word": "desk",
+          "meaning": "bàn hoặc quầy làm việc",
+          "example": "There is a lamp on the desk.",
+          "translation": "Có một chiếc đèn trên bàn.",
+          "id": "v04"
+        }
+      ],
+      "transcript": "Excuse me. I need somewhere quiet to finish a report. Can you help me? Yes. There are quiet rooms in the study centre. Have you been there before? No, this is my first time. Is it next to the library? It is behind the sports building. Walk across the courtyard first. And where do I go after the courtyard? Turn right. You will see the entrance to the study centre. Are the quiet rooms on the ground floor? No, they are on the second floor. Take the stairs beside the entrance. Do I need to book a room before I go up? Not today. Just show your student card at the desk.",
+      "transcriptSegments": [
+        {
+          "id": "s01",
+          "speaker": "May",
+          "text": "Excuse me. I need somewhere quiet to finish a report. Can you help me?",
+          "translationVi": "Xin lỗi. Em cần một nơi yên tĩnh để hoàn thành báo cáo. Anh giúp em được không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s02",
+          "speaker": "Receptionist",
+          "text": "Yes. There are quiet rooms in the study centre. Have you been there before?",
+          "translationVi": "Có chứ. Khu tự học có các phòng yên tĩnh. Em đã đến đó bao giờ chưa?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s03",
+          "speaker": "May",
+          "text": "No, this is my first time. Is it next to the library?",
+          "translationVi": "Chưa, đây là lần đầu. Nó ở cạnh thư viện phải không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s04",
+          "speaker": "Receptionist",
+          "text": "It is behind the sports building. Walk across the courtyard first.",
+          "translationVi": "Nó ở phía sau tòa nhà thể thao. Trước tiên, em đi qua sân trong.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s05",
+          "speaker": "May",
+          "text": "And where do I go after the courtyard?",
+          "translationVi": "Sau sân trong thì em đi đâu ạ?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s06",
+          "speaker": "Receptionist",
+          "text": "Turn right. You will see the entrance to the study centre.",
+          "translationVi": "Rẽ phải. Em sẽ thấy lối vào khu tự học.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s07",
+          "speaker": "May",
+          "text": "Are the quiet rooms on the ground floor?",
+          "translationVi": "Các phòng yên tĩnh ở tầng trệt phải không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s08",
+          "speaker": "Receptionist",
+          "text": "No, they are on the second floor. Take the stairs beside the entrance.",
+          "translationVi": "Không, chúng ở tầng hai. Em đi cầu thang cạnh lối vào.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s09",
+          "speaker": "May",
+          "text": "Do I need to book a room before I go up?",
+          "translationVi": "Em có cần đặt phòng trước khi lên không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s10",
+          "speaker": "Receptionist",
+          "text": "Not today. Just show your student card at the desk.",
+          "translationVi": "Hôm nay thì không. Chỉ cần xuất trình thẻ sinh viên ở quầy.",
+          "startMs": null,
+          "endMs": null
+        }
+      ],
+      "questions": [
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Why does May ask for help?",
+          "options": [
+            {
+              "id": "A",
+              "text": "She needs a quiet place to work."
+            },
+            {
+              "id": "B",
+              "text": "She wants to join a sports team."
+            },
+            {
+              "id": "C",
+              "text": "She needs to borrow a library book."
+            },
+            {
+              "id": "D",
+              "text": "She wants to repair a computer."
+            }
+          ],
+          "correctOptionId": "A",
+          "skillCode": "listening.gist",
+          "evidenceSegmentIds": [
+            "s01",
+            "s02"
+          ],
+          "explanation": "May tìm nơi yên tĩnh để làm xong công việc học tập của mình.",
+          "reviewDistractorNotes": {
+            "B": "May không hỏi cách tham gia đội thể thao.",
+            "C": "Cô không hỏi mượn sách.",
+            "D": "Không có yêu cầu sửa máy tính."
+          },
+          "id": "q01"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Where is the study centre?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Inside the library"
+            },
+            {
+              "id": "B",
+              "text": "Opposite the main gate"
+            },
+            {
+              "id": "C",
+              "text": "Behind the sports building"
+            },
+            {
+              "id": "D",
+              "text": "Next to the café"
+            }
+          ],
+          "correctOptionId": "C",
+          "skillCode": "listening.directions",
+          "evidenceSegmentIds": [
+            "s03",
+            "s04"
+          ],
+          "explanation": "Vị trí được xác nhận là phía sau tòa nhà thể thao.",
+          "reviewDistractorNotes": {
+            "A": "Thư viện là phỏng đoán không được xác nhận của May.",
+            "B": "Không có thông tin khu tự học đối diện cổng chính.",
+            "D": "Không có thông tin khu tự học cạnh quán."
+          },
+          "id": "q02"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What should May do after crossing the courtyard?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Go straight past the entrance"
+            },
+            {
+              "id": "B",
+              "text": "Turn right"
+            },
+            {
+              "id": "C",
+              "text": "Turn left"
+            },
+            {
+              "id": "D",
+              "text": "Go back to reception"
+            }
+          ],
+          "correctOptionId": "B",
+          "skillCode": "listening.directions",
+          "evidenceSegmentIds": [
+            "s05",
+            "s06"
+          ],
+          "explanation": "Sau khi đi qua sân trong, May cần rẽ phải.",
+          "reviewDistractorNotes": {
+            "A": "Nhân viên không bảo đi qua lối vào.",
+            "C": "Hướng được chỉ không phải bên trái.",
+            "D": "Không có yêu cầu quay lại quầy tiếp tân."
+          },
+          "id": "q03"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Which floor has the quiet rooms?",
+          "options": [
+            {
+              "id": "A",
+              "text": "The first floor"
+            },
+            {
+              "id": "B",
+              "text": "The third floor"
+            },
+            {
+              "id": "C",
+              "text": "The ground floor"
+            },
+            {
+              "id": "D",
+              "text": "The second floor"
+            }
+          ],
+          "correctOptionId": "D",
+          "skillCode": "listening.numbers_dates_times",
+          "evidenceSegmentIds": [
+            "s07",
+            "s08"
+          ],
+          "explanation": "Các phòng yên tĩnh nằm ở tầng hai; cách gọi tầng dùng quy ước Anh với ground floor là tầng trệt.",
+          "reviewDistractorNotes": {
+            "A": "Tầng một không được chọn.",
+            "B": "Tầng ba không được chọn.",
+            "C": "Tầng trệt là phỏng đoán của May và đã bị bác bỏ."
+          },
+          "id": "q04"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What does May need to do at the desk?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Show her student card"
+            },
+            {
+              "id": "B",
+              "text": "Pay a booking fee"
+            },
+            {
+              "id": "C",
+              "text": "Leave her bag"
+            },
+            {
+              "id": "D",
+              "text": "Write her phone number"
+            }
+          ],
+          "correctOptionId": "A",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s09",
+            "s10"
+          ],
+          "explanation": "May được yêu cầu xuất trình thẻ sinh viên tại quầy.",
+          "reviewDistractorNotes": {
+            "B": "Không có yêu cầu trả phí.",
+            "C": "Không có yêu cầu gửi túi.",
+            "D": "Không có yêu cầu viết số điện thoại."
+          },
+          "id": "q05"
+        }
+      ],
+      "editorialReview": {
+        "author": "Bản thảo nguyên gốc do Codex biên soạn theo yêu cầu người dùng",
+        "createdAt": "2026-11-17",
+        "humanLanguageReviewer": null,
+        "audioReviewer": null,
+        "rightsReviewStatus": "PENDING_FOR_RECORDED_VOICES",
+        "cefrValidation": "EDITORIAL_TARGET_ONLY",
+        "wordCount": 112
+      },
+      "requiresNewUnit": true
+    },
+    {
+      "code": "listening-project-meeting",
+      "title": "A new time for the project meeting",
+      "titleVi": "Đổi lịch họp làm bài nhóm",
+      "kind": "LISTENING",
+      "targetCefrLevel": "A2",
+      "order": 5,
+      "scriptVersion": 1,
+      "status": "SCRIPT_DRAFT",
+      "publishable": false,
+      "proposedUnitCode": "a2-unit-1",
+      "estimatedPracticeMinutes": 8,
+      "preparation": {
+        "situation": "Bạn nghe hai bạn trao đổi về công việc chung.",
+        "objective": "Phân biệt đề xuất cũ với phương án cuối cùng, lý do thay đổi và nơi hẹn."
+      },
+      "pedagogicFocus": "Hội thoại thương lượng ngắn: because, instead, câu đề nghị và xác nhận; ngữ liệu độc lập với bài Reading đổi lịch.",
+      "recordingPlan": {
+        "speakers": [
+          "Leo: giọng nam trẻ",
+          "Nina: giọng nữ trẻ"
+        ],
+        "accent": "Tiếng Anh Anh nhất quán trong bản thu đầu; giọng rõ và tự nhiên.",
+        "targetWordsPerMinute": [
+          110,
+          125
+        ],
+        "targetDurationSeconds": [
+          30,
+          90
+        ],
+        "actualDurationMs": null,
+        "actualAudioUrl": null,
+        "plannedAudioUrl": "/media/learning/v1/listening-project-meeting-v1.wav",
+        "delivery": "Không đọc tên người nói, số segment, tiêu đề hoặc đáp án. Nghỉ ngắn giữa lượt lời; không thêm nhạc hoặc tiếng nền."
+      },
+      "keyVocabulary": [
+        {
+          "word": "project",
+          "meaning": "bài tập hoặc dự án",
+          "example": "Our project is about local birds.",
+          "translation": "Dự án của chúng tôi nói về các loài chim địa phương.",
+          "id": "v01"
+        },
+        {
+          "word": "shift",
+          "meaning": "ca làm việc",
+          "example": "My shift is quite busy.",
+          "translation": "Ca làm việc của tôi khá bận.",
+          "id": "v02"
+        },
+        {
+          "word": "instead",
+          "meaning": "thay vào đó",
+          "example": "I do not want tea. I will have water instead.",
+          "translation": "Tôi không muốn trà. Thay vào đó tôi sẽ uống nước.",
+          "id": "v03"
+        },
+        {
+          "word": "available",
+          "meaning": "rảnh hoặc có thể sử dụng",
+          "example": "Is this computer available?",
+          "translation": "Máy tính này có dùng được không?",
+          "id": "v04"
+        }
+      ],
+      "transcript": "Hi, Nina. We planned to meet on Friday at four to work on our project. Can we change that? Yes, what is the problem? Are you going away? No. I have to work an extra shift at the shop on Friday afternoon. How about Thursday instead? I am free after lunch. Thursday is fine. Could we meet at three? I have a class before that. Three works for me. The library meeting rooms are full, though. We can use room six in the student centre. My friend says it is available. Good idea. I will bring my laptop so we can look at the photos together. Great. I will bring the photos. See you there.",
+      "transcriptSegments": [
+        {
+          "id": "s01",
+          "speaker": "Leo",
+          "text": "Hi, Nina. We planned to meet on Friday at four to work on our project. Can we change that?",
+          "translationVi": "Chào Nina. Bọn mình đã định gặp vào thứ Sáu lúc bốn giờ để làm bài nhóm. Bọn mình đổi lịch được không?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s02",
+          "speaker": "Nina",
+          "text": "Yes, what is the problem? Are you going away?",
+          "translationVi": "Được chứ, có vấn đề gì vậy? Bạn sắp đi xa à?",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s03",
+          "speaker": "Leo",
+          "text": "No. I have to work an extra shift at the shop on Friday afternoon.",
+          "translationVi": "Không. Mình phải làm thêm một ca ở cửa hàng vào chiều thứ Sáu.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s04",
+          "speaker": "Nina",
+          "text": "How about Thursday instead? I am free after lunch.",
+          "translationVi": "Vậy chuyển sang thứ Năm được không? Sau bữa trưa mình rảnh.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s05",
+          "speaker": "Leo",
+          "text": "Thursday is fine. Could we meet at three? I have a class before that.",
+          "translationVi": "Thứ Năm được đấy. Bọn mình gặp lúc ba giờ nhé? Trước đó mình có buổi học.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s06",
+          "speaker": "Nina",
+          "text": "Three works for me. The library meeting rooms are full, though.",
+          "translationVi": "Ba giờ thì mình được. Nhưng các phòng họp ở thư viện đã kín chỗ.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s07",
+          "speaker": "Leo",
+          "text": "We can use room six in the student centre. My friend says it is available.",
+          "translationVi": "Bọn mình có thể dùng phòng sáu trong trung tâm sinh viên. Bạn mình nói phòng đó còn trống.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s08",
+          "speaker": "Nina",
+          "text": "Good idea. I will bring my laptop so we can look at the photos together.",
+          "translationVi": "Ý hay đấy. Mình sẽ mang máy tính xách tay để bọn mình cùng xem ảnh.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s09",
+          "speaker": "Leo",
+          "text": "Great. I will bring the photos. See you there.",
+          "translationVi": "Tuyệt. Mình sẽ mang ảnh. Hẹn gặp bạn ở đó.",
+          "startMs": null,
+          "endMs": null
+        }
+      ],
+      "questions": [
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What do Leo and Nina agree to do?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Start a new project"
+            },
+            {
+              "id": "B",
+              "text": "Change their meeting plan"
+            },
+            {
+              "id": "C",
+              "text": "Cancel their project"
+            },
+            {
+              "id": "D",
+              "text": "Apply for the same job"
+            }
+          ],
+          "correctOptionId": "B",
+          "skillCode": "listening.gist",
+          "evidenceSegmentIds": [
+            "s01",
+            "s04",
+            "s05",
+            "s06",
+            "s07"
+          ],
+          "explanation": "Hai bạn thống nhất thay đổi phương án gặp để tiếp tục công việc chung.",
+          "reviewDistractorNotes": {
+            "A": "Bài nhóm đã có từ trước; họ không quyết định bắt đầu dự án mới.",
+            "C": "Họ vẫn tiếp tục làm bài, không hủy dự án.",
+            "D": "Không có chuyện cùng xin việc."
+          },
+          "id": "q01"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Why does Leo need to change the plan?",
+          "options": [
+            {
+              "id": "A",
+              "text": "He is going away."
+            },
+            {
+              "id": "B",
+              "text": "He has lost his laptop."
+            },
+            {
+              "id": "C",
+              "text": "He has a sports match."
+            },
+            {
+              "id": "D",
+              "text": "He has an extra work shift."
+            }
+          ],
+          "correctOptionId": "D",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s02",
+            "s03"
+          ],
+          "explanation": "Leo cần đổi lịch vì phải làm thêm một ca.",
+          "reviewDistractorNotes": {
+            "A": "Đi xa là phỏng đoán của Nina và đã bị phủ nhận.",
+            "B": "Không có thông tin Leo mất máy tính.",
+            "C": "Không có thông tin về trận thể thao."
+          },
+          "id": "q02"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Which day do they choose for the meeting?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Wednesday"
+            },
+            {
+              "id": "B",
+              "text": "Friday"
+            },
+            {
+              "id": "C",
+              "text": "Thursday"
+            },
+            {
+              "id": "D",
+              "text": "Saturday"
+            }
+          ],
+          "correctOptionId": "C",
+          "skillCode": "listening.numbers_dates_times",
+          "evidenceSegmentIds": [
+            "s04",
+            "s05"
+          ],
+          "explanation": "Ngày cuối cùng hai bạn thống nhất là thứ Năm.",
+          "reviewDistractorNotes": {
+            "A": "Thứ Tư không được đề xuất.",
+            "B": "Thứ Sáu là ngày của kế hoạch cũ.",
+            "D": "Thứ Bảy không được đề xuất."
+          },
+          "id": "q03"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What time will they meet?",
+          "options": [
+            {
+              "id": "A",
+              "text": "3:00 p.m."
+            },
+            {
+              "id": "B",
+              "text": "4:00 p.m."
+            },
+            {
+              "id": "C",
+              "text": "12:00 noon"
+            },
+            {
+              "id": "D",
+              "text": "2:00 p.m."
+            }
+          ],
+          "correctOptionId": "A",
+          "skillCode": "listening.numbers_dates_times",
+          "evidenceSegmentIds": [
+            "s05",
+            "s06"
+          ],
+          "explanation": "Giờ hẹn cuối cùng được cả hai xác nhận là ba giờ chiều.",
+          "reviewDistractorNotes": {
+            "B": "Bốn giờ thuộc lịch cũ.",
+            "C": "Sau bữa trưa không có nghĩa là đúng mười hai giờ.",
+            "D": "Hai giờ không được chọn."
+          },
+          "id": "q04"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Where will they meet?",
+          "options": [
+            {
+              "id": "A",
+              "text": "In the library"
+            },
+            {
+              "id": "B",
+              "text": "In the student centre"
+            },
+            {
+              "id": "C",
+              "text": "At the shop"
+            },
+            {
+              "id": "D",
+              "text": "In a café"
+            }
+          ],
+          "correctOptionId": "B",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s06",
+            "s07"
+          ],
+          "explanation": "Hai bạn chọn trung tâm sinh viên làm nơi gặp.",
+          "reviewDistractorNotes": {
+            "A": "Phòng họp thư viện không còn chỗ.",
+            "C": "Cửa hàng không phải nơi gặp.",
+            "D": "Không có đề xuất gặp ở quán."
+          },
+          "id": "q05"
+        }
+      ],
+      "editorialReview": {
+        "author": "Bản thảo nguyên gốc do Codex biên soạn theo yêu cầu người dùng",
+        "createdAt": "2026-11-17",
+        "humanLanguageReviewer": null,
+        "audioReviewer": null,
+        "rightsReviewStatus": "PENDING_FOR_RECORDED_VOICES",
+        "cefrValidation": "EDITORIAL_TARGET_ONLY",
+        "wordCount": 115
+      }
+    },
+    {
+      "code": "listening-saturday-trip",
+      "title": "An update about the Saturday trip",
+      "titleVi": "Thông báo trước chuyến đi thứ Bảy",
+      "kind": "LISTENING",
+      "targetCefrLevel": "A2",
+      "order": 6,
+      "scriptVersion": 1,
+      "status": "SCRIPT_DRAFT",
+      "publishable": false,
+      "proposedUnitCode": "a2-unit-1",
+      "estimatedPracticeMinutes": 8,
+      "preparation": {
+        "situation": "Bạn nghe một thông báo dành cho sinh viên trước hoạt động cuối tuần.",
+        "objective": "Nhận ra mục đích thông báo, giờ cần có mặt, địa điểm, đồ cần mang và phương án nếu trời mưa."
+      },
+      "pedagogicFocus": "Một người nói, thông tin nhiều mục; phân biệt giờ có mặt và giờ khởi hành, yêu cầu và đồ được cung cấp.",
+      "recordingPlan": {
+        "speakers": [
+          "Coordinator: một giọng nữ trưởng thành, rõ ràng; nghỉ nhẹ giữa các mục"
+        ],
+        "accent": "Tiếng Anh Anh nhất quán trong bản thu đầu; giọng rõ và tự nhiên.",
+        "targetWordsPerMinute": [
+          110,
+          125
+        ],
+        "targetDurationSeconds": [
+          30,
+          90
+        ],
+        "actualDurationMs": null,
+        "actualAudioUrl": null,
+        "plannedAudioUrl": "/media/learning/v1/listening-saturday-trip-v1.wav",
+        "delivery": "Không đọc tên người nói, số segment, tiêu đề hoặc đáp án. Nghỉ ngắn giữa lượt lời; không thêm nhạc hoặc tiếng nền."
+      },
+      "keyVocabulary": [
+        {
+          "word": "trip",
+          "meaning": "chuyến đi",
+          "example": "We enjoyed our trip to the coast.",
+          "translation": "Chúng tôi thích chuyến đi đến bờ biển.",
+          "id": "v01"
+        },
+        {
+          "word": "leave",
+          "meaning": "khởi hành hoặc rời đi",
+          "example": "Please close the door when you leave.",
+          "translation": "Hãy đóng cửa khi bạn rời đi.",
+          "id": "v02"
+        },
+        {
+          "word": "provide",
+          "meaning": "cung cấp",
+          "example": "The hotel provides clean towels.",
+          "translation": "Khách sạn cung cấp khăn sạch.",
+          "id": "v03"
+        },
+        {
+          "word": "indoors",
+          "meaning": "ở trong nhà",
+          "example": "The children are playing indoors.",
+          "translation": "Bọn trẻ đang chơi trong nhà.",
+          "id": "v04"
+        }
+      ],
+      "transcript": "Good afternoon. Here is an update for everyone joining Saturday's trip to Green Farm. The trip is still going ahead, but please listen carefully to these details. Meet in front of the library, not at the main gate. Please arrive at quarter past eight. The bus leaves at half past eight, and we cannot wait for late students. You do not need to bring lunch because the farm will provide sandwiches. However, everyone must bring a bottle of water. If it rains, we will have a plant workshop indoors instead of working in the garden. We plan to return to the college at four in the afternoon. Thank you, and see you on Saturday.",
+      "transcriptSegments": [
+        {
+          "id": "s01",
+          "speaker": "Coordinator",
+          "text": "Good afternoon. Here is an update for everyone joining Saturday's trip to Green Farm.",
+          "translationVi": "Chào buổi chiều. Đây là thông tin cập nhật dành cho mọi người tham gia chuyến đi đến nông trại Green Farm vào thứ Bảy.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s02",
+          "speaker": "Coordinator",
+          "text": "The trip is still going ahead, but please listen carefully to these details.",
+          "translationVi": "Chuyến đi vẫn diễn ra, nhưng các bạn hãy nghe kỹ những thông tin sau.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s03",
+          "speaker": "Coordinator",
+          "text": "Meet in front of the library, not at the main gate.",
+          "translationVi": "Tập trung trước thư viện, không phải ở cổng chính.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s04",
+          "speaker": "Coordinator",
+          "text": "Please arrive at quarter past eight. The bus leaves at half past eight, and we cannot wait for late students.",
+          "translationVi": "Hãy có mặt lúc tám giờ mười lăm. Xe khởi hành lúc tám giờ rưỡi, và chúng tôi không thể chờ những bạn đến muộn.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s05",
+          "speaker": "Coordinator",
+          "text": "You do not need to bring lunch because the farm will provide sandwiches.",
+          "translationVi": "Các bạn không cần mang bữa trưa vì nông trại sẽ cung cấp bánh mì kẹp.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s06",
+          "speaker": "Coordinator",
+          "text": "However, everyone must bring a bottle of water.",
+          "translationVi": "Tuy nhiên, mọi người phải mang theo một chai nước.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s07",
+          "speaker": "Coordinator",
+          "text": "If it rains, we will have a plant workshop indoors instead of working in the garden.",
+          "translationVi": "Nếu trời mưa, chúng ta sẽ tham gia buổi thực hành về cây ở trong nhà thay vì làm việc ngoài vườn.",
+          "startMs": null,
+          "endMs": null
+        },
+        {
+          "id": "s08",
+          "speaker": "Coordinator",
+          "text": "We plan to return to the college at four in the afternoon. Thank you, and see you on Saturday.",
+          "translationVi": "Theo kế hoạch, chúng ta sẽ trở về trường lúc bốn giờ chiều. Cảm ơn và hẹn gặp các bạn vào thứ Bảy.",
+          "startMs": null,
+          "endMs": null
+        }
+      ],
+      "questions": [
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What is the main purpose of this announcement?",
+          "options": [
+            {
+              "id": "A",
+              "text": "To cancel a weekend activity"
+            },
+            {
+              "id": "B",
+              "text": "To advertise a job at a farm"
+            },
+            {
+              "id": "C",
+              "text": "To give students practical information about a trip"
+            },
+            {
+              "id": "D",
+              "text": "To explain a homework task"
+            }
+          ],
+          "correctOptionId": "C",
+          "skillCode": "listening.gist",
+          "evidenceSegmentIds": [
+            "s01",
+            "s02",
+            "s08"
+          ],
+          "explanation": "Thông báo giúp người tham gia chuẩn bị và thực hiện chuyến đi theo hướng dẫn.",
+          "reviewDistractorNotes": {
+            "A": "Người nói xác nhận chuyến đi vẫn diễn ra.",
+            "B": "Đây không phải thông báo tuyển dụng.",
+            "D": "Không có bài tập về nhà được giao."
+          },
+          "id": "q01"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "Where should students meet?",
+          "options": [
+            {
+              "id": "A",
+              "text": "In front of the library"
+            },
+            {
+              "id": "B",
+              "text": "At the main gate"
+            },
+            {
+              "id": "C",
+              "text": "Inside the café"
+            },
+            {
+              "id": "D",
+              "text": "At the farm entrance"
+            }
+          ],
+          "correctOptionId": "A",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s03"
+          ],
+          "explanation": "Điểm tập trung được yêu cầu là phía trước thư viện.",
+          "reviewDistractorNotes": {
+            "B": "Cổng chính được nhắc tới để loại trừ.",
+            "C": "Quán không được chọn làm điểm tập trung.",
+            "D": "Sinh viên chưa đi thẳng đến lối vào nông trại."
+          },
+          "id": "q02"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What time should students arrive?",
+          "options": [
+            {
+              "id": "A",
+              "text": "8:30 a.m."
+            },
+            {
+              "id": "B",
+              "text": "8:45 a.m."
+            },
+            {
+              "id": "C",
+              "text": "8:00 a.m."
+            },
+            {
+              "id": "D",
+              "text": "8:15 a.m."
+            }
+          ],
+          "correctOptionId": "D",
+          "skillCode": "listening.numbers_dates_times",
+          "evidenceSegmentIds": [
+            "s04"
+          ],
+          "explanation": "Giờ sinh viên cần có mặt là tám giờ mười lăm.",
+          "reviewDistractorNotes": {
+            "A": "Tám giờ rưỡi là giờ xe chạy, không phải giờ phải có mặt.",
+            "B": "Tám giờ bốn mươi lăm là sau giờ khởi hành.",
+            "C": "Tám giờ không được nêu là giờ tập trung."
+          },
+          "id": "q03"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What must each student bring?",
+          "options": [
+            {
+              "id": "A",
+              "text": "A sandwich"
+            },
+            {
+              "id": "B",
+              "text": "A bottle of water"
+            },
+            {
+              "id": "C",
+              "text": "Some gardening tools"
+            },
+            {
+              "id": "D",
+              "text": "A packed lunch"
+            }
+          ],
+          "correctOptionId": "B",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s05",
+            "s06"
+          ],
+          "explanation": "Mỗi người được yêu cầu mang theo một chai nước.",
+          "reviewDistractorNotes": {
+            "A": "Bánh mì kẹp sẽ được cung cấp.",
+            "C": "Không có yêu cầu mang dụng cụ làm vườn.",
+            "D": "Bữa trưa không phải thứ người tham gia phải tự mang."
+          },
+          "id": "q04"
+        },
+        {
+          "type": "MULTIPLE_CHOICE",
+          "prompt": "What will students do if it rains?",
+          "options": [
+            {
+              "id": "A",
+              "text": "Go home before lunch"
+            },
+            {
+              "id": "B",
+              "text": "Move the trip to Sunday"
+            },
+            {
+              "id": "C",
+              "text": "Join an indoor plant workshop"
+            },
+            {
+              "id": "D",
+              "text": "Work outside in the garden"
+            }
+          ],
+          "correctOptionId": "C",
+          "skillCode": "listening.specific_information",
+          "evidenceSegmentIds": [
+            "s07"
+          ],
+          "explanation": "Nếu trời mưa, hoạt động chuyển sang buổi thực hành về cây trong nhà.",
+          "reviewDistractorNotes": {
+            "A": "Không có thông báo về việc về sớm.",
+            "B": "Không có kế hoạch chuyển sang Chủ nhật.",
+            "D": "Làm việc ngoài vườn là phương án bị thay thế khi trời mưa."
+          },
+          "id": "q05"
+        }
+      ],
+      "editorialReview": {
+        "author": "Bản thảo nguyên gốc do Codex biên soạn theo yêu cầu người dùng",
+        "createdAt": "2026-11-17",
+        "humanLanguageReviewer": null,
+        "audioReviewer": null,
+        "rightsReviewStatus": "PENDING_FOR_RECORDED_VOICES",
+        "cefrValidation": "EDITORIAL_TARGET_ONLY",
+        "wordCount": 114
+      }
+    }
+  ]
+}

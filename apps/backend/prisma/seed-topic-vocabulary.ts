@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 
 export interface TopicDefinition {
   slug: string;
@@ -264,7 +264,10 @@ export async function generateTopicVocabulary(
 /**
  * 4. Lưu vào Database (PostgreSQL via Prisma)
  */
-export async function seedTopicToDatabase(prisma: PrismaClient, result: TopicVocabularyResult): Promise<void> {
+export async function seedTopicToDatabase(
+  prisma: Prisma.TransactionClient,
+  result: TopicVocabularyResult,
+): Promise<void> {
   const { topic, words } = result;
 
   const savedTopic = await prisma.curatedTopic.upsert({
@@ -327,6 +330,22 @@ export async function seedTopicToDatabase(prisma: PrismaClient, result: TopicVoc
  */
 async function main() {
   const args = process.argv.slice(2);
+  if (args.includes('--from-json')) {
+    const source = path.resolve(__dirname, 'demo-content', 'topic-vocabulary.json');
+    const topics: TopicVocabularyResult[] = JSON.parse(fs.readFileSync(source, 'utf8'));
+    const prisma = new PrismaClient();
+    try {
+      await prisma.$transaction(async (transaction) => {
+        for (const topic of topics) {
+          await seedTopicToDatabase(transaction, topic);
+        }
+      }, { timeout: 60_000 });
+    } finally {
+      await prisma.$disconnect();
+    }
+    return;
+  }
+
   const wordsPerTopicArg = args.find((a) => a.startsWith('--words='));
   const targetWords = wordsPerTopicArg ? parseInt(wordsPerTopicArg.split('=')[1], 10) : 10;
   const topicsFilterArg = args.find((a) => a.startsWith('--topics='));

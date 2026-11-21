@@ -21,6 +21,7 @@
 
 ## Voice and tone
 - Hướng dẫn, trạng thái và lỗi dùng tiếng Việt ngắn, cụ thể; nội dung bài tập tiếng Anh giữ theo giáo trình.
+- Đồng bộ nền diễn ra yên lặng; chỉ hiện lỗi ảnh hưởng đến học tập kèm cách xử lý, không hiện bộ đếm hoặc trạng thái hàng đợi kỹ thuật.
 - Phần xem thử ghi rõ dữ liệu mẫu, không trình bày kết quả minh họa như kết quả đánh giá thật.
 
 ## Layout and responsive

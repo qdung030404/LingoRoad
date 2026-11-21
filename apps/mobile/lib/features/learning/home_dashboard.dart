@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
-import '../../core/theme/app_shadows.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import 'daily_pages.dart';
@@ -111,42 +110,9 @@ class _HomeDashboardState extends State<HomeDashboard> {
       ),
       child: Stack(
         children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            height: 532,
-            child: AnimatedBuilder(
-              animation: scroll,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment(-.3, -1),
-                        end: Alignment(.3, 1),
-                        colors: [
-                          Color(0xFF1F452A),
-                          Color(0xFF53AC69),
-                          AppColors.grey25,
-                        ],
-                        stops: [.14353, .45387, .70454],
-                      ),
-                    ),
-                  ),
-                  Image.asset(
-                    'assets/figma/home_v2_glow_3x.png',
-                    fit: BoxFit.fill,
-                  ),
-                ],
-              ),
-              builder: (context, child) => Transform.translate(
-                key: const Key('homeBackgroundScroll'),
-                offset: Offset(0, scroll.hasClients ? -scroll.offset : 0),
-                child: child,
-              ),
-            ),
+          LearningGradientBackdrop(
+            scroll: scroll,
+            scrollKey: const Key('homeBackgroundScroll'),
           ),
           ListView(
             key: const PageStorageKey('preview-content-0'),
@@ -203,34 +169,9 @@ class _HomeDashboardState extends State<HomeDashboard> {
                         ),
                       ),
                     ),
-                    InkWell(
+                    LevelCupBadge(
+                      label: widget.level ?? 'Chưa đánh giá',
                       onTap: onProfile,
-                      borderRadius: AppRadius.pill,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary25,
-                          borderRadius: AppRadius.pill,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const FigmaAsset('home-v3/cup', size: 22),
-                            const SizedBox(width: 4),
-                            Text(
-                              widget.level ?? 'Chưa đánh giá',
-                              style: designText(
-                                18,
-                                weight: FontWeight.w600,
-                                color: AppColors.primary600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -638,30 +579,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
         style: designText(12, color: AppColors.grey800),
       ),
     ],
-  );
-}
-
-class DashboardCard extends StatelessWidget {
-  const DashboardCard({
-    super.key,
-    required this.child,
-    this.padding = EdgeInsets.zero,
-    this.radius,
-  });
-  final Widget child;
-  final EdgeInsetsGeometry padding;
-  final BorderRadiusGeometry? radius;
-  @override
-  Widget build(BuildContext context) => Container(
-    clipBehavior: Clip.antiAlias,
-    padding: padding,
-    decoration: BoxDecoration(
-      color: Colors.white,
-      borderRadius: radius ?? AppRadius.dialogRadius,
-      border: Border.all(color: AppColors.grey100),
-      boxShadow: AppShadows.level1,
-    ),
-    child: child,
   );
 }
 

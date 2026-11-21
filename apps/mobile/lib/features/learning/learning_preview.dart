@@ -27,6 +27,7 @@ import 'lesson_pages.dart';
 import 'practice_pages.dart';
 import 'preview_model.dart';
 import 'preview_navigation_bar.dart';
+import 'progress_dashboard.dart';
 import 'srs_review_page.dart';
 import 'weekly_plan_pages.dart';
 import 'word_collection_pages.dart';
@@ -108,6 +109,7 @@ class _LearningPreviewState extends State<LearningPreview>
           repository: ApiLearningRepository(widget.account!.api),
           accountId: _accountId,
           daily: daily,
+          vocabulary: vocabularyController,
           isAccountCurrent: () =>
               widget.account!.user?['id'] == learning?.accountId,
         );
@@ -434,7 +436,7 @@ class _LearningPreviewState extends State<LearningPreview>
         ),
         builder: (context, tab, child) => AnnotatedRegion<SystemUiOverlayStyle>(
           value:
-              (tab == 0
+              (tab == 0 || tab == 4
                       ? SystemUiOverlayStyle.light
                       : SystemUiOverlayStyle.dark)
                   .copyWith(
@@ -481,7 +483,6 @@ class _LearningPreviewState extends State<LearningPreview>
                   context,
                   learning!,
                   lessonId: lesson.id,
-                  attemptId: lesson.activeAttemptId,
                 );
               } else {
                 switchTab(1);
@@ -503,6 +504,36 @@ class _LearningPreviewState extends State<LearningPreview>
         child: vocabularyController != null
             ? VocabularyWordsTab(controller: vocabularyController!)
             : MyWordsTab(library: library, onNavigate: returnToTab),
+      );
+    }
+    if (page == 4) {
+      return RepaintBoundary(
+        child: ProgressDashboard(
+          model: model,
+          level: widget.account == null
+              ? 'A1'
+              : widget.account!.placementResult?['estimatedCefr'] as String?,
+          learning: learning,
+          daily: daily,
+          vocabularyController: vocabularyController,
+          onLevelTap: () => previewMessage(
+            context,
+            widget.account == null
+                ? 'A1 là mức minh họa của bản xem trước.'
+                : 'Mức tạm tính từ bài kiểm tra Đọc/Nghe; chưa đánh giá Nói/Viết.',
+          ),
+          onOpenDailyPlan: learning != null && daily != null
+              ? () => previewPush(context, DailyPlanPage(learning: learning!))
+              : null,
+          onOpenHistory: learning != null
+              ? () => previewPush(
+                  context,
+                  LearningHistoryPage(controller: learning!),
+                )
+              : null,
+          onOpenWeeklyPlan: () =>
+              previewPush(context, WeeklyPlanPage(model: model)),
+        ),
       );
     }
     final oldPage = page > 2 ? page - 1 : page;
@@ -546,7 +577,6 @@ class _LearningPreviewState extends State<LearningPreview>
               ),
             if (oldPage == 1) ...road(),
             if (oldPage == 2) ...practice(),
-            if (oldPage == 3) ...progress(),
           ],
         ),
       ),
@@ -712,83 +742,6 @@ class _LearningPreviewState extends State<LearningPreview>
         ),
         const SizedBox(height: 12),
       ],
-    ],
-  ];
-
-  List<Widget> progress() => [
-    if (learning != null) ...[
-      if (daily != null) DailyProgressCard(daily: daily!),
-      const SizedBox(height: 16),
-      if (daily != null)
-        CustomAppButton(
-          key: const Key('dailyPlanOpen'),
-          text: 'Kế hoạch hôm nay',
-          onPressed: () =>
-              previewPush(context, DailyPlanPage(learning: learning!)),
-        ),
-      const SizedBox(height: 16),
-      LearningCard(
-        children: [
-          learningHeading('Hành trình của bạn', size: 24),
-          learningHeading(
-            '${learning!.summary['completedLessonCount'] ?? '—'}/${learning!.summary['totalLessons'] ?? '—'} bài đã hoàn thành',
-            size: 28,
-          ),
-          learningBody(
-            '${learning!.summary['completedAttemptCount'] ?? '—'} lượt nộp bài · ${learning!.summary['activeAttemptCount'] ?? '—'} lượt đang học',
-          ),
-          learningBody('Tiến độ bài học không thay đổi mức CEFR đầu vào.'),
-          if (learning!.error != null)
-            LearningError(learning!.error!, retry: learning!.refresh),
-          CustomAppButton(
-            key: const Key('learningHistory'),
-            text: 'Lịch sử học tập',
-            onPressed: () => previewPush(
-              context,
-              LearningHistoryPage(controller: learning!),
-            ),
-          ),
-        ],
-      ),
-    ] else ...[
-      LearningCard(
-        children: [
-          learningHeading('Hành trình của bạn', size: 24),
-          learningBody(
-            'Tiến độ minh họa trên thiết bị; không phải kết quả đánh giá.',
-          ),
-          learningHeading(
-            '${model.completed.length} hoạt động đã hoàn thành',
-            size: 28,
-          ),
-          for (final s in ['Từ vựng', 'Ngữ pháp', 'Nghe', 'Đọc', 'Nói', 'Viết'])
-            Row(
-              children: [
-                Expanded(child: learningBody(s)),
-                Text(
-                  widget.account == null
-                      ? 'A1'
-                      : (widget.account!.placementResult?['skills']?[{
-                                  'Nghe': 'listening',
-                                  'Đọc': 'reading',
-                                }[s]]?['estimatedCefr']
-                                as String? ??
-                            'Chưa đánh giá'),
-                  style: designText(
-                    20,
-                    weight: FontWeight.w600,
-                    color: AppColors.primary500,
-                  ),
-                ),
-              ],
-            ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      CustomAppButton(
-        text: 'Lộ trình tuần đầu tiên',
-        onPressed: () => previewPush(context, WeeklyPlanPage(model: model)),
-      ),
     ],
   ];
 }

@@ -143,3 +143,21 @@ export interface KtPredictRequest {
 export interface KtPredictResponse {
   p_next: number[];
 }
+
+export interface ReadingExplainRequest {
+  passage: string;
+  question_prompt: string;
+  question_type: 'MULTIPLE_CHOICE' | 'GAP_FILL' | 'TRUE_FALSE_NOT_GIVEN';
+  options: string[];
+  selected_option: string;
+  correct_option: string;
+  evidence?: string;
+  curriculum_explanation?: string;
+  cefr?: string;
+  locale?: string;
+}
+
+export interface ReadingExplainResponse {
+  explanation: string;
+  model_version?: string;
+}

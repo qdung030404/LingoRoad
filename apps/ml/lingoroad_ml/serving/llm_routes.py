@@ -4,10 +4,10 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 from fastapi import APIRouter, HTTPException
-from openai import APIConnectionError, APIError, RateLimitError
+from openai import APIConnectionError, APIError, APITimeoutError, RateLimitError
 from pydantic import BaseModel, Field
 from lingoroad_ml.llm import advisor, rag
-from lingoroad_ml.llm import exercises as ex_mod, awe as awe_mod
+from lingoroad_ml.llm import exercises as ex_mod, awe as awe_mod, reading_explain as reading_explain_mod
 
 router = APIRouter()
 INDEX = Path(os.environ.get("QG_RAG_INDEX", "data/corpus_index.npz"))
@@ -115,6 +115,11 @@ def llm_awe(req: AweReq):
             status_code=429,
             detail=f"AI model rate limit exceeded: {exc}",
         ) from exc
+    except APITimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=f"AI model request timed out: {exc}",
+        ) from exc
     except (APIConnectionError, APIError) as exc:
         raise HTTPException(
             status_code=503,
@@ -178,6 +183,11 @@ def _handle_cefr_awe(req: CefrAweReq) -> dict:
             status_code=429,
             detail=f"AI model rate limit exceeded: {exc}",
         ) from exc
+    except APITimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=f"AI model request timed out: {exc}",
+        ) from exc
     except (APIConnectionError, APIError) as exc:
         raise HTTPException(
             status_code=503,
@@ -198,3 +208,66 @@ def ml_awe_evaluate_cefr(req: CefrAweReq):
 @router.post("/llm/awe/evaluate-cefr", response_model=CefrAweResponse)
 def llm_awe_evaluate_cefr(req: CefrAweReq):
     return _handle_cefr_awe(req)
+
+
+class ReadingExplainReq(BaseModel):
+    passage: str = Field(..., min_length=1, max_length=6000)
+    question_prompt: str = Field(..., min_length=1, max_length=1000)
+    question_type: Literal["MULTIPLE_CHOICE", "GAP_FILL", "TRUE_FALSE_NOT_GIVEN"] = "MULTIPLE_CHOICE"
+    options: list[str] = Field(..., min_length=2, max_length=6)
+    selected_option: str = Field(..., min_length=1, max_length=500)
+    correct_option: str = Field(..., min_length=1, max_length=500)
+    evidence: str | None = Field(default=None, max_length=1000)
+    curriculum_explanation: str = Field(default="", max_length=1500)
+    cefr: str | None = Field(default=None, max_length=10)
+    locale: str = Field(default="vi", max_length=10)
+
+
+@router.post("/llm/reading-explain")
+def llm_reading_explain(req: ReadingExplainReq):
+    try:
+        client = _client()
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI model service not configured: {exc}",
+        ) from exc
+    try:
+        text = reading_explain_mod.explain(
+            client,
+            passage=req.passage,
+            question_prompt=req.question_prompt,
+            question_type=req.question_type,
+            options=req.options,
+            selected_option=req.selected_option,
+            correct_option=req.correct_option,
+            evidence=req.evidence,
+            curriculum_explanation=req.curriculum_explanation,
+            cefr=req.cefr,
+        )
+    except RateLimitError as exc:
+        raise HTTPException(
+            status_code=429,
+            detail=f"AI model rate limit exceeded: {exc}",
+        ) from exc
+    except APITimeoutError as exc:
+        raise HTTPException(
+            status_code=504,
+            detail=f"AI model request timed out: {exc}",
+        ) from exc
+    except (APIConnectionError, APIError) as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"AI model service temporarily unavailable: {exc}",
+        ) from exc
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"LLM returned malformed or empty explanation: {exc}",
+        ) from exc
+    return {
+        "explanation": text,
+        "model_version": os.environ.get(
+            "LINGOROAD_LLM_MODEL_VERSION", "gemini-2.5-flash"
+        ),
+    }

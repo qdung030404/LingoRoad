@@ -71,6 +71,8 @@ export class VocabularyController {
   }
 
   @Get('summary') async summary(@CurrentUser('sub') u: string) { return response(await this.library.summary(u)); }
+  @Get('reading-words') async readingWords(@CurrentUser('sub') u: string) { return response(await this.library.readingWords(u)); }
+  @Post('reading-words') @HttpCode(200) async saveReadingWord(@CurrentUser('sub') u: string, @Body() d: VocabularyCreateWordDto) { return response(await this.library.saveReadingWord(u, d)); }
   @Get('decks') async decks(@CurrentUser('sub') u: string, @Query() q: VocabularyListQuery) { return response(await this.library.decks(u, q)); }
   @Post('decks') async createDeck(@CurrentUser('sub') u: string, @Body() d: VocabularyCreateDeckDto) { return response(await this.library.createDeck(u, d)); }
   @Get('decks/:id') async deck(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string) { return response(await this.library.deck(u, id)); }

@@ -74,11 +74,9 @@ class DailyPlanCard extends StatelessWidget {
                 context,
                 learning,
                 lessonId: item['lessonId'] as String,
-                attemptId:
-                    (item['completed'] == true
-                            ? item['completedAttemptId']
-                            : item['activeAttemptId'])
-                        as String?,
+                attemptId: item['completed'] == true
+                    ? item['completedAttemptId'] as String?
+                    : null,
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),

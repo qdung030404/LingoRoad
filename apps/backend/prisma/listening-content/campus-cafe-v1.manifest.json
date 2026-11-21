@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "lessonCode": "listening-campus-cafe",
+  "contentVersion": 1,
+  "source": "Original LingoRoad editorial script: docs/content/listening-a1-a2/lessons.json",
+  "provider": "Windows System.Speech; installed local voices; no network or billed provider calls",
+  "synthetic": true,
+  "humanRecorded": false,
+  "locale": "en-US",
+  "voices": {
+    "Staff": "Microsoft Zira Desktop",
+    "Ben": "Microsoft David Desktop"
+  },
+  "rate": -2,
+  "sampleRate": 22050,
+  "channels": 1,
+  "bitsPerSample": 16,
+  "audioSha256": "f60365ff81586f3bf62aa4eba23480e863afd3a54c6825c009361e02669b2fff",
+  "generatedAtUtc": "2026-11-17T09:46:47.2162014Z",
+  "durationMs": 54305,
+  "alignment": "Exact PCM concatenation boundaries for each independently synthesized turn; 300 ms gaps",
+  "languageReview": "AI-authored synthetic demo. Independent teacher CEFR/language review remains pending.",
+  "listeningReview": "Not a claim of human listening review; verify native playback before release.",
+  "rights": "Bundled synthetic demonstration; confirm applicable installed voice terms before external redistribution."
+}

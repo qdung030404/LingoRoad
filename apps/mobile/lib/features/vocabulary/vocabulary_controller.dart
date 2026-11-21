@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../../core/api/api_client.dart';
 import 'vocabulary_models.dart';
@@ -391,6 +393,26 @@ class VocabularyController extends ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+
+  /// Reads active reading-saved words so the UI reflects server deletions or edits.
+  Future<Json> readingWords() async {
+    if (!active) throw const ApiFailure('Phiên đăng nhập đã thay đổi.');
+    return repository.request('GET', '/vocabulary/reading-words');
+  }
+
+  /// Atomically saves a reading word via commandId without blocking library.pending deck edits.
+  Future<Json> saveReadingWord(Json body) async {
+    if (!active) throw const ApiFailure('Phiên đăng nhập đã thay đổi.');
+    final result = await repository.request(
+      'POST',
+      '/vocabulary/reading-words',
+      body: {...vocabularyCopy(body), 'commandId': vocabularyCommandId()},
+    );
+    if (active) {
+      unawaited(refresh().catchError((_) {}));
+    }
+    return result;
   }
 
   @override

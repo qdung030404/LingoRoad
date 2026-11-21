@@ -10,8 +10,10 @@ class LearningLesson {
   String get id => json['id'] as String;
   String get title => json['title'] as String;
   String get kind => json['kind'] as String;
+  String? get cefrLevel => json['cefrLevel'] as String?;
   String get description => json['description'] as String? ?? '';
   int get minutes => json['estimatedMinutes'] as int? ?? 0;
+  int get questionCount => json['questionCount'] as int? ?? 5;
   String get state => json['state'] as String? ?? 'NOT_STARTED';
   String? get activeAttemptId => json['activeAttemptId'] as String?;
 }
@@ -31,6 +33,7 @@ class LearningAttempt {
   List<Json> get steps => learningItems(content['steps']);
   List<Json> get questions => learningItems(json['questions']);
   List<Json> get answers => learningItems(json['answers']);
+  Json? get levelChange => (json['levelChange'] as Map?)?.cast<String, dynamic>();
   Json? answer(String questionId) {
     for (final a in answers) {
       if (a['questionId'] == questionId) return a;
@@ -45,12 +48,15 @@ class LearningAttempt {
 
 abstract class LearningRepository {
   Future<Json> catalogue();
+  Future<Json> lesson(String lessonId);
   Future<Json> summary();
   Future<LearningAttempt> start(String lessonId);
   Future<LearningAttempt> attempt(String id);
   Future<LearningAttempt> progress(String id, Json body);
   Future<LearningAttempt> check(String id, String questionId, Json body);
   Future<LearningAttempt> submit(String id, int version);
+  Future<void> cancel(String id);
+  Future<Json> explainReadingAnswer(String id, String questionId);
   Future<Json> history({String? cursor});
   String audioUrl(String path);
 }
@@ -60,6 +66,9 @@ class ApiLearningRepository implements LearningRepository {
   final ApiClient api;
   @override
   Future<Json> catalogue() => api.request('GET', '/learning/lessons');
+  @override
+  Future<Json> lesson(String lessonId) =>
+      api.request('GET', '/learning/lessons/$lessonId');
   @override
   Future<Json> summary() => api.request('GET', '/learning/summary');
   @override
@@ -98,6 +107,17 @@ class ApiLearningRepository implements LearningRepository {
           '/learning/attempts/$id/submit',
           data: {'expectedVersion': version},
         ),
+      );
+  @override
+  Future<void> cancel(String id) async {
+    await api.request('DELETE', '/learning/attempts/$id');
+  }
+  @override
+  Future<Json> explainReadingAnswer(String id, String questionId) =>
+      api.request(
+        'POST',
+        '/learning/attempts/$id/answers/$questionId/explain',
+        data: {},
       );
   @override
   Future<Json> history({String? cursor}) => api.request(

@@ -139,12 +139,21 @@ void main() {
     await tap(find.byKey(const Key('learningStart')));
     await waitFor(find.text('Câu 1/5'));
     await elapse(8);
-    await tap(find.byTooltip('Lưu và thoát'));
-    final recorded = (await stats())['today']['activeSeconds'] as int;
-    expect(recorded, greaterThanOrEqualTo(5));
+    await tap(find.byTooltip('Thoát'));
+    await waitFor(find.text('Hủy bài & thoát'));
+    await tap(find.text('Hủy bài & thoát'));
+    expect(
+      (await stats())['today']['activeSeconds'] as int,
+      0,
+      reason: 'Cancelling an incomplete lesson must erase its active time.',
+    );
+
     await tap(find.byKey(ValueKey('learning-lesson-${reading['id']}')));
+    await tap(find.byKey(const Key('learningStart')));
     await waitFor(find.text('Câu 1/5'));
-    await elapse(1);
+    await elapse(5);
+    final recorded = (await stats())['today']['activeSeconds'] as int;
+    expect(recorded, greaterThanOrEqualTo(3));
 
     if (hostBackground) {
       debugPrint(
@@ -157,7 +166,14 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await elapse(6);
     }
-    await tap(find.byTooltip('Lưu và thoát'));
+    for (var i = 0; i < 5; i++) {
+      await tap(find.byKey(const ValueKey('learning-option-A')));
+      await tap(find.byKey(const Key('learningPrimaryAction')));
+      await waitFor(find.text(i == 4 ? 'Nộp bài' : 'Tiếp theo'));
+      await tap(find.byKey(const Key('learningPrimaryAction')));
+      if (i < 4) await waitFor(find.text('Câu ${i + 2}/5'));
+    }
+    await waitFor(find.text('Kết quả bài học'));
     final afterGap = (await stats())['today']['activeSeconds'] as int;
     expect(afterGap, greaterThan(recorded));
     expect(
@@ -169,16 +185,6 @@ void main() {
       'DAILY_BACKGROUND_VERIFIED: recordedDelta=${afterGap - recorded}s',
     );
 
-    await tap(find.byKey(ValueKey('learning-lesson-${reading['id']}')));
-    await waitFor(find.text('Câu 1/5'));
-    for (var i = 0; i < 5; i++) {
-      await tap(find.byKey(const ValueKey('learning-option-A')));
-      await tap(find.byKey(const Key('learningPrimaryAction')));
-      await waitFor(find.text(i == 4 ? 'Nộp bài' : 'Tiếp theo'));
-      await tap(find.byKey(const Key('learningPrimaryAction')));
-      if (i < 4) await waitFor(find.text('Câu ${i + 2}/5'));
-    }
-    await waitFor(find.text('Kết quả bài học'));
     await tap(find.byIcon(Icons.arrow_back));
     await waitFor(find.byKey(const Key('dailyPreferences')));
     await tap(find.byKey(const Key('dailyPreferences')));

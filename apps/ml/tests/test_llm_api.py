@@ -1,6 +1,7 @@
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
+from lingoroad_ml.llm import reading_explain
 from lingoroad_ml.llm.advisor import build_messages
 from lingoroad_ml.llm.awe import parse_awe_response
 from lingoroad_ml.serving import llm_routes
@@ -153,3 +154,123 @@ def test_llm_awe_truncated_json_raises_502(monkeypatch):
         ))
     assert excinfo.value.status_code == 502
     assert "malformed or truncated JSON response" in excinfo.value.detail
+
+
+def test_reading_explain_build_messages_includes_grounding_fields():
+    msgs = reading_explain.build_messages(
+        passage="Pocket parks lower street heat by 2 degrees.",
+        question_prompt="Why are pocket parks useful?",
+        question_type="TRUE_FALSE_NOT_GIVEN",
+        options=["True", "False", "Not Given"],
+        selected_option="False",
+        correct_option="True",
+        evidence="lower street heat by 2 degrees",
+        curriculum_explanation="Bài đọc nêu công viên bỏ túi giảm nhiệt.",
+        cefr="B2",
+    )
+    assert len(msgs) == 2
+    assert msgs[0]["role"] == "system"
+    assert 'xưng "bạn"' in msgs[0]["content"]
+    user_msg = msgs[1]["content"]
+    assert "True / False / Not Given" in user_msg
+    assert "lower street heat by 2 degrees" in user_msg
+    assert "Bạn đã chọn: False" in user_msg
+    assert "Đáp án đúng: True" in user_msg
+
+
+def test_reading_explain_req_validation_rejects_oversized_passage():
+    with pytest.raises(ValidationError):
+        llm_routes.ReadingExplainReq(
+            passage="a" * 6001,
+            question_prompt="Question?",
+            question_type="MULTIPLE_CHOICE",
+            options=["A", "B"],
+            selected_option="A",
+            correct_option="B",
+        )
+
+
+def test_llm_reading_explain_success_and_missing_key_503(monkeypatch):
+    monkeypatch.setattr(llm_routes, "_client", lambda: object())
+    monkeypatch.setattr(
+        llm_routes.reading_explain_mod,
+        "explain",
+        lambda client, **kwargs: "Đáp án đúng là A vì đoạn văn nêu rõ lý do.",
+    )
+    req = llm_routes.ReadingExplainReq(
+        passage="City trees shade sidewalks.",
+        question_prompt="What do city trees shade?",
+        question_type="MULTIPLE_CHOICE",
+        options=["Sidewalks", "Rivers"],
+        selected_option="Rivers",
+        correct_option="Sidewalks",
+        evidence="City trees shade sidewalks.",
+    )
+    res = llm_routes.llm_reading_explain(req)
+    assert res["explanation"] == "Đáp án đúng là A vì đoạn văn nêu rõ lý do."
+    assert "model_version" in res
+
+    def missing_key():
+        raise RuntimeError("Neither OPENAI_API_KEY nor GEMINI_API_KEY")
+
+    monkeypatch.setattr(llm_routes, "_client", missing_key)
+    with pytest.raises(HTTPException) as excinfo:
+        llm_routes.llm_reading_explain(req)
+    assert excinfo.value.status_code == 503
+
+
+def test_reading_explain_sets_strict_timeout_and_zero_retries(monkeypatch):
+    monkeypatch.setenv("LINGOROAD_EXPLAIN_TIMEOUT_S", "30")
+    recorded = {}
+
+    class DummyCompletions:
+        def create(self, **kwargs):
+            recorded["create_kwargs"] = kwargs
+            msg = type("Msg", (), {"content": "Giải thích ngắn gọn từ AI."})()
+            choice = type("Choice", (), {"message": msg})()
+            return type("Resp", (), {"choices": [choice]})()
+
+    class DummyClient:
+        def __init__(self):
+            self.chat = type("Chat", (), {"completions": DummyCompletions()})()
+
+        def with_options(self, *, timeout, max_retries):
+            recorded["timeout"] = timeout
+            recorded["max_retries"] = max_retries
+            return self
+
+    out = reading_explain.explain(
+        DummyClient(),
+        passage="City trees cool sidewalks.",
+        question_prompt="What cools sidewalks?",
+        question_type="MULTIPLE_CHOICE",
+        options=["City trees", "Buses"],
+        selected_option="Buses",
+        correct_option="City trees",
+        evidence="City trees cool sidewalks.",
+    )
+    assert out == "Giải thích ngắn gọn từ AI."
+    assert recorded["timeout"] == reading_explain.MAX_EXPLAIN_TIMEOUT_S
+    assert recorded["max_retries"] == 0
+
+
+def test_llm_reading_explain_timeout_raises_504(monkeypatch):
+    from openai import APITimeoutError
+
+    monkeypatch.setattr(llm_routes, "_client", lambda: object())
+
+    def raise_timeout(*args, **kwargs):
+        raise APITimeoutError(request=None)
+
+    monkeypatch.setattr(llm_routes.reading_explain_mod, "explain", raise_timeout)
+    req = llm_routes.ReadingExplainReq(
+        passage="City trees shade sidewalks.",
+        question_prompt="What do city trees shade?",
+        question_type="MULTIPLE_CHOICE",
+        options=["Sidewalks", "Rivers"],
+        selected_option="Rivers",
+        correct_option="Sidewalks",
+    )
+    with pytest.raises(HTTPException) as excinfo:
+        llm_routes.llm_reading_explain(req)
+    assert excinfo.value.status_code == 504
