@@ -303,7 +303,8 @@ export async function seedTopicToDatabase(
           meaningVi: w.meaningVi,
           exampleEn: w.exampleEn,
           audioUrl: w.audioUrl,
-        },
+          imageUrl: (w as any).imageUrl ?? (existing as any).imageUrl ?? null,
+        } as any,
       });
     } else {
       await prisma.curatedTopicWord.create({
@@ -315,7 +316,8 @@ export async function seedTopicToDatabase(
           meaningVi: w.meaningVi,
           exampleEn: w.exampleEn,
           audioUrl: w.audioUrl,
-        },
+          imageUrl: (w as any).imageUrl ?? null,
+        } as any,
       });
     }
   }

@@ -78,6 +78,9 @@ export class VocabularyService {
     });
     return { receipt: this.commands.view(receipt), ...await this.deck(userId, id, true) };
   }
+  async deleteDeck(userId: string, id: string, dto: VocabularyVersionDto) {
+    return this.updateDeck(userId, id, dto, true);
+  }
   private wordData(dto: VocabularyCreateWordDto | VocabularyBatchWordItemDto, old?: VocabularyWord) {
     const english = dto.english.trim(), meaning = dto.meaning.trim();
     if (!english || !meaning) vocabInvalid('Nhập từ tiếng Anh và nghĩa.');
@@ -187,6 +190,9 @@ export class VocabularyService {
       return { targetId: id, appliedVersion: saved.version, result: { wordId: id, deleted: remove } };
     });
     return { receipt: this.commands.view(receipt), word: await this.readWord(userId, id) };
+  }
+  async deleteWord(userId: string, id: string, dto: VocabularyVersionDto) {
+    return this.updateWord(userId, id, dto, true);
   }
   async summary(userId: string) {
     return this.prisma.$transaction(async db => {

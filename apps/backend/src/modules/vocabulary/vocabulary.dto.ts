@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsString, IsUrl, IsUUID, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
 export class VocabularyCommandDto { @IsUUID() commandId!: string; }
@@ -15,7 +15,7 @@ export class VocabularyCreateWordDto extends VocabularyCommandDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(50) partOfSpeech?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) example?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) translation?: string;
-  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) imageUrl?: string;
+  @IsOptional() @Transform(trim) @IsUrl({ protocols: ['https', 'http'], require_protocol: true }) @MaxLength(500) imageUrl?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(11) @IsString({ each: true }) @MinLength(1, { each: true }) @MaxLength(100, { each: true }) acceptedAnswers?: string[];
 }
 export class VocabularyUpdateWordDto extends VocabularyCreateWordDto { @IsInt() @Min(0) expectedVersion!: number; }
@@ -27,7 +27,7 @@ export class VocabularyBatchWordItemDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(50) partOfSpeech?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) example?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) translation?: string;
-  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) imageUrl?: string;
+  @IsOptional() @Transform(trim) @IsUrl({ protocols: ['https', 'http'], require_protocol: true }) @MaxLength(500) imageUrl?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(11) @IsString({ each: true }) @MinLength(1, { each: true }) @MaxLength(100, { each: true }) acceptedAnswers?: string[];
 }
 
