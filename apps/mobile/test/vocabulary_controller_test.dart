@@ -67,6 +67,54 @@ Json attempt({int version = 0, bool finished = false}) {
   };
 }
 
+Json multiAttempt({
+  int count = 3,
+  int version = 0,
+  List<String>? words,
+  List<String>? meanings,
+}) {
+  final defaultWords = ['apple', 'banana', 'cherry'];
+  final defaultMeanings = ['quả táo', 'quả chuối', 'quả anh đào'];
+  final items = List.generate(count, (i) {
+    final english =
+        words != null && i < words.length
+            ? words[i]
+            : (i < defaultWords.length ? defaultWords[i] : 'word$i');
+    final meaning =
+        meanings != null && i < meanings.length
+            ? meanings[i]
+            : (i < defaultMeanings.length ? defaultMeanings[i] : 'nghĩa $i');
+    return {
+      'id': 'item-$i',
+      'wordId': 'word-$i',
+      'state': 'PENDING',
+      'draft': '',
+      'word': {
+        'id': 'word-$i',
+        'english': english,
+        'meaning': meaning,
+        'contentVersion': 1,
+      },
+    };
+  });
+  return {
+    'id': 'review',
+    'deckId': 'deck',
+    'deckSnapshot': {'name': 'Bộ từ'},
+    'version': version,
+    'status': 'IN_PROGRESS',
+    'phase': 'FRONT',
+    'queue': items.map((e) => e['id'] as String).toList(),
+    'currentItem': items.isEmpty ? null : items.first,
+    'items': items,
+    'counts': {
+      'totalCount': count,
+      'reviewedCount': 0,
+      'skippedCount': 0,
+    },
+  };
+}
+
 class BrokenStore extends VocabularyPendingStore {
   BrokenStore() : super('a');
   @override
@@ -75,11 +123,12 @@ class BrokenStore extends VocabularyPendingStore {
 }
 
 class GatedStore extends VocabularyPendingStore {
-  GatedStore() : super('a');
+  GatedStore({this.gateTarget = '.rejected'}) : super('a');
+  final String gateTarget;
   final entered = Completer<void>(), release = Completer<void>();
   @override
   Future<void> write(String target, Json? value) async {
-    if (target.endsWith('.rejected')) {
+    if (target.endsWith(gateTarget)) {
       if (!entered.isCompleted) entered.complete();
       await release.future;
     }
@@ -264,7 +313,7 @@ void main() {
     },
   );
   test(
-    'rating does not publish next card until ACK and feedback duration',
+    'rating advances card locally with zero latency and batches submit',
     () async {
       final ack = Completer<Json>();
       Json? sent;
@@ -286,15 +335,16 @@ void main() {
       final review = VocabularyReviewController(owner: owner);
       await review.load('review');
       final rating = review.rate('EASY');
-      await Future<void>.delayed(Duration.zero);
-      expect(sent?['rating'], 'EASY');
-      expect(review.selectedRating, 'EASY');
-      expect(review.attempt!.version, 0);
-      ack.complete({});
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      expect(review.attempt!.version, 0);
       expect(await rating, true);
-      expect(review.attempt!.version, 1);
+      expect(review.attempt!.queue, isEmpty);
+      expect(review.attempt!.current, isNull);
+      expect(review.attempt!.finished, false);
+      await Future<void>.delayed(Duration.zero);
+      expect(sent?['results'], isNotNull);
+      expect((sent!['results'] as List).first['rating'], 'EASY');
+      ack.complete({});
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(review.attempt!.finished, true);
       review.dispose();
       owner.dispose();
     },
@@ -458,4 +508,343 @@ void main() {
 
     controller.dispose();
   });
+
+  test(
+    'multi-card rating advances locally without blocking before batch threshold',
+    () async {
+      final repo = FakeVocabularyRepository((method, path, body) async {
+        if (method == 'GET') return {'attempt': multiAttempt(count: 3)};
+        return {};
+      });
+      final owner = VocabularyController(
+        repository: repo,
+        accountId: 'a',
+        isCurrent: () => true,
+      );
+      final review = VocabularyReviewController(owner: owner);
+      await review.load('review');
+
+      expect(await review.rate('EASY'), true);
+      expect(review.attempt!.current!.id, 'item-1');
+      expect(review.hasPendingSingleCommand, false);
+      expect(review.unsynced, true);
+
+      expect(await review.rate('MEDIUM'), true);
+      expect(review.attempt!.current!.id, 'item-2');
+      expect(review.hasPendingSingleCommand, false);
+      expect(repo.calls.where((c) => c['method'] == 'POST'), isEmpty);
+
+      review.dispose();
+      owner.dispose();
+    },
+  );
+
+  test(
+    'checkpoint at 15 cards and immediate skip within 10s forces flush before SKIP',
+    () async {
+      final state = multiAttempt(count: 17);
+      final postPaths = <String>[];
+      final repo = FakeVocabularyRepository((method, path, body) async {
+        if (path == '/vocabulary/summary') return summary();
+        if (method == 'GET') return {'attempt': vocabularyCopy(state)};
+        postPaths.add(path);
+        if (path.endsWith('/batch-submit')) {
+          final results = body!['results'] as List;
+          final ids = results.map((e) => (e as Map)['itemId'] as String).toSet();
+          final items = (state['items'] as List).cast<Json>();
+          for (final item in items) {
+            if (ids.contains(item['id'])) {
+              item['state'] = 'REVIEWED';
+            }
+          }
+          final queue = (state['queue'] as List).cast<String>()
+            ..removeWhere(ids.contains);
+          state['queue'] = queue;
+          state['currentItem'] = queue.isEmpty
+              ? null
+              : items.firstWhere((e) => e['id'] == queue.first);
+          state['version'] = (state['version'] as int) + 1;
+        } else if (path.endsWith('/commands') && body?['action'] == 'SKIP') {
+          final queue = (state['queue'] as List).cast<String>();
+          final skippedId = queue.removeAt(0);
+          final items = (state['items'] as List).cast<Json>();
+          items.firstWhere((e) => e['id'] == skippedId)['state'] = 'SKIPPED';
+          state['currentItem'] = queue.isEmpty
+              ? null
+              : items.firstWhere((e) => e['id'] == queue.first);
+          state['version'] = (state['version'] as int) + 1;
+        }
+        return {
+          'receipt': {'commandId': body!['commandId']},
+          'attempt': vocabularyCopy(state),
+        };
+      });
+      final owner = VocabularyController(
+        repository: repo,
+        accountId: 'a',
+        isCurrent: () => true,
+      );
+      final review = VocabularyReviewController(owner: owner);
+      await review.load('review');
+
+      for (var i = 0; i < 15; i++) {
+        expect(await review.rate('EASY'), true);
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(postPaths, ['/vocabulary/reviews/review/batch-submit']);
+
+      // Rate 16th card right after checkpoint (within 10s throttle window), then skip 17th
+      expect(await review.rate('MEDIUM'), true);
+      expect(await review.skip(), true);
+
+      expect(postPaths, [
+        '/vocabulary/reviews/review/batch-submit',
+        '/vocabulary/reviews/review/batch-submit',
+        '/vocabulary/reviews/review/commands',
+      ]);
+      expect(review.attempt!.queue, isEmpty);
+      review.dispose();
+      owner.dispose();
+    },
+  );
+
+  test(
+    'abandon aborts when flushing uncommitted ratings fails',
+    () async {
+      final repo = FakeVocabularyRepository((method, path, body) async {
+        if (method == 'GET') return {'attempt': multiAttempt(count: 2)};
+        throw const ApiFailure('network down');
+      });
+      final owner = VocabularyController(
+        repository: repo,
+        accountId: 'a',
+        isCurrent: () => true,
+      );
+      final review = VocabularyReviewController(owner: owner);
+      await review.load('review');
+      expect(await review.rate('EASY'), true);
+
+      expect(await review.abandon(), false);
+      expect(
+        repo.calls.where((c) => c['path'] == '/vocabulary/reviews/review/commands'),
+        isEmpty,
+      );
+      review.dispose();
+      owner.dispose();
+    },
+  );
+
+  test(
+    'lost ACK freezes in-flight batch commandId and payload while queuing new ratings',
+    () async {
+      var failFirstBatch = true;
+      final state = multiAttempt(count: 3);
+      final sentBatches = <Json>[];
+      final repo = FakeVocabularyRepository((method, path, body) async {
+        if (path == '/vocabulary/summary') return summary();
+        if (method == 'GET') return {'attempt': vocabularyCopy(state)};
+        sentBatches.add(vocabularyCopy(body!));
+        if (failFirstBatch) {
+          failFirstBatch = false;
+          throw const ApiFailure('lost ack');
+        }
+        final results = body['results'] as List;
+        final ids = results.map((e) => (e as Map)['itemId'] as String).toSet();
+        final items = (state['items'] as List).cast<Json>();
+        for (final item in items) {
+          if (ids.contains(item['id'])) item['state'] = 'REVIEWED';
+        }
+        final queue = (state['queue'] as List).cast<String>()
+          ..removeWhere(ids.contains);
+        state['queue'] = queue;
+        state['currentItem'] = queue.isEmpty
+            ? null
+            : items.firstWhere((e) => e['id'] == queue.first);
+        if (body['isFinal'] == true && queue.isEmpty) {
+          state['status'] = 'COMPLETED';
+        }
+        state['version'] = (state['version'] as int) + 1;
+        return {
+          'receipt': {'commandId': body['commandId']},
+          'attempt': vocabularyCopy(state),
+        };
+      });
+      final owner = VocabularyController(
+        repository: repo,
+        accountId: 'a',
+        isCurrent: () => true,
+      );
+      final review = VocabularyReviewController(owner: owner);
+      await review.load('review');
+
+      expect(await review.rate('EASY'), true);
+      expect(await review.checkpoint(), false);
+      expect(sentBatches.length, 1);
+      final firstCommandId = sentBatches[0]['commandId'];
+      final firstResults = sentBatches[0]['results'] as List;
+      expect(firstResults.length, 1);
+
+      // Rate a second card while the first batch is awaiting retry
+      expect(await review.rate('HARD'), true);
+      expect(await review.retryPending(), true);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(sentBatches.length, 3);
+      // Exact replay of frozen in-flight batch
+      expect(sentBatches[1]['commandId'], firstCommandId);
+      expect((sentBatches[1]['results'] as List).length, 1);
+      expect((sentBatches[1]['results'] as List).first['itemId'], 'item-0');
+      // Second batch carries only the newly queued item with a fresh commandId
+      expect(sentBatches[2]['commandId'], isNot(firstCommandId));
+      expect((sentBatches[2]['results'] as List).length, 1);
+      expect((sentBatches[2]['results'] as List).first['itemId'], 'item-1');
+
+      review.dispose();
+      owner.dispose();
+    },
+  );
+
+  test(
+    'journal restores uncommitted ratings after restart and flushes them',
+    () async {
+      var fail = true;
+      final state = multiAttempt(count: 2);
+      final sentBatches = <Json>[];
+      final repo = FakeVocabularyRepository((method, path, body) async {
+        if (path == '/vocabulary/summary') return summary();
+        if (method == 'GET') return {'attempt': vocabularyCopy(state)};
+        if (fail) throw const ApiFailure('offline');
+        sentBatches.add(vocabularyCopy(body!));
+        final results = body['results'] as List;
+        final ids = results.map((e) => (e as Map)['itemId'] as String).toSet();
+        final queue = (state['queue'] as List).cast<String>()
+          ..removeWhere(ids.contains);
+        state['queue'] = queue;
+        state['currentItem'] = queue.isEmpty ? null : state['items'][1];
+        state['version'] = (state['version'] as int) + 1;
+        return {
+          'receipt': {'commandId': body['commandId']},
+          'attempt': vocabularyCopy(state),
+        };
+      });
+
+      final owner = VocabularyController(
+        repository: repo,
+        accountId: 'a',
+        isCurrent: () => true,
+      );
+      final first = VocabularyReviewController(owner: owner);
+      await first.load('review');
+      expect(await first.rate('EASY'), true);
+      expect(await first.checkpoint(), false);
+      first.dispose();
+
+      fail = false;
+      final second = VocabularyReviewController(owner: owner);
+      await second.load('review');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(sentBatches.length, 1);
+      expect((sentBatches[0]['results'] as List).first['itemId'], 'item-0');
+      expect(second.attempt!.current!.id, 'item-1');
+      second.dispose();
+      owner.dispose();
+    },
+  );
+
+  test(
+    'rate surfaces persistence error and does not advance card when store fails',
+    () async {
+      final repo = FakeVocabularyRepository(
+        (method, path, body) async => {'attempt': multiAttempt(count: 2)},
+      );
+      final owner = VocabularyController(
+        repository: repo,
+        accountId: 'a',
+        isCurrent: () => true,
+        store: BrokenStore(),
+      );
+      final review = VocabularyReviewController(owner: owner);
+      await review.load('review');
+      expect(await review.rate('EASY'), false);
+      expect(review.error, contains('disk unavailable'));
+      expect(review.attempt!.current!.id, 'item-0');
+      expect(review.attempt!.queue, ['item-0', 'item-1']);
+      review.dispose();
+      owner.dispose();
+    },
+  );
+
+  test(
+    'concurrent rate calls while journal is saving do not duplicate itemId',
+    () async {
+      final store = GatedStore(gateTarget: '.journal');
+      final repo = FakeVocabularyRepository(
+        (method, path, body) async => {'attempt': multiAttempt(count: 2)},
+      );
+      final owner = VocabularyController(
+        repository: repo,
+        accountId: 'a',
+        isCurrent: () => true,
+        store: store,
+      );
+      final review = VocabularyReviewController(owner: owner);
+      await review.load('review');
+
+      final firstRate = review.rate('EASY');
+      await store.entered.future;
+      // Second rate before first _saveJournal completes must be ignored
+      expect(await review.rate('HARD'), false);
+
+      store.release.complete();
+      expect(await firstRate, true);
+
+      final savedJournal = await store.read('review.review.journal');
+      final queued = savedJournal?['queued'] as List?;
+      expect(queued?.length, 1);
+      expect((queued?.first as Map)['itemId'], 'item-0');
+      expect((queued?.first as Map)['rating'], 'EASY');
+      expect(review.attempt!.current!.id, 'item-1');
+
+      review.dispose();
+      owner.dispose();
+    },
+  );
+
+  test(
+    'resolveConflict backs up uncommitted journal to rejectedJournal before clearing',
+    () async {
+      final repo = FakeVocabularyRepository((method, path, body) async {
+        if (method == 'GET') return {'attempt': multiAttempt(count: 3)};
+        throw const ApiFailure('invalid batch', status: 400);
+      });
+      final owner = VocabularyController(
+        repository: repo,
+        accountId: 'a',
+        isCurrent: () => true,
+      );
+      final review = VocabularyReviewController(owner: owner);
+      await review.load('review');
+
+      expect(await review.rate('EASY'), true);
+      expect(await review.checkpoint(), false);
+      expect(review.conflict, true);
+
+      // Add another rating while in flight failed before resolving
+      await review.resolveConflict();
+      expect(review.conflict, false);
+      expect(review.unsynced, false);
+
+      final backup = await owner.store.read('review.review.rejectedJournal');
+      expect(backup, isNotNull);
+      expect(backup!['inFlight'], isNotNull);
+      expect(
+        ((backup['inFlight'] as Map)['results'] as List).first['itemId'],
+        'item-0',
+      );
+      expect(await owner.store.read('review.review.journal'), isNull);
+
+      review.dispose();
+      owner.dispose();
+    },
+  );
 }

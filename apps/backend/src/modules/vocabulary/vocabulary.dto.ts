@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsString, IsUrl, IsUUID, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUrl, IsUUID, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
 export class VocabularyCommandDto { @IsUUID() commandId!: string; }
@@ -55,6 +55,23 @@ export class VocabularyReviewCommandDto extends VocabularyVersionDto {
   @IsOptional() @IsString() @MaxLength(1000) draft?: string;
   @IsOptional() @IsString() @MaxLength(1000) answer?: string;
   @IsOptional() @IsIn(['EASY', 'MEDIUM', 'HARD']) rating?: string;
+}
+
+export class VocabularyBatchReviewResultDto {
+  @IsUUID() itemId!: string;
+  @IsIn(['EASY', 'MEDIUM', 'HARD']) rating!: string;
+  @IsOptional() @IsString() @MaxLength(1000) checkedAnswer?: string;
+  @IsOptional() @IsISO8601() finalizedAt?: string;
+}
+
+export class VocabularyBatchSubmitDto extends VocabularyVersionDto {
+  @IsOptional() @IsBoolean() isFinal: boolean = true;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => VocabularyBatchReviewResultDto)
+  results!: VocabularyBatchReviewResultDto[];
 }
 
 export class CuratedTopicWordsQueryDto {

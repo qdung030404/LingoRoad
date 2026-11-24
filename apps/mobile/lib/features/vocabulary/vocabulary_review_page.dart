@@ -1,13 +1,19 @@
 import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
-import '../../shared/app_button.dart';
-import '../../shared/figma_widgets.dart';
-import '../learning/learning_widgets.dart';
-import '../learning/learning_pages.dart' show LearningError;
+import 'package:flutter_card_swiper/flutter_card_swiper.dart';
+import 'package:mobile/core/theme/app_colors.dart';
+import 'package:mobile/core/theme/app_spacing.dart';
+import 'package:mobile/shared/app_button.dart';
+import 'package:mobile/shared/figma_widgets.dart';
+import 'package:mobile/features/learning/learning_widgets.dart';
+import 'package:mobile/features/learning/learning_pages.dart' show LearningError;
 import 'vocabulary_controller.dart';
-import 'vocabulary_models.dart';
 import 'vocabulary_review_controller.dart';
+import 'widgets/vocabulary_flashcard_deck.dart';
+import 'widgets/vocabulary_review_bottom_bar.dart';
+import 'widgets/vocabulary_review_sheet.dart';
+import 'widgets/vocabulary_srs_rating_bar.dart';
 
 class VocabularyReviewPage extends StatefulWidget {
   const VocabularyReviewPage({
@@ -15,8 +21,10 @@ class VocabularyReviewPage extends StatefulWidget {
     required this.controller,
     required this.attemptId,
   });
+
   final VocabularyController controller;
   final String attemptId;
+
   @override
   State<VocabularyReviewPage> createState() => _VocabularyReviewPageState();
 }
@@ -24,14 +32,38 @@ class VocabularyReviewPage extends StatefulWidget {
 class _VocabularyReviewPageState extends State<VocabularyReviewPage>
     with WidgetsBindingObserver {
   late final review = VocabularyReviewController(owner: widget.controller);
-  final input = TextEditingController();
-  double drag = 0;
-  bool dragging = false, submitting = false, leaving = false;
+  final CardSwiperController _swiperController = CardSwiperController();
+  final GlobalKey<VocabularyFlashcardDeckState> _deckKey =
+      GlobalKey<VocabularyFlashcardDeckState>();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  StreamSubscription<void>? _audioCompleteSub;
+  StreamSubscription<PlayerState>? _audioStateSub;
+  Timer? _flipDebounceTimer;
+
+  bool _isFront = true;
+  bool _isPlayingAudio = false;
+  bool _isFlipping = false;
+  bool submitting = false;
+  bool leaving = false;
   String? lastItem;
+  String? _playingWordId;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _audioCompleteSub = _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) {
+        setState(() => _isPlayingAudio = false);
+      }
+    });
+    _audioStateSub = _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (state == PlayerState.completed || state == PlayerState.stopped) {
+        if (mounted && _isPlayingAudio) {
+          setState(() => _isPlayingAudio = false);
+        }
+      }
+    });
     review.addListener(changed);
     review.load(widget.attemptId);
   }
@@ -40,14 +72,12 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
     if (!mounted) return;
     if (lastItem != review.attempt?.current?.id) {
       lastItem = review.attempt?.current?.id;
-      drag = 0;
-      dragging = false;
-    }
-    if (input.text != review.draft) {
-      input.value = TextEditingValue(
-        text: review.draft,
-        selection: TextSelection.collapsed(offset: review.draft.length),
-      );
+      _isFront = true;
+      _playingWordId = null;
+      if (_isPlayingAudio) {
+        unawaited(_audioPlayer.stop());
+        _isPlayingAudio = false;
+      }
     }
     setState(() {});
     final attempt = review.attempt;
@@ -55,7 +85,10 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
         !attempt.finished &&
         attempt.queue.isEmpty &&
         !review.busy &&
-        !review.unsynced &&
+        !review.isSyncing &&
+        !review.hasUncommittedBatch &&
+        !review.hasPendingSingleCommand &&
+        !review.conflict &&
         review.error == null &&
         !submitting) {
       submitting = true;
@@ -71,8 +104,13 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
+      _playingWordId = null;
+      if (_isPlayingAudio) {
+        unawaited(_audioPlayer.stop());
+        _isPlayingAudio = false;
+      }
       unawaited(checkpoint());
-    } else if (review.attempt != null && !review.busy) {
+    } else if (review.attempt != null && !review.busy && !review.isSyncing) {
       review.load(widget.attemptId);
     }
   }
@@ -126,66 +164,91 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _flipDebounceTimer?.cancel();
     review.removeListener(changed);
     review.dispose();
-    input.dispose();
+    _swiperController.dispose();
+    _audioCompleteSub?.cancel();
+    _audioStateSub?.cancel();
+    unawaited(_audioPlayer.stop());
+    _audioPlayer.dispose();
     super.dispose();
   }
 
-  bool get disabled => review.busy || review.unsynced || review.loading;
-  Future<void> action(Future<bool> Function() callback) async {
+  bool get disabled =>
+      review.busy ||
+      review.hasPendingSingleCommand ||
+      review.conflict ||
+      review.loading;
+
+  Future<bool> action(Future<bool> Function() callback) async {
     FocusScope.of(context).unfocus();
     try {
-      await callback();
+      return await callback();
     } catch (e) {
       if (mounted) previewMessage(context, widget.controller.message(e));
-    }
-    if (mounted) {
-      setState(() {
-        drag = 0;
-        dragging = false;
-      });
+      return false;
     }
   }
 
-  Future<void> endDrag(DragEndDetails details, double width) async {
-    if (disabled) return;
-    final velocity = details.primaryVelocity ?? 0;
-    final committed =
-        drag.abs() >= (width * .25).clamp(72, 110) ||
-        (drag.abs() >= 32 &&
-            velocity.abs() >= 650 &&
-            velocity.sign == drag.sign);
-    if (committed) {
-      await action(drag < 0 ? review.skip : review.requeue);
+  Future<bool> _handleSwipedDirection(CardSwiperDirection direction) async {
+    if (direction == CardSwiperDirection.right) {
+      return await action(() => review.rate('EASY'));
+    } else if (direction == CardSwiperDirection.left) {
+      return await action(() => review.rate('HARD'));
     } else {
-      setState(() {
-        drag = 0;
-        dragging = false;
+      return await action(() => review.rate('MEDIUM'));
+    }
+  }
+
+  Future<void> _onPrimaryAction() async {
+    if (disabled || review.attempt?.current == null || _isFlipping) return;
+    if (_isFront) {
+      _isFlipping = true;
+      _deckKey.currentState?.toggleCurrentCard();
+      setState(() => _isFront = false);
+      _flipDebounceTimer?.cancel();
+      _flipDebounceTimer = Timer(const Duration(milliseconds: 350), () {
+        if (mounted) _isFlipping = false;
       });
-    }
-  }
-
-  Future<void> next() async {
-    if (disabled) return;
-    if (review.phase == 'FRONT') {
-      await review.setPhase('MEANING');
-    } else if (review.phase == 'MEANING') {
-      await review.setPhase('RECALL');
-    } else if (review.attempt!.current!.checked) {
-      await action(review.advance);
     } else {
-      await action(review.check);
+      // Khi đã ở mặt sau, bấm Tiếp theo mặc định giữ mức Trung bình (MEDIUM) theo chuẩn FSRS.
+      // Vuốt lên (CardSwiperDirection.top) kích hoạt rate('MEDIUM')
+      _swiperController.swipe(CardSwiperDirection.top);
     }
   }
 
-  Future<void> previous() async {
-    if (disabled) return;
-    if (review.attempt?.current?.checked != true && review.phase != 'FRONT') {
-      await review.setPhase(review.phase == 'RECALL' ? 'MEANING' : 'FRONT');
-      return;
+  Future<void> _playCurrentWordAudio() async {
+    final current = review.attempt?.current;
+    if (current == null || _isPlayingAudio) return;
+    final word = current.word.english;
+    final wordId = current.word.id;
+    _playingWordId = wordId;
+
+    setState(() => _isPlayingAudio = true);
+    try {
+      await _audioPlayer.stop();
+      var audioUrl = current.word.audioUrl;
+      if (audioUrl == null || audioUrl.isEmpty) {
+        final lookup = await widget.controller.lookupWord(word);
+        if (_playingWordId != wordId || !mounted) return;
+        audioUrl = lookup?['audioUrl']?.toString();
+      }
+      if (_playingWordId != wordId || !mounted) return;
+      if (audioUrl != null && audioUrl.isNotEmpty) {
+        await _audioPlayer.play(UrlSource(audioUrl));
+      } else {
+        if (mounted) {
+          setState(() => _isPlayingAudio = false);
+          previewMessage(context, 'Từ vựng này chưa có dữ liệu âm thanh.');
+        }
+      }
+    } catch (e) {
+      if (mounted && _playingWordId == wordId) {
+        setState(() => _isPlayingAudio = false);
+        previewMessage(context, 'Không thể phát âm thanh: ${widget.controller.message(e)}');
+      }
     }
-    await details(processedOnly: true);
   }
 
   Future<void> abandon() async {
@@ -212,64 +275,6 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
     if (confirmed == true) await action(review.abandon);
   }
 
-  Future<void> details({bool processedOnly = false}) async {
-    final items = review.attempt!.items
-        .where((i) => !processedOnly || i.state != 'PENDING')
-        .toList();
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: SizedBox(
-          height: MediaQuery.sizeOf(context).height * .7,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              learningHeading('Chi tiết lượt ôn', size: 24),
-              const Text(
-                'Kết quả đã lưu chỉ đọc. Mở lượt mới để đánh giá lại.',
-              ),
-              if (items.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('Chưa có từ đã xử lý.'),
-                ),
-              for (final item in items) ...[
-                const SizedBox(height: 12),
-                LearningCard(
-                  children: [
-                    learningHeading(item.word.english, size: 22),
-                    Text(item.word.meaning),
-                    Text(
-                      item.state == 'REVIEWED'
-                          ? 'Đã ôn'
-                          : item.state == 'SKIPPED'
-                          ? 'Đã bỏ qua'
-                          : 'Chưa xác nhận',
-                    ),
-                    if (item.rating != null)
-                      Text('Mức độ: ${ratingLabel(item.rating!)}'),
-                    if (item.checked)
-                      Text('Đã nhập: ${item.checkedAnswer ?? ''}'),
-                    if (item.checked)
-                      Text(
-                        item.isCorrect == true ? 'Điền đúng' : 'Điền chưa đúng',
-                      ),
-                    if (item.json['resultSource'] == 'SELF_REPORT')
-                      const Text('Tự đánh giá'),
-                    if (item.json['resultSource'] == 'RECALL_AFTER_REVEAL')
-                      const Text('Điền từ sau khi xem đáp án'),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final attempt = review.attempt;
@@ -291,8 +296,18 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
             : PopupMenuButton<String>(
                 enabled: !disabled,
                 tooltip: 'Tùy chọn lượt ôn',
-                onSelected: (_) => abandon(),
+                onSelected: (val) {
+                  if (val == 'skip') {
+                    action(review.skip);
+                  } else if (val == 'abandon') {
+                    abandon();
+                  }
+                },
                 itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: 'skip',
+                    child: Text('Bỏ qua từ này'),
+                  ),
                   PopupMenuItem(
                     value: 'abandon',
                     child: Text('Kết thúc lượt sớm'),
@@ -302,11 +317,21 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
         bottom: attempt == null
             ? null
             : attempt.finished
-            ? completionActions()
-            : toolbar(),
+                ? completionActions()
+                : VocabularyReviewBottomBar(
+                    isFront: _isFront,
+                    isPlayingAudio: _isPlayingAudio,
+                    disabled: disabled || attempt.current == null,
+                    onOpenDetails: () => showVocabularyReviewDetailsSheet(
+                      context,
+                      attempt,
+                    ),
+                    onPrimaryAction: _onPrimaryAction,
+                    onPlayAudio: _playCurrentWordAudio,
+                  ),
         child: attempt == null
             ? ListView(
-                padding: const EdgeInsets.all(16),
+                padding: AppSpacing.allMd,
                 children: [
                   if (review.loading)
                     const Center(child: CircularProgressIndicator()),
@@ -318,7 +343,10 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
                 ],
               )
             : ListView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppSpacing.horizontal(context),
+                  vertical: AppSpacing.sm,
+                ),
                 children: [
                   if (review.error != null)
                     LearningError(
@@ -339,49 +367,66 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
                       'Bản nháp chưa đồng bộ của bạn: ${review.recoveredDraft}',
                     ),
                   if (review.busy) const LinearProgressIndicator(),
+
                   if (attempt.finished)
                     completion()
                   else if (attempt.current == null) ...[
-                    const SizedBox(height: 40),
-                    const Center(child: CircularProgressIndicator()),
-                    const Text('Đang lưu tổng kết lượt ôn…'),
-                    if (review.error != null && !review.unsynced)
-                      TextButton(
-                        onPressed: () => action(review.submit),
-                        child: const Text('Lưu tổng kết'),
+                    const SizedBox(height: AppSpacing.xxl),
+                    if (review.error != null) ...[
+                      const Center(
+                        child: Text('Chưa đồng bộ được tổng kết lượt ôn.'),
                       ),
-                  ] else ...[
-                    if ((attempt.json['remainingEligibleCount'] as num? ?? 0) >
-                        0)
-                      Text(
-                        'Lượt này có ${attempt.json['selectedCount']} từ · còn ${attempt.json['remainingEligibleCount']} từ ngoài lượt.',
-                      ),
-                    Text(
-                      '${attempt.count('reviewedCount')}/${attempt.count('totalCount')} từ đã ôn',
-                      style: designText(14),
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 260),
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(.12, 0),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
+                      AppSpacing.gapSm,
+                      Center(
+                        child: TextButton(
+                          key: const Key('vocabularyRetryFinalSubmit'),
+                          onPressed: () => action(review.submit),
+                          child: const Text('Lưu tổng kết'),
                         ),
                       ),
-                      child: KeyedSubtree(
-                        key: ValueKey('${attempt.current!.id}:${review.phase}'),
-                        child: review.phase == 'RECALL'
-                            ? recall(attempt.current!)
-                            : flashcard(attempt.current!),
+                    ] else ...[
+                      const Center(child: CircularProgressIndicator()),
+                      AppSpacing.gapMd,
+                      const Center(child: Text('Đang lưu tổng kết lượt ôn…')),
+                    ],
+                  ] else ...[
+                    // Tiến trình ôn tập
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                      child: Text(
+                        '${attempt.count('reviewedCount')}/${attempt.count('totalCount')} từ đã ôn',
+                        style: designText(14, color: AppColors.grey600),
                       ),
                     ),
+                    AppSpacing.gapSm,
+
+                    // Khung Flashcard với flutter_card_swiper + flip_card
+                    VocabularyFlashcardDeck(
+                      key: _deckKey,
+                      attempt: attempt,
+                      swiperController: _swiperController,
+                      disabled: disabled,
+                      onSwipedDirection: _handleSwipedDirection,
+                      onFlipStateChanged: (isFront) {
+                        setState(() => _isFront = isFront);
+                      },
+                    ),
+
+                    AppSpacing.gapMd,
+
+                    // 3 Nút Đánh giá SRS (Dễ / Trung bình / Khó)
+                    VocabularySrsRatingBar(
+                      enabled: !disabled,
+                      selectedRating: review.selectedRating,
+                      onRateEasy: () =>
+                          _swiperController.swipe(CardSwiperDirection.right),
+                      onRateMedium: () =>
+                          _swiperController.swipe(CardSwiperDirection.top),
+                      onRateHard: () =>
+                          _swiperController.swipe(CardSwiperDirection.left),
+                    ),
+
+                    AppSpacing.gapMd,
                   ],
                 ],
               ),
@@ -389,310 +434,6 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
     );
   }
 
-  Widget flashcard(VocabularyReviewItem item) => Column(
-    children: [
-      LayoutBuilder(
-        builder: (context, bounds) {
-          final progress = (drag.abs() / (bounds.maxWidth * .25)).clamp(
-            0.0,
-            1.0,
-          );
-          final color = drag < 0
-              ? const Color(0xFFDC2626)
-              : const Color(0xFF16A34A);
-          return Semantics(
-            button: true,
-            label: review.phase == 'FRONT'
-                ? 'Lật thẻ xem nghĩa'
-                : 'Xem mặt trước',
-            customSemanticsActions: disabled
-                ? null
-                : {
-                    CustomSemanticsAction(label: 'Bỏ qua từ này'): () =>
-                        action(review.skip),
-                    CustomSemanticsAction(label: 'Ôn lại sau'): () =>
-                        action(review.requeue),
-                  },
-            child: GestureDetector(
-              key: const Key('vocabularyFlashcard'),
-              onTap: disabled
-                  ? null
-                  : () => review.setPhase(
-                      review.phase == 'FRONT' ? 'MEANING' : 'FRONT',
-                    ),
-              onHorizontalDragStart: disabled
-                  ? null
-                  : (_) => setState(() => dragging = true),
-              onHorizontalDragUpdate: disabled
-                  ? null
-                  : (event) => setState(
-                      () => drag = (drag + event.delta.dx).clamp(
-                        -bounds.maxWidth,
-                        bounds.maxWidth,
-                      ),
-                    ),
-              onHorizontalDragEnd: disabled
-                  ? null
-                  : (event) => endDrag(event, bounds.maxWidth),
-              onHorizontalDragCancel: () => setState(() {
-                drag = 0;
-                dragging = false;
-              }),
-              child: AnimatedContainer(
-                key: const Key('vocabularySwipeTransform'),
-                duration: dragging || MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 180),
-                transformAlignment: Alignment.bottomCenter,
-                transform: Matrix4.translationValues(drag, 0, 0)
-                  ..rotateZ(
-                    MediaQuery.disableAnimationsOf(context)
-                        ? 0
-                        : (drag / bounds.maxWidth * .28).clamp(-.14, .14),
-                  ),
-                child: Stack(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      constraints: const BoxConstraints(minHeight: 380),
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: const Color(0xFFE1E7EF)),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const SizedBox(height: 72),
-                          Text(
-                            item.word.english,
-                            key: const Key('vocabularyCurrentEnglish'),
-                            textAlign: TextAlign.center,
-                            style: designHeading(36),
-                          ),
-                          if (item.word.field('phonetic').isNotEmpty)
-                            Text(
-                              item.word.field('phonetic'),
-                              style: designText(18),
-                            ),
-                          if (item.word.field('partOfSpeech').isNotEmpty)
-                            Text(
-                              item.word.field('partOfSpeech'),
-                              style: designText(16),
-                            ),
-                          if (review.phase == 'MEANING') ...[
-                            const SizedBox(height: 24),
-                            Text(
-                              item.word.meaning,
-                              textAlign: TextAlign.center,
-                              style: designText(22),
-                            ),
-                            if (item.word.field('example').isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              Text(
-                                item.word.field('example'),
-                                style: designText(16),
-                              ),
-                            ],
-                            if (item.word.field('translation').isNotEmpty)
-                              Text(
-                                item.word.field('translation'),
-                                style: designText(14),
-                              ),
-                          ],
-                          const SizedBox(height: 32),
-                          const Tooltip(
-                            message: 'Từ này chưa có phát âm',
-                            child: Icon(
-                              Icons.volume_off_outlined,
-                              color: Color(0xFF8A8C91),
-                            ),
-                          ),
-                          const SizedBox(height: 72),
-                        ],
-                      ),
-                    ),
-                    if (drag != 0)
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: Opacity(
-                            opacity: progress,
-                            child: Container(
-                              key: const Key('vocabularySwipeFeedback'),
-                              alignment: drag < 0
-                                  ? Alignment.topRight
-                                  : Alignment.topLeft,
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: .14),
-                                border: Border.all(color: color, width: 2),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Text(
-                                drag < 0 ? '← Bỏ qua' : 'Ôn lại sau →',
-                                style: designText(
-                                  22,
-                                  color: color,
-                                  weight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-      const SizedBox(height: 16),
-      difficulty(),
-      const SizedBox(height: 16),
-      Text('← Bỏ qua · Ôn lại sau →', style: designText(12)),
-    ],
-  );
-  Widget difficulty() => Wrap(
-    alignment: WrapAlignment.center,
-    spacing: 12,
-    runSpacing: 8,
-    children: [
-      for (final option in [
-        ('EASY', const Color(0xFF15803D)),
-        ('MEDIUM', const Color(0xFFCA8A04)),
-        ('HARD', const Color(0xFFB91C1C)),
-      ])
-        OutlinedButton(
-          key: Key('vocabularyRate${option.$1}'),
-          onPressed: disabled
-              ? null
-              : () => action(() => review.rate(option.$1)),
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 48),
-            backgroundColor: review.selectedRating == option.$1
-                ? option.$2
-                : option.$2.withValues(alpha: .05),
-            foregroundColor: review.selectedRating == option.$1
-                ? Colors.white
-                : option.$2,
-            disabledForegroundColor: review.selectedRating == option.$1
-                ? Colors.white
-                : option.$2,
-            side: BorderSide(
-              color: option.$2,
-              width: review.selectedRating == option.$1 ? 2 : 1,
-            ),
-          ),
-          child: Text(
-            ratingLabel(option.$1),
-            style: TextStyle(
-              fontWeight: review.selectedRating == option.$1
-                  ? FontWeight.bold
-                  : FontWeight.w500,
-            ),
-          ),
-        ),
-    ],
-  );
-  Widget recall(VocabularyReviewItem item) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      LearningCard(
-        children: [
-          learningHeading('Định nghĩa', size: 18),
-          Text(item.word.meaning, style: designText(20)),
-        ],
-      ),
-      const SizedBox(height: 24),
-      learningHeading('Viết lại từ', size: 20),
-      const SizedBox(height: 12),
-      TextField(
-        key: const Key('vocabularyRecallAnswer'),
-        controller: input,
-        enabled: !disabled && !item.checked,
-        autocorrect: false,
-        enableSuggestions: false,
-        minLines: 3,
-        maxLines: 4,
-        onChanged: review.changeDraft,
-        decoration: InputDecoration(
-          hintText: 'Đáp án của bạn…',
-          filled: true,
-          fillColor: const Color(0xFFEDF1F6),
-          contentPadding: const EdgeInsets.all(16),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE1E7EF)),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFF59B070), width: 1.5),
-          ),
-        ),
-      ),
-      if (item.checked) ...[
-        const SizedBox(height: 16),
-        Semantics(
-          liveRegion: true,
-          child: Text(
-            item.isCorrect == true
-                ? 'Chính xác!'
-                : 'Chưa đúng. Đáp án: ${item.word.english}',
-            style: designText(
-              18,
-              color: item.isCorrect == true
-                  ? const Color(0xFF15803D)
-                  : const Color(0xFFB91C1C),
-            ),
-          ),
-        ),
-        if (item.isCorrect == true) ...[
-          const SizedBox(height: 12),
-          const Text('Chọn độ khó. Tiếp theo giữ mức Trung bình.'),
-          const SizedBox(height: 12),
-          difficulty(),
-        ],
-      ],
-    ],
-  );
-  Widget toolbar() => Row(
-    children: [
-      SizedBox(
-        width: 48,
-        child: OutlinedButton(
-          key: const Key('vocabularyPrevious'),
-          onPressed: disabled ? null : previous,
-          style: OutlinedButton.styleFrom(padding: EdgeInsets.zero),
-          child: const Icon(Icons.chevron_left),
-        ),
-      ),
-      const SizedBox(width: 8),
-      if (review.phase != 'RECALL') ...[
-        Expanded(
-          child: CustomAppButton(
-            text: 'Bỏ từ này',
-            isSecondary: true,
-            onPressed: disabled ? null : () => action(review.skip),
-          ),
-        ),
-        const SizedBox(width: 8),
-      ],
-      Expanded(
-        child: CustomAppButton(
-          key: const Key('vocabularyNext'),
-          text:
-              review.phase == 'RECALL' &&
-                  review.attempt?.current?.checked != true
-              ? 'Kiểm tra'
-              : 'Tiếp theo',
-          onPressed: disabled || review.attempt?.current == null ? null : next,
-        ),
-      ),
-    ],
-  );
   Widget completion() {
     final attempt = review.attempt!;
     return LearningCard(
@@ -701,21 +442,16 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
         learningHeading(
           attempt.status == 'ABANDONED'
               ? 'Đã dừng lượt ôn'
-              : 'Đã kết thúc lượt',
+              : 'Đã hoàn thành lượt ôn',
           size: 28,
         ),
         Text(
-          '${attempt.count('reviewedCount')} từ đã ôn · ${attempt.count('skippedCount')} bỏ qua · ${attempt.count('uncheckedCount')} chưa xử lý',
+          '${attempt.count('reviewedCount')} từ đã ôn · ${attempt.count('skippedCount')} bỏ qua',
           style: designText(18),
         ),
-        Text(
-          attempt.count('checkedCount') == 0
-              ? 'Chưa có câu điền từ được chấm.'
-              : 'Điền đúng ${attempt.count('correctCount')}/${attempt.count('checkedCount')} câu.',
-        ),
-        const Text('Độ khó là tự đánh giá. Kết quả điền từ được lưu riêng.'),
+        const Text('Kết quả đánh giá SRS đã được lưu tự động vào tiến trình học.'),
         TextButton(
-          onPressed: () => details(),
+          onPressed: () => showVocabularyReviewDetailsSheet(context, attempt),
           child: const Text('Xem chi tiết từng từ'),
         ),
       ],
@@ -723,53 +459,46 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
   }
 
   Widget completionActions() => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      CustomAppButton(
-        key: const Key('vocabularyReplay'),
-        text: 'Ôn lại tiếp',
-        onPressed: widget.controller.busy
-            ? null
-            : () async {
-                try {
-                  final next = await widget.controller.startReview(
-                    review.attempt!.deckId,
-                    scope: 'ALL',
-                  );
-                  if (!mounted || !widget.controller.active) return;
-                  if (next == null) {
-                    previewMessage(context, 'Bộ từ không còn từ để ôn.');
-                    return;
-                  }
-                  await Navigator.of(context).pushReplacement<void, void>(
-                    MaterialPageRoute(
-                      builder: (_) => VocabularyReviewPage(
-                        controller: widget.controller,
-                        attemptId: next.id,
-                      ),
-                    ),
-                  );
-                } catch (e) {
-                  if (mounted) {
-                    previewMessage(context, widget.controller.message(e));
-                  }
-                }
-              },
-      ),
-      const SizedBox(height: 12),
-      CustomAppButton(
-        key: const Key('vocabularyReturn'),
-        text: 'Quay về trang từ vựng',
-        isSecondary: true,
-        onPressed: exit,
-      ),
-    ],
-  );
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CustomAppButton(
+            key: const Key('vocabularyReplay'),
+            text: 'Ôn lại tiếp',
+            onPressed: widget.controller.busy
+                ? null
+                : () async {
+                    try {
+                      final next = await widget.controller.startReview(
+                        review.attempt!.deckId,
+                        scope: 'ALL',
+                      );
+                      if (!mounted || !widget.controller.active) return;
+                      if (next == null) {
+                        previewMessage(context, 'Bộ từ không còn từ để ôn.');
+                        return;
+                      }
+                      await Navigator.of(context).pushReplacement<void, void>(
+                        MaterialPageRoute(
+                          builder: (_) => VocabularyReviewPage(
+                            controller: widget.controller,
+                            attemptId: next.id,
+                          ),
+                        ),
+                      );
+                    } catch (e) {
+                      if (mounted) {
+                        previewMessage(context, widget.controller.message(e));
+                      }
+                    }
+                  },
+          ),
+          AppSpacing.gapMd,
+          CustomAppButton(
+            key: const Key('vocabularyReturnHome'),
+            text: 'Quay về trang từ vựng',
+            isSecondary: true,
+            onPressed: disabled ? null : exit,
+          ),
+        ],
+      );
 }
-
-String ratingLabel(String value) => switch (value) {
-  'EASY' => 'Dễ',
-  'MEDIUM' => 'Trung bình',
-  'HARD' => 'Khó',
-  _ => value,
-};
