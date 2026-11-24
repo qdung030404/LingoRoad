@@ -42,6 +42,23 @@ services:
       - lingoroad-network
 
   # -------------------------------------------------------------
+  # LingoRoad ML Microservice (FastAPI)
+  # -------------------------------------------------------------
+  ml:
+    build:
+      context: ./apps/ml
+      dockerfile: Dockerfile
+    container_name: lingoroad-ml
+    restart: unless-stopped
+    ports:
+      - '8001:8001'
+    environment:
+      LINGOROAD_ENVIRONMENT: production
+      LINGOROAD_ML_INTERNAL_TOKEN: ${LINGOROAD_ML_INTERNAL_TOKEN:-lingoroad-ml-internal-secret-token-32chars}
+    networks:
+      - lingoroad-network
+
+  # -------------------------------------------------------------
   # LingoRoad Backend API (NestJS + Prisma)
   # -------------------------------------------------------------
   backend:
@@ -61,11 +78,15 @@ services:
       REFRESH_TOKEN_EXPIRES_DAYS: 30
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      ML_SERVICE_URL: http://ml:8001
+      LINGOROAD_ML_INTERNAL_TOKEN: ${LINGOROAD_ML_INTERNAL_TOKEN:-lingoroad-ml-internal-secret-token-32chars}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      ml:
+        condition: service_started
     networks:
       - lingoroad-network
 

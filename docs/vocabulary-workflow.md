@@ -24,11 +24,19 @@ Lệnh seed đọc 12 chủ đề và 240 từ đi kèm repo. Có thể chạy l
 
 ## Luồng ôn
 
-Giữ mặt trước tiếng Anh → nghĩa → điền lại tiếng Anh. Chọn độ khó từ flashcard có thể chuyển thẳng sang từ tiếp theo. Vuốt trái bỏ qua trong lượt hiện tại; vuốt phải đưa xuống cuối hàng đợi. Chỉ còn một từ thì vuốt phải giữ từ đó, không tạo bản sao.
+Màn hình ôn tập (`VocabularyReviewPage`) sử dụng cơ chế **Zero-Latency Hybrid Batch Review** kết hợp bộ thẻ vuốt (`flutter_card_swiper`) và lật thẻ 3D (`flip_card`):
 
-Chọn Dễ/Trung bình/Khó nổi bật nút ít nhất 1,5 giây, sau đó chuyển bằng animation khi server đã xác nhận. Khi lưu lỗi, giữ thẻ và nội dung để thử lại. Queue thuộc server; client không tự coi thao tác chưa ACK là hoàn thành.
+- **Lật & Vuốt thẻ Flashcard (`VocabularyFlashcardDeck` & `VocabularyFlipCardItem`)**:
+  - Mặt trước hiển thị từ tiếng Anh, từ loại (`partOfSpeech`) và phiên âm (`phonetic`). Chạm vào thẻ hoặc bấm nút chính **"Xem nghĩa"** để lật sang mặt sau xem ảnh minh họa (`imageUrl`), nghĩa tiếng Việt, câu ví dụ (tự động tô đậm từ mục tiêu theo ranh giới từ) và bản dịch.
+  - Vuốt phải (`CardSwiperDirection.right`) hoặc bấm **Dễ** → chấm `EASY`; vuốt lên (`CardSwiperDirection.top`), bấm **Trung bình** hoặc bấm **"Tiếp theo"** ở mặt sau → chấm `MEDIUM`; vuốt trái (`CardSwiperDirection.left`) hoặc bấm **Khó** → chấm `HARD`.
+  - Menu tùy chọn góc trên hỗ trợ **Bỏ qua từ này** (`SKIP`) hoặc **Kết thúc lượt sớm** (`ABANDON`). Thanh đáy (`VocabularyReviewBottomBar`) có nút mở bảng chi tiết từng từ đã xử lý (`VocabularyReviewSheet`) và nút phát âm thanh (`AudioPlayer`, tự động tra cứu fallback qua `/vocabulary/lookup` nếu từ chưa có `audioUrl`).
+- **Đồng bộ theo lô không độ trễ (`VocabularyReviewController`)**:
+  - Khi đánh giá `EASY`/`MEDIUM`/`HARD`, thẻ chuyển ngay lập tức ở phía client (hiệu ứng highlight nút 150ms) mà không khóa giao diện chờ mạng; kết quả được ghi bền vững vào journal cục bộ (`review.<attemptId>.journal`).
+  - Hàng đợi đánh giá được tách thành 2 tầng: `_inFlightBatch` (đóng băng `{ commandId, results, isFinal }` đang gửi hoặc chờ retry khi mất ACK) và `_queuedResults` (hứng các thẻ đánh giá mới trong lúc batch trước đang bay). Cờ `_rating` chặn reentrancy khi người dùng vuốt liên tiếp cực nhanh.
+  - Tự động gửi checkpoint (`isFinal: false`) khi tích lũy đủ **15 thẻ** (kèm giãn cách throttle 10 giây cho các đợt tự động), và gửi chốt lượt (`isFinal: true`) ngay khi hết `queue`. Trước khi thực hiện các lệnh đơn (`SKIP`, `REQUEUE`, `ABANDON`, `SUBMIT`, `checkpoint`), client luôn ép đồng bộ (`force: true`, bỏ qua throttle) toàn bộ `_inFlightBatch` và `_queuedResults`.
+  - Trạng thái `COMPLETED` chỉ hiển thị sau khi máy chủ xác nhận thành công. Nếu gửi lô cuối thất bại do rớt mạng, màn hình giữ trạng thái chờ đồng bộ kèm nút **"Lưu tổng kết"** để thử lại.
 
-Server chấm phần điền từ, giữ kết quả check để resume nhưng chỉ cập nhật thống kê thư viện khi xác nhận bằng RATE/ADVANCE. Dễ → Đã nhớ; Trung bình/Khó, trả lời sai hoặc chưa ôn → Cần ôn. Quick rating có nguồn SELF_REPORT và `isCorrect=null`. Điền sau khi xem tiếng Anh mang nguồn RECALL_AFTER_REVEAL và `answerExposed=true`; không diễn giải thành bằng chứng nhớ độc lập, CEFR hoặc dự đoán DKT.
+Server chấm phần điền từ (hoặc đối chiếu `checkedAnswer` gửi kèm trong batch), giữ kết quả check để resume nhưng chỉ cập nhật thống kê thư viện khi xác nhận. Dễ → Đã nhớ (`REMEMBERED`); Trung bình/Khó, trả lời sai hoặc chưa ôn → Cần ôn (`NEEDS_REVIEW`). Quick rating có nguồn `SELF_REPORT` và `isCorrect=null`. Điền sau khi xem tiếng Anh mang nguồn `RECALL_AFTER_REVEAL` và `answerExposed=true`; câu trả lời sai bắt buộc nhận mức `HARD` (chặn nâng lên `EASY`).
 
 Chuẩn hóa đáp án v1: NFKC, thống nhất apostrophe cong, trim/collapse whitespace, lowercase. Giữ dấu phụ/dấu câu/gạch nối; chỉ chấp nhận biến thể được khai báo trong acceptedAnswers. Ví dụ APPLE khớp apple; don’t khớp don't; dont không khớp don't, resume không khớp résumé. Lưu raw answer để đọc lại.
 
@@ -43,10 +51,12 @@ Envelope `{success:true,data:{...}}`. Body không nhận userId, isCorrect hoặ
 | `GET/POST /vocabulary/decks` | Tìm/phân trang và tạo bộ |
 | `GET/PATCH/DELETE /vocabulary/decks/:deckId` | Chi tiết, đổi tên, xóa mềm |
 | `GET/POST /vocabulary/decks/:deckId/words` | Tìm/phân trang và thêm từ |
+| `POST /vocabulary/decks/:deckId/words/batch` | Thêm từ theo lô (tối đa 50 từ/lần, bỏ qua từ trùng) |
 | `PATCH/DELETE /vocabulary/words/:wordId` | Sửa, xóa mềm từ |
 | `POST /vocabulary/decks/:deckId/reviews` | Bắt đầu/tiếp tục, scope NEEDS_REVIEW hoặc ALL |
 | `GET /vocabulary/reviews/:attemptId` | Snapshot, queue, phase, feedback đã check và kết quả |
 | `POST /vocabulary/reviews/:attemptId/commands` | SAVE_PROGRESS, CHECK_RECALL, RATE, ADVANCE, SKIP, REQUEUE, SUBMIT, ABANDON |
+| `POST /vocabulary/reviews/:attemptId/batch-submit` | Đồng bộ theo lô kết quả đánh giá (checkpoint `isFinal=false` hoặc chốt lượt `isFinal=true`, tối đa 100 từ/lô, giới hạn 12 req/phút) |
 | `GET /vocabulary/history` | Lịch sử từ riêng theo tài khoản/bộ |
 | `GET /vocabulary/summary` | Tổng từ, Đã nhớ/Cần ôn, các bộ phục vụ Home |
 | `GET /vocabulary/suggest` | Gợi ý từ nhanh trực tuyến (Autocomplete) kèm loại từ |
@@ -56,7 +66,7 @@ Envelope `{success:true,data:{...}}`. Body không nhận userId, isCorrect hoặ
 | `GET /vocabulary/curated-topics/:slug/words` | Danh sách từ vựng theo chủ đề tuyển chọn |
 | `POST /vocabulary/curated-topics/:slug/clone` | Sao chép toàn bộ từ của chủ đề vào Bộ từ cá nhân |
 
-Mutation có commandId; sửa/xóa và command lượt ôn có expectedVersion. Receipt cùng user/commandId và cùng payload trả lại kết quả đã nhận; đổi payload cùng ID trả 409. Revision cũ của command mới cũng trả 409. Receipt và thay đổi dữ liệu được commit trong cùng transaction. Replay không làm lùi state hiện tại hoặc nhân đôi thống kê. Ngoài tài khoản/không có quyền nhận 404 nhất quán.
+Mutation có commandId; sửa/xóa, command đơn và `batch-submit` đều có `expectedVersion`. Receipt cùng user/commandId và cùng payload trả lại kết quả đã nhận; đổi payload cùng ID trả 409. Revision cũ của command mới cũng trả 409. Trong `batch-submit`, server xác thực toàn bộ danh sách `results` trước khi ghi DB: từ chối `itemId` không thuộc attempt, `itemId` trùng lặp trong cùng lô, hoặc item đã ở trạng thái `SKIPPED`/`REVIEWED`; kẹp `finalizedAt` trong khoảng `[attempt.startedAt, now]`; và bảo toàn lịch sử attempt ngay cả khi bộ từ đã bị xóa mềm.
 
 ## Lưu ý cấu hình Cloud & Tối ưu Client
 
@@ -68,7 +78,7 @@ Mutation có commandId; sửa/xóa và command lượt ôn có expectedVersion. 
 
 ## Offline và ranh giới thống kê
 
-Cache chỉ đọc; draft và command chờ lưu riêng theo account trên máy. Cần mạng để mở lượt mới và xác nhận thao tác chuyển thẻ. Timeout giữ commandId/payload để retry, không tự gửi lựa chọn mới. Draft đã ACK có thể đọc trên thiết bị khác; draft chưa sync chỉ được bảo đảm trên máy hiện tại. Đây là hỗ trợ mất mạng tạm thời, chưa phải hoàn thành toàn bộ lượt offline.
+Cache chỉ đọc; draft, lệnh đơn đang chờ (`pending`) và nhật ký đánh giá theo lô (`journal` gồm `_inFlightBatch` và `_queuedResults`) đều được lưu riêng theo account trên máy thông qua `VocabularyPendingStore`. Cần mạng để mở lượt mới và chốt kết quả cuối cùng với server. Khi đang ôn tập mà mất mạng hoặc mất ACK, người dùng vẫn có thể đánh giá các thẻ tiếp theo trong bộ; при mở lại lượt ôn hoặc bấm thử lại, controller tự động khôi phục các đánh giá chưa đồng bộ từ `journal` và phát lại đúng `_inFlightBatch` đã đóng băng trước khi gửi tiếp `_queuedResults`. Nếu xảy ra xung đột phiên bản (`409`/`400`) và người dùng chủ động chọn tải lại tiến trình mới (`resolveConflict`), cả lệnh đơn bị từ chối (`.rejected`) lẫn nhật ký đánh giá theo lô (`.rejectedJournal`) đều được sao lưu trên thiết bị trước khi làm sạch hàng đợi.
 
 Home và Từ của tôi dùng cùng công thức: Đã nhớ + Cần ôn = Tổng từ đang hoạt động. Từ chưa ôn thuộc Cần ôn; số lượt rating không cộng vào số từ. Lượt ôn từ **không** mở activity session, không cộng mục tiêu phút, không tăng số bài học/lượt nộp lesson hoặc thay kế hoạch ngày.
 
