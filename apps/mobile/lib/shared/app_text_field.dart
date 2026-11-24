@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_radius.dart';
 import '../core/theme/app_typography.dart';
@@ -87,7 +86,6 @@ class _CustomAppTextFieldState extends State<CustomAppTextField> {
           style: AppTextStyles.body.copyWith(
             height: 1.2,
             letterSpacing: -.42,
-            fontVariations: const [ui.FontVariation('wght', 400)],
             color: isDark
                 ? AppColors.textPrimaryDark
                 : AppColors.textPrimaryLight,
@@ -100,7 +98,6 @@ class _CustomAppTextFieldState extends State<CustomAppTextField> {
               color: AppColors.grey500,
               height: 1.2,
               letterSpacing: -.42,
-              fontVariations: const [ui.FontVariation('wght', 400)],
             ),
             errorText: widget.errorText,
             errorStyle: AppTextStyles.caption.copyWith(

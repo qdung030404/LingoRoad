@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/auth/session_controller.dart';
@@ -10,6 +9,7 @@ import 'package:mobile/features/placement/placement_pages.dart';
 import 'package:mobile/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'test_helpers.dart';
+import 'support/ui_fonts.dart';
 
 // Optional exports are actual widget renders, never runtime backgrounds.
 // flutter test test/figma_visual_test.dart --dart-define=CAPTURE_UI=true
@@ -24,14 +24,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.runAsync(() async {
-      final font = FontLoader('Inter')
-        ..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'));
-      await font.load();
-      await (FontLoader('Be Vietnam Pro')
-            ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Medium.ttf')))
-          .load();
-    });
+    await tester.runAsync(loadUiFonts);
   }
 
   final boundaryKey = GlobalKey();
