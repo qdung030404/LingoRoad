@@ -114,7 +114,7 @@ export class LearningService {
       options: question.options.map((option) => ({ id: option.id, text: option.text })) }));
   }
 
-  private result(attempt: LearningAttempt) {
+  private result(attempt: Pick<LearningAttempt, 'status' | 'correctCount' | 'totalQuestions'>) {
     return attempt.status === 'COMPLETED' ? { correctCount: attempt.correctCount!, totalQuestions: attempt.totalQuestions,
       scoreRatio: attempt.correctCount! / attempt.totalQuestions } : null;
   }
@@ -149,7 +149,11 @@ export class LearningService {
     const [lessons, attempts] = await Promise.all([
       this.prisma.learningLesson.findMany({ where: { published: true, ...(kind ? { kind } : {}) }, include: includeUnitLevel,
         orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }] }),
-      this.prisma.learningAttempt.findMany({ where: { userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }] }),
+      this.prisma.learningAttempt.findMany({
+        where: { userId },
+        select: { lessonId: true, status: true, correctCount: true, totalQuestions: true, historyHiddenAt: true },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      }),
     ]);
     return { items: lessons.map((lesson) => {
       const records = attempts.filter((attempt) => attempt.lessonId === lesson.id);

@@ -383,10 +383,23 @@ describe('Progress roadmap units and score stats', () => {
         learningActivitySession: { findFirst: jest.fn(async () => ({ anchorAt: new Date('2026-11-12T00:00:00Z') })) },
         placementSession: { findFirst: jest.fn(async () => ({ skillResults: { reading: { estimatedCefr: 'B1' } }, completedAt: new Date('2026-11-01T00:00:00Z') })) },
         learningSkillLevel: { findUnique: jest.fn(async () => ({ cefrLevel: 'B2', source: 'ADAPTIVE', previousCefr: 'B1', changedAt: new Date('2026-11-12T10:00:00Z') })) },
-        $queryRaw: jest.fn(async () => [{ milliseconds: 120000 }]),
+        $queryRaw: jest.fn(async () => [
+          { idx: 5, seconds: 120 },
+          { idx: 6, seconds: 120 },
+          { idx: 7, seconds: 240 },
+        ]),
       };
       const svc = new PlanningService(db as unknown as PrismaService);
       const res = await svc.progress('u');
+      expect(db.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(db.learningAttempt.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { userId: 'u' },
+        select: expect.not.objectContaining({ contentSnapshot: true }),
+      }));
+      expect(db.learningDayPlan.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ userId: 'u', date: expect.any(Object) }),
+        select: { date: true, dailyGoalMinutes: true },
+      }));
       expect(res.units).toHaveLength(3);
       expect(res.units[0].completedLessonCount).toBe(1);
       expect(res.scoreStats).toEqual({
@@ -402,6 +415,7 @@ describe('Progress roadmap units and score stats', () => {
         previousCefr: 'B1',
         changedAt: new Date('2026-11-12T10:00:00Z'),
       });
+      expect(res.totals.activeSeconds).toBe(240);
       expect(res.totals.averageStudyMinutes).toBe(2);
       expect(res.totals.averageActiveSeconds).toBe(120);
     } finally {
