@@ -260,7 +260,7 @@ void main() {
         ..value = {
           'id': 'submission',
           'status': 'SUCCEEDED',
-          'createdAt': '2026-11-11T12:34:00',
+          'createdAt': '2026-11-11T05:34:00Z',
           'promptSnapshot': {
             'mode': mode,
             'text': isTopic ? 'Describe your day.' : 'My name is Anna',

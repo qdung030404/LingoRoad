@@ -374,7 +374,7 @@ void main() {
             'status': 'ENDED',
             'hasUserTurns': true,
             'topicSnapshot': {'title': 'My day', 'text': 'Describe your day.'},
-            'createdAt': '2026-11-11T12:34:00',
+            'createdAt': '2026-11-11T05:34:00Z',
             'historyStatus': 'PENDING',
             'assessmentStatus': 'PARTIAL',
             'assessment': {
