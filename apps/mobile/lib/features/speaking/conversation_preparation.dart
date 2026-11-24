@@ -104,6 +104,7 @@ class _ConversationPreparationState extends State<ConversationPreparation> {
                       decoration: BoxDecoration(
                         color: AppColors.primary25,
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.primary300),
                       ),
                       padding: const EdgeInsets.all(20),
                       child: Column(
@@ -292,7 +293,7 @@ class _ConversationPreparationState extends State<ConversationPreparation> {
                     children: [
                       Text(
                         data['enabled'] == true
-                            ? 'Micro được bật khi bạn bắt đầu hội thoại.'
+                            ? 'Bạn chủ động bật và dừng micro trong cuộc gọi.'
                             : 'Hội thoại AI đang tạm dừng. Bạn có thể xem hướng dẫn.',
                         style: designText(12, color: AppColors.grey800),
                         textAlign: TextAlign.center,

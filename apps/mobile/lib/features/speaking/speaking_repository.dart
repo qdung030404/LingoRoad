@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import '../../core/api/api_client.dart';
 
@@ -85,15 +86,24 @@ abstract class SpeakingRepository {
   ) => assessConversation(id, audioPath: path);
   Future<Json> retryConversationContent(String id) =>
       throw UnsupportedError('Assessment unavailable');
+  Future<Json> retryConversationPronunciation(
+    String id,
+    Uint8List wav,
+    List<Json> segments,
+  ) => throw UnsupportedError('Pronunciation retry unavailable');
   Future<Json> assessConversation(String id, {String? audioPath}) =>
       throw UnsupportedError('Assessment unavailable');
   Future<String> translateConversationTurn(String id, String itemId) =>
       throw UnsupportedError('Translation unavailable');
+  Future<Uint8List> conversationSample(String id, String text) =>
+      throw UnsupportedError('Sample speech unavailable');
   Future<Json> conversationTopics() async => {
     'enabled': false,
     'items': <Json>[],
   };
   Future<Json> conversations({String? cursor}) async => {'items': <Json>[]};
+  Future<void> hideConversationHistory(List<String> ids) =>
+      throw UnsupportedError('Conversation history unavailable');
   Future<Json> createConversation(
     String topicId,
     String requestId, {
@@ -112,6 +122,8 @@ abstract class SpeakingRepository {
   Future<Json> gameProgress() async => {'items': <Json>[]};
   Future<Json> historyForMode({String? cursor, String? mode}) =>
       history(cursor: cursor);
+  Future<void> hideSpeakingHistory(List<String> ids) =>
+      throw UnsupportedError('Speaking history unavailable');
   Future<Json> create(String promptId, String requestId);
   Future<Json> submission(String id);
   Future<Json> retrySubmissionContent(String id) =>
@@ -124,6 +136,20 @@ class ApiSpeakingRepository extends SpeakingRepository {
   ApiSpeakingRepository(this.api);
   final ApiClient api;
   @override
+  Future<Uint8List> conversationSample(String id, String text) async {
+    final response = await api.request(
+      'POST',
+      '/speaking/conversations/$id/assessment/sample',
+      data: {'text': text},
+    );
+    final encoded = response['audioBase64'];
+    if (encoded is! String || encoded.isEmpty || encoded.length > 350000) {
+      throw const ApiFailure('Chưa phát được giọng mẫu. Hãy thử lại.');
+    }
+    return base64Decode(encoded);
+  }
+
+  @override
   Future<Json> conversationTopic(String id) =>
       api.request('GET', '/speaking/conversations/topics/$id');
   @override
@@ -135,6 +161,19 @@ class ApiSpeakingRepository extends SpeakingRepository {
   @override
   Future<Json> retryConversationContent(String id) =>
       api.request('POST', '/speaking/conversations/$id/assessment/content');
+  @override
+  Future<Json> retryConversationPronunciation(
+    String id,
+    Uint8List wav,
+    List<Json> segments,
+  ) => api.multipartRequest(
+    'PUT',
+    '/speaking/conversations/$id/assessment/audio?retryPronunciation=true',
+    factory: () async => FormData.fromMap({
+      'file': MultipartFile.fromBytes(wav, filename: 'conversation.wav'),
+      'segments': jsonEncode(segments),
+    }),
+  );
   @override
   Future<Json> assessConversationSegments(
     String id,
@@ -179,6 +218,15 @@ class ApiSpeakingRepository extends SpeakingRepository {
     'GET',
     '/speaking/conversations${cursor == null ? '' : '?cursor=$cursor'}',
   );
+  @override
+  Future<void> hideConversationHistory(List<String> ids) async {
+    await api.request(
+      'POST',
+      '/speaking/conversations/history/hide',
+      data: {'ids': ids},
+    );
+  }
+
   @override
   Future<Json> createConversation(
     String topicId,
@@ -236,6 +284,11 @@ class ApiSpeakingRepository extends SpeakingRepository {
       'GET',
       '/speaking/history${query.isEmpty ? '' : '?$query'}',
     );
+  }
+
+  @override
+  Future<void> hideSpeakingHistory(List<String> ids) async {
+    await api.request('POST', '/speaking/history/hide', data: {'ids': ids});
   }
 
   @override

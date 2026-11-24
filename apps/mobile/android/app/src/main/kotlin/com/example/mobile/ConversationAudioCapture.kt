@@ -7,6 +7,8 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.abs
+import kotlin.math.log10
 
 /** Taps the existing microphone track. Remote playback never enters this sink. */
 class ConversationAudioCapture(private val cache: File) {
@@ -18,6 +20,9 @@ class ConversationAudioCapture(private val cache: File) {
     private var speechItemId: String? = null
     private var speechStart: Int? = null
     private var muted = false
+    private var inputStart = 0
+    private var inputEnd = 0
+    private var peak = 0
     private var phase = 0
     private var sum = 0L
     private var count = 0
@@ -36,6 +41,7 @@ class ConversationAudioCapture(private val cache: File) {
                     phase += 16000
                     if (phase >= rate) {
                         val output = (sum / count).toInt().coerceIn(-32768, 32767)
+                        peak = maxOf(peak, abs(output))
                         pcm.write(output and 255)
                         pcm.write((output shr 8) and 255)
                         phase -= rate
@@ -47,28 +53,48 @@ class ConversationAudioCapture(private val cache: File) {
         }
     }
 
-    fun start(trackId: String) {
+    fun start(trackId: String, initiallyMuted: Boolean) {
         cancel()
         val local = FlutterWebRTCPlugin.sharedSingleton.getLocalTrack(trackId) as? LocalAudioTrack
             ?: error("Microphone track unavailable")
         track = local
+        synchronized(lock) { muted = initiallyMuted }
         local.addSink(sink)
     }
 
     fun speech(started: Boolean, itemId: String?) = synchronized(lock) {
-        if (started && !muted && speechStart == null) {
-            // VAD is received after network transit. Keep a short microphone pre-roll.
+        if (started && speechStart == null) {
+            // VAD can arrive after the learner has already stopped recording.
             if (itemId.isNullOrBlank()) return@synchronized
+            val end = if (muted) inputEnd else pcm.size()
+            val preRoll = if (muted) inputStart else end - 19200
+            val start = maxOf(inputStart, spans.lastOrNull()?.end ?: 0, preRoll)
+            if (end <= start) return@synchronized
             speechItemId = itemId
-            speechStart = maxOf(spans.lastOrNull()?.end ?: 0, pcm.size() - 19200)
+            speechStart = start
         } else if (!started) {
             closeSpan()
         }
     }
 
     fun mute(value: Boolean) = synchronized(lock) {
-        closeSpan()
+        if (muted == value) return@synchronized
+        if (value) {
+            inputEnd = pcm.size()
+            closeSpan()
+        } else {
+            // Complete any late VAD span before opening the next microphone window.
+            closeSpan()
+            inputStart = pcm.size()
+        }
+        peak = 0
         muted = value
+    }
+
+    fun amplitudeDb(): Double = synchronized(lock) {
+        val level = peak / 32768.0
+        peak = 0
+        if (level <= 0 || muted) -60.0 else (20 * log10(level)).coerceAtLeast(-60.0)
     }
 
     private fun closeSpan() {
@@ -76,7 +102,7 @@ class ConversationAudioCapture(private val cache: File) {
         val item = speechItemId ?: return
         speechStart = null
         speechItemId = null
-        val end = pcm.size()
+        val end = if (muted) inputEnd else pcm.size()
         if (end <= start) return
         val previous = spans.lastOrNull()
         if (previous != null && previous.itemId == item && start <= previous.end) {
@@ -131,6 +157,9 @@ class ConversationAudioCapture(private val cache: File) {
         speechStart = null
         speechItemId = null
         muted = false
+        inputStart = 0
+        inputEnd = 0
+        peak = 0
         phase = 0
         sum = 0
         count = 0

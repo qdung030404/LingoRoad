@@ -8,7 +8,10 @@ import 'assessment_details.dart';
 import 'speaking_result_audio.dart';
 import 'assessment_annotation.dart';
 import 'assessment_circle_heading.dart';
+import 'conversation_score_details.dart';
+import 'conversation_score_summary.dart';
 import 'speaking_content_feedback.dart';
+import 'speaking_review_widgets.dart';
 
 class SpeakingAssessment extends StatefulWidget {
   const SpeakingAssessment({
@@ -21,7 +24,11 @@ class SpeakingAssessment extends StatefulWidget {
     this.showDetails = true,
     this.showContent = true,
     this.inlineDetails = false,
+    this.useSharedScoreLayout = false,
     this.contentAction,
+    this.onSample,
+    this.onWordAudio,
+    this.onSheetClosed,
   });
   final Json result;
   final String? referenceText;
@@ -31,7 +38,11 @@ class SpeakingAssessment extends StatefulWidget {
   final bool showDetails;
   final bool showContent;
   final bool inlineDetails;
+  final bool useSharedScoreLayout;
   final Widget? contentAction;
+  final Future<void> Function(String)? onSample;
+  final Future<void> Function(num, num)? onWordAudio;
+  final Future<void> Function()? onSheetClosed;
   @override
   State<SpeakingAssessment> createState() => _SpeakingAssessmentState();
 }
@@ -39,6 +50,8 @@ class SpeakingAssessment extends StatefulWidget {
 class _SpeakingAssessmentState extends State<SpeakingAssessment> {
   Json get result => widget.result;
   bool get isTopic => result['mode'] == 'TOPIC';
+  bool get compactAnnotations =>
+      widget.inlineDetails || widget.useSharedScoreLayout;
   final audioKey = GlobalKey<SpeakingResultAudioState>();
 
   double? score(String key) {
@@ -66,6 +79,9 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
           ].contains(word['errorType']),
         )
         .length;
+    if (widget.useSharedScoreLayout) {
+      return sharedScoreLayout(overall, weighted, flagged, words, feedback);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -275,12 +291,7 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
           const SizedBox(height: 12),
         ],
         if (widget.audioPath != null) ...[
-          SpeakingResultAudio(
-            key: audioKey,
-            path: widget.audioPath!,
-            isCurrent: widget.isCurrent,
-            durationSeconds: (result['durationSeconds'] as num?)?.toDouble(),
-          ),
+          resultAudio(),
           const SizedBox(height: 16),
         ],
         if (isTopic && widget.showContent) ...[
@@ -296,6 +307,66 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
       ],
     );
   }
+
+  Widget sharedScoreLayout(
+    double? overall,
+    bool weighted,
+    int flagged,
+    List<Json> words,
+    String feedback,
+  ) {
+    final rawContent = result['content'];
+    final content = isTopic && widget.showContent
+        ? (rawContent is Map ? Json.from(rawContent) : <String, dynamic>{})
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: 12,
+      children: [
+        SpeakingScoreSummary(
+          score: overall,
+          title: 'Điểm phát âm',
+          scoreLabel: weighted ? 'Điểm phát âm tổng hợp' : 'Điểm phát âm',
+          description: flagged > 0 ? '$flagged từ cần luyện' : null,
+          showDecimal: true,
+          metrics: [
+            if (content != null)
+              (
+                title: 'Nội dung',
+                value: content['status'] == 'succeeded'
+                    ? assessmentScore(content['overall'])
+                    : null,
+              ),
+          ],
+          partial: result['assessmentCompleteness'] == 'partial',
+          onScoringPolicy: weighted ? showScoringPolicy : null,
+        ),
+        ConversationScoreDetails(
+          pronunciation: result,
+          content: content,
+          includeCompleteness: !isTopic,
+          insufficientContentMessage:
+              'Hãy nói ít nhất 10 giây và khoảng 20 từ để nhận phản hồi nội dung.',
+        ),
+        if (content != null && widget.contentAction != null)
+          widget.contentAction!,
+        if (result['schemaVersion'] != 2 && result['schemaVersion'] != 3)
+          Text(
+            'Kết quả theo phiên bản đánh giá trước',
+            style: designText(12, color: AppColors.grey800),
+          ),
+        if (widget.audioPath != null) resultAudio(),
+        if (widget.showDetails) referenceCard(words, feedback),
+      ],
+    );
+  }
+
+  Widget resultAudio() => SpeakingResultAudio(
+    key: audioKey,
+    path: widget.audioPath!,
+    isCurrent: widget.isCurrent,
+    durationSeconds: (result['durationSeconds'] as num?)?.toDouble(),
+  );
 
   void showScoringPolicy() {
     final policy = result['scoringPolicy'] as Map;
@@ -423,7 +494,9 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
     );
     final reference =
         (isTopic
-                ? result['transcript'] ?? ''
+                ? (result['transcript']?.toString().isNotEmpty == true
+                      ? result['transcript']
+                      : widget.referenceText ?? '')
                 : result['referenceText'] ?? widget.referenceText ?? '')
             .toString();
     final transcript = result['transcript']?.toString() ?? '';
@@ -435,6 +508,74 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
         transcript.isNotEmpty &&
         normalized(transcript) != normalized(reference);
     final tokens = assessmentReferenceTokens(reference, words);
+    final annotatedText = reference.isEmpty
+        ? Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < words.length; i++) wordChip(words[i], i),
+            ],
+          )
+        : LayoutBuilder(
+            builder: (context, bounds) => Text.rich(
+              TextSpan(
+                children: [
+                  for (final token in tokens)
+                    if (token.wordIndex == null)
+                      TextSpan(text: token.text)
+                    else
+                      WidgetSpan(
+                        alignment: compactAnnotations
+                            ? PlaceholderAlignment.baseline
+                            : PlaceholderAlignment.middle,
+                        baseline: TextBaseline.alphabetic,
+                        child: referenceWord(
+                          token,
+                          words[token.wordIndex!],
+                          bounds.maxWidth,
+                        ),
+                      ),
+                ],
+              ),
+              style: compactAnnotations
+                  ? designHeading(20)
+                  : designText(18, height: 1.6),
+            ),
+          );
+    final title = isTopic ? 'Chi tiết bài nói' : 'Chi tiết bài đọc';
+    final recognizedText = Text(transcript, style: designText(16, height: 1.5));
+    if (widget.useSharedScoreLayout) {
+      return SpeakingReviewCard(
+        title: title,
+        annotation: AssessmentAnnotation(
+          reading: !isTopic,
+          compact: true,
+          showMonotone: monotone,
+        ),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: speakingReviewSpeechDecoration,
+            child: annotatedText,
+          ),
+          if (showTranscript) ...[
+            const SizedBox(height: 8),
+            SpeakingReviewExpansionTile(
+              key: const Key('speakingTranscript'),
+              title: 'Xem lời nhận diện',
+              icon: Icons.short_text_rounded,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: speakingReviewSpeechDecoration,
+                  child: recognizedText,
+                ),
+              ],
+            ),
+          ],
+        ],
+      );
+    }
     final hasProsody = words.any(
       (word) =>
           word['prosody'] is Map &&
@@ -442,10 +583,7 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
     );
     final children = <Widget>[
       if (!widget.inlineDetails) ...[
-        Text(
-          isTopic ? 'Chi tiết bài nói' : 'Chi tiết bài đọc',
-          style: designHeading(18),
-        ),
+        Text(title, style: designHeading(18)),
         AssessmentAnnotation(reading: !isTopic),
       ],
       if (!hasProsody && !widget.inlineDetails)
@@ -453,36 +591,7 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
           'Chi tiết ngữ điệu · Chưa có dữ liệu',
           style: designText(12, color: AppColors.grey800),
         ),
-      if (reference.isEmpty)
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (var i = 0; i < words.length; i++) wordChip(words[i], i),
-          ],
-        )
-      else
-        LayoutBuilder(
-          builder: (context, bounds) => Text.rich(
-            TextSpan(
-              children: [
-                for (final token in tokens)
-                  if (token.wordIndex == null)
-                    TextSpan(text: token.text)
-                  else
-                    WidgetSpan(
-                      alignment: PlaceholderAlignment.middle,
-                      child: referenceWord(
-                        token,
-                        words[token.wordIndex!],
-                        bounds.maxWidth,
-                      ),
-                    ),
-              ],
-            ),
-            style: designText(18, height: 1.6),
-          ),
-        ),
+      annotatedText,
       if (!widget.inlineDetails)
         Text(
           'Chạm vào từ để xem điểm và âm vị.',
@@ -490,7 +599,7 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
         ),
       if (monotone)
         Text(
-          '~ Giọng đều',
+          compactAnnotations ? '≈ Giọng đều' : '~ Giọng đều',
           style: designText(12, color: const Color(0xFF70539A)),
         ),
       if (showTranscript)
@@ -504,10 +613,7 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
             style: designText(14, color: AppColors.grey800),
           ),
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(transcript, style: designText(16, height: 1.5)),
-            ),
+            Align(alignment: Alignment.centerLeft, child: recognizedText),
           ],
         ),
       if (feedback.isNotEmpty && !widget.inlineDetails)
@@ -588,27 +694,38 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
               children: [
                 if (breakIssues.contains('UnexpectedBreak'))
                   TextSpan(
-                    text: '│ ',
+                    text: compactAnnotations ? '| ' : '│ ',
                     style: designText(18, color: const Color(0xFFB66A00)),
                   ),
                 if (breakIssues.contains('MissingBreak'))
                   TextSpan(
-                    text: '⌁ ',
-                    style: designText(18, color: const Color(0xFF70539A)),
+                    text: compactAnnotations ? '~ ' : '⌁ ',
+                    style: designText(
+                      18,
+                      color: compactAnnotations
+                          ? AppColors.primary700
+                          : const Color(0xFF70539A),
+                    ),
                   ),
                 TextSpan(
                   text: token.text,
                   style:
-                      designText(
-                        18,
-                        color: marked ? color : AppColors.grey900,
-                      ).copyWith(
-                        decoration: insertion
-                            ? TextDecoration.lineThrough
-                            : omission
-                            ? TextDecoration.underline
-                            : null,
-                      ),
+                      (compactAnnotations
+                              ? designHeading(
+                                  20,
+                                  color: marked ? color : AppColors.grey900,
+                                )
+                              : designText(
+                                  18,
+                                  color: marked ? color : AppColors.grey900,
+                                ))
+                          .copyWith(
+                            decoration: insertion
+                                ? TextDecoration.lineThrough
+                                : omission
+                                ? TextDecoration.underline
+                                : null,
+                          ),
                 ),
               ],
             ),
@@ -632,6 +749,201 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
         offset >= 0 &&
         duration > 0 &&
         offset + duration <= ((result['durationSeconds'] as num? ?? 30) * 1000);
+    if (compactAnnotations) {
+      final wordText = word['word']?.toString() ?? '';
+      final phonemes = speakingItems(word['phonemes']);
+      final syllables = speakingItems(word['syllables']);
+      final issueText = issues
+          .where(
+            (issue) => !const {
+              'UnexpectedBreak',
+              'MissingBreak',
+              'Monotone',
+            }.contains(issue),
+          )
+          .map((issue) => speakingIssueLabels[issue])
+          .join(' · ');
+      final wordScore = assessmentScore(word['accuracy']);
+      final ipa = isIpa ? phonemes.map((p) => p['phoneme'] ?? '').join() : '';
+      final onClose = widget.onSheetClosed;
+      final sample = widget.onSample;
+      final localAudio = audioKey.currentState;
+      final learner =
+          widget.onWordAudio ??
+          (localAudio == null
+              ? null
+              : (num start, num length) => localAudio.playSegment(
+                  start.toDouble(),
+                  length.toDouble(),
+                ));
+      final wordStart = offset is num && offset.isFinite && offset >= 0
+          ? offset
+          : null;
+      final wordLength = duration is num && duration.isFinite && duration > 0
+          ? duration
+          : null;
+      final canPlayWord =
+          learner != null &&
+          wordStart != null &&
+          wordLength != null &&
+          (widget.onWordAudio != null || canPlay);
+      final showPlayback =
+          widget.inlineDetails || learner != null || sample != null;
+      final playbackStyle = designText(14, weight: FontWeight.w500);
+      final learnerButton = OutlinedButton.icon(
+        onPressed: canPlayWord ? () => learner(wordStart, wordLength) : null,
+        icon: const FigmaAsset('conversation-review-play.svg', size: 20),
+        label: const Text('Giọng của bạn'),
+        style: OutlinedButton.styleFrom(
+          textStyle: playbackStyle,
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          side: BorderSide(color: AppColors.grey100),
+        ),
+      );
+      final sampleButton = FilledButton.icon(
+        onPressed: sample == null ? null : () => sample(wordText),
+        icon: const FigmaAsset('conversation-review-sample.svg', size: 20),
+        label: const Text('Nghe mẫu'),
+        style: FilledButton.styleFrom(
+          textStyle: playbackStyle,
+          backgroundColor: AppColors.grey900,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+        ),
+      );
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: Colors.transparent,
+        barrierColor: const Color(0x661A2029),
+        builder: (context) => SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.all(8),
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * .8,
+            ),
+            child: Material(
+              color: AppColors.grey5,
+              borderRadius: BorderRadius.circular(24),
+              clipBehavior: Clip.antiAlias,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        tooltip: 'Đóng chi tiết',
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close, size: 20),
+                      ),
+                    ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            wordText,
+                            style: designText(
+                              28,
+                              weight: FontWeight.w500,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          wordScore?.toStringAsFixed(1) ?? '—',
+                          style: designText(
+                            28,
+                            weight: FontWeight.w500,
+                            height: 1,
+                            color: wordScore != null && wordScore >= 80
+                                ? AppColors.primary600
+                                : scoreColor(wordScore),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (ipa.isNotEmpty)
+                      Text(
+                        '/$ipa/ · Anh-Mỹ',
+                        style: designText(14, color: AppColors.grey800),
+                      ),
+                    if (widget.useSharedScoreLayout &&
+                        !isIpa &&
+                        phonemes.isNotEmpty)
+                      Text(
+                        'Ký hiệu phiên âm cũ (SAPI)',
+                        style: designText(12, color: AppColors.grey800),
+                      ),
+                    if (issueText.isNotEmpty)
+                      Text(
+                        issueText,
+                        style: designText(13, color: AppColors.grey800),
+                      ),
+                    if (showPlayback) ...[
+                      const SizedBox(height: 18),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final canFit =
+                              constraints.maxWidth >= 280 &&
+                              MediaQuery.textScalerOf(context).scale(14) <= 18;
+                          if (canFit && sample != null) {
+                            return Row(
+                              children: [
+                                Expanded(child: sampleButton),
+                                const SizedBox(width: 8),
+                                Expanded(child: learnerButton),
+                              ],
+                            );
+                          }
+                          return Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              if (sample != null) sampleButton,
+                              learnerButton,
+                            ],
+                          );
+                        },
+                      ),
+                      if (!canPlayWord)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            learner == null
+                                ? 'Phiên này không còn bản thu để nghe lại.'
+                                : 'Từ này chưa có mốc thời gian để nghe riêng.',
+                            style: designText(12, color: AppColors.grey800),
+                          ),
+                        ),
+                    ],
+                    _ConversationWordSounds(
+                      word: word,
+                      syllables: syllables,
+                      phonemes: phonemes,
+                      issues: issues,
+                      isIpa: isIpa,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ).whenComplete(() async {
+        await onClose?.call();
+        await localAudio?.stopSegment();
+      });
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -744,43 +1056,301 @@ class _SpeakingAssessmentState extends State<SpeakingAssessment> {
     List<Json> units,
     String field, {
     required bool isIpa,
-  }) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(title, style: designHeading(18)),
-      const SizedBox(height: 8),
-      if (units.isEmpty)
-        Text(
-          'Chưa có dữ liệu',
-          style: designText(14, color: AppColors.grey800),
-        ),
-      for (final unit in units)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
+  }) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: AppColors.grey0,
+      border: Border.all(color: AppColors.grey100),
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: designHeading(14, color: AppColors.grey800)),
+        const SizedBox(height: 8),
+        if (units.isEmpty)
+          Text(
+            'Chưa có dữ liệu',
+            style: designText(14, color: AppColors.grey800),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: Text(
-                  isIpa
-                      ? '/${unit[field] ?? ''}/'
-                      : unit[field]?.toString() ?? '',
-                  style: designText(18),
+              for (final unit in units)
+                _PronunciationUnit(
+                  symbol: unit[field]?.toString() ?? '',
+                  score: assessmentScore(unit['accuracy']),
+                  isIpa: isIpa,
+                ),
+            ],
+          ),
+      ],
+    ),
+  );
+}
+
+class _ConversationWordSounds extends StatelessWidget {
+  const _ConversationWordSounds({
+    required this.word,
+    required this.syllables,
+    required this.phonemes,
+    required this.issues,
+    required this.isIpa,
+  });
+
+  final Json word;
+  final List<Json> syllables;
+  final List<Json> phonemes;
+  final Set<String> issues;
+  final bool isIpa;
+
+  @override
+  Widget build(BuildContext context) {
+    final sounds = groupWordPhonemes(syllables, phonemes);
+    final timing = spokenTiming(word);
+    final prosody = word['prosody'];
+    final prosodyIssues = issues.intersection({
+      'UnexpectedBreak',
+      'MissingBreak',
+      'Monotone',
+    });
+    final hasProsody =
+        prosody is Map && prosody.values.any((value) => value != null);
+    final showProsody =
+        timing != null || hasProsody || prosodyIssues.isNotEmpty;
+    final prosodyText = prosodyIssues.isNotEmpty
+        ? prosodyIssues.map((issue) => speakingIssueLabels[issue]).join(' · ')
+        : hasProsody
+        ? 'Chưa ghi nhận lỗi ngữ điệu'
+        : 'Chưa có dữ liệu ngữ điệu';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (syllables.isNotEmpty || phonemes.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Text(
+            'Âm tiết & âm vị',
+            style: designText(18, weight: FontWeight.w500),
+          ),
+          const SizedBox(height: 12),
+          for (final (index, syllable) in syllables.indexed) ...[
+            _WordSoundBar(unit: syllable, isIpa: isIpa, syllable: true),
+            if (sounds.groups[index].isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(left: 14, bottom: 4),
+                padding: const EdgeInsets.only(left: 16),
+                decoration: const BoxDecoration(
+                  border: Border(left: BorderSide(color: AppColors.grey200)),
+                ),
+                child: Column(
+                  children: [
+                    for (final phoneme in sounds.groups[index])
+                      _WordSoundBar(unit: phoneme, isIpa: isIpa),
+                  ],
                 ),
               ),
-              Flexible(
+          ],
+          if (sounds.unassigned.isNotEmpty) ...[
+            if (syllables.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  assessmentScoreText(unit['accuracy']),
+                  'Âm vị',
+                  style: designText(14, color: AppColors.grey800),
+                ),
+              ),
+            for (final phoneme in sounds.unassigned)
+              _WordSoundBar(unit: phoneme, isIpa: isIpa),
+          ],
+        ],
+        if (showProsody) ...[
+          const SizedBox(height: 20),
+          Text('Ngữ điệu', style: designText(18, weight: FontWeight.w500)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.grey50,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              spacing: 8,
+              children: [
+                const Icon(
+                  Icons.timer_outlined,
+                  size: 32,
+                  color: AppColors.primary600,
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 4,
+                    children: [
+                      Text(
+                        prosodyText,
+                        style: designText(16, weight: FontWeight.w500),
+                      ),
+                      if (timing != null)
+                        Text(
+                          '${(timing.start / 1000).toStringAsFixed(2)} – ${(timing.end / 1000).toStringAsFixed(2)} giây',
+                          style: designText(14, color: AppColors.grey800),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _WordSoundBar extends StatelessWidget {
+  const _WordSoundBar({
+    required this.unit,
+    required this.isIpa,
+    this.syllable = false,
+  });
+  final Json unit;
+  final bool isIpa;
+  final bool syllable;
+
+  @override
+  Widget build(BuildContext context) {
+    final symbol = unit[syllable ? 'syllable' : 'phoneme']?.toString() ?? '';
+    final label = symbol.isEmpty
+        ? '—'
+        : isIpa
+        ? '/$symbol/'
+        : symbol;
+    final score = assessmentScore(unit['accuracy']);
+    final barColor = score == null
+        ? AppColors.grey300
+        : score >= 80
+        ? AppColors.primary600
+        : score >= 60
+        ? const Color(0xFFCA8A04)
+        : scoreColor(score);
+    final scoreColorForText = score == null
+        ? AppColors.grey800
+        : score >= 60 && score < 80
+        ? const Color(0xFF955800)
+        : scoreColor(score);
+    final size = syllable ? 16.0 : 14.0;
+    final scaler = MediaQuery.textScalerOf(context);
+    return Semantics(
+      excludeSemantics: true,
+      label:
+          '${syllable ? 'Âm tiết' : 'Âm vị'} $label, ${score == null ? 'chưa có điểm' : '${score.toStringAsFixed(1)} trên 100'}',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          spacing: 8,
+          children: [
+            SizedBox(
+              width: scaler.scale(syllable ? 48 : 40),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
                   style: designText(
-                    14,
-                    color: scoreColor(assessmentScore(unit['accuracy'])),
+                    syllable ? 18 : 16,
+                    weight: syllable ? FontWeight.w500 : FontWeight.w400,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+            Expanded(
+              child: LinearProgressIndicator(
+                value: (score ?? 0) / 100,
+                minHeight: 6,
+                borderRadius: BorderRadius.circular(6),
+                color: barColor,
+                backgroundColor: AppColors.grey100,
+              ),
+            ),
+            SizedBox(
+              width: scaler.scale(30),
+              child: Text(
+                score?.round().toString() ?? '—',
+                textAlign: TextAlign.right,
+                style: designText(
+                  size,
+                  weight: FontWeight.w500,
+                  color: scoreColorForText,
+                ),
+              ),
+            ),
+          ],
         ),
-    ],
-  );
+      ),
+    );
+  }
+}
+
+class _PronunciationUnit extends StatelessWidget {
+  const _PronunciationUnit({
+    required this.symbol,
+    required this.score,
+    required this.isIpa,
+  });
+
+  final String symbol;
+  final double? score;
+  final bool isIpa;
+
+  @override
+  Widget build(BuildContext context) {
+    final value = score;
+    final label = symbol.isEmpty
+        ? '—'
+        : isIpa
+        ? '/$symbol/'
+        : symbol;
+    final background = switch (value) {
+      null => AppColors.grey50,
+      < 60 => AppColors.error0,
+      < 80 => AppColors.warning0,
+      _ => AppColors.primary25,
+    };
+    final color = switch (value) {
+      null => AppColors.grey800,
+      >= 60 && < 80 => const Color(0xFF955800),
+      _ => scoreColor(value),
+    };
+    return Semantics(
+      excludeSemantics: true,
+      label:
+          '$label, ${value == null ? 'chưa có điểm' : '${value.toStringAsFixed(1)} trên 100'}',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Wrap(
+          spacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(label, style: designText(16, weight: FontWeight.w500)),
+            Text(
+              value?.toStringAsFixed(1) ?? '—',
+              style: designText(13, weight: FontWeight.w600, color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class SpeakingContentAssessment extends StatelessWidget {
@@ -859,11 +1429,4 @@ class SpeakingContentAssessment extends StatelessWidget {
       ],
     );
   }
-}
-
-Color scoreColor(double? value) {
-  if (value == null) return AppColors.grey500;
-  if (value < 60) return AppColors.error200;
-  if (value < 80) return AppColors.warning300;
-  return AppColors.primary700;
 }

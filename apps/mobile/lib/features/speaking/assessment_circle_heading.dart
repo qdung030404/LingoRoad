@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../shared/figma_widgets.dart';
 import '../../core/theme/app_colors.dart';
 import 'assessment_details.dart';
-import 'speaking_assessment.dart';
 
 class AssessmentCircleHeading extends StatelessWidget {
   const AssessmentCircleHeading({

@@ -289,7 +289,7 @@ class _TopicActivities extends StatelessWidget {
                     VoiceConversationPage(
                       controller: controller,
                       topic: topic,
-                      showSettingsOnEntry: true,
+                      skipPreparation: true,
                     ),
                   )
                 : null,

@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/figma_widgets.dart';
 import 'speaking_controller.dart';
 import 'speaking_repository.dart';
+import 'conversation_live_view.dart';
 import 'conversation_message.dart';
 import 'conversation_audio.dart';
 import 'conversation_result_page.dart';
@@ -20,11 +21,11 @@ class VoiceConversationPage extends StatefulWidget {
     super.key,
     required this.controller,
     required this.topic,
-    this.showSettingsOnEntry = false,
+    this.skipPreparation = false,
   });
   final SpeakingController controller;
   final Json topic;
-  final bool showSettingsOnEntry;
+  final bool skipPreparation;
   @override
   State<VoiceConversationPage> createState() => _VoiceConversationPageState();
 }
@@ -44,7 +45,9 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
   SpeakingRepository get repository => widget.controller.repository;
   bool connecting = false;
   bool connected = false;
-  bool muted = false;
+  bool recording = false;
+  Stream<double>? amplitudes;
+  final drafts = <String, String>{};
   int seconds = 0;
   int generation = 0;
   String status = 'Sẵn sàng';
@@ -68,23 +71,19 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
     }
   }
 
-  Future<void> openSettings({bool startOnConfirm = true}) async {
+  Future<void> openSettings() async {
     if (settingsOpen || connecting || ending || !widget.controller.active) {
       return;
     }
-    if (!connected && requestId != null) {
-      // Retry an unacknowledged request with its original preferences.
-      if (startOnConfirm) await start();
-      return;
-    }
+    if (!connected && requestId != null) return;
     final live = connected;
     setState(() => settingsOpen = true);
     final choice = await showDialog<ConversationSettings>(
       context: context,
-      barrierDismissible: !live,
+      barrierColor: AppColors.grey900.withValues(alpha: 0.5),
+      barrierDismissible: false,
       builder: (_) => ConversationSettingsDialog(
         initial: settings,
-        startOnConfirm: startOnConfirm && !live,
         onApplyLive: live ? applyLiveSettings : null,
       ),
     );
@@ -92,7 +91,28 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
     setState(() => settingsOpen = false);
     if (choice == null || !widget.controller.active || live) return;
     settings = choice;
-    if (startOnConfirm) await start();
+  }
+
+  void setMicEnabled(bool enabled) {
+    if (enabled) {
+      unawaited(audio.mute(false).catchError((Object _) {}));
+    }
+    for (final track in microphone?.getAudioTracks() ?? <MediaStreamTrack>[]) {
+      track.enabled = enabled;
+    }
+    if (!enabled) {
+      unawaited(audio.mute(true).catchError((Object _) {}));
+    }
+  }
+
+  void toggleRecording() {
+    if (!connected || ending || microphone == null) return;
+    setState(() {
+      recording = !recording;
+      amplitudes = recording ? audio.amplitudes() : null;
+      drafts.clear();
+    });
+    setMicEnabled(recording);
   }
 
   Future<void> applyLiveSettings(ConversationSettings choice) async {
@@ -189,12 +209,7 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    if (widget.showSettingsOnEntry) {
-      preparing = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.controller.active) unawaited(openSettings());
-      });
-    }
+    preparing = !widget.skipPreparation;
     identityWatch = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!widget.controller.active) {
         identityWatch?.cancel();
@@ -219,6 +234,10 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
   }) async {
     if (ending) return;
     ending = true;
+    recording = false;
+    amplitudes = null;
+    drafts.clear();
+    setMicEnabled(false);
     final update = settingsUpdate;
     if (update != null && !update.isCompleted) update.complete(false);
     timer?.cancel();
@@ -226,10 +245,6 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
     var finishFailed = false;
     if (connected && reason == 'user_finished' && widget.controller.active) {
       // Keep the control socket open while Azure finalizes the last reply.
-      for (final track
-          in microphone?.getAudioTracks() ?? <MediaStreamTrack>[]) {
-        track.enabled = false;
-      }
       if (mounted && updateUi) setState(() => status = 'Đang kết thúc');
       await Future<void>.delayed(const Duration(milliseconds: 1500));
       final wait = Stopwatch()..start();
@@ -314,8 +329,8 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
       connecting = true;
       status = 'Đang kết nối';
       turns.clear();
+      drafts.clear();
       seconds = 0;
-      muted = false;
     });
     try {
       final connection = await createPeerConnection({});
@@ -336,8 +351,10 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
         return;
       }
       microphone = stream;
+      final input = stream.getAudioTracks().single;
+      input.enabled = false;
       try {
-        await audio.start(stream.getAudioTracks().single.id!);
+        await audio.start(input.id!, muted: true);
       } catch (_) {
         await audio.clear();
       }
@@ -356,8 +373,9 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
       data.onMessage = (message) {
         if (!mounted || current != generation) return;
         final event = jsonDecode(message.text) as Map;
-        if (event['type'] == 'input_audio_buffer.speech_started') {
-          final itemId = event['item_id'];
+        final type = event['type'];
+        final itemId = event['item_id'];
+        if (type == 'input_audio_buffer.speech_started') {
           if (itemId is String &&
               !turns.any((turn) => turn['itemId'] == itemId)) {
             pendingTranscripts.add(itemId);
@@ -366,32 +384,50 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
           socket?.add(
             jsonEncode({'type': 'timeline', 'itemId': event['item_id']}),
           );
-          setState(() => status = 'Đang nghe · Bạn có thể nói');
         }
-        if (event['type'] == 'input_audio_buffer.speech_stopped') {
+        if (type == 'input_audio_buffer.speech_stopped') {
           unawaited(captureSpeech(false));
         }
-        if (event['type'] == 'response.output_item.added') {
+        if (type == 'conversation.item.input_audio_transcription.delta' &&
+            recording &&
+            itemId is String &&
+            pendingTranscripts.contains(itemId) &&
+            event['delta'] is String) {
+          setState(
+            () => drafts.update(
+              itemId,
+              (previous) => previous + (event['delta'] as String),
+              ifAbsent: () => event['delta'] as String,
+            ),
+          );
+        }
+        if (type == 'conversation.item.input_audio_transcription.failed') {
+          pendingTranscripts.remove(itemId);
+          if (drafts.containsKey(itemId)) setState(() => drafts.remove(itemId));
+        }
+        if (type == 'response.output_item.added') {
           socket?.add(
             jsonEncode({
               'type': 'timeline',
               'itemId': (event['item'] as Map?)?['id'],
             }),
           );
-          setState(() => status = 'lingoRoad đang trả lời');
+          if (!ending) setState(() => status = 'Lingo đang trả lời');
         }
-        if (event['type'] == 'response.done') {
-          setState(() => status = 'Đang nghe · Bạn có thể nói');
+        if (type == 'response.done' && !ending) {
+          setState(() => status = 'Sẵn sàng');
         }
       };
       data.onDataChannelState = (state) {
         if (state == RTCDataChannelState.RTCDataChannelOpen &&
             current == generation &&
+            !ending &&
+            !connected &&
             mounted) {
           setState(() {
             connected = true;
             connecting = false;
-            status = 'Đang nghe · Bạn có thể nói';
+            status = 'Sẵn sàng';
           });
           socket?.add(jsonEncode({'type': 'ready'}));
           timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -457,9 +493,13 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
                 'conversation.item.input_audio_transcription.completed') {
               pendingTranscripts.remove(itemId);
             }
-            if (text.isNotEmpty) {
+            if (text.isNotEmpty || drafts.containsKey(itemId)) {
               setState(() {
-                if (turns.any((turn) => turn['itemId'] == itemId)) return;
+                drafts.remove(itemId);
+                if (text.isEmpty ||
+                    turns.any((turn) => turn['itemId'] == itemId)) {
+                  return;
+                }
                 turns.add({
                   'itemId': itemId,
                   'text': text,
@@ -532,160 +572,61 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
             preparedTopic = topic;
             preparing = false;
           });
-          unawaited(openSettings());
         },
       );
     }
+    final canStart = widget.controller.active && !ending && !settingsOpen;
+    final ended = !connected && !connecting && conversationId != null;
+    final hasReply =
+        hasPersistedUserTurns || turns.any((turn) => turn['isUser'] == true);
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F7FB),
+      backgroundColor: AppColors.grey25,
       appBar: AppBar(
-        title: const Text('Hội thoại AI'),
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const ConversationLiveIcon('back'),
+        ),
         actions: [
           IconButton(
             tooltip: 'Cài đặt trò chuyện',
-            icon: const Icon(Icons.settings_outlined),
+            icon: ConversationLiveIcon(
+              'settings',
+              color: canStart && !connecting && (connected || requestId == null)
+                  ? null
+                  : AppColors.grey500,
+            ),
             onPressed:
-                widget.controller.active &&
-                    !connecting &&
-                    !ending &&
-                    !settingsOpen &&
-                    (connected || requestId == null)
-                ? () => openSettings(startOnConfirm: false)
+                canStart && !connecting && (connected || requestId == null)
+                ? openSettings
                 : null,
           ),
         ],
-        titleTextStyle: designHeading(18),
+        title: Text(
+          'Hội thoại AI',
+          style: designText(18, weight: FontWeight.w500),
+        ),
         backgroundColor: AppColors.grey25,
         scrolledUnderElevation: 0,
       ),
       body: SafeArea(
+        top: false,
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              margin: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.grey5,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.grey100),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary25,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.forum_outlined,
-                          color: AppColors.primary700,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          (preparedTopic ?? widget.topic)['text']?.toString() ??
-                              '',
-                          style: designHeading(18),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')} / 3:00',
-                        style: designText(
-                          13,
-                          color: AppColors.grey800,
-                          weight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: (seconds / 180).clamp(0.0, 1.0),
-                      minHeight: 4,
-                      backgroundColor: AppColors.grey200,
-                      color: AppColors.primary500,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: connected
-                              ? const Color(0xFF59B070)
-                              : const Color(0xFF9CA6B4),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          muted && connected ? 'Micro đang tắt' : status,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Color(0xFF5B6574),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            ConversationCallHeader(
+              topic:
+                  (preparedTopic ?? widget.topic)['text']?.toString() ??
+                  'Hội thoại AI',
+              seconds: seconds,
+              status: recording ? 'Đang ghi âm' : status,
+              active: connected && !ending,
             ),
             Expanded(
               child: turns.isEmpty
-                  ? Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(20),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFE6F5EC),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.record_voice_over_rounded,
-                                size: 36,
-                                color: Color(0xFF287C47),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Cùng bắt đầu câu chuyện',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Trả lời từng câu hỏi bằng tiếng Anh. Chạm nút dịch dưới lời AI khi bạn cần hỗ trợ.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 15,
-                                height: 1.5,
-                                color: Color(0xFF5B6574),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
+                  ? const ConversationWelcome()
                   : ConversationTimeline(
                       revision: turns.map((turn) => turn['itemId']).join('|'),
                       children: [
@@ -712,122 +653,55 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
                       ],
                     ),
             ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE2E7EF))),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!connected && !connecting && conversationId != null) ...[
-                    if (hasPersistedUserTurns ||
-                        turns.any((turn) => turn['isUser'] == true))
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: FilledButton.icon(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF1A2029),
-                            foregroundColor: Colors.white,
-                          ),
-                          onPressed:
-                              ending ||
-                                  openingAssessment ||
-                                  !widget.controller.active
-                              ? null
-                              : showAssessment,
-                          icon: const Icon(Icons.fact_check_outlined),
-                          label: Text(
-                            openingAssessment
-                                ? 'Đang mở kết quả…'
-                                : 'Chấm điểm hội thoại',
-                          ),
+            if (ended)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (hasReply)
+                      FilledButton(
+                        style: conversationPrimaryAction(18),
+                        onPressed: canStart && !openingAssessment
+                            ? showAssessment
+                            : null,
+                        child: Text(
+                          openingAssessment
+                              ? 'Đang mở kết quả…'
+                              : 'Chấm điểm hội thoại',
                         ),
                       ),
-                    const SizedBox(height: 8),
                     TextButton(
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(48, 48),
-                      ),
                       onPressed: ending || openingAssessment
                           ? null
                           : returnToTalk,
                       child: const Text('Quay lại màn hình trò chuyện'),
                     ),
-                  ] else
-                    Row(
-                      children: [
-                        if (connected) ...[
-                          SizedBox(
-                            height: 52,
-                            width: 56,
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                foregroundColor: const Color(0xFF287C47),
-                              ),
-                              onPressed: ending
-                                  ? null
-                                  : () => setState(() {
-                                      muted = !muted;
-                                      unawaited(
-                                        audio
-                                            .mute(muted)
-                                            .catchError((Object _) {}),
-                                      );
-                                      for (final track
-                                          in microphone!.getAudioTracks()) {
-                                        track.enabled = !muted;
-                                      }
-                                    }),
-                              child: Tooltip(
-                                message: muted ? 'Bật micro' : 'Tắt micro',
-                                child: Icon(muted ? Icons.mic_off : Icons.mic),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                        ],
-                        Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: FilledButton.icon(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF1A2029),
-                                foregroundColor: Colors.white,
-                              ),
-                              onPressed:
-                                  !widget.controller.active ||
-                                      ending ||
-                                      settingsOpen
-                                  ? null
-                                  : connected || connecting
-                                  ? end
-                                  : openSettings,
-                              icon: Icon(
-                                connected || connecting
-                                    ? Icons.call_end_rounded
-                                    : Icons.mic_rounded,
-                              ),
-                              label: Text(
-                                ending
-                                    ? 'Đang kết thúc…'
-                                    : connecting
-                                    ? 'Hủy kết nối'
-                                    : connected
-                                    ? 'Kết thúc'
-                                    : 'Bắt đầu hội thoại',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+                  ],
+                ),
+              )
+            else
+              ConversationCallActions(
+                connected: connected,
+                recording: recording,
+                engaged: connected || connecting,
+                amplitudes: amplitudes,
+                draft: drafts.isEmpty ? '' : drafts.values.last,
+                onToggleMic: ending ? null : toggleRecording,
+                onAction: !canStart
+                    ? null
+                    : connected || connecting
+                    ? end
+                    : start,
+                actionLabel: ending
+                    ? 'Đang kết thúc…'
+                    : connecting
+                    ? 'Hủy kết nối'
+                    : connected
+                    ? 'Kết thúc'
+                    : 'Bắt đầu hội thoại',
               ),
-            ),
           ],
         ),
       ),

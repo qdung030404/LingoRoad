@@ -4,7 +4,9 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/figma_widgets.dart';
 import '../learning/learning_widgets.dart';
 import 'speaking_controller.dart';
+import 'speaking_history_list.dart';
 import 'speaking_repository.dart';
+import 'speaking_review_widgets.dart';
 import 'voice_conversation_page.dart';
 import 'conversation_history_chat.dart';
 import 'conversation_assessment.dart';
@@ -23,71 +25,89 @@ class VoiceConversationsPage extends StatefulWidget {
 
 class _VoiceConversationsPageState extends State<VoiceConversationsPage> {
   late Future<Json> topics;
-  late Future<Json> history;
   bool viewingHistory = false;
   SpeakingRepository get repository => widget.controller.repository;
+
   Future<Json> loadTopics() => repository.conversationTopics().catchError(
-    (Object _) => <String, dynamic>{'loadError': true},
-  );
-  Future<Json> loadHistory() => repository.conversations().catchError(
     (Object _) => <String, dynamic>{'loadError': true},
   );
 
   @override
   void initState() {
     super.initState();
-    viewingHistory = widget.historyOnly;
-    topics = widget.historyOnly ? Future.value({}) : loadTopics();
-    history = loadHistory();
+    if (!widget.historyOnly) topics = loadTopics();
   }
 
-  void reload() => setState(() {
-    if (!widget.historyOnly) topics = loadTopics();
-    history = loadHistory();
-  });
+  void reload() {
+    final request = loadTopics();
+    setState(() {
+      topics = request;
+    });
+  }
 
-  Future<void> open(Json item) async {
+  Future<void> openTopic(Json item) async {
     if (!widget.controller.active) return;
-    if (viewingHistory) {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => _ConversationHistoryDetail(
-            controller: widget.controller,
-            id: item['id'] as String,
-          ),
-        ),
-      );
-    } else {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) =>
-              VoiceConversationPage(controller: widget.controller, topic: item),
-        ),
-      );
-    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            VoiceConversationPage(controller: widget.controller, topic: item),
+      ),
+    );
     if (mounted && widget.controller.active) reload();
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Text(viewingHistory ? 'Lịch sử hội thoại' : 'Hội thoại AI'),
-      actions: [
-        if (!widget.historyOnly)
-          IconButton(
-            tooltip: viewingHistory ? 'Chọn chủ đề' : 'Lịch sử hội thoại',
-            icon: Icon(
-              viewingHistory ? Icons.chat_bubble_outline : Icons.history,
-            ),
-            onPressed: () => setState(() => viewingHistory = !viewingHistory),
+  Widget build(BuildContext context) => widget.historyOnly || viewingHistory
+      ? SpeakingHistoryList(
+          title: 'Lịch sử hội thoại',
+          emptyMessage: 'Chưa có phiên hội thoại nào.',
+          errorMessage: 'Chưa tải được hội thoại.',
+          active: () => widget.controller.active,
+          loadPage: (cursor) => repository.conversations(cursor: cursor),
+          hide: repository.hideConversationHistory,
+          onBack: widget.historyOnly
+              ? null
+              : () => setState(() => viewingHistory = false),
+          describe: (item) {
+            final status = item['status']?.toString();
+            return SpeakingHistoryEntry(
+              id: item['id'] as String,
+              title: _conversationTopicTitle(item),
+              date: item['createdAt']?.toString(),
+              canHide: status == 'ENDED' || status == 'INTERRUPTED',
+              details: [
+                conversationStatus(status),
+                ?conversationGradeStatus(item['assessmentStatus']),
+              ],
+            );
+          },
+          open: (id) async {
+            await Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => _ConversationHistoryDetail(
+                  controller: widget.controller,
+                  id: id,
+                ),
+              ),
+            );
+          },
+        )
+      : Scaffold(
+          appBar: AppBar(
+            title: const Text('Hội thoại AI'),
+            actions: [
+              IconButton(
+                tooltip: 'Lịch sử hội thoại',
+                icon: const Icon(Icons.history),
+                onPressed: () => setState(() => viewingHistory = true),
+              ),
+            ],
           ),
-      ],
-    ),
-    body: buildList(),
-  );
+          body: buildTopics(),
+        );
 
-  Widget buildList() => FutureBuilder<Json>(
-    future: viewingHistory ? history : topics,
+  Widget buildTopics() => FutureBuilder<Json>(
+    future: topics,
     builder: (context, snapshot) {
       if (!widget.controller.active) {
         return const Center(child: Text('Phiên đăng nhập đã thay đổi.'));
@@ -107,109 +127,44 @@ class _VoiceConversationsPageState extends State<VoiceConversationsPage> {
         return const Center(child: CircularProgressIndicator());
       }
       final data = snapshot.data!;
-      final items = speakingItems(data['items']);
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (!viewingHistory) ...[
-            learningHeading('Bạn muốn trò chuyện về điều gì?', size: 24),
-            const SizedBox(height: 8),
-            learningBody(
-              'Chọn chủ đề để xem hướng dẫn và chuẩn bị trước khi trò chuyện.',
-            ),
-            const SizedBox(height: 16),
-            if (data['enabled'] != true)
-              const Text(
-                'Hội thoại AI đang tạm dừng. Bạn vẫn xem được lịch sử.',
-              ),
-          ],
-          if (viewingHistory && items.isEmpty)
-            const Text('Chưa có phiên hội thoại nào.'),
-          for (final item in items)
+          learningHeading('Bạn muốn trò chuyện về điều gì?', size: 24),
+          const SizedBox(height: 8),
+          learningBody(
+            'Chọn chủ đề để xem hướng dẫn và chuẩn bị trước khi trò chuyện.',
+          ),
+          const SizedBox(height: 16),
+          if (data['enabled'] != true)
+            const Text('Hội thoại AI đang tạm dừng. Bạn vẫn xem được lịch sử.'),
+          for (final item in speakingItems(data['items']))
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: !viewingHistory
-                  ? FigmaCard(
-                      padding: EdgeInsets.zero,
-                      child: Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                        clipBehavior: Clip.antiAlias,
-                        child: ListTile(
-                          key: ValueKey('conversation-topic-${item['id']}'),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          title: Text(
-                            item['title']?.toString() ??
-                                item['text'].toString(),
-                            style: designHeading(18),
-                          ),
-                          trailing: const Icon(
-                            Icons.chevron_right_rounded,
-                            color: AppColors.grey800,
-                          ),
-                          onTap: widget.controller.active
-                              ? () => open(item)
-                              : null,
-                        ),
-                      ),
-                    )
-                  : LearningCard(
-                      children: [
-                        learningHeading(
-                          (item['topicSnapshot'] as Map?)?['text']
-                                  ?.toString() ??
-                              'Hội thoại AI',
-                          size: 20,
-                        ),
-                        learningBody(
-                          conversationStatus(item['status']?.toString()),
-                        ),
-                        if (conversationGradeStatus(item['assessmentStatus'])
-                            case final grade?)
-                          learningBody(grade, size: 14),
-                        FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.grey900,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(48),
-                          ),
-                          onPressed: widget.controller.active
-                              ? () => open(item)
-                              : null,
-                          child: const Text('Xem hội thoại'),
-                        ),
-                      ],
+              child: FigmaCard(
+                padding: EdgeInsets.zero,
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                  clipBehavior: Clip.antiAlias,
+                  child: ListTile(
+                    key: ValueKey('conversation-topic-${item['id']}'),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
                     ),
-            ),
-          if (viewingHistory && data['nextCursor'] != null)
-            TextButton(
-              onPressed: () async {
-                try {
-                  final next = await repository.conversations(
-                    cursor: data['nextCursor'] as String,
-                  );
-                  if (mounted && widget.controller.active) {
-                    setState(() {
-                      history = Future.value({
-                        ...next,
-                        'items': [...items, ...speakingItems(next['items'])],
-                      });
-                    });
-                  }
-                } catch (_) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Chưa tải được trang tiếp. Hãy thử lại.'),
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Xem thêm'),
+                    title: Text(
+                      item['title']?.toString() ?? item['text'].toString(),
+                      style: designHeading(18),
+                    ),
+                    trailing: const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.grey800,
+                    ),
+                    onTap: () => openTopic(item),
+                  ),
+                ),
+              ),
             ),
         ],
       );
@@ -236,6 +191,17 @@ String? conversationGradeStatus(Object? status) => switch (status) {
   _ => null,
 };
 
+String _conversationTopicTitle(Json conversation) {
+  final topic = conversation['topicSnapshot'];
+  if (topic is Map) {
+    for (final key in ['title', 'text']) {
+      final value = topic[key];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+  }
+  return 'Hội thoại với Lingo';
+}
+
 class _ConversationHistoryDetail extends StatefulWidget {
   const _ConversationHistoryDetail({
     required this.controller,
@@ -251,6 +217,10 @@ class _ConversationHistoryDetail extends StatefulWidget {
 class _ConversationHistoryDetailState
     extends State<_ConversationHistoryDetail> {
   late Future<Json> detail;
+  late final recording = widget.controller.conversationRecordings.read(
+    widget.controller.accountId,
+    widget.id,
+  );
   @override
   void initState() {
     super.initState();
@@ -259,7 +229,7 @@ class _ConversationHistoryDetailState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Xem lại hội thoại')),
+    appBar: AppBar(title: Text('Xem lại hội thoại', style: designHeading(18))),
     body: FutureBuilder<Json>(
       future: detail,
       builder: (context, snapshot) {
@@ -280,13 +250,13 @@ class _ConversationHistoryDetailState
         }
         final row = snapshot.data!;
         final turns = speakingItems(row['turns']);
-        final header = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            learningHeading((row['topicSnapshot'] as Map)['text'].toString()),
-            learningBody(conversationStatus(row['status']?.toString())),
-            const SizedBox(height: 16),
-          ],
+        final status = row['status']?.toString();
+        final header = SpeakingReviewHeader(
+          title: _conversationTopicTitle(row),
+          icon: Icons.forum_outlined,
+          statusLabel: conversationStatus(status),
+          dateLabel: formatSpeakingHistoryDate(row['createdAt']?.toString()),
+          completed: status == 'ENDED',
         );
         final chat = ConversationHistoryChat(
           controller: widget.controller,
@@ -298,6 +268,7 @@ class _ConversationHistoryDetailState
           return ConversationAssessment(
             controller: widget.controller,
             conversation: row,
+            reviewRecording: recording,
             fullPage: true,
             resultHeader: header,
             resultFooter: Padding(

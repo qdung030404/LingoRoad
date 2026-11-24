@@ -3,10 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/core/theme/app_theme.dart';
-import 'package:mobile/features/speaking/speaking_assessment.dart';
 import 'package:mobile/features/speaking/speaking_controller.dart';
 import 'package:mobile/features/speaking/speaking_modes_page.dart';
+import 'package:mobile/features/speaking/speaking_pages.dart';
 import 'package:mobile/features/speaking/speaking_recorder.dart';
+import 'package:mobile/features/speaking/speaking_review_widgets.dart';
 import 'speaking_workflow_test.dart'
     show FakeSpeakingRepository, FakeRecorder, wav;
 
@@ -133,7 +134,7 @@ void main() {
           theme: AppTheme.lightTheme,
           home: Scaffold(
             body: SingleChildScrollView(
-              child: SpeakingAssessment(
+              child: SpeakingResult(
                 result: {
                   'schemaVersion': 3,
                   'mode': 'TOPIC',
@@ -169,10 +170,127 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text('Điểm phát âm'), findsOneWidget);
+      expect(find.text('78.5'), findsOneWidget);
+      expect(find.text('80.0'), findsOneWidget);
+      expect(find.text('Nội dung bài nói'), findsNothing);
+      await tester.tap(find.text('Điểm chi tiết'));
+      await tester.pumpAndSettle();
       expect(find.text('Mức độ đọc đủ'), findsNothing);
       expect(find.text('Nội dung bài nói'), findsOneWidget);
-      expect(find.text('Điểm nội dung 80.0 / 100'), findsOneWidget);
+      expect(find.text('Từ vựng'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('read-aloud keeps legacy score, completeness and word review', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SpeakingResult(
+              referenceText: 'Hello world.',
+              result: {
+                'pronunciation': 96.7,
+                'accuracy': 100,
+                'fluency': 95,
+                'completeness': 98,
+                'transcript': 'Hello.',
+                'words': [
+                  {
+                    'word': 'Hello',
+                    'accuracy': 100,
+                    'errorType': 'None',
+                    'phonemes': [
+                      {'phoneme': 'h', 'accuracy': 100},
+                    ],
+                  },
+                  {'word': 'world', 'errorType': 'Omission'},
+                ],
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Điểm phát âm'), findsOneWidget);
+    expect(find.text('Phát âm'), findsNothing);
+    expect(find.text('96.7'), findsOneWidget);
+    expect(find.text('Nội dung'), findsNothing);
+    expect(find.text('Mức độ đọc đủ'), findsNothing);
+    await tester.tap(find.text('Điểm chi tiết'));
+    await tester.pumpAndSettle();
+    expect(find.text('Mức độ đọc đủ'), findsOneWidget);
+    expect(find.text('98.0'), findsOneWidget);
+    expect(find.text('Nội dung bài nói'), findsNothing);
+    expect(find.text('Chi tiết bài đọc'), findsOneWidget);
+    expect(find.text('Annotation'), findsNothing);
+    expect(find.text('Bỏ sót'), findsOneWidget);
+    expect(find.text('Đọc thêm'), findsOneWidget);
+    expect(find.text('Ngắt nghỉ sai'), findsOneWidget);
+    expect(
+      tester.getCenter(find.text('Bỏ sót')).dy,
+      tester.getCenter(find.text('Phát âm cần luyện')).dy,
+    );
+    final transcript = find.text('Xem lời nhận diện');
+    await tester.ensureVisible(transcript);
+    await tester.pumpAndSettle();
+    await tester.tap(transcript);
+    await tester.pumpAndSettle();
+    expect(find.text('Hello.'), findsOneWidget);
+    final word = find.byKey(const ValueKey('speaking-reference-0'));
+    await tester.ensureVisible(word);
+    await tester.pumpAndSettle();
+    await tester.tap(word);
+    await tester.pumpAndSettle();
+    expect(find.text('Âm tiết & âm vị'), findsOneWidget);
+    expect(find.byTooltip('Đóng chi tiết'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('saved results use the shared topic header in both modes', (
+    tester,
+  ) async {
+    for (final mode in ['READ_ALOUD', 'TOPIC']) {
+      final isTopic = mode == 'TOPIC';
+      final repository = ModeRepository()
+        ..value = {
+          'id': 'submission',
+          'status': 'SUCCEEDED',
+          'createdAt': '2026-11-11T12:34:00',
+          'promptSnapshot': {
+            'mode': mode,
+            'text': isTopic ? 'Describe your day.' : 'My name is Anna',
+            if (isTopic) 'title': 'My day',
+          },
+        };
+      final controller = SpeakingController(
+        repository: repository,
+        recorder: FakeRecorder('unused'),
+        accountId: 'modes',
+        isCurrent: () => true,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SpeakingHistoryDetail(controller: controller, id: 'submission'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final header = tester.widget<SpeakingReviewHeader>(
+        find.byType(SpeakingReviewHeader),
+      );
+      expect(header.title, isTopic ? 'My day' : 'My name is Anna');
+      expect(
+        header.icon,
+        isTopic ? Icons.mic_none_rounded : Icons.headphones_rounded,
+      );
+      expect(header.statusLabel, 'Đã chấm');
+      expect(header.dateLabel, '11/11/2026, 12:34');
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    }
+  });
 }

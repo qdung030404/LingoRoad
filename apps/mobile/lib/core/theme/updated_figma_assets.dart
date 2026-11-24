@@ -1,6 +1,11 @@
 // Assets exported from LingoRoad2; navigation refreshed on 2026-10-27.
 class UpdatedFigmaAssets {
   static const files = <String, String>{
+    'conversation-review-play.svg': 'assets/figma/conversation-review-play.svg',
+    'conversation-review-sample.svg':
+        'assets/figma/conversation-review-sample.svg',
+    'conversation-review-suggestion.svg':
+        'assets/figma/conversation-review-suggestion.svg',
     'nav/home': 'assets/figma/v3_vuesax_bulk_home.svg',
     'nav/book': 'assets/figma/v3_book.svg',
     'nav/words': 'assets/figma/v3_vuesax_bold_save2.svg',

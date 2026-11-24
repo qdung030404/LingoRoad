@@ -11,6 +11,8 @@ import 'speaking_workflow_test.dart' show FakeSpeakingRepository, FakeRecorder;
 class ConversationRepository extends FakeSpeakingRepository {
   bool available = true;
   bool offlineHistory = false;
+  bool includeSecond = false;
+  final hidden = <String>{};
   int preparationCalls = 0, createCalls = 0;
   @override
   Future<Json> conversationTopic(String id) async {
@@ -63,13 +65,25 @@ class ConversationRepository extends FakeSpeakingRepository {
     if (offlineHistory) throw const ApiFailure('offline');
     return {
       'items': [
-        {
-          'id': 'session',
-          'topicSnapshot': {'text': 'My family'},
-          'status': 'ENDED',
-        },
+        if (!hidden.contains('session'))
+          {
+            'id': 'session',
+            'topicSnapshot': {'text': 'My family'},
+            'status': 'ENDED',
+          },
+        if (includeSecond && !hidden.contains('second'))
+          {
+            'id': 'second',
+            'topicSnapshot': {'text': 'School trip'},
+            'status': 'INTERRUPTED',
+          },
       ],
     };
+  }
+
+  @override
+  Future<void> hideConversationHistory(List<String> ids) async {
+    hidden.addAll(ids);
   }
 
   @override
@@ -116,7 +130,7 @@ void main() {
       await tester.tap(find.byTooltip('Lịch sử hội thoại'));
       await tester.pumpAndSettle();
       expect(find.text('My family'), findsOneWidget);
-      await tester.tap(find.text('Xem hội thoại'));
+      await tester.tap(find.byKey(const ValueKey('speaking-history-session')));
       await tester.pumpAndSettle();
       expect(find.text('I live with my parents.'), findsNothing);
       await tester.ensureVisible(find.text('Lịch sử chat'));
@@ -147,10 +161,47 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('Lịch sử hội thoại'));
     await tester.pumpAndSettle();
-    expect(find.text('Xem hội thoại'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('speaking-history-session')),
+      findsOneWidget,
+    );
     await tester.pumpWidget(const SizedBox.shrink());
     controller.dispose();
   });
+
+  testWidgets(
+    'conversation history uses the same right slot and confirms a batch',
+    (tester) async {
+      final repository = ConversationRepository()..includeSecond = true;
+      final controller = await open(tester, repository);
+      await tester.tap(find.byTooltip('Lịch sử hội thoại'));
+      await tester.pumpAndSettle();
+      final trash = find.byTooltip('Chọn lượt để xóa');
+      final position = tester.getCenter(trash);
+      await tester.tap(trash);
+      await tester.pumpAndSettle();
+      expect(tester.getCenter(find.byTooltip('Thoát chế độ chọn')), position);
+      for (final id in ['session', 'second']) {
+        await tester.tap(find.byKey(ValueKey('speaking-history-select-$id')));
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('Đã chọn 2 lượt'), findsOneWidget);
+      await tester.tap(find.text('Xóa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hủy'));
+      await tester.pumpAndSettle();
+      expect(repository.hidden, isEmpty);
+      expect(find.text('Đã chọn 2 lượt'), findsOneWidget);
+      await tester.tap(find.text('Xóa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Xóa 2 lượt'));
+      await tester.pumpAndSettle();
+      expect(repository.hidden, {'session', 'second'});
+      expect(find.text('Chưa có phiên hội thoại nào.'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      controller.dispose();
+    },
+  );
 
   testWidgets('topic names open guidance on demand without allocating a call', (
     tester,
