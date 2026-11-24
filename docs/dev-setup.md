@@ -6,9 +6,9 @@
 
 ## 📌 Yêu cầu Tiên quyết (Prerequisites)
 
-- [Node.js](https://nodejs.org/) (>= v18.x, khuyến nghị v20.x)
-- [Flutter SDK](https://flutter.dev/) (>= v3.12.x) & Dart SDK
-- [Python](https://www.python.org/) (>= 3.10+, khuyến nghị 3.12)
+- [Node.js](https://nodejs.org/) 22.12 trở lên (khuyến nghị Node 22)
+- [Flutter SDK](https://flutter.dev/) 3.44.6, Android SDK và JDK 17 để build Android
+- [Python](https://www.python.org/) 3.12 cho ML
 - [PostgreSQL](https://www.postgresql.org/) (>= v16.x) & [Redis](https://redis.io/)
 - [Docker & Docker Compose](https://www.docker.com/) (Khuyến nghị)
 
@@ -16,10 +16,10 @@
 
 ## 🚀 Khởi chạy Nhanh từ Root (Root Monorepo Scripts)
 
-Sau khi clone repo, cài đặt toàn bộ dependencies cho monorepo tại thư mục gốc:
+Nếu chỉ cần chạy app với API demo đã triển khai, dùng [hướng dẫn bản online](../apps/mobile/README.md#chạy-với-backend-online). Để phát triển backend hoặc web cục bộ, cài dependencies từ lockfile tại thư mục gốc.
 
 ```powershell
-npm install
+npm ci
 ```
 
 Sử dụng các script tiện ích trực tiếp từ thư mục gốc:
@@ -55,9 +55,14 @@ docker compose up -d postgres redis
 cd apps/backend
 cp .env.example .env   # (hoặc: Copy-Item .env.example .env trên PowerShell)
 
-# Bước 2: Đồng bộ cấu trúc Database qua Prisma
+# Bước 2: Áp dụng migration cho database local
 npx prisma generate
-npx prisma db push
+npm run prisma:migrate
+
+# Nạp dữ liệu khi khởi tạo database demo mới
+npm run seed:demo
+npm run seed:learning
+npm run seed:topic-vocab -- --from-json
 
 # Bước 3: Khởi chạy ứng dụng Backend:
 # Cách A - Từ thư mục apps/backend:
@@ -68,6 +73,7 @@ npm run backend:dev
 ```
 
 > 🚀 **Backend API hoạt động tại:** `http://localhost:3000`
+> Để đăng nhập từ Flutter, cấu hình backend và app cùng Firebase project hoặc cùng [Firebase Auth Emulator](firebase-auth-setup.md#chạy-thử-cục-bộ-khi-chưa-có-project).
 > 🧪 **Kiểm thử API với Postman Collection (tại thư mục gốc repo):**
 > - **Xác thực & Quản lý phiên:** Nhập file `LingoRoad_Auth_API.postman_collection.json` để test `Register`, `Login`, `Refresh Token`, `Logout`, `Change Password`.
 > - **Kiểm tra trình độ thích ứng (Placement Test):** Nhập file `LingoRoad_Placement_API.postman_collection.json` để test `GET /placement/status`, `POST /placement/start`, `POST /placement/:sessionId/answer` (thuật toán CAT IRT), `GET /placement/:sessionId/result`.
@@ -105,9 +111,7 @@ python -m venv .venv
 ### 4. Cấu hình & Chạy Web Admin Portal (Next.js)
 
 ```powershell
-cd apps/frontend-web
-npm install
-npm run dev
+npm run frontend:dev
 ```
 
 > 🌐 **Web Admin Portal chạy tại:** `http://localhost:3001`
@@ -116,24 +120,11 @@ npm run dev
 
 ### 5. Khởi chạy Ứng dụng Mobile (Flutter)
 
-#### 5.1. Thiết lập Cấu hình Firebase (`google-services.json`) cho Android
+#### 5.1. Cấu hình đăng nhập trên Android
 
-Ứng dụng Flutter tích hợp dịch vụ Firebase Authentication & Google Sign-In trên Android, yêu cầu tệp cấu hình `google-services.json` đặt đúng vị trí:
-`apps/mobile/android/app/google-services.json`
+Android có thể build từ checkout sạch bằng cấu hình Firebase trong Flutter. Với backend local, dùng [Firebase Auth Emulator](firebase-auth-setup.md#chạy-thử-cục-bộ-khi-chưa-có-project) hoặc cấu hình một Firebase project riêng cho cả backend và app.
 
-> ⚠️ **Lưu ý bảo mật:** Tệp `google-services.json` chứa API key và client ID dự án nên đã được đưa vào `.gitignore` để tránh rò rỉ mã nguồn. Dự án cung cấp sẵn tệp mẫu an toàn `google-services.json.example`.
-
-Tùy theo nhu cầu phát triển, chọn một trong hai phương án sau:
-
-- **Phương án A: Chạy nhanh (Mặc định cho môi trường dev cục bộ & CI)**
-  - Gradle của dự án (`apps/mobile/android/app/build.gradle.kts`) đã tích hợp cơ chế tự động: nếu chưa tìm thấy `google-services.json`, bản build sẽ tự động sao chép từ `google-services.json.example` sang `google-services.json`.
-  - Bạn cũng có thể chủ động sao chép thủ công trước khi build:
-    ```powershell
-    Copy-Item apps/mobile/android/app/google-services.json.example apps/mobile/android/app/google-services.json
-    ```
-  - *Kết quả:* Ứng dụng build và chạy mượt mà toàn bộ các màn hình và tính năng (Học, Luyện tập, Đăng nhập Email/Mật khẩu), ngoại trừ tính năng Đăng nhập bằng Google sẽ không gọi được Firebase thật.
-
-- **Phương án B: Thiết lập đầy đủ (Để kiểm thử tính năng Đăng nhập Google thật)**
+- **Để kiểm thử đăng nhập Google thật**
   1. **Lấy mã băm SHA-1 của Debug Keystore trên máy:**
      ```powershell
      cd apps/mobile/android

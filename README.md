@@ -173,8 +173,8 @@ LingoRoad/
 ## 7. Hướng dẫn Cài đặt & Chạy cục bộ (Local Development)
 
 ### Yêu cầu Tiên quyết (Prerequisites)
-- [Node.js](https://nodejs.org/) (>= v18.x)
-- [Flutter SDK](https://flutter.dev/) (>= v3.12.x)
+- [Node.js](https://nodejs.org/) 22.12 trở lên (khuyến nghị Node 22)
+- [Flutter SDK](https://flutter.dev/) 3.44.6 và JDK 17 để build Android
 - [PostgreSQL](https://www.postgresql.org/) (>= v16.x) & [Redis](https://redis.io/)
 - [Docker & Docker Compose](https://www.docker.com/) (Tùy chọn nhưng khuyến nghị)
 
@@ -185,6 +185,8 @@ LingoRoad/
 Toàn bộ hướng dẫn cấu hình môi trường, script khởi chạy monorepo từ thư mục gốc và chi tiết từng bước cho từng service được lưu trữ tại:
 
 👉 **[Tài liệu Hướng dẫn Cài đặt & Khởi chạy Nhanh (`docs/dev-setup.md`)](docs/dev-setup.md)**
+
+Nếu dùng backend demo đang chạy trên Azure, chỉ cần thiết lập Android SDK và chạy Flutter theo [hướng dẫn bản online](apps/mobile/README.md#chạy-với-backend-online).
 
 | Dịch vụ | Lệnh phát triển (Dev) | Cổng mặc định |
 |---|---|---|
