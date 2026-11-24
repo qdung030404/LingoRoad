@@ -4,11 +4,13 @@ import 'app_colors.dart';
 class AppTextStyles {
   AppTextStyles._();
 
-  static const String fontFamily = 'Inter';
+  static const String fontFamily = 'Be Vietnam Pro';
+  static const List<String> fontFallback = ['Inter'];
 
   // Light Styles
   static const TextStyle heading1 = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 24,
     fontWeight: FontWeight.w700,
     color: AppColors.textPrimaryLight,
@@ -17,6 +19,7 @@ class AppTextStyles {
 
   static const TextStyle heading2 = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 18,
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimaryLight,
@@ -25,6 +28,7 @@ class AppTextStyles {
 
   static const TextStyle body = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: AppColors.textPrimaryLight,
@@ -33,6 +37,7 @@ class AppTextStyles {
 
   static const TextStyle bodyStrong = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 14,
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimaryLight,
@@ -41,6 +46,7 @@ class AppTextStyles {
 
   static const TextStyle caption = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.textSecondaryLight,
@@ -49,6 +55,7 @@ class AppTextStyles {
 
   static const TextStyle button = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 15,
     fontWeight: FontWeight.w600,
     color: Colors.white,
@@ -57,6 +64,7 @@ class AppTextStyles {
   // Dark Styles
   static const TextStyle heading1Dark = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 24,
     fontWeight: FontWeight.w700,
     color: AppColors.textPrimaryDark,
@@ -65,6 +73,7 @@ class AppTextStyles {
 
   static const TextStyle heading2Dark = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 18,
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimaryDark,
@@ -73,6 +82,7 @@ class AppTextStyles {
 
   static const TextStyle bodyDark = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: AppColors.textPrimaryDark,
@@ -81,6 +91,7 @@ class AppTextStyles {
 
   static const TextStyle bodyStrongDark = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 14,
     fontWeight: FontWeight.w600,
     color: AppColors.textPrimaryDark,
@@ -89,6 +100,7 @@ class AppTextStyles {
 
   static const TextStyle captionDark = TextStyle(
     fontFamily: fontFamily,
+    fontFamilyFallback: fontFallback,
     fontSize: 12,
     fontWeight: FontWeight.w400,
     color: AppColors.textSecondaryDark,

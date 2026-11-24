@@ -59,9 +59,11 @@ export class SpeakingService {
           ...(interrupted ? { result: interrupted as Prisma.InputJsonValue } : {}) } });
     }
   }
-  async detail(userId: string, id: string) {
+  async detail(userId: string, id: string, visibleOnly = false) {
     await this.expire(userId);
-    const row = await this.prisma.speakingSubmission.findFirst({ where: { id, userId } });
+    const row = await this.prisma.speakingSubmission.findFirst({
+      where: { id, userId, ...(visibleOnly ? { historyHiddenAt: null } : {}) },
+    });
     return row ?? this.missing();
   }
   async history(userId: string, cursor?: string, mode?: SpeakingMode) {
@@ -69,11 +71,25 @@ export class SpeakingService {
     const anchor = cursor ? await this.prisma.speakingSubmission.findFirst({ where: { id: cursor, userId } }) : null;
     if (cursor && !anchor) this.missing();
     if (anchor && mode && ((anchor.promptSnapshot as { mode?: SpeakingMode }).mode ?? SpeakingMode.READ_ALOUD) !== mode) this.missing();
-    const rows = await this.prisma.speakingSubmission.findMany({ where: { userId, ...(mode ? { prompt: { mode } } : {}), ...(anchor ? { OR: [
+    const rows = await this.prisma.speakingSubmission.findMany({ where: { userId, historyHiddenAt: null, ...(mode ? { prompt: { mode } } : {}), ...(anchor ? { OR: [
       { createdAt: { lt: anchor.createdAt } }, { createdAt: anchor.createdAt, id: { lt: anchor.id } },
     ] } : {}) }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 21 });
     const items = rows.slice(0, 20);
     return { items, nextCursor: rows.length > 20 ? items[19].id : null };
+  }
+  async hideHistory(userId: string, ids: string[]) {
+    const normalizedIds = [...new Set(ids.map(id => id.toLowerCase()))];
+    return this.prisma.$transaction(async tx => {
+      const where: Prisma.SpeakingSubmissionWhereInput = {
+        userId, id: { in: normalizedIds }, status: { in: ['SUCCEEDED', 'FAILED', 'UNKNOWN'] },
+      };
+      const matching = await tx.speakingSubmission.count({ where });
+      if (matching !== normalizedIds.length) this.missing();
+      await tx.speakingSubmission.updateMany({
+        where: { ...where, historyHiddenAt: null }, data: { historyHiddenAt: new Date() },
+      });
+      return { hiddenIds: normalizedIds };
+    });
   }
   async upload(userId: string, id: string, audio?: Buffer) {
     let row = await this.detail(userId, id);
@@ -149,7 +165,7 @@ export class SpeakingService {
     if (!progress.items.find(item => item.id === promptId)?.unlocked) throw new HttpException({ code: 'speaking_level_locked', message: 'Hoàn thành màn trước để mở thử thách này.' }, 403);
   }
   async retryContent(userId: string, id: string) {
-    const row = await this.detail(userId, id);
+    const row = await this.detail(userId, id, true);
     const snapshot = row.promptSnapshot as { mode?: SpeakingMode; text: string; hints?: string[] };
     const result = row.result as Record<string, any> | null;
     if (snapshot.mode !== SpeakingMode.TOPIC || !row.audioHash || !result || !validTopicResult(result, row.audioHash)) {
@@ -160,7 +176,7 @@ export class SpeakingService {
 
     const processingAt = new Date();
     const claim = await this.prisma.speakingSubmission.updateMany({
-      where: { id, userId, status: row.status, processingAt: row.processingAt, completedAt: row.completedAt },
+      where: { id, userId, historyHiddenAt: null, status: row.status, processingAt: row.processingAt, completedAt: row.completedAt },
       data: { status: 'PROCESSING', processingAt, errorCode: null,
         result: { ...result, content: { status: 'processing' } } as Prisma.InputJsonValue },
     });

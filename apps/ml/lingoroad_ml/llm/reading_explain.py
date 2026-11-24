@@ -5,6 +5,10 @@ Hãy xưng "bạn" với người học và giải thích ngắn gọn (3-5 câu
 Viết thành đoạn văn tự nhiên, KHÔNG mở đầu bằng tiêu đề (như "Giải thích:") và hạn chế dùng ký hiệu Markdown như dấu sao.
 CHỈ dựa trên đoạn văn, câu hỏi, các lựa chọn và dẫn chứng được cung cấp. Không suy đoán thêm thông tin không có trong đoạn văn."""
 
+LISTENING_SYSTEM = """Bạn là trợ giảng luyện nghe tiếng Anh cho người Việt.
+Giải thích ngắn gọn bằng tiếng Việt vì sao đáp án đúng và lựa chọn của người học đúng hoặc sai. Xưng "bạn", viết một đoạn không tiêu đề.
+Trích một cụm tiếng Anh ngắn có thật trong bản chép lời và giải thích cụm đó giúp chọn đáp án thế nào. Chỉ dựa trên nội dung được cung cấp. Không suy đoán âm thanh, ngữ điệu, người nói hay mốc thời gian ngoài bản chép lời."""
+
 _TYPE_LABELS = {
     "MULTIPLE_CHOICE": "Trắc nghiệm",
     "GAP_FILL": "Điền khuyết",
@@ -38,13 +42,16 @@ def build_messages(
     evidence: str | None = None,
     curriculum_explanation: str = "",
     cefr: str | None = None,
+    source_kind: str = "READING",
 ) -> list[dict]:
+    listening = source_kind == "LISTENING"
+    source_label = "Bản chép lời trích đoạn nghe" if listening else "Đoạn văn"
     type_label = _TYPE_LABELS.get(question_type, question_type)
     options_txt = "\n".join(f"- {opt}" for opt in options)
     lines = [
         f"Trình độ: {cefr}" if cefr else None,
         f"Dạng câu hỏi: {type_label}",
-        f"Đoạn văn:\n{passage.strip()}",
+        f"{source_label}:\n{passage.strip()}",
         f"Câu hỏi: {question_prompt.strip()}",
         f"Các lựa chọn:\n{options_txt}",
         f"Bạn đã chọn: {selected_option.strip()}",
@@ -54,7 +61,7 @@ def build_messages(
     ]
     user_content = "\n\n".join(part for part in lines if part)
     return [
-        {"role": "system", "content": SYSTEM},
+        {"role": "system", "content": LISTENING_SYSTEM if listening else SYSTEM},
         {"role": "user", "content": user_content},
     ]
 
@@ -71,6 +78,7 @@ def explain(
     evidence: str | None = None,
     curriculum_explanation: str = "",
     cefr: str | None = None,
+    source_kind: str = "READING",
 ) -> str:
     model = os.environ.get("LINGOROAD_LLM_MODEL_VERSION", "gemini-2.5-flash")
     timeout_s = explain_timeout_seconds()
@@ -89,6 +97,7 @@ def explain(
         evidence=evidence,
         curriculum_explanation=curriculum_explanation,
         cefr=cefr,
+        source_kind=source_kind,
     )
     create_kwargs = dict(model=model, temperature=0.3, messages=messages)
     if not hasattr(client, "with_options"):

@@ -3,6 +3,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/features/speaking/conversation_timeline.dart';
 
 void main() {
+  testWidgets('the first reply starts at the top of the conversation body', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: ConversationTimeline(
+            revision: 1,
+            children: [SizedBox(height: 100, child: Text('First reply'))],
+          ),
+        ),
+      ),
+    );
+    expect(
+      tester.getTopLeft(find.text('First reply')).dy -
+          tester.getTopLeft(find.byType(Scaffold)).dy,
+      8,
+    );
+  });
+
   testWidgets(
     'new chat returns to latest message after scrolling through earlier turns',
     (tester) async {

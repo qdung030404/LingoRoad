@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/app_startup_timing.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
@@ -86,6 +88,7 @@ class _LearningPreviewState extends State<LearningPreview>
           repository: ApiDailyRepository(widget.account!.api),
           accountId: _accountId,
           isCurrent: () => widget.account!.user?['id'] == daily?.accountId,
+          onHomeChanged: _refreshAfterChange,
           onPreferences: (prefs) {
             final profile = widget.account!.user?['profile'];
             if (profile is Map) {
@@ -110,6 +113,13 @@ class _LearningPreviewState extends State<LearningPreview>
           accountId: _accountId,
           daily: daily,
           vocabulary: vocabularyController,
+          fetchHome: ApiLearningRepository(widget.account!.api).home,
+          onHome: (value) {
+            widget.account!.rememberHome(value);
+            AppStartupTiming.afterNextFrame('home-live');
+          },
+          onHomeInvalidated: widget.account!.clearHome,
+          onHomeForbidden: widget.account!.rejectHomeSession,
           isAccountCurrent: () =>
               widget.account!.user?['id'] == learning?.accountId,
         );
@@ -154,8 +164,13 @@ class _LearningPreviewState extends State<LearningPreview>
     WidgetsBinding.instance.addObserver(this);
     _accountId;
     widget.account?.addListener(_speakingSessionChanged);
+    final cached = widget.account?.cachedHome;
+    if (cached != null) learning?.showCachedHome(cached);
     learning?.refresh();
-    vocabularyController?.refresh();
+    _scheduleLearningDayRefresh();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _refreshVocabulary();
+    });
     library.restore().catchError((Object error) {
       if (mounted) {
         setState(
@@ -199,6 +214,7 @@ class _LearningPreviewState extends State<LearningPreview>
 
   @override
   void dispose() {
+    _learningDayTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.account?.removeListener(_speakingSessionChanged);
     speaking?.dispose();
@@ -218,12 +234,51 @@ class _LearningPreviewState extends State<LearningPreview>
     }
   }
 
+  Timer? _learningDayTimer;
+  DateTime? _vocabularyRequestedAt;
+
+  void _scheduleLearningDayRefresh() {
+    _learningDayTimer?.cancel();
+    if (learning == null) return;
+    final now = DateTime.now().toUtc().add(const Duration(hours: 7));
+    final tomorrow = DateTime.utc(now.year, now.month, now.day + 1);
+    _learningDayTimer = Timer(tomorrow.difference(now), () {
+      learning?.refreshIfStale();
+      _scheduleLearningDayRefresh();
+    });
+  }
+
+  void _refreshVocabulary() {
+    final now = DateTime.now();
+    final last = _vocabularyRequestedAt;
+    if (last != null && now.difference(last) < const Duration(seconds: 60)) {
+      return;
+    }
+    _vocabularyRequestedAt = now;
+    vocabularyController?.refresh();
+  }
+
+  void _loadTab(int index) {
+    if (index == 1 || index == 3) learning?.loadCatalogue();
+    if (index == 4) daily?.loadDetails();
+    if (index == 2) _refreshVocabulary();
+  }
+
+  Future<void> _refreshAfterChange() async {
+    final controller = learning;
+    controller?.invalidateHome();
+    await controller?.refresh();
+    if (mounted) _loadTab(selectedTab.value);
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      _scheduleLearningDayRefresh();
       learning?.activity?.flush();
-      learning?.refresh();
-      vocabularyController?.refresh();
+      learning?.refreshIfStale();
+      _loadTab(selectedTab.value);
+      _refreshVocabulary();
     }
   }
 
@@ -378,78 +433,80 @@ class _LearningPreviewState extends State<LearningPreview>
   );
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: Listenable.merge([
-      model,
-      library,
-      widget.account,
-      learning,
-      daily,
-      vocabularyController,
-    ]),
-    builder: (context, _) {
-      final surface = ValueListenableBuilder<int>(
-        valueListenable: selectedTab,
-        child: Scaffold(
-          backgroundColor: AppColors.grey25,
-          body: Stack(
-            children: [
-              PageView(
-                key: const Key('learningPages'),
-                controller: tabs,
-                physics: const ClampingScrollPhysics(),
-                allowImplicitScrolling: true,
-                onPageChanged: (index) => selectedTab.value = index,
-                children: [
-                  for (var index = 0; index < 5; index++)
-                    RetainedTab(
-                      key: ValueKey(index),
-                      child: tabContent(index),
-                    ),
-                ],
+  Widget build(BuildContext context) {
+    final surface = ValueListenableBuilder<int>(
+      valueListenable: selectedTab,
+      child: Scaffold(
+        backgroundColor: AppColors.grey25,
+        body: Stack(
+          children: [
+            PageView.builder(
+              key: const Key('learningPages'),
+              controller: tabs,
+              physics: const ClampingScrollPhysics(),
+              onPageChanged: (index) {
+                selectedTab.value = index;
+                _loadTab(index);
+              },
+              itemCount: 5,
+              itemBuilder: (context, index) => RetainedTab(
+                key: ValueKey(index),
+                child: AnimatedBuilder(
+                  animation: Listenable.merge([
+                    if (index == 0 || index == 4 || widget.account == null)
+                      model,
+                    if (index == 0 || index == 2 || widget.account == null)
+                      library,
+                    widget.account,
+                    if (index != 2) learning,
+                    if (index == 0 || index == 4) daily,
+                    if (index != 3) vocabularyController,
+                  ]),
+                  builder: (context, _) => tabContent(index),
+                ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: math.max(24, MediaQuery.paddingOf(context).bottom),
-                child: ValueListenableBuilder<int>(
-                  valueListenable: selectedTab,
-                  builder: (context, tab, _) => Container(
-                    padding: const EdgeInsets.only(top: 24, bottom: 8),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0x00FFFFFF), Colors.white],
-                        stops: [0, .48],
-                      ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: math.max(24, MediaQuery.paddingOf(context).bottom),
+              child: ValueListenableBuilder<int>(
+                valueListenable: selectedTab,
+                builder: (context, tab, _) => Container(
+                  padding: const EdgeInsets.only(top: 24, bottom: 8),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x00FFFFFF), Colors.white],
+                      stops: [0, .48],
                     ),
-                    child: PreviewNavigationBar(
-                      selectedIndex: tab,
-                      onSelected: switchTab,
-                    ),
+                  ),
+                  child: PreviewNavigationBar(
+                    selectedIndex: tab,
+                    onSelected: switchTab,
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-        builder: (context, tab, child) => AnnotatedRegion<SystemUiOverlayStyle>(
-          value:
-              (tab == 0 || tab == 4
-                      ? SystemUiOverlayStyle.light
-                      : SystemUiOverlayStyle.dark)
-                  .copyWith(
-                    statusBarColor: Colors.transparent,
-                    systemNavigationBarColor: AppColors.grey25,
-                    systemNavigationBarIconBrightness: Brightness.dark,
-                  ),
-          child: child!,
-        ),
-      );
-      return widget.account == null ? PreviewSurface(child: surface) : surface;
-    },
-  );
+      ),
+      builder: (context, tab, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value:
+            (tab == 0 || tab == 4
+                    ? SystemUiOverlayStyle.light
+                    : SystemUiOverlayStyle.dark)
+                .copyWith(
+                  statusBarColor: Colors.transparent,
+                  systemNavigationBarColor: AppColors.grey25,
+                  systemNavigationBarIconBrightness: Brightness.dark,
+                ),
+        child: child!,
+      ),
+    );
+    return widget.account == null ? PreviewSurface(child: surface) : surface;
+  }
 
   Widget tabContent(int page) {
     if (page == 0) {
@@ -459,9 +516,7 @@ class _LearningPreviewState extends State<LearningPreview>
           library: library,
           onProfile: openProfile,
           displayName: widget.account?.user?['name'] as String? ?? 'Anna',
-          level: widget.account == null
-              ? 'A1'
-              : widget.account!.placementResult?['estimatedCefr'] as String?,
+          level: widget.account == null ? 'A1' : widget.account!.placementCefr,
           learning: learning,
           vocabularyWordsCount:
               (vocabularyController?.summary?['totals']
@@ -479,11 +534,7 @@ class _LearningPreviewState extends State<LearningPreview>
             final lesson = learning?.continueLesson;
             if (learning != null) {
               if (lesson != null) {
-                openLearningLesson(
-                  context,
-                  learning!,
-                  lessonId: lesson.id,
-                );
+                openLearningLesson(context, learning!, lessonId: lesson.id);
               } else {
                 switchTab(1);
               }
@@ -510,9 +561,7 @@ class _LearningPreviewState extends State<LearningPreview>
       return RepaintBoundary(
         child: ProgressDashboard(
           model: model,
-          level: widget.account == null
-              ? 'A1'
-              : widget.account!.placementResult?['estimatedCefr'] as String?,
+          level: widget.account == null ? 'A1' : widget.account!.placementCefr,
           learning: learning,
           daily: daily,
           vocabularyController: vocabularyController,
@@ -557,9 +606,7 @@ class _LearningPreviewState extends State<LearningPreview>
                 PreviewLevelBadge(
                   label: widget.account == null
                       ? 'A1'
-                      : widget.account!.placementResult?['estimatedCefr']
-                                as String? ??
-                            '—',
+                      : widget.account!.placementCefr ?? '—',
                   onTap: () => previewMessage(
                     context,
                     widget.account == null
@@ -585,8 +632,9 @@ class _LearningPreviewState extends State<LearningPreview>
 
   List<Widget> road() {
     if (learning != null) {
-      final vocabLessons =
-          learning!.lessons.where((l) => l.kind == 'VOCABULARY').toList();
+      final vocabLessons = learning!.lessons
+          .where((l) => l.kind == 'VOCABULARY')
+          .toList();
       return [
         learningSegments(
           ['Ngữ pháp', 'Từ vựng'],
@@ -595,10 +643,7 @@ class _LearningPreviewState extends State<LearningPreview>
         ),
         const SizedBox(height: 24),
         if (!vocabulary)
-          LearningCatalogue(
-            controller: learning!,
-            kinds: const ['GRAMMAR'],
-          )
+          LearningCatalogue(controller: learning!, kinds: const ['GRAMMAR'])
         else ...[
           if (vocabLessons.isNotEmpty) ...[
             LearningCatalogue(
@@ -679,6 +724,15 @@ class _LearningPreviewState extends State<LearningPreview>
     ];
   }
 
+  Widget practiceCatalogue(String kind) => LearningCatalogue(
+    controller: learning!,
+    kinds: [kind],
+    onOpenHistory: () => previewPush<void>(
+      context,
+      LearningHistoryPage(controller: learning!, kind: kind),
+    ),
+  );
+
   List<Widget> practice() => [
     learningSegments(
       PracticeSkill.values.map((s) => s.label).toList(),
@@ -708,9 +762,8 @@ class _LearningPreviewState extends State<LearningPreview>
       )
     else if (learning != null &&
         (skill == PracticeSkill.reading || skill == PracticeSkill.listening))
-      LearningCatalogue(
-        controller: learning!,
-        kinds: [skill == PracticeSkill.reading ? 'READING' : 'LISTENING'],
+      practiceCatalogue(
+        skill == PracticeSkill.reading ? 'READING' : 'LISTENING',
       )
     else if (skill == PracticeSkill.writing)
       WritingPracticeSection(model: model, evaluationService: writing)

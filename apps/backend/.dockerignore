@@ -8,3 +8,7 @@ yarn-error.log*
 .DS_Store
 coverage
 test
+media/learning/v1/listening-pilot-voa-busy-v1.wav
+media/learning/v1/listening-pilot-voa-late-v1.wav
+media/learning/v1/listening-pilot-voa-rooms-v1.wav
+prisma/listening-content/voa-pilot/wave-2

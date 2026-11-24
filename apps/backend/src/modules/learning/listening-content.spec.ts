@@ -7,6 +7,14 @@ const mediaRoot = join(__dirname, '../../../media/learning');
 const content = JSON.parse(readFileSync(join(__dirname, '../../../prisma/listening-content/campus-cafe-v1.json'), 'utf8')) as LearningContent;
 
 describe('Listening v1 content and media', () => {
+  it.each(['valkyrie', 'underground'])('loads the human narration and aligned review for %s', (name) => {
+    const lesson = JSON.parse(readFileSync(join(__dirname, '../../../prisma/listening-content', name + '-v1.json'), 'utf8')) as LearningContent;
+    validateLearningContent(lesson, 'LISTENING');
+    validateListeningAudio(lesson, mediaRoot);
+    expect(lesson.transcriptSegments![0].startMs).toBe(0);
+    expect(lesson.transcriptSegments!.at(-1)?.endMs).toBe(lesson.audioDurationMs);
+  });
+
   it('validates the recorded fixture and canonical skill catalog without changing legacy content rules', () => {
     expect(() => validateLearningContent(content, 'LISTENING')).not.toThrow();
     expect(() => validateListeningAudio(content, mediaRoot)).not.toThrow();

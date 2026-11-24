@@ -1,0 +1,292 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-pilot-voa-friday-v1.wav",
+  "audioDurationMs": 76200,
+  "preparation": {
+    "situation": "Anna và Marsha so lịch để tìm lúc có thể gặp nhau.",
+    "objective": "Phân biệt các ngày được đề xuất với kế hoạch hai người chốt."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "jog",
+      "meaning": "chạy bộ chậm",
+      "example": "I sometimes jog before breakfast.",
+      "translation": "Tôi thỉnh thoảng chạy bộ trước bữa sáng."
+    },
+    {
+      "id": "v02",
+      "word": "errand",
+      "meaning": "việc vặt cần ra ngoài để làm",
+      "example": "I need to run an errand today.",
+      "translation": "Hôm nay tôi cần ra ngoài làm một việc vặt."
+    },
+    {
+      "id": "v03",
+      "word": "ukulele",
+      "meaning": "đàn ukulele",
+      "example": "My brother plays the ukulele.",
+      "translation": "Anh tôi chơi đàn ukulele."
+    }
+  ],
+  "transcript": "I'm not busy on Monday night. Are you? I am busy on Monday night. I'm going to jog in the park with my friend. Do you jog? Oh, I always jog. Well, sometimes I jog. Okay, I never jog. But I will try because it is good for you. I always feel great after I jog. How about on Wednesday night? Wednesday night I am not busy. Oh, no, wait. This Wednesday night I will be busy. What are you doing? I'm going to teach children how to play the ukulele. Now, children, play C. Good. I like your C. The world does need more ukulele players. Marsha, it looks like we'll never have time to see a movie. Wait a minute. Are you busy now? It's Saturday afternoon. This is always when I do my errands. Okay, but the new Star Wars movie's gonna start in thirty minutes. I'll do my errands on Sunday. Let's go!",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "startMs": 300,
+      "endMs": 3200,
+      "speaker": "Anna",
+      "text": "I'm not busy on Monday night. Are you?",
+      "translationVi": "Tối thứ Hai tôi rảnh. Còn bạn?"
+    },
+    {
+      "id": "s02",
+      "startMs": 3850,
+      "endMs": 10240,
+      "speaker": "Marsha",
+      "text": "I am busy on Monday night. I'm going to jog in the park with my friend. Do you jog?",
+      "translationVi": "Tối thứ Hai tôi bận. Tôi sẽ chạy bộ trong công viên với bạn. Bạn có chạy bộ không?"
+    },
+    {
+      "id": "s03",
+      "startMs": 10940,
+      "endMs": 20490,
+      "speaker": "Anna",
+      "text": "Oh, I always jog. Well, sometimes I jog. Okay, I never jog. But I will try because it is good for you.",
+      "translationVi": "Ồ, tôi luôn chạy bộ. À, thỉnh thoảng thôi. Được rồi, tôi chẳng bao giờ chạy. Nhưng tôi sẽ thử vì tốt cho sức khỏe."
+    },
+    {
+      "id": "s04",
+      "startMs": 21000,
+      "endMs": 26330,
+      "speaker": "Marsha",
+      "text": "I always feel great after I jog. How about on Wednesday night?",
+      "translationVi": "Tôi luôn thấy khỏe sau khi chạy. Thế tối thứ Tư thì sao?"
+    },
+    {
+      "id": "s05",
+      "startMs": 26990,
+      "endMs": 33390,
+      "speaker": "Anna",
+      "text": "Wednesday night I am not busy. Oh, no, wait. This Wednesday night I will be busy.",
+      "translationVi": "Tối thứ Tư tôi không bận. Ồ, không, khoan đã. Tối thứ Tư tuần này tôi bận."
+    },
+    {
+      "id": "s06",
+      "startMs": 33980,
+      "endMs": 35000,
+      "speaker": "Marsha",
+      "text": "What are you doing?",
+      "translationVi": "Bạn sẽ làm gì?"
+    },
+    {
+      "id": "s07",
+      "startMs": 35440,
+      "endMs": 48650,
+      "speaker": "Anna",
+      "text": "I'm going to teach children how to play the ukulele. Now, children, play C. Good. I like your C.",
+      "translationVi": "Tôi sẽ dạy trẻ chơi đàn ukulele. Nào các em, chơi nốt Đô. Tốt. Cô thích nốt Đô của các em."
+    },
+    {
+      "id": "s08",
+      "startMs": 49810,
+      "endMs": 52590,
+      "speaker": "Marsha",
+      "text": "The world does need more ukulele players.",
+      "translationVi": "Thế giới đúng là cần thêm người chơi đàn ukulele."
+    },
+    {
+      "id": "s09",
+      "startMs": 52950,
+      "endMs": 57440,
+      "speaker": "Anna",
+      "text": "Marsha, it looks like we'll never have time to see a movie.",
+      "translationVi": "Marsha, có vẻ chúng ta sẽ chẳng bao giờ có thời gian xem phim."
+    },
+    {
+      "id": "s10",
+      "startMs": 57980,
+      "endMs": 60910,
+      "speaker": "Marsha",
+      "text": "Wait a minute. Are you busy now?",
+      "translationVi": "Khoan đã. Bây giờ bạn có bận không?"
+    },
+    {
+      "id": "s11",
+      "startMs": 61760,
+      "endMs": 66440,
+      "speaker": "Anna",
+      "text": "It's Saturday afternoon. This is always when I do my errands.",
+      "translationVi": "Bây giờ là chiều thứ Bảy. Tôi luôn làm việc vặt vào lúc này."
+    },
+    {
+      "id": "s12",
+      "startMs": 66860,
+      "endMs": 72400,
+      "speaker": "Marsha",
+      "text": "Okay, but the new Star Wars movie's gonna start in thirty minutes.",
+      "translationVi": "Được thôi, nhưng phim Star Wars mới sẽ bắt đầu sau ba mươi phút nữa."
+    },
+    {
+      "id": "s13",
+      "startMs": 73190,
+      "endMs": 75990,
+      "speaker": "Anna",
+      "text": "I'll do my errands on Sunday. Let's go!",
+      "translationVi": "Tôi sẽ làm việc vặt vào Chủ nhật. Đi thôi!"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What are Anna and Marsha trying to plan?",
+      "options": [
+        {
+          "id": "A",
+          "text": "A trip to the cinema"
+        },
+        {
+          "id": "B",
+          "text": "A music lesson together"
+        },
+        {
+          "id": "C",
+          "text": "A run in the park"
+        },
+        {
+          "id": "D",
+          "text": "A morning of shopping"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Họ tìm thời gian đi xem phim.",
+      "evidenceSegmentIds": [
+        "s04",
+        "s09",
+        "s12"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Why is Marsha busy on Monday evening?",
+      "options": [
+        {
+          "id": "A",
+          "text": "She is going to teach a class."
+        },
+        {
+          "id": "B",
+          "text": "She is visiting Anna."
+        },
+        {
+          "id": "C",
+          "text": "She is doing errands."
+        },
+        {
+          "id": "D",
+          "text": "She is jogging with a friend."
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Marsha có hẹn chạy bộ với bạn ở công viên.",
+      "evidenceSegmentIds": [
+        "s01",
+        "s02"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "What does Anna finally say about Wednesday evening?",
+      "options": [
+        {
+          "id": "A",
+          "text": "She is free."
+        },
+        {
+          "id": "B",
+          "text": "She is busy."
+        },
+        {
+          "id": "C",
+          "text": "She is watching the movie then."
+        },
+        {
+          "id": "D",
+          "text": "She is working in the park."
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Anna tự sửa lại và nói tối thứ Tư này cô bận.",
+      "evidenceSegmentIds": [
+        "s04",
+        "s05"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.numbers_dates_times",
+      "prompt": "How soon does the movie start?",
+      "options": [
+        {
+          "id": "A",
+          "text": "In 10 minutes"
+        },
+        {
+          "id": "B",
+          "text": "In 20 minutes"
+        },
+        {
+          "id": "C",
+          "text": "In 30 minutes"
+        },
+        {
+          "id": "D",
+          "text": "In 60 minutes"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Marsha nói phim bắt đầu sau ba mươi phút.",
+      "evidenceSegmentIds": [
+        "s12"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "When will Anna do her errands instead?",
+      "options": [
+        {
+          "id": "A",
+          "text": "On Monday"
+        },
+        {
+          "id": "B",
+          "text": "On Wednesday"
+        },
+        {
+          "id": "C",
+          "text": "On Saturday evening"
+        },
+        {
+          "id": "D",
+          "text": "On Sunday"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Anna chuyển việc vặt từ chiều thứ Bảy sang Chủ nhật.",
+      "evidenceSegmentIds": [
+        "s11",
+        "s13"
+      ]
+    }
+  ]
+}

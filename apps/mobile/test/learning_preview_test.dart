@@ -18,6 +18,7 @@ import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/main.dart';
 import 'test_helpers.dart';
+import 'support/ui_fonts.dart';
 
 class _LogoutApi extends FakeApi {
   _LogoutApi({required this.offline}) : super(signedIn: true, completed: true);
@@ -99,20 +100,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.runAsync(() async {
-      await (FontLoader(
-        'Inter',
-      )..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'))).load();
-      await (FontLoader('Be Vietnam Pro')
-            ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Medium.ttf')))
-          .load();
-      await (FontLoader('Hanken Grotesk')
-            ..addFont(rootBundle.load('assets/fonts/HankenGrotesk[wght].ttf')))
-          .load();
-      await (FontLoader(
-        'Madimi One',
-      )..addFont(rootBundle.load('assets/fonts/MadimiOne-Regular.ttf'))).load();
-    });
+    await tester.runAsync(loadUiFonts);
     await tester.pumpWidget(
       RepaintBoundary(
         key: boundaryKey,
@@ -396,6 +384,26 @@ void main() {
     expect(api.requestedPaths, contains('/api/v1/assessment/writing/items'));
   });
 
+  testWidgets('practice history opens with the active listening or reading filter', (
+    tester,
+  ) async {
+    final api = FakeApi(signedIn: true, completed: true);
+    await tester.pumpWidget(MyApp(session: SessionController(api)));
+    await tester.pumpAndSettle();
+    await tap(tester, find.byKey(const Key('previewTab3')));
+    final history = find.byKey(const ValueKey('practice-history'));
+    expect(tester.widget<IconButton>(history).tooltip, 'Lịch sử làm bài');
+    expect(find.text('Lịch sử làm bài'), findsNothing);
+    await tap(tester, history);
+    expect(find.text('Lịch sử luyện nghe'), findsOneWidget);
+    expect(api.requestedPaths, contains('/learning/history?limit=20&kind=LISTENING'));
+    await tap(tester, find.byTooltip('Quay lại'));
+    await tap(tester, find.text('Đọc').first);
+    await tap(tester, history);
+    expect(find.text('Lịch sử luyện đọc'), findsOneWidget);
+    expect(api.requestedPaths, contains('/learning/history?limit=20&kind=READING'));
+  });
+
   testWidgets('guest avatar logout returns to welcome without signing in', (
     tester,
   ) async {
@@ -420,8 +428,20 @@ void main() {
     await capture(tester, 'vocabulary-road');
     await tap(tester, find.byKey(const Key('previewTab3')));
     await capture(tester, 'practice');
+    final catalogue = find.byKey(const PageStorageKey('preview-content-2'));
+    final scrollable = find
+        .descendant(of: catalogue, matching: find.byType(Scrollable))
+        .first;
     for (final skill in PracticeSkill.values) {
-      await tap(tester, find.text(skill.label).first);
+      tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+      await tester.pumpAndSettle();
+      final tab = find.text(skill.label);
+      expect(
+        tab,
+        findsWidgets,
+        reason: 'The ${skill.label} tab is visible in the catalogue.',
+      );
+      await tap(tester, tab.first);
       if (skill == PracticeSkill.writing) {
         expect(find.text('Ngân hàng Đề Luyện Viết (CEFR)'), findsOneWidget);
         await capture(tester, skill.source);

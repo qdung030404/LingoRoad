@@ -1,0 +1,257 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-victory-v1.wav",
+  "audioDurationMs": 89900,
+  "preparation": {
+    "situation": "Hai người bàn về lễ mừng chiến thắng tại châu Âu khi chiến sự vẫn tiếp diễn ở châu Á.",
+    "objective": "Phân biệt lo ngại được nêu trong tranh luận với đánh giá sau đó của nhà sử học."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "bank holiday",
+      "meaning": "ngày nghỉ lễ"
+    },
+    {
+      "id": "v02",
+      "word": "munitions workers",
+      "meaning": "công nhân sản xuất đạn dược"
+    },
+    {
+      "id": "v03",
+      "word": "weigh up",
+      "meaning": "cân nhắc"
+    },
+    {
+      "id": "v04",
+      "word": "pragmatic",
+      "meaning": "thực tế trong cách xử lý"
+    },
+    {
+      "id": "v05",
+      "word": "framework",
+      "meaning": "khuôn khổ"
+    }
+  ],
+  "transcript": "And again, there are a couple of reasons for that. So there’s the, you know, making sure that those still fighting the war didn’t feel forgotten away from Europe. You know, that kind of aspect to it. But there’s also a practical element to it. If these celebrations happen in Europe, if there’s a bank holiday, if everyone, munitions workers get a day off, what does that do for war production and the ability for the Allies to continue fighting in Japan? Does it further delay the end of the war in Southeast Asia? So you know that you have that kind of multifaceted debate, which isn’t just about, you know, ensuring that those still fighting aren’t forgotten, but there’s, you know, the kind of serious, practical considerations of, well, If we celebrate this too much, will people think that the war is done, you know, it’s done with and we can now relax, and we don’t have to focus our efforts on winning the war in Southeast Asia? Yeah. And so what impact then did the European victory have on war production, as you’ve mentioned, and the military’s ongoing efforts? So as I say, you know, that probably, you know, it is a minor impact. And obviously, when the authorities are weighing this up, they’re also quite pragmatic about it. They realise that people are going to celebrate this anyway, you know, even if there’s no kind of official framework to this.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Will Butler",
+      "startMs": 230,
+      "endMs": 2090,
+      "text": "And again, there are a couple of reasons for that.",
+      "translationVi": "Và có một vài lý do dẫn tới cuộc tranh luận đó."
+    },
+    {
+      "id": "s02",
+      "speaker": "Will Butler",
+      "startMs": 2330,
+      "endMs": 15490,
+      "text": "So there’s the, you know, making sure that those still fighting the war didn’t feel forgotten away from Europe. You know, that kind of aspect to it. But there’s also a practical element to it.",
+      "translationVi": "Một lý do là muốn những người còn chiến đấu ở ngoài châu Âu cảm thấy mình vẫn được nhớ tới. Đó là một khía cạnh. Ngoài ra còn có vấn đề thực tế."
+    },
+    {
+      "id": "s03",
+      "speaker": "Will Butler",
+      "startMs": 16110,
+      "endMs": 35450,
+      "text": "If these celebrations happen in Europe, if there’s a bank holiday, if everyone, munitions workers get a day off, what does that do for war production and the ability for the Allies to continue fighting in Japan? Does it further delay the end of the war in Southeast Asia?",
+      "translationVi": "Nếu có lễ mừng ở châu Âu, nếu có một ngày nghỉ lễ và mọi người, kể cả công nhân sản xuất đạn dược, đều nghỉ, thì việc đó ảnh hưởng thế nào đến sản xuất phục vụ chiến tranh và khả năng phe Đồng minh tiếp tục chiến đấu với Nhật? Liệu có kéo dài chiến sự ở Đông Nam Á không?"
+    },
+    {
+      "id": "s04",
+      "speaker": "Will Butler",
+      "startMs": 35450,
+      "endMs": 47610,
+      "text": "So you know that you have that kind of multifaceted debate, which isn’t just about, you know, ensuring that those still fighting aren’t forgotten, but there’s, you know, the kind of serious, practical considerations of, well,",
+      "translationVi": "Vậy nên cuộc tranh luận có nhiều mặt. Ngoài chuyện nhớ tới những người còn chiến đấu, người ta cũng cân nhắc nghiêm túc một vấn đề thực tế:"
+    },
+    {
+      "id": "s05",
+      "speaker": "Will Butler",
+      "startMs": 48250,
+      "endMs": 62290,
+      "text": "If we celebrate this too much, will people think that the war is done, you know, it’s done with and we can now relax, and we don’t have to focus our efforts on winning the war in Southeast Asia?",
+      "translationVi": "Nếu ăn mừng quá lớn, liệu mọi người có nghĩ chiến tranh đã thực sự kết thúc, rằng giờ có thể thảnh thơi và chẳng cần dồn sức cho chiến sự ở Đông Nam Á nữa không?"
+    },
+    {
+      "id": "s06",
+      "speaker": "Chloe Lee",
+      "startMs": 63410,
+      "endMs": 72870,
+      "text": "Yeah. And so what impact then did the European victory have on war production, as you’ve mentioned, and the military’s ongoing efforts?",
+      "translationVi": "Vâng. Vậy chiến thắng ở châu Âu đã thực sự ảnh hưởng thế nào đến việc sản xuất phục vụ chiến tranh như anh vừa nhắc, và đến những nỗ lực quân sự còn tiếp diễn?"
+    },
+    {
+      "id": "s07",
+      "speaker": "Will Butler",
+      "startMs": 73930,
+      "endMs": 83310,
+      "text": "So as I say, you know, that probably, you know, it is a minor impact. And obviously, when the authorities are weighing this up, they’re also quite pragmatic about it.",
+      "translationVi": "Như tôi nói, có lẽ tác động khá nhỏ. Khi cân nhắc, nhà chức trách cũng nhìn nhận việc này khá thực tế."
+    },
+    {
+      "id": "s08",
+      "speaker": "Will Butler",
+      "startMs": 83330,
+      "endMs": 89730,
+      "text": "They realise that people are going to celebrate this anyway, you know, even if there’s no kind of official framework to this.",
+      "translationVi": "Họ hiểu rằng mọi người vẫn sẽ ăn mừng, dù chẳng có hình thức tổ chức chính thức nào."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "How does the discussion develop across the two speakers’ turns?",
+      "options": [
+        {
+          "id": "A",
+          "text": "It moves from what officials feared to what the effect probably was"
+        },
+        {
+          "id": "B",
+          "text": "It moves from evidence of losses to a firm estimate of production"
+        },
+        {
+          "id": "C",
+          "text": "It moves from how festivities began to how they were banned"
+        },
+        {
+          "id": "D",
+          "text": "It moves from a military forecast to a proposal for new ceremonies"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Will nhắc các lo ngại đặt ra lúc đó. Chloe hỏi hệ quả thực tế, và Will đánh giá tác động có lẽ nhỏ.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s03",
+        "s06",
+        "s07"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Which practical consequence was being considered?",
+      "options": [
+        {
+          "id": "A",
+          "text": "A shortage of venues could stop public celebrations"
+        },
+        {
+          "id": "B",
+          "text": "A pause in munitions work could hamper ongoing operations"
+        },
+        {
+          "id": "C",
+          "text": "Delays in travel could keep soldiers from returning to Europe"
+        },
+        {
+          "id": "D",
+          "text": "Excess military output could make a public holiday unnecessary"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Will đặt giả thiết công nhân sản xuất đạn dược nghỉ lễ có thể ảnh hưởng sản lượng và nỗ lực chiến đấu.",
+      "evidenceSegmentIds": [
+        "s03"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "What is the deeper concern behind “will people think that the war is done”?",
+      "options": [
+        {
+          "id": "A",
+          "text": "People might mistake a military announcement for an official holiday"
+        },
+        {
+          "id": "B",
+          "text": "People might expect all those overseas to come home immediately"
+        },
+        {
+          "id": "C",
+          "text": "People might see the celebration only as a way to honour service"
+        },
+        {
+          "id": "D",
+          "text": "People might take a regional victory as a signal to ease off the wider war effort"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Ông lo việc ăn mừng có thể tạo cảm giác toàn bộ cuộc chiến đã kết thúc, làm người ở hậu phương giảm tập trung cho nỗ lực còn lại.",
+      "evidenceSegmentIds": [
+        "s04",
+        "s05"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.speaker_attitude",
+      "prompt": "What status does Will give his assessment of the actual impact?",
+      "options": [
+        {
+          "id": "A",
+          "text": "A tentative judgement that the impact was limited"
+        },
+        {
+          "id": "B",
+          "text": "A finding that the impact was precisely zero"
+        },
+        {
+          "id": "C",
+          "text": "A conclusion that the worst fears had come true"
+        },
+        {
+          "id": "D",
+          "text": "A refusal to discuss the impact at all"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Từ “probably” cho thấy ông đánh giá tác động có lẽ nhỏ và để ngỏ mức độ chắc chắn.",
+      "evidenceSegmentIds": [
+        "s06",
+        "s07"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "Why does Will call the authorities “pragmatic”?",
+      "options": [
+        {
+          "id": "A",
+          "text": "They thought formal celebrations could guarantee greater output"
+        },
+        {
+          "id": "B",
+          "text": "They believed the public would follow any official line"
+        },
+        {
+          "id": "C",
+          "text": "They accounted for public celebrations likely to happen anyway"
+        },
+        {
+          "id": "D",
+          "text": "They treated the remaining fighting chiefly as a symbolic concern"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Việc họ hiểu dân chúng sẽ tự ăn mừng dù thiếu chương trình chính thức giải thích nhận xét “pragmatic”.",
+      "evidenceSegmentIds": [
+        "s07",
+        "s08"
+      ]
+    }
+  ]
+}

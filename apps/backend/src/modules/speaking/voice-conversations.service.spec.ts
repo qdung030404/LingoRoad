@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events';
+import { createHash } from 'crypto';
 import { HttpException } from '@nestjs/common';
 import { VoiceConversationsService } from './voice-conversations.service';
+import { splitConversationAudio } from './conversation-assessment';
 
 describe('Voice conversations account boundaries and replay', () => {
   let service: VoiceConversationsService;
@@ -272,6 +274,57 @@ describe('Voice conversations account boundaries and replay', () => {
     prisma.voiceConversation.findFirst.mockResolvedValue({ ...row, status: 'ENDED', assessmentStatus: 'PROCESSING',
       assessmentStartedAt: new Date(Date.now() - 950000), assessmentAudioHash: null });
     expect((await service.assess('user-a', 'session-a')).assessmentStatus).toBe('UNKNOWN');
+  });
+
+  it('retries only missing pronunciation from the same recording and preserves content', async () => {
+    const pcm = Buffer.alloc(44 + 6400);
+    pcm.write('fmt ', 12);
+    pcm.writeUInt32LE(16, 16);
+    pcm.write('data', 36);
+    pcm.writeUInt32LE(6400, 40);
+    pcm.fill(1, 44);
+    const wav = splitConversationAudio(pcm, [{ itemId: 'whole', offsetMs: 0, durationMs: 200 }]).get('whole')!;
+    const segments = [
+      { itemId: 'a', offsetMs: 0, durationMs: 100 },
+      { itemId: 'b', offsetMs: 100, durationMs: 100 },
+    ];
+    const hash = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
+    const pronunciation = { accuracy: 90, fluency: 85, prosody: 80, durationSeconds: 0.1, words: [] };
+    const content = { status: 'succeeded', rubricVersion: 'conversation-content-v1', overall: 80 };
+    const turnContent = { status: 'succeeded', overall: 70 };
+    const assessment = { schemaVersion: 2, pronunciationScope: 'per_turn', segmentHash: hash(JSON.stringify(segments)),
+      content, turns: [{ itemId: 'a', pronunciation, content: turnContent }, { itemId: 'b', pronunciation: null }] };
+    let current: any = { ...row, status: 'ENDED', assessment, assessmentStatus: 'PARTIAL',
+      assessmentStartedAt: new Date(0), assessmentAudioHash: hash(wav), turns: [
+        { providerItemId: 'a', role: 'USER', transcript: 'First reply.' },
+        { providerItemId: 'b', role: 'USER', transcript: 'Second reply.' },
+      ] };
+    prisma.voiceConversation.findFirst.mockImplementation(async () => current);
+    prisma.voiceConversation.updateMany.mockImplementation(async ({ data }: any) => {
+      current = { ...current, ...data };
+      return { count: 1 };
+    });
+    ml.scoreConversationContent = jest.fn();
+    ml.scoreConversationAudio = jest.fn(async (audio: Buffer) => ({
+      schemaVersion: 3, assessmentProfile: 'conversation-speaking-v1', mode: 'TOPIC', provider: 'azure',
+      adapterVersion: 'test', audioHash: hash(audio), transcript: 'Reply',
+      accuracy: 80, fluency: 80, prosody: 80, overall: 80, durationSeconds: 0.1,
+      words: [{ word: 'Reply', accuracy: 80, errorType: 'None', offsetMs: null, durationMs: null }],
+    }));
+
+    const otherAudio = Buffer.from(wav);
+    otherAudio[44] = 2;
+    await expect(service.assess('user-a', 'session-a', otherAudio, segments, true)).rejects.toMatchObject({ status: 409 });
+    await service.assess('user-a', 'session-a', wav, segments, true);
+    await new Promise(resolve => setImmediate(resolve));
+    expect(ml.scoreConversationAudio).toHaveBeenCalledTimes(1);
+    expect(ml.scoreConversationAudio).toHaveBeenCalledWith(splitConversationAudio(wav, segments).get('b'));
+    expect(ml.scoreConversationContent).not.toHaveBeenCalled();
+    expect(current.assessmentStatus).toBe('READY');
+    expect(current.assessment.content).toEqual(content);
+    expect(current.assessment.turns[0]).toMatchObject({ pronunciation, content: turnContent });
+    await service.assess('user-a', 'session-a', wav, segments, true);
+    expect(ml.scoreConversationAudio).toHaveBeenCalledTimes(1);
   });
 
   it('summary excludes raw turns and chat loading checks ownership', async () => {

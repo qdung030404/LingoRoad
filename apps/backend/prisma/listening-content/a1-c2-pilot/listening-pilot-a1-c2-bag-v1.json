@@ -1,0 +1,296 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-bag-v1.wav",
+  "audioDurationMs": 58000,
+  "preparation": {
+    "situation": "Marsha cần mượn đồ và Anna mở túi tìm.",
+    "objective": "Nghe xem từng người nhắc đến món đồ nào."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "bag",
+      "meaning": "túi"
+    },
+    {
+      "id": "v02",
+      "word": "book",
+      "meaning": "sách"
+    },
+    {
+      "id": "v03",
+      "word": "pillow",
+      "meaning": "gối"
+    },
+    {
+      "id": "v04",
+      "word": "map",
+      "meaning": "bản đồ"
+    }
+  ],
+  "transcript": "Anna, do you have a pen? Yes. I have a pen in my bag. I have a… It is not a pen. It is a book. It is a big book. Yes. Yes, it is, Pete. I know I have a pen, though. I have a… It is not a pen, Anna. A toy? I have a… And it is a pillow! Pete, Marsha, I know I have a pen. Anna, it is a map. Why do you have a map of the world? Pete, Marsha, now I know I have a pen. And now you have a lamp. Anna. I have a pen! Let’s get coffee!",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Marsha",
+      "startMs": 260,
+      "endMs": 2080,
+      "text": "Anna, do you have a pen?",
+      "translationVi": "Anna, bạn có bút không?"
+    },
+    {
+      "id": "s02",
+      "speaker": "Anna",
+      "startMs": 3260,
+      "endMs": 8200,
+      "text": "Yes. I have a pen in my bag. I have a…",
+      "translationVi": "Có. Mình có một cây bút trong túi. Mình có một…"
+    },
+    {
+      "id": "s03",
+      "speaker": "Pete",
+      "startMs": 8800,
+      "endMs": 14240,
+      "text": "It is not a pen. It is a book. It is a big book.",
+      "translationVi": "Đó đâu phải bút. Đó là sách. Một cuốn sách to."
+    },
+    {
+      "id": "s04",
+      "speaker": "Anna",
+      "startMs": 15380,
+      "endMs": 23380,
+      "text": "Yes. Yes, it is, Pete. I know I have a pen, though. I have a…",
+      "translationVi": "Ừ, đúng rồi, Pete. Nhưng mình biết mình có bút mà. Mình có một…"
+    },
+    {
+      "id": "s05",
+      "speaker": "Marsha",
+      "startMs": 23380,
+      "endMs": 27660,
+      "text": "It is not a pen, Anna. A toy?",
+      "translationVi": "Đâu phải bút, Anna. Đồ chơi à?"
+    },
+    {
+      "id": "s06",
+      "speaker": "Anna",
+      "startMs": 28660,
+      "endMs": 30860,
+      "text": "I have a…",
+      "translationVi": "Mình có một…"
+    },
+    {
+      "id": "s07",
+      "speaker": "Pete",
+      "startMs": 30860,
+      "endMs": 33520,
+      "text": "And it is a pillow!",
+      "translationVi": "Và đó là một cái gối!"
+    },
+    {
+      "id": "s08",
+      "speaker": "Anna",
+      "startMs": 34580,
+      "endMs": 37980,
+      "text": "Pete, Marsha, I know I have a pen.",
+      "translationVi": "Pete, Marsha, mình biết mình có bút mà."
+    },
+    {
+      "id": "s09",
+      "speaker": "Marsha",
+      "startMs": 39300,
+      "endMs": 41200,
+      "text": "Anna, it is a map.",
+      "translationVi": "Anna, đó là bản đồ."
+    },
+    {
+      "id": "s10",
+      "speaker": "Pete",
+      "startMs": 42860,
+      "endMs": 44700,
+      "text": "Why do you have a map of the world?",
+      "translationVi": "Sao bạn lại mang bản đồ thế giới?"
+    },
+    {
+      "id": "s11",
+      "speaker": "Anna",
+      "startMs": 45400,
+      "endMs": 49180,
+      "text": "Pete, Marsha, now I know I have a pen.",
+      "translationVi": "Pete, Marsha, lần này mình chắc là có bút."
+    },
+    {
+      "id": "s12",
+      "speaker": "Pete",
+      "startMs": 49980,
+      "endMs": 52060,
+      "text": "And now you have a lamp.",
+      "translationVi": "Và giờ bạn lôi ra cái đèn."
+    },
+    {
+      "id": "s13",
+      "speaker": "Marsha",
+      "startMs": 52060,
+      "endMs": 52680,
+      "text": "Anna.",
+      "translationVi": "Anna."
+    },
+    {
+      "id": "s14",
+      "speaker": "Anna",
+      "startMs": 53350,
+      "endMs": 57600,
+      "text": "I have a pen! Let’s get coffee!",
+      "translationVi": "Mình có bút rồi! Đi uống cà phê nào!"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What is Anna doing?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Looking for a pen"
+        },
+        {
+          "id": "B",
+          "text": "Reading a book"
+        },
+        {
+          "id": "C",
+          "text": "Buying a bag"
+        },
+        {
+          "id": "D",
+          "text": "Drawing a map"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Marsha hỏi mượn bút. Anna bảo trong túi có bút rồi tìm.",
+      "evidenceSegmentIds": [
+        "s01",
+        "s02"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.basic_dialogues",
+      "prompt": "Who asks for a pen?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Pete"
+        },
+        {
+          "id": "B",
+          "text": "Anna"
+        },
+        {
+          "id": "C",
+          "text": "Marsha"
+        },
+        {
+          "id": "D",
+          "text": "Anna and Pete"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Marsha là người hỏi Anna có bút không.",
+      "evidenceSegmentIds": [
+        "s01"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What does Pete call big?",
+      "options": [
+        {
+          "id": "A",
+          "text": "A map"
+        },
+        {
+          "id": "B",
+          "text": "A book"
+        },
+        {
+          "id": "C",
+          "text": "A bag"
+        },
+        {
+          "id": "D",
+          "text": "A toy"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Pete gọi đó là một cuốn sách to.",
+      "evidenceSegmentIds": [
+        "s03"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "What kind of map is in the bag?",
+      "options": [
+        {
+          "id": "A",
+          "text": "A map of the city"
+        },
+        {
+          "id": "B",
+          "text": "A map of the park"
+        },
+        {
+          "id": "C",
+          "text": "A map of the building"
+        },
+        {
+          "id": "D",
+          "text": "A map of the world"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Pete hỏi vì sao Anna mang bản đồ thế giới.",
+      "evidenceSegmentIds": [
+        "s09",
+        "s10"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What does Anna suggest at the end?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Go home"
+        },
+        {
+          "id": "B",
+          "text": "Get coffee"
+        },
+        {
+          "id": "C",
+          "text": "Buy a pen"
+        },
+        {
+          "id": "D",
+          "text": "Read a book"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Khi tìm được bút, Anna rủ mọi người đi uống cà phê.",
+      "evidenceSegmentIds": [
+        "s14"
+      ]
+    }
+  ]
+}

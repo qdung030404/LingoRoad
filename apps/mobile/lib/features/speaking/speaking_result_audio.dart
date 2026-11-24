@@ -97,7 +97,7 @@ class SpeakingResultAudioState extends State<SpeakingResultAudio>
     if (!canPlay ||
         startMs < 0 ||
         lengthMs <= 0 ||
-        startMs + lengthMs > 30000) {
+        startMs + lengthMs > (widget.durationSeconds ?? 30) * 1000) {
       return;
     }
     final generation = ++playbackGeneration;
@@ -115,6 +115,13 @@ class SpeakingResultAudioState extends State<SpeakingResultAudio>
         setState(() => error = 'Không phát được bản thu. Vui lòng thử lại.');
       }
     }
+  }
+
+  Future<void> stopSegment() async {
+    playbackGeneration++;
+    if (!active || segmentEndMs == null) return;
+    segmentEndMs = null;
+    await player.pause();
   }
 
   Future<void> toggle() async {

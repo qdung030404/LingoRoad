@@ -1,0 +1,276 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-fed-v1.wav",
+  "audioDurationMs": 83740,
+  "preparation": {
+    "situation": "Trong buổi họp báo, phóng viên hỏi liệu Fed có chậm thay đổi chính sách lãi suất.",
+    "objective": "Theo dõi cách người trả lời xử lý hàm ý của câu hỏi và giới hạn điều ông cam kết."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "behind the curve",
+      "meaning": "phản ứng chậm so với diễn biến"
+    },
+    {
+      "id": "v02",
+      "word": "overstated",
+      "meaning": "bị nói quá mức"
+    },
+    {
+      "id": "v03",
+      "word": "judgment call",
+      "meaning": "quyết định dựa vào cân nhắc"
+    },
+    {
+      "id": "v04",
+      "word": "dial back",
+      "meaning": "giảm dần"
+    },
+    {
+      "id": "v05",
+      "word": "unanimous",
+      "meaning": "nhất trí"
+    }
+  ],
+  "transcript": "Just as a follow, then, so could the Fed then be behind the curve? Because you said some of the reports, in the last meeting, you said the reports could be noisy or overstated. Was there a discussion of, of what kind of discussion was there for a cut today, and could the Fed be behind the curve? Yeah, so look, the objective is to balance the two risks, right? It’s the risk of going too soon and the risk of going too late. We’ve been, you know, we, we had seven months of good inflation data at the end of last year. We said we wanted to see more. We said, we pointed out that too much of this was coming from goods, and, sure enough, the first quarter wasn’t, wasn’t great, inflation data. And now we’ve got another quarter, a quarter that is good. And, you know, we’re balancing the risk of going too soon against the risk of going too late. That’s what we’re doing. There’s no guarantee in this. It’s a very difficult judgment call, but this is, this is how we’re making it. So, but in terms of today, your question about today, we did have a, you know, we had a nice conversation about, about this issue today. The overall sense of the Committee, as I mentioned, is that we’re getting closer to the point at which it will be appropriate to begin to dial back restriction, but we’re not quite at that point yet. We want to see more good data. The decision was unanimous. All nineteen participants supported it.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Edward Lawrence",
+      "startMs": 40,
+      "endMs": 7720,
+      "text": "Just as a follow, then, so could the Fed then be behind the curve? Because you said some of the reports, in the last meeting, you said the reports could be noisy or overstated.",
+      "translationVi": "Xin hỏi tiếp: liệu Fed có thể đang phản ứng chậm không? Vì trong cuộc họp trước, ông nói một số báo cáo có thể bị nhiễu hoặc phóng đại."
+    },
+    {
+      "id": "s02",
+      "speaker": "Edward Lawrence",
+      "startMs": 8700,
+      "endMs": 13860,
+      "text": "Was there a discussion of, of what kind of discussion was there for a cut today, and could the Fed be behind the curve?",
+      "translationVi": "Có thảo luận về, ý tôi là đã thảo luận như thế nào về việc cắt lãi suất hôm nay? Và liệu Fed có đang phản ứng chậm không?"
+    },
+    {
+      "id": "s03",
+      "speaker": "Jerome Powell",
+      "startMs": 15830,
+      "endMs": 24260,
+      "text": "Yeah, so look, the objective is to balance the two risks, right? It’s the risk of going too soon and the risk of going too late.",
+      "translationVi": "Vâng, mục tiêu là cân bằng hai rủi ro, đúng không? Đó là rủi ro hành động quá sớm và rủi ro hành động quá muộn."
+    },
+    {
+      "id": "s04",
+      "speaker": "Jerome Powell",
+      "startMs": 24680,
+      "endMs": 32380,
+      "text": "We’ve been, you know, we, we had seven months of good inflation data at the end of last year. We said we wanted to see more.",
+      "translationVi": "Chúng tôi đã, ừm, đã có bảy tháng số liệu lạm phát khả quan vào cuối năm ngoái. Chúng tôi nói muốn xem thêm."
+    },
+    {
+      "id": "s05",
+      "speaker": "Jerome Powell",
+      "startMs": 32500,
+      "endMs": 39760,
+      "text": "We said, we pointed out that too much of this was coming from goods, and, sure enough, the first quarter wasn’t, wasn’t great, inflation data.",
+      "translationVi": "Chúng tôi đã chỉ ra rằng phần cải thiện đến từ hàng hóa chiếm tỷ trọng quá lớn. Và quả thật, số liệu lạm phát quý đầu tiên khá kém."
+    },
+    {
+      "id": "s06",
+      "speaker": "Jerome Powell",
+      "startMs": 39900,
+      "endMs": 48160,
+      "text": "And now we’ve got another quarter, a quarter that is good. And, you know, we’re balancing the risk of going too soon against the risk of going too late. That’s what we’re doing.",
+      "translationVi": "Giờ lại có thêm một quý với số liệu tốt. Và chúng tôi đang cân nhắc rủi ro hành động quá sớm so với rủi ro hành động quá muộn. Đó là việc chúng tôi đang làm."
+    },
+    {
+      "id": "s07",
+      "speaker": "Jerome Powell",
+      "startMs": 48440,
+      "endMs": 53620,
+      "text": "There’s no guarantee in this. It’s a very difficult judgment call, but this is, this is how we’re making it.",
+      "translationVi": "Việc này chẳng có gì bảo đảm. Đây là quyết định rất khó cân nhắc, và đó là cách chúng tôi đi đến quyết định."
+    },
+    {
+      "id": "s08",
+      "speaker": "Jerome Powell",
+      "startMs": 55630,
+      "endMs": 68080,
+      "text": "So, but in terms of today, your question about today, we did have a, you know, we had a nice conversation about, about this issue today.",
+      "translationVi": "Còn về hôm nay, về câu hỏi của anh, thì chúng tôi thực sự đã có một cuộc trao đổi khá kỹ về vấn đề này hôm nay."
+    },
+    {
+      "id": "s09",
+      "speaker": "Jerome Powell",
+      "startMs": 68380,
+      "endMs": 78460,
+      "text": "The overall sense of the Committee, as I mentioned, is that we’re getting closer to the point at which it will be appropriate to begin to dial back restriction, but we’re not quite at that point yet. We want to see more good data.",
+      "translationVi": "Nhận định chung của ủy ban, như tôi đã nói, là chúng ta đang tiến gần đến lúc có thể bắt đầu nới lỏng chính sách, nhưng vẫn chưa đến lúc đó. Chúng tôi muốn thấy thêm số liệu khả quan."
+    },
+    {
+      "id": "s10",
+      "speaker": "Jerome Powell",
+      "startMs": 79560,
+      "endMs": 83420,
+      "text": "The decision was unanimous. All nineteen participants supported it.",
+      "translationVi": "Quyết định được thông qua nhất trí. Cả 19 người tham gia đều ủng hộ."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "How does Powell respond to the suggestion that the Fed is already late?",
+      "options": [
+        {
+          "id": "A",
+          "text": "He accepts it and treats the next cut as settled"
+        },
+        {
+          "id": "B",
+          "text": "He attributes every delay to one faulty report"
+        },
+        {
+          "id": "C",
+          "text": "He reframes timing as a decision with competing risks"
+        },
+        {
+          "id": "D",
+          "text": "He shifts to whether the Committee has the authority to cut"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Powell đặt lại vấn đề thành cân nhắc giữa hành động quá sớm và quá muộn.",
+      "evidenceSegmentIds": [
+        "s01",
+        "s02",
+        "s03",
+        "s06"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Why does he bring up the first quarter after recalling seven months of favourable figures?",
+      "options": [
+        {
+          "id": "A",
+          "text": "It illustrates why the earlier favourable run did not settle the timing"
+        },
+        {
+          "id": "B",
+          "text": "It establishes that the Committee had not seen any figures until this meeting"
+        },
+        {
+          "id": "C",
+          "text": "It shows that all later improvements came from the same category of goods"
+        },
+        {
+          "id": "D",
+          "text": "It proves that inflation figures matter only at the start of a year"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Ông muốn thêm bằng chứng vì đợt cải thiện trước dựa nhiều vào hàng hóa, và số liệu quý sau đó kém khả quan.",
+      "evidenceSegmentIds": [
+        "s04",
+        "s05",
+        "s06"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "What commitment can a listener reasonably infer about the next reduction?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The Committee has agreed to reduce rates on a specific date"
+        },
+        {
+          "id": "B",
+          "text": "The most recent quarter alone is enough to trigger a reduction"
+        },
+        {
+          "id": "C",
+          "text": "No reduction will be considered even if more good data arrive"
+        },
+        {
+          "id": "D",
+          "text": "The Committee is moving closer to a reduction and still wants confirming data"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Ông nói ủy ban tiến gần thời điểm nới lỏng và muốn thấy thêm dữ liệu tích cực. Ông để ngỏ thời điểm.",
+      "evidenceSegmentIds": [
+        "s07",
+        "s09"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.speaker_attitude",
+      "prompt": "What is Powell doing when he calls this a “very difficult judgment call”?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Dismissing further discussion as unnecessary"
+        },
+        {
+          "id": "B",
+          "text": "Acknowledging uncertainty while explaining the basis of the decision"
+        },
+        {
+          "id": "C",
+          "text": "Retracting the claim that there are two opposing risks"
+        },
+        {
+          "id": "D",
+          "text": "Suggesting that the most recent figures cannot be interpreted at all"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Ông nói quyết định không có gì bảo đảm, đồng thời nhắc lại cách cân nhắc hai rủi ro.",
+      "evidenceSegmentIds": [
+        "s06",
+        "s07"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "What does “the decision was unanimous” establish in this exchange?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Agreement that the Fed had already waited too long"
+        },
+        {
+          "id": "B",
+          "text": "Agreement on when the next reduction will take effect"
+        },
+        {
+          "id": "C",
+          "text": "Agreement on today’s decision, with later timing still open"
+        },
+        {
+          "id": "D",
+          "text": "Agreement that the earlier figures had all been overstated"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Sự nhất trí liên quan đến quyết định hôm nay. Ngay trước đó Powell vẫn muốn xem thêm dữ liệu trước khi nới lỏng.",
+      "evidenceSegmentIds": [
+        "s08",
+        "s09",
+        "s10"
+      ]
+    }
+  ]
+}

@@ -10,8 +10,10 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: AppTextStyles.fontFamily,
+      fontFamilyFallback: AppTextStyles.fontFallback,
       textTheme: ThemeData.light().textTheme.apply(
         fontFamily: AppTextStyles.fontFamily,
+        fontFamilyFallback: AppTextStyles.fontFallback,
         bodyColor: AppColors.grey900,
         displayColor: AppColors.grey900,
       ),
@@ -77,6 +79,7 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       fontFamily: AppTextStyles.fontFamily,
+      fontFamilyFallback: AppTextStyles.fontFallback,
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,

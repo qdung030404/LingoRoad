@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/api/api_client.dart';
+import 'package:mobile/core/theme/app_colors.dart';
 import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/learning/activity_clock.dart';
 import 'package:mobile/features/learning/daily_learning.dart';
@@ -15,6 +16,7 @@ import 'package:mobile/features/vocabulary/vocabulary_controller.dart';
 import 'package:mobile/features/vocabulary/vocabulary_repository.dart';
 import 'package:mobile/shared/app_button.dart';
 import 'package:mobile/shared/figma_widgets.dart';
+import 'package:mobile/shared/history_controls.dart';
 
 Json copy(Json data) =>
     Map<String, dynamic>.from(jsonDecode(jsonEncode(data)) as Map);
@@ -168,7 +170,7 @@ class MemoryLearningRepository implements LearningRepository {
     'content': state['content'],
   };
   @override
-  Future<Json> explainReadingAnswer(String id, String questionId) async {
+  Future<Json> explainAnswer(String id, String questionId) async {
     explainCalls++;
     if (explainHandler != null) return explainHandler!(id, questionId);
     return {
@@ -181,9 +183,27 @@ class MemoryLearningRepository implements LearningRepository {
   int explainCalls = 0;
   Future<Json> Function(String id, String questionId)? explainHandler;
 
+  final historyRows = <Json>[];
+  final hiddenHistoryIds = <String>[];
+  final hiddenHistoryBatches = <List<String>>[];
+
   @override
-  Future<Json> history({String? cursor}) async => {
-    'items': [],
+  Future<void> hideHistory(String id) async {
+    if (offline) throw const ApiFailure('Offline');
+    hiddenHistoryIds.add(id);
+    historyRows.removeWhere((item) => item['id'] == id);
+  }
+
+  @override
+  Future<void> hideHistoryBatch(List<String> ids) async {
+    if (offline) throw const ApiFailure('Offline');
+    hiddenHistoryBatches.add(List.of(ids));
+    historyRows.removeWhere((item) => ids.contains(item['id']));
+  }
+
+  @override
+  Future<Json> history({String? cursor, String? kind}) async => {
+    'items': List<Json>.of(historyRows),
     'nextCursor': null,
   };
   @override
@@ -195,7 +215,7 @@ class MemoryLearningRepository implements LearningRepository {
 class DelayedHistoryRepository extends MemoryLearningRepository {
   final requests = <Completer<Json>>[];
   @override
-  Future<Json> history({String? cursor}) {
+  Future<Json> history({String? cursor, String? kind}) {
     final request = Completer<Json>();
     requests.add(request);
     return request.future;
@@ -212,6 +232,61 @@ Json historyItem(String id) => {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'failed cancellation keeps an offline answer until the retry succeeds',
+    () async {
+      final repo = MemoryLearningRepository()..offline = true;
+      final owner = LearningController(repository: repo, accountId: 'alice');
+      final controller = LearningAttemptController(owner: owner);
+      await controller.load(attemptId: 'attempt');
+      await controller.select('q0', 'b');
+      expect(await controller.cancel(), isFalse);
+      expect(controller.selected('q0'), 'b');
+      controller.dispose();
+
+      final restored = LearningAttemptController(owner: owner);
+      await restored.load(attemptId: 'attempt');
+      expect(restored.selected('q0'), 'b');
+      expect(repo.cancelledIds, isEmpty);
+      repo.offline = false;
+      expect(await restored.cancel(), isTrue);
+      expect(repo.cancelledIds, ['attempt']);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('learning.pending.alice.attempt'), isFalse);
+      restored.dispose();
+      owner.dispose();
+    },
+  );
+  testWidgets(
+    'catalogue shows the empty message only after a successful fetch',
+    (tester) async {
+      final owner = LearningController(
+        repository: MemoryLearningRepository(),
+        accountId: 'alice',
+        fetchHome: () async => {},
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListenableBuilder(
+              listenable: owner,
+              builder: (_, _) => LearningCatalogue(
+                controller: owner,
+                kinds: const ['READING'],
+              ),
+            ),
+          ),
+        ),
+      );
+      const label = 'Chưa có bài học được xuất bản.';
+      expect(find.text(label), findsNothing);
+      await owner.loadCatalogue();
+      await tester.pumpAndSettle();
+      expect(find.text(label), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      owner.dispose();
+    },
+  );
   test(
     'offline draft survives controller recreation and belongs only to its account',
     () async {
@@ -345,6 +420,68 @@ void main() {
       owner.dispose();
     },
   );
+  testWidgets('level dropdown fits beside history and can reset the filter', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final owner =
+        LearningController(
+            repository: MemoryLearningRepository(),
+            accountId: 'alice',
+          )
+          ..lessons = [
+            for (final level in ['A1', 'A2', 'B1', 'B2', 'C1'])
+              LearningLesson({
+                'id': level,
+                'title': 'Bài đọc $level',
+                'kind': 'READING',
+                'cefrLevel': level,
+              }),
+          ];
+    addTearDown(owner.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: LearningCatalogue(
+              controller: owner,
+              kinds: const ['READING'],
+              onOpenHistory: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    final dropdown = find.byKey(const ValueKey('practice-level-dropdown'));
+    final history = find.byTooltip('Lịch sử làm bài');
+    final historyPosition = tester.getCenter(history);
+    final all = find.widgetWithText(
+      CheckedPopupMenuItem<String>,
+      'Tất cả cấp độ',
+    );
+    final c1 = find.widgetWithText(CheckedPopupMenuItem<String>, 'C1');
+    expect(tester.getCenter(dropdown).dy, historyPosition.dy);
+    expect(c1, findsNothing);
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CheckedPopupMenuItem<String>>(all).checked, isTrue);
+    await tester.tap(c1);
+    await tester.pumpAndSettle();
+    expect(tester.getCenter(history), historyPosition);
+    expect(find.text('Bài đọc C1'), findsOneWidget);
+    expect(find.text('Bài đọc A1'), findsNothing);
+    await tester.tap(dropdown);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CheckedPopupMenuItem<String>>(c1).checked, isTrue);
+    await tester.tap(all);
+    await tester.pumpAndSettle();
+    expect(find.text('Bài đọc A1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'filters reading by CEFR and opens the passage without losing a choice',
     (tester) async {
@@ -384,28 +521,14 @@ void main() {
           ),
         ),
       );
-      void expectWhiteSelectedChip(String label) {
-        final chip = find.widgetWithText(ChoiceChip, label);
-        final text = find.descendant(of: chip, matching: find.text(label));
-        expect(tester.widget<ChoiceChip>(chip).selected, isTrue);
-        expect(
-          DefaultTextStyle.of(tester.element(text)).style.color,
-          Colors.white,
-        );
-        final rawChip = find.descendant(
-          of: chip,
-          matching: find.byType(RawChip),
-        );
-        expect(
-          tester.widget<RawChip>(rawChip).defaultProperties?.checkmarkColor,
-          Colors.white,
-        );
-      }
-
-      expectWhiteSelectedChip('Tất cả');
-      await tester.tap(find.widgetWithText(ChoiceChip, 'A2'));
+      await tester.tap(find.byKey(const ValueKey('practice-level-dropdown')));
       await tester.pumpAndSettle();
-      expectWhiteSelectedChip('A2');
+      await tester.tap(find.widgetWithText(CheckedPopupMenuItem<String>, 'A2'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.text('Cấp độ A2')).style?.color,
+        Colors.white,
+      );
       expect(find.text('Everyday Introductions'), findsNothing);
       await tester.tap(find.text('A New Time for the Club Meeting'));
       await tester.pumpAndSettle();
@@ -487,6 +610,197 @@ void main() {
       owner.dispose();
     },
   );
+  testWidgets(
+    'long press confirms hiding one completed history card and handles failure',
+    (tester) async {
+      final repository = MemoryLearningRepository();
+      for (final id in ['first', 'second']) {
+        repository.historyRows.add({
+          ...historyItem(id),
+          'lesson': {'title': 'Same lesson'},
+          'status': 'COMPLETED',
+          'result': {'correctCount': 1, 'totalQuestions': 5},
+        });
+      }
+      final owner = LearningController(
+        repository: repository,
+        accountId: 'alice',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LearningHistoryPage(controller: owner, kind: 'LISTENING'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final first = find.byKey(const ValueKey('learning-history-first'));
+      final second = find.byKey(const ValueKey('learning-history-second'));
+      final confirm = find.text('Xóa 1 lượt');
+
+      await tester.longPress(first);
+      await tester.pumpAndSettle();
+      expect(confirm, findsOneWidget);
+      await tester.tap(find.text('Hủy'));
+      await tester.pumpAndSettle();
+      expect(repository.hiddenHistoryIds, isEmpty);
+
+      repository.offline = true;
+      await tester.longPress(first);
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(find.text('Offline'), findsOneWidget);
+      expect(first, findsOneWidget);
+
+      repository.offline = false;
+      await tester.longPress(first);
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(repository.hiddenHistoryIds, ['first']);
+      expect(first, findsNothing);
+      expect(second, findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      owner.dispose();
+    },
+  );
+
+  testWidgets(
+    'history selection confirms a batch, keeps it on failure, and hides only chosen cards',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 680);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repository = MemoryLearningRepository();
+      for (final id in ['first', 'second', 'third']) {
+        repository.historyRows.add({
+          ...historyItem(id),
+          'lesson': {'title': 'Lesson $id'},
+          'status': 'COMPLETED',
+          'result': {'correctCount': 1, 'totalQuestions': 5},
+        });
+      }
+      final owner = LearningController(
+        repository: repository,
+        accountId: 'alice',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: LearningHistoryPage(controller: owner, kind: 'READING'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final enter = find.byTooltip('Chọn lượt để xóa');
+      final first = find.byKey(const ValueKey('learning-history-select-first'));
+      final second = find.byKey(
+        const ValueKey('learning-history-select-second'),
+      );
+      final submit = find.text('Xóa');
+      final confirm = find.text('Xóa 2 lượt');
+      expect(first, findsNothing);
+      final title = find.text('Lịch sử luyện đọc');
+      final trashCenter = tester.getCenter(enter);
+      expect(trashCenter.dx, greaterThan(tester.getCenter(title).dx));
+      expect(tester.getTopRight(enter).dx, lessThanOrEqualTo(320 - 12));
+      final lessonTitle = find.text('Lesson first');
+      final initialTitleX = tester.getTopLeft(lessonTitle).dx;
+
+      await tester.tap(enter);
+      await tester.pumpAndSettle();
+      final exitSelection = find.byWidgetPredicate(
+        (widget) =>
+            widget is IconButton && widget.tooltip == 'Thoát chế độ chọn',
+      );
+      expect(tester.getCenter(exitSelection), trashCenter);
+      expect(
+        tester.getCenter(find.byTooltip('Quay lại')).dx,
+        lessThan(tester.getCenter(title).dx),
+      );
+      expect(tester.getSize(exitSelection), const Size.square(48));
+      final exitStyle = tester.widget<IconButton>(exitSelection).style;
+      expect(exitStyle?.fixedSize?.resolve({}), const Size.square(44));
+      expect(exitStyle?.backgroundColor?.resolve({}), AppColors.error0);
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).enabled,
+        false,
+      );
+      await tester.tap(first);
+      await tester.tap(find.text('Lesson second'));
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(lessonTitle).dx, initialTitleX);
+      expect(tester.getCenter(first).dx, greaterThan(initialTitleX));
+      expect(
+        find.descendant(
+          of: first,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is FigmaAsset &&
+                widget.asset == 'review/imgVuesaxLinearTickCircle',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.widget<HistorySelectionMark>(first).selected, true);
+      expect(tester.widget<HistorySelectionMark>(second).selected, true);
+
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      expect(find.text('Xóa 2 lượt khỏi lịch sử?'), findsOneWidget);
+      final sheet = find.byType(BottomSheet);
+      expect(find.descendant(of: sheet, matching: lessonTitle), findsOneWidget);
+      expect(
+        find.descendant(
+          of: sheet,
+          matching: find.text('Điểm và tiến độ học đã ghi nhận vẫn được giữ.'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Hủy'));
+      await tester.pumpAndSettle();
+      expect(repository.hiddenHistoryBatches, isEmpty);
+      expect(find.text('Đã chọn 2 lượt'), findsOneWidget);
+
+      await tester.tap(exitSelection);
+      await tester.pumpAndSettle();
+      expect(first, findsNothing);
+      expect(lessonTitle, findsOneWidget);
+      expect(repository.hiddenHistoryBatches, isEmpty);
+      await tester.tap(enter);
+      await tester.pumpAndSettle();
+      expect(find.text('Chưa chọn lượt nào'), findsOneWidget);
+      await tester.tap(first);
+      await tester.tap(second);
+      await tester.pumpAndSettle();
+
+      repository.offline = true;
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(find.text('Offline'), findsOneWidget);
+      expect(tester.widget<HistorySelectionMark>(first).selected, true);
+      expect(tester.widget<HistorySelectionMark>(second).selected, true);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      repository.offline = false;
+      await tester.tap(submit);
+      await tester.pumpAndSettle();
+      await tester.tap(confirm);
+      await tester.pumpAndSettle();
+      expect(repository.hiddenHistoryBatches, [
+        <String>['first', 'second'],
+      ]);
+      expect(find.text('Lesson first'), findsNothing);
+      expect(find.text('Lesson second'), findsNothing);
+      expect(find.text('Lesson third'), findsOneWidget);
+      expect(enter, findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      owner.dispose();
+    },
+  );
+
   testWidgets(
     'refresh supersedes in-flight history pagination without duplicated stale rows',
     (tester) async {
@@ -951,6 +1265,7 @@ void main() {
       expect(find.text('Từ vựng trọng tâm'), findsOneWidget);
       final saveWord = find.byKey(const ValueKey('reading-save-word-w1'));
       await tester.ensureVisible(saveWord);
+      await tester.pumpAndSettle();
       await tester.tap(saveWord);
       await tester.pumpAndSettle();
       expect(find.text('Đã lưu'), findsOneWidget);
@@ -1090,6 +1405,7 @@ void main() {
     // Save from the intro before the initial saved-word request resolves.
     final saveWord = find.byKey(const ValueKey('reading-save-word-w1'));
     await tester.ensureVisible(saveWord);
+    await tester.pumpAndSettle();
     await tester.tap(saveWord);
     await tester.pumpAndSettle();
     expect(find.text('Đã lưu'), findsOneWidget);
@@ -1233,11 +1549,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Giải thích AI'), findsOneWidget);
       expect(find.byType(ReadingAnswerFeedbackCard), findsOneWidget);
-      expect(find.byType(ReadingAiExplainCard), findsOneWidget);
+      expect(find.byType(PracticeAiExplainCard), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(ReadingAnswerFeedbackCard),
-          matching: find.byType(ReadingAiExplainCard),
+          matching: find.byType(PracticeAiExplainCard),
         ),
         findsNothing,
       );
@@ -1290,7 +1606,7 @@ void main() {
                     evidence: 'manicured lawns with decorative fences',
                   ),
                   const SizedBox(height: 12),
-                  ReadingAiExplainCard(
+                  PracticeAiExplainCard(
                     questionId: 'q-md',
                     originalExplanation: 'Đáp án khớp câu dẫn chứng.',
                     ai: const {

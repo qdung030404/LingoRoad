@@ -13,6 +13,20 @@ Project chung của nhóm là `lingoroad-7fb29`, được cấu hình trong `lib
   3. Kích hoạt Google Authentication, tải `google-services.json` và đặt vào `android/app/google-services.json`.
   4. Truyền Web Client ID khi khởi chạy: `--dart-define=GOOGLE_SERVER_CLIENT_ID=<WEB_CLIENT_ID>` (hoặc dùng tham số `-GoogleServerClientId` của script `run_mobile.ps1`).
 
+## Chạy với backend online
+
+Khởi động thiết bị Android, kiểm tra mã thiết bị bằng `flutter devices` và lấy URL HTTPS của API demo từ nhóm. Chạy các lệnh sau từ thư mục gốc trên PowerShell, sau khi thay hai giá trị mẫu.
+
+```powershell
+$deviceId = 'MA_THIET_BI_ANDROID'
+$apiBaseUrl = 'https://HOST_API_DEMO'
+Set-Location apps/mobile
+flutter pub get --enforce-lockfile
+flutter run -d $deviceId --dart-define=APP_ENV=prod "--dart-define=API_BASE_URL=$apiBaseUrl"
+```
+
+Dùng **Tiếp tục với Email** để đăng nhập vào Firebase chung của nhóm. API online phục vụ cả cơ sở dữ liệu và các luồng ML. Máy chạy Flutter chỉ cần kết nối mạng tới API và Firebase. Đăng nhập Google trên máy mới cần thêm cấu hình SHA-1 và OAuth ở phần trên.
+
 ## Chạy trên Android máy ảo
 
 Khởi động backend với database demo riêng, migration và ngân hàng 40 câu/audio theo hướng dẫn tại thư mục gốc. Sau đó chạy từ `apps/mobile`:

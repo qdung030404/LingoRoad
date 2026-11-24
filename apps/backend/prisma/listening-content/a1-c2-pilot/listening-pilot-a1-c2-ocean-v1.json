@@ -1,0 +1,259 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-ocean-v1.wav",
+  "audioDurationMs": 56340,
+  "preparation": {
+    "situation": "Nhà sinh thái Leila Hatch giải thích một nguồn tiếng ồn dưới biển.",
+    "objective": "Theo dõi cách hoạt động thường ngày của con người làm thay đổi môi trường âm thanh."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "offshore",
+      "meaning": "ngoài khơi"
+    },
+    {
+      "id": "v02",
+      "word": "by-product",
+      "meaning": "hệ quả phát sinh"
+    },
+    {
+      "id": "v03",
+      "word": "propeller",
+      "meaning": "chân vịt"
+    },
+    {
+      "id": "v04",
+      "word": "acoustic signature",
+      "meaning": "dấu hiệu âm thanh đặc trưng"
+    },
+    {
+      "id": "v05",
+      "word": "low frequency",
+      "meaning": "tần số thấp"
+    }
+  ],
+  "transcript": "People also do a great many things offshore, and many of them make sound. Sometimes that sound is a by-product of things that we are actually doing. We’re moving all of the world’s goods on large commercial ships. And that maritime traffic, which is how we transport over 98 percent of the world’s goods around the globe, we do that almost entirely on ships. And those ships have propellers, and the propellers underwater, when they spin, produce bubbles. Those bubbles, when they burst, make an acoustic signature. They make a sound. And that sound has a deep, low frequency, those lower tones below what humans hear well. That low tone made by all those ships moving all that stuff around is leading to a rising level of noise at those lower frequencies.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Leila Hatch",
+      "startMs": 300,
+      "endMs": 6000,
+      "text": "People also do a great many things offshore, and many of them make sound.",
+      "translationVi": "Con người cũng làm rất nhiều việc ngoài khơi, và nhiều hoạt động trong số đó phát ra âm thanh."
+    },
+    {
+      "id": "s02",
+      "speaker": "Leila Hatch",
+      "startMs": 6560,
+      "endMs": 11440,
+      "text": "Sometimes that sound is a by-product of things that we are actually doing.",
+      "translationVi": "Đôi khi âm thanh chỉ là hệ quả phát sinh từ một việc chúng ta đang làm."
+    },
+    {
+      "id": "s03",
+      "speaker": "Leila Hatch",
+      "startMs": 11440,
+      "endMs": 16320,
+      "text": "We’re moving all of the world’s goods on large commercial ships.",
+      "translationVi": "Chúng ta vận chuyển hàng hóa đi khắp thế giới bằng các tàu thương mại lớn."
+    },
+    {
+      "id": "s04",
+      "speaker": "Leila Hatch",
+      "startMs": 16320,
+      "endMs": 27390,
+      "text": "And that maritime traffic, which is how we transport over 98 percent of the world’s goods around the globe, we do that almost entirely on ships.",
+      "translationVi": "Hoạt động vận tải biển đó là cách chúng ta chuyên chở hơn 98% hàng hóa trên thế giới, và chúng ta làm việc đó hầu như hoàn toàn bằng tàu."
+    },
+    {
+      "id": "s05",
+      "speaker": "Leila Hatch",
+      "startMs": 27390,
+      "endMs": 33800,
+      "text": "And those ships have propellers, and the propellers underwater, when they spin, produce bubbles.",
+      "translationVi": "Những con tàu đó có chân vịt. Khi quay dưới nước, chân vịt tạo ra bọt khí."
+    },
+    {
+      "id": "s06",
+      "speaker": "Leila Hatch",
+      "startMs": 34360,
+      "endMs": 39280,
+      "text": "Those bubbles, when they burst, make an acoustic signature. They make a sound.",
+      "translationVi": "Khi vỡ, những bọt khí đó tạo ra dấu hiệu âm thanh đặc trưng. Chúng phát ra tiếng."
+    },
+    {
+      "id": "s07",
+      "speaker": "Leila Hatch",
+      "startMs": 39960,
+      "endMs": 45800,
+      "text": "And that sound has a deep, low frequency, those lower tones below what humans hear well.",
+      "translationVi": "Âm thanh đó trầm và có tần số thấp, thấp hơn dải mà con người nghe rõ."
+    },
+    {
+      "id": "s08",
+      "speaker": "Leila Hatch",
+      "startMs": 45800,
+      "endMs": 56320,
+      "text": "That low tone made by all those ships moving all that stuff around is leading to a rising level of noise at those lower frequencies.",
+      "translationVi": "Âm trầm do tất cả những tàu chở hàng đó phát ra đang làm tăng mức tiếng ồn ở các tần số thấp ấy."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What is Hatch mainly explaining?",
+      "options": [
+        {
+          "id": "A",
+          "text": "How sea animals send signals"
+        },
+        {
+          "id": "B",
+          "text": "How cargo ships contribute to ocean noise"
+        },
+        {
+          "id": "C",
+          "text": "How cargo is divided among ships"
+        },
+        {
+          "id": "D",
+          "text": "How people record sounds underwater"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Hatch giải thích tiếng phát ra từ hoạt động của tàu thương mại và tác động tích lũy lên môi trường âm thanh.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s03",
+        "s08"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "In Hatch’s example, what directly makes the sound?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Cargo shifting inside a ship"
+        },
+        {
+          "id": "B",
+          "text": "Waves hitting a ship’s sides"
+        },
+        {
+          "id": "C",
+          "text": "The ship’s propeller slowing down"
+        },
+        {
+          "id": "D",
+          "text": "Bubbles bursting underwater"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Chân vịt quay tạo bọt khí. Tiếng phát ra khi bọt khí vỡ.",
+      "evidenceSegmentIds": [
+        "s05",
+        "s06"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "Why does Hatch mention the scale of maritime traffic?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To show why an incidental sound can matter on a large scale"
+        },
+        {
+          "id": "B",
+          "text": "To show that most ships deliberately send the same signal"
+        },
+        {
+          "id": "C",
+          "text": "To explain why sea freight is cheaper than air freight"
+        },
+        {
+          "id": "D",
+          "text": "To explain why all vessels sound identical"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Tàu chở hàng hoạt động ở quy mô lớn. Tiếng phát sinh từ từng tàu góp phần nâng mức ồn chung.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s04",
+        "s08"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "How does Hatch describe the tones from the bubbles?",
+      "options": [
+        {
+          "id": "A",
+          "text": "High and easy for humans to hear"
+        },
+        {
+          "id": "B",
+          "text": "Only audible close to the shore"
+        },
+        {
+          "id": "C",
+          "text": "Low and difficult for humans to hear well"
+        },
+        {
+          "id": "D",
+          "text": "The same frequency as normal speech"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Hatch mô tả đó là âm trầm, thấp hơn dải mà con người nghe rõ.",
+      "evidenceSegmentIds": [
+        "s07"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Which sequence best matches her explanation?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Noise rises, ships speed up, and bubbles disappear"
+        },
+        {
+          "id": "B",
+          "text": "Propellers spin, bubbles form and burst, and low-frequency noise builds"
+        },
+        {
+          "id": "C",
+          "text": "Bubbles slow the ships, which then make higher tones"
+        },
+        {
+          "id": "D",
+          "text": "Ships send signals that cause engines to produce bubbles"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Hatch đi từ chuyển động của chân vịt đến bọt khí, âm trầm và mức tiếng ồn do nhiều tàu cộng lại.",
+      "evidenceSegmentIds": [
+        "s05",
+        "s06",
+        "s07",
+        "s08"
+      ]
+    }
+  ]
+}

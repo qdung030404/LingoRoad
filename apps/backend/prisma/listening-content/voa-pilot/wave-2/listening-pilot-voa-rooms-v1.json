@@ -1,0 +1,259 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-pilot-voa-rooms-v1.wav",
+  "audioDurationMs": 44400,
+  "preparation": {
+    "situation": "Anna và Marsha gặp nhau để tham quan một nơi mới.",
+    "objective": "Theo dõi nơi mỗi người đang đứng và những hoạt động họ nhắc tới."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "beautiful",
+      "meaning": "đẹp",
+      "example": "This park is beautiful.",
+      "translation": "Công viên này đẹp."
+    },
+    {
+      "id": "v02",
+      "word": "upstairs",
+      "meaning": "ở trên tầng, lên tầng trên",
+      "example": "My friend is upstairs.",
+      "translation": "Bạn tôi ở trên tầng."
+    },
+    {
+      "id": "v03",
+      "word": "relax",
+      "meaning": "thư giãn",
+      "example": "I relax after class.",
+      "translation": "Tôi thư giãn sau giờ học."
+    }
+  ],
+  "transcript": "Marsha, I am in the kitchen! It is a beautiful kitchen! It is beautiful. We cook in the kitchen. I eat in the kitchen. We relax in the living room. I relax in the living room. Marsha, let's go upstairs! Anna? Where are you? Marsha, I am in the bathroom! I wash in the bathroom. I am in the bedroom. We sleep in the bedroom. I sleep in the bedroom!",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Anna",
+      "text": "Marsha, I am in the kitchen! It is a beautiful kitchen!",
+      "translationVi": "Marsha, tôi đang ở trong bếp! Bếp đẹp quá!",
+      "startMs": 300,
+      "endMs": 7460
+    },
+    {
+      "id": "s02",
+      "speaker": "Marsha",
+      "text": "It is beautiful. We cook in the kitchen.",
+      "translationVi": "Đẹp thật. Chúng ta nấu ăn trong bếp.",
+      "startMs": 7460,
+      "endMs": 11900
+    },
+    {
+      "id": "s03",
+      "speaker": "Anna",
+      "text": "I eat in the kitchen.",
+      "translationVi": "Tôi ăn trong bếp.",
+      "startMs": 12400,
+      "endMs": 14750
+    },
+    {
+      "id": "s04",
+      "speaker": "Marsha",
+      "text": "We relax in the living room.",
+      "translationVi": "Chúng ta thư giãn trong phòng khách.",
+      "startMs": 15550,
+      "endMs": 18600
+    },
+    {
+      "id": "s05",
+      "speaker": "Anna",
+      "text": "I relax in the living room. Marsha, let's go upstairs!",
+      "translationVi": "Tôi thư giãn trong phòng khách. Marsha, lên tầng trên đi!",
+      "startMs": 19700,
+      "endMs": 24900
+    },
+    {
+      "id": "s06",
+      "speaker": "Marsha",
+      "text": "Anna? Where are you?",
+      "translationVi": "Anna? Bạn đang ở đâu?",
+      "startMs": 26600,
+      "endMs": 29150
+    },
+    {
+      "id": "s07",
+      "speaker": "Anna",
+      "text": "Marsha, I am in the bathroom! I wash in the bathroom.",
+      "translationVi": "Marsha, tôi đang ở trong phòng tắm! Tôi tắm rửa trong phòng tắm.",
+      "startMs": 30700,
+      "endMs": 35600
+    },
+    {
+      "id": "s08",
+      "speaker": "Marsha",
+      "text": "I am in the bedroom. We sleep in the bedroom.",
+      "translationVi": "Tôi đang ở phòng ngủ. Chúng ta ngủ trong phòng ngủ.",
+      "startMs": 36530,
+      "endMs": 40950
+    },
+    {
+      "id": "s09",
+      "speaker": "Anna",
+      "text": "I sleep in the bedroom!",
+      "translationVi": "Tôi ngủ trong phòng ngủ!",
+      "startMs": 41680,
+      "endMs": 43850
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What are Anna and Marsha talking about?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Days of the week"
+        },
+        {
+          "id": "B",
+          "text": "People at school"
+        },
+        {
+          "id": "C",
+          "text": "Rooms in a house"
+        },
+        {
+          "id": "D",
+          "text": "Food and drinks"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Hai người nhắc đến bếp, phòng khách, phòng tắm và phòng ngủ.",
+      "evidenceSegmentIds": [
+        "s01",
+        "s04",
+        "s07",
+        "s08"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Which room does Anna call beautiful at the start?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The kitchen"
+        },
+        {
+          "id": "B",
+          "text": "The bathroom"
+        },
+        {
+          "id": "C",
+          "text": "The bedroom"
+        },
+        {
+          "id": "D",
+          "text": "The living room"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Anna nói căn bếp rất đẹp.",
+      "evidenceSegmentIds": [
+        "s01"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "Where does Marsha say they relax?",
+      "options": [
+        {
+          "id": "A",
+          "text": "In the kitchen"
+        },
+        {
+          "id": "B",
+          "text": "In the garden"
+        },
+        {
+          "id": "C",
+          "text": "In the bathroom"
+        },
+        {
+          "id": "D",
+          "text": "In the living room"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Marsha nói họ thư giãn trong phòng khách.",
+      "evidenceSegmentIds": [
+        "s04"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.basic_dialogues",
+      "prompt": "Where is Anna when Marsha asks where she is?",
+      "options": [
+        {
+          "id": "A",
+          "text": "In the kitchen"
+        },
+        {
+          "id": "B",
+          "text": "In the bathroom"
+        },
+        {
+          "id": "C",
+          "text": "In the living room"
+        },
+        {
+          "id": "D",
+          "text": "In the bedroom"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Anna trả lời mình đang ở phòng tắm.",
+      "evidenceSegmentIds": [
+        "s06",
+        "s07"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Who says she is in the bedroom?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Marsha"
+        },
+        {
+          "id": "B",
+          "text": "Anna"
+        },
+        {
+          "id": "C",
+          "text": "Both friends"
+        },
+        {
+          "id": "D",
+          "text": "Neither friend"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Marsha nói mình đang ở phòng ngủ.",
+      "evidenceSegmentIds": [
+        "s08"
+      ]
+    }
+  ]
+}

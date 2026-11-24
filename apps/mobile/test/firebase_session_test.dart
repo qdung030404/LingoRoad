@@ -5,6 +5,7 @@ import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/core/auth/auth_identity.dart';
 import 'package:mobile/core/config/app_config.dart';
 import 'package:mobile/features/auth/session_controller.dart';
+import 'package:mobile/features/learning/home_cache.dart';
 import 'package:mobile/features/learning/preview_model.dart';
 import 'package:mobile/features/learning/word_library.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -160,17 +161,14 @@ void main() {
       final conflictSession = SessionController(
         client(
           conflictAuth,
-          (_) async => response(
-            {
-              'success': false,
-              'error': {
-                'code': 'AUTH_ACCOUNT_LINK_REQUIRED',
-                'message':
-                    'Email đã thuộc tài khoản cũ. Cần chuyển đổi tài khoản trước khi đăng nhập bằng Firebase.',
-              },
+          (_) async => response({
+            'success': false,
+            'error': {
+              'code': 'AUTH_ACCOUNT_LINK_REQUIRED',
+              'message':
+                  'Email đã thuộc tài khoản cũ. Cần chuyển đổi tài khoản trước khi đăng nhập bằng Firebase.',
             },
-            409,
-          ),
+          }, 409),
         ),
       );
       addTearDown(conflictSession.dispose);
@@ -265,6 +263,59 @@ void main() {
         ),
         isFalse,
       );
+    },
+  );
+
+  test(
+    'Concurrent startup shares requests and uses the lightweight CEFR',
+    () async {
+      final auth = identity();
+      final paths = <String>[];
+      final session = SessionController(
+        client(auth, (o) async {
+          paths.add(Uri.parse(o.path).path);
+          return response(
+            o.path.endsWith('/auth/me')
+                ? {
+                    'id': 'user',
+                    'profile': {'onboardingCompletedAt': 'today'},
+                  }
+                : {
+                    'status': 'COMPLETED',
+                    'estimatedCefr': 'A2',
+                    'currentSessionId': 'assessment',
+                  },
+          );
+        }),
+      );
+      addTearDown(session.dispose);
+      await Future.wait([session.initialize(), session.initialize()]);
+      expect(session.stage, SessionStage.ready);
+      expect(session.placementCefr, 'A2');
+      expect(paths, unorderedEquals(['/auth/me', '/placement/status']));
+    },
+  );
+
+  test(
+    'Home snapshot is scoped by UID and deployment and can be removed',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      HomeCache cache(String uid, [String server = 'https://example.test']) =>
+          HomeCache(server: server, project: 'test-project', uid: uid);
+      final snapshot = <String, dynamic>{
+        'date': homeLearningDate(),
+        'planStatus': 'ready',
+        'totals': {'completedLessonCount': 2},
+        'today': <String, dynamic>{},
+        'days': [],
+        'preferences': <String, dynamic>{},
+      };
+      await cache('first').write(snapshot);
+      expect(await cache('first').read(), snapshot);
+      expect(await cache('second').read(), isNull);
+      expect(await cache('first', 'https://other.test').read(), isNull);
+      await cache('first').clear();
+      expect(await cache('first').read(), isNull);
     },
   );
 

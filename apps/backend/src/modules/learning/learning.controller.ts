@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CheckLearningAnswerDto, LearningCatalogueQuery, LearningHistoryQuery, LearningProgressDto, VersionDto } from './learning.dto';
+import { CheckLearningAnswerDto, HideLearningHistoryDto, LearningCatalogueQuery, LearningHistoryQuery, LearningProgressDto, VersionDto } from './learning.dto';
 import { LearningService } from './learning.service';
 
 @Controller('learning')
@@ -43,7 +43,7 @@ export class LearningController {
   @Post('attempts/:attemptId/answers/:questionId/explain') @HttpCode(200)
   async explain(@CurrentUser('sub') userId: string, @Param('attemptId', ParseUUIDPipe) attemptId: string,
     @Param('questionId') questionId: string) {
-    return { success: true, data: await this.learning.explainReadingAnswer(userId, attemptId, questionId) };
+    return { success: true, data: await this.learning.explainAnswer(userId, attemptId, questionId) };
   }
 
   @Post('attempts/:attemptId/submit') @HttpCode(200)
@@ -58,7 +58,17 @@ export class LearningController {
 
   @Get('history')
   async history(@CurrentUser('sub') userId: string, @Query() query: LearningHistoryQuery) {
-    return { success: true, data: await this.learning.history(userId, query.cursor, query.limit) };
+    return { success: true, data: await this.learning.history(userId, query.cursor, query.limit, query.kind) };
+  }
+
+  @Delete('history/:attemptId') @HttpCode(200)
+  async hideHistory(@CurrentUser('sub') userId: string, @Param('attemptId', ParseUUIDPipe) attemptId: string) {
+    return { success: true, data: await this.learning.hideHistory(userId, attemptId) };
+  }
+
+  @Post('history/hide') @HttpCode(200)
+  async hideHistoryBatch(@CurrentUser('sub') userId: string, @Body() dto: HideLearningHistoryDto) {
+    return { success: true, data: await this.learning.hideHistoryBatch(userId, dto.attemptIds) };
   }
 
   @Get('summary')

@@ -40,7 +40,9 @@ describe('Listening v1 persisted HTTP workflow (test identity guard)', () => {
     await app.init();
     prisma = app.get(PrismaService);
     for (let i = 0; i < 2; i++) {
-      const user = await prisma.user.create({ data: { email: `listening-${randomUUID()}@example.com`, name: 'Listening Test' } });
+      const user = await prisma.user.create({ data: {
+        email: `listening-${randomUUID()}@example.com`, name: 'Listening Test', profile: { create: {} },
+      } });
       users.push(user.id);
       identities.set(`Bearer ${user.id}`, user.id);
     }
@@ -167,4 +169,108 @@ describe('Listening v1 persisted HTTP workflow (test identity guard)', () => {
     const range = await request(app.getHttpServer()).get(content.audioUrl).set('Range', 'bytes=0-43').expect(206);
     assert.equal(range.body.length, 44);
   });
+
+  const extendedPilot = process.env.LINGOROAD_VERIFY_LISTENING_A1_C2 === '1';
+  it('hides chosen completed attempts atomically and preserves progress and pagination', async () => {
+    const row = await createLesson(content);
+    const active = await start(row);
+    await send(owner, 'delete', `/learning/history/${active.id}`).expect(404);
+
+    const complete = async () => {
+      let state = await start(row);
+      for (const question of content.questions) {
+        state = (await send(owner, 'put', `/learning/attempts/${state.id}/answers/${question.id}/check`, {
+          expectedVersion: state.version, optionId: question.correctOptionId,
+        }).expect(200)).body.data;
+      }
+      return (await send(owner, 'post', `/learning/attempts/${state.id}/submit`, {
+        expectedVersion: state.version,
+      }).expect(200)).body.data;
+    };
+    const older = await complete();
+    const middle = await complete();
+    const newest = await complete();
+    const history = '/learning/history?kind=LISTENING&limit=1';
+    const before = (await send(owner, 'get', history).expect(200)).body.data;
+    assert.equal(before.nextCursor, newest.id);
+    const progressBefore = (await send(owner, 'get', '/learning/progress').expect(200)).body.data;
+    const attemptPath = `/learning/history/${newest.id}`;
+    await send(stranger, 'delete', attemptPath).expect(404);
+    await send(owner, 'delete', attemptPath).expect(200);
+    await send(owner, 'delete', attemptPath).expect(200);
+    await send(owner, 'get', `/learning/attempts/${newest.id}`).expect(404);
+    const after = (await send(owner, 'get', history).expect(200)).body.data;
+    assert.equal(after.items[0].id, middle.id);
+    const fromHidden = (await send(owner, 'get', `${history}&cursor=${newest.id}`).expect(200)).body.data;
+    assert.equal(fromHidden.items[0].id, middle.id);
+    const saved = await prisma.learningAttempt.findUniqueOrThrow({
+      where: { id: newest.id }, include: { answers: true },
+    });
+    assert.equal(saved.status, 'COMPLETED');
+    assert.equal(saved.answers.length, 5);
+    assert.ok(saved.historyHiddenAt);
+    const batchPath = '/learning/history/hide';
+    const selected = { attemptIds: [older.id, middle.id] };
+    await send(stranger, 'post', batchPath, selected).expect(404);
+    await send(owner, 'post', batchPath, { attemptIds: [] }).expect(400);
+    await send(owner, 'post', batchPath, { attemptIds: [older.id, older.id] }).expect(400);
+    await send(owner, 'post', batchPath, { attemptIds: [older.id, randomUUID()] }).expect(404);
+    assert.equal(await prisma.learningAttempt.count({
+      where: { id: { in: selected.attemptIds }, historyHiddenAt: null },
+    }), 2);
+    await send(owner, 'post', batchPath, selected).expect(200);
+    await send(owner, 'post', batchPath, selected).expect(200);
+    assert.equal(await prisma.learningAttempt.count({
+      where: { id: { in: selected.attemptIds }, historyHiddenAt: { not: null }, status: 'COMPLETED' },
+    }), 2);
+    const lessonDetail = (await send(owner, 'get', `/learning/lessons/${row.id}`).expect(200)).body.data;
+    assert.equal(lessonDetail.state, 'COMPLETED');
+    assert.equal(lessonDetail.latestResult, null);
+    const progressAfter = (await send(owner, 'get', '/learning/progress').expect(200)).body.data;
+    assert.equal(progressAfter.totals.completedAttemptCount, progressBefore.totals.completedAttemptCount);
+    assert.equal(progressAfter.totals.completedLessonCount, progressBefore.totals.completedLessonCount);
+  });
+
+  if (extendedPilot || process.env.LINGOROAD_VERIFY_LISTENING_PILOT === '1') {
+    it('completes each pilot lesson at its target level and opens its audio evidence', async () => {
+      assert.equal(new URL(process.env.DATABASE_URL).pathname, '/lingoroad_listening_pilot_test');
+      const directory = path.join(__dirname, '../prisma/listening-content', extendedPilot
+        ? 'a1-c2-pilot'
+        : path.join('voa-pilot', process.env.LINGOROAD_VERIFY_LISTENING_WAVE_2 === '1' ? 'wave-2' : ''));
+      const entries = JSON.parse(readFileSync(path.join(directory, 'manifest.json'), 'utf8'));
+      const expectedLevels = extendedPilot ? ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] : ['A1', 'A2', 'B1'];
+      assert.deepEqual([...new Set(entries.map((entry) => entry.level))].sort(), expectedLevels);
+      if (extendedPilot) {
+        assert.deepEqual(expectedLevels.map((level) => entries.filter((entry) => entry.level === level).length),
+          [1, 1, 2, 2, 2, 2]);
+      }
+      const catalogue = (await send(owner, 'get', '/learning/lessons?kind=LISTENING').expect(200)).body.data.items;
+      for (const entry of entries) {
+        const row = await prisma.learningLesson.findUniqueOrThrow({ where: { code: entry.code } });
+        const fixture = JSON.parse(readFileSync(path.join(directory, `${entry.code}-v1.json`), 'utf8'));
+        const card = catalogue.find((item) => item.id === row.id);
+        assert.equal(card?.title, entry.title);
+        assert.equal(card?.cefrLevel, entry.level);
+        assert.equal(card?.questionCount, 5);
+        const range = await request(app.getHttpServer()).get(fixture.audioUrl).set('Range', 'bytes=0-43').expect(206);
+        assert.equal(range.body.subarray(0, 4).toString(), 'RIFF');
+        let state = await start(row);
+        noReview(state);
+        for (const question of fixture.questions) {
+          state = (await send(owner, 'put', `/learning/attempts/${state.id}/answers/${question.id}/check`, {
+            expectedVersion: state.version, optionId: question.correctOptionId,
+          }).expect(200)).body.data;
+          noReview(state);
+        }
+        const done = (await send(owner, 'post', `/learning/attempts/${state.id}/submit`, {
+          expectedVersion: state.version,
+        }).expect(200)).body.data;
+        assert.equal(done.result.correctCount, 5);
+        assert.equal(done.content.transcript, fixture.transcript);
+        assert.deepEqual(done.content.transcriptSegments, fixture.transcriptSegments);
+        assert.deepEqual(done.answers.map((answer) => answer.evidenceSegmentIds),
+          fixture.questions.map((question) => question.evidenceSegmentIds));
+      }
+    });
+  }
 });

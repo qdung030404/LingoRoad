@@ -1,0 +1,286 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-pilot-voa-late-v1.wav",
+  "audioDurationMs": 83900,
+  "preparation": {
+    "situation": "Pete, Anna và Kelly nói chuyện trước khi bắt đầu công việc.",
+    "objective": "Theo dõi trình tự sự việc, quan điểm của Pete và điều Kelly rút ra."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "commute",
+      "meaning": "chuyến đi làm thường ngày",
+      "example": "My commute takes half an hour.",
+      "translation": "Chuyến đi làm thường ngày của tôi mất nửa tiếng."
+    },
+    {
+      "id": "v02",
+      "word": "pond",
+      "meaning": "ao",
+      "example": "We walked around the pond.",
+      "translation": "Chúng tôi đi bộ quanh ao."
+    },
+    {
+      "id": "v03",
+      "word": "point of view",
+      "meaning": "góc nhìn",
+      "example": "I understand your point of view.",
+      "translation": "Tôi hiểu góc nhìn của bạn."
+    }
+  ],
+  "transcript": "Yeah. That's not why we're late. This is why we're late. I had arrived on time at eight a.m. but didn't see Anna. She was standing behind a tree. I think she was hugging it. I always walk to work. But she said that would take too long and that a scooter would be faster. It was awful. I hated it. And it added too much time to our commute. Then Anna stopped by a pond to feed the birds. She had named them after characters from books and yelled the names out loud. Romeo, Juliet, Sherlock! By the time she had fed all the birds, we were late. This is what I think. You two see the same event very differently. Does this happen often with you two? Yes. No. No. Yes. What are you talking about? Okay. This is good. This is good. It's good to see things differently. I have an idea. We will call the show “He Said, She Said”. For every story, you tell a different point of view.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Pete",
+      "text": "Yeah. That's not why we're late. This is why we're late.",
+      "translationVi": "Ừ. Đó không phải lý do chúng tôi đến muộn. Lý do là thế này.",
+      "startMs": 290,
+      "endMs": 4950
+    },
+    {
+      "id": "s02",
+      "speaker": "Pete",
+      "text": "I had arrived on time at eight a.m. but didn't see Anna.",
+      "translationVi": "Tôi đến đúng tám giờ sáng nhưng không thấy Anna.",
+      "startMs": 5740,
+      "endMs": 10380
+    },
+    {
+      "id": "s03",
+      "speaker": "Pete",
+      "text": "She was standing behind a tree. I think she was hugging it.",
+      "translationVi": "Cô ấy đứng sau một cái cây. Tôi nghĩ cô ấy đang ôm nó.",
+      "startMs": 10590,
+      "endMs": 14240
+    },
+    {
+      "id": "s04",
+      "speaker": "Pete",
+      "text": "I always walk to work. But she said that would take too long and that a scooter would be faster.",
+      "translationVi": "Tôi luôn đi bộ đi làm. Nhưng cô ấy nói thế sẽ quá lâu và đi xe scooter sẽ nhanh hơn.",
+      "startMs": 14630,
+      "endMs": 22450
+    },
+    {
+      "id": "s05",
+      "speaker": "Pete",
+      "text": "It was awful. I hated it. And it added too much time to our commute.",
+      "translationVi": "Thật tệ. Tôi ghét việc đó. Nó làm chuyến đi làm của chúng tôi lâu hơn nhiều.",
+      "startMs": 22880,
+      "endMs": 29660
+    },
+    {
+      "id": "s06",
+      "speaker": "Pete",
+      "text": "Then Anna stopped by a pond to feed the birds.",
+      "translationVi": "Sau đó Anna dừng ở một cái ao để cho chim ăn.",
+      "startMs": 30080,
+      "endMs": 34970
+    },
+    {
+      "id": "s07",
+      "speaker": "Pete",
+      "text": "She had named them after characters from books and yelled the names out loud. Romeo, Juliet, Sherlock!",
+      "translationVi": "Cô ấy đặt tên chúng theo các nhân vật trong sách và gọi to tên nào là Romeo, Juliet, Sherlock!",
+      "startMs": 35480,
+      "endMs": 46490
+    },
+    {
+      "id": "s08",
+      "speaker": "Pete",
+      "text": "By the time she had fed all the birds, we were late.",
+      "translationVi": "Khi cô ấy cho tất cả chim ăn xong thì chúng tôi đã muộn.",
+      "startMs": 47180,
+      "endMs": 52480
+    },
+    {
+      "id": "s09",
+      "speaker": "Kelly",
+      "text": "This is what I think. You two see the same event very differently. Does this happen often with you two?",
+      "translationVi": "Tôi nghĩ thế này. Hai bạn nhìn cùng một sự việc rất khác nhau. Hai bạn có thường như thế không?",
+      "startMs": 52630,
+      "endMs": 61590
+    },
+    {
+      "id": "s10",
+      "speaker": "Pete và Anna",
+      "text": "Yes. No. No. Yes. What are you talking about?",
+      "translationVi": "Có. Không. Không. Có. Bạn nói gì vậy?",
+      "startMs": 61950,
+      "endMs": 66910
+    },
+    {
+      "id": "s11",
+      "speaker": "Kelly",
+      "text": "Okay. This is good. This is good. It's good to see things differently. I have an idea.",
+      "translationVi": "Được rồi. Thế này hay đấy. Có góc nhìn khác nhau là điều tốt. Tôi có một ý này.",
+      "startMs": 66910,
+      "endMs": 74230
+    },
+    {
+      "id": "s12",
+      "speaker": "Kelly",
+      "text": "We will call the show “He Said, She Said”. For every story, you tell a different point of view.",
+      "translationVi": "Ta sẽ gọi chương trình là “Chuyện anh kể, chuyện cô kể”. Với mỗi câu chuyện, mỗi bạn sẽ kể một góc nhìn khác nhau.",
+      "startMs": 74780,
+      "endMs": 83600
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What is Pete mainly trying to explain?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Why he and Anna arrived late"
+        },
+        {
+          "id": "B",
+          "text": "Why he prefers to eat outdoors"
+        },
+        {
+          "id": "C",
+          "text": "How he met Kelly"
+        },
+        {
+          "id": "D",
+          "text": "How he plans to buy a scooter"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Pete giải thích theo góc nhìn của mình lý do họ đến muộn.",
+      "evidenceSegmentIds": [
+        "s01",
+        "s02",
+        "s05",
+        "s08"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Why did Anna suggest using a scooter?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Pete had hurt his foot."
+        },
+        {
+          "id": "B",
+          "text": "They had to carry heavy bags."
+        },
+        {
+          "id": "C",
+          "text": "She thought it would save time."
+        },
+        {
+          "id": "D",
+          "text": "They wanted to visit the pond first."
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Cô ấy cho rằng đi bộ lâu hơn và xe scooter sẽ nhanh hơn.",
+      "evidenceSegmentIds": [
+        "s04"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "What did Anna do after stopping by the pond?",
+      "options": [
+        {
+          "id": "A",
+          "text": "She looked for a book."
+        },
+        {
+          "id": "B",
+          "text": "She called Kelly."
+        },
+        {
+          "id": "C",
+          "text": "She waited for Pete to arrive."
+        },
+        {
+          "id": "D",
+          "text": "She fed the birds."
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Anna dừng lại để cho chim ăn.",
+      "evidenceSegmentIds": [
+        "s06",
+        "s07"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.speaker_attitude",
+      "prompt": "How does Pete feel about the scooter trip?",
+      "options": [
+        {
+          "id": "A",
+          "text": "He would happily repeat it."
+        },
+        {
+          "id": "B",
+          "text": "He strongly disliked it."
+        },
+        {
+          "id": "C",
+          "text": "He thinks it went as planned."
+        },
+        {
+          "id": "D",
+          "text": "He is undecided about it."
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Pete nói chuyến đi rất tệ và anh ghét nó.",
+      "evidenceSegmentIds": [
+        "s04",
+        "s05"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "How does Kelly want to use their disagreement?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To present two versions of each story"
+        },
+        {
+          "id": "B",
+          "text": "To choose who should host alone"
+        },
+        {
+          "id": "C",
+          "text": "To avoid stories they disagree about"
+        },
+        {
+          "id": "D",
+          "text": "To have them agree before filming"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Kelly xem hai góc nhìn khác nhau là ý tưởng cho chương trình.",
+      "evidenceSegmentIds": [
+        "s09",
+        "s11",
+        "s12"
+      ]
+    }
+  ]
+}

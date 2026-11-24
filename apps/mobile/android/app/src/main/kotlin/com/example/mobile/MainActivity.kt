@@ -4,6 +4,7 @@ import android.os.SystemClock
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterActivity() {
     private var conversationAudio: ConversationAudioCapture? = null
@@ -15,11 +16,18 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 try {
                     when (call.method) {
-                        "start" -> { capture.start(call.argument<String>("trackId")!!); result.success(null) }
+                        "start" -> {
+                            capture.start(call.argument<String>("trackId")!!, call.argument<Boolean>("muted") == true)
+                            result.success(null)
+                        }
                         "speech" -> { capture.speech(call.argument<Boolean>("started") == true, call.argument<String>("itemId")); result.success(null) }
                         "mute" -> { capture.mute(call.argument<Boolean>("muted") == true); result.success(null) }
+                        "amplitudeDb" -> result.success(capture.amplitudeDb())
                         "stop" -> result.success(capture.stop())
                         "cancel" -> { capture.cancel(); result.success(null) }
+                        "savedRecordingDirectory" -> {
+                            result.success(File(noBackupFilesDir, "conversation-recordings").absolutePath)
+                        }
                         else -> result.notImplemented()
                     }
                 } catch (error: Exception) {

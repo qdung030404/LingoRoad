@@ -1,0 +1,234 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-valkyrie-v1.wav",
+  "audioDurationMs": 34445,
+  "preparation": {
+    "situation": "Bạn nghe người kể chuyện thuật lại hành trình của con tàu Valkyrie, từ lúc xếp hành lý đến khi cập bờ.",
+    "objective": "Theo dõi các mốc thời gian, hướng đi và lý do người dân ra đón tàu."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "cargo",
+      "meaning": "hàng chuyên chở",
+      "example": "The crew checked the cargo.",
+      "translation": "Thủy thủ đoàn kiểm tra hàng hóa."
+    },
+    {
+      "id": "v02",
+      "word": "sight",
+      "meaning": "trông thấy từ xa",
+      "example": "We sighted an island at noon.",
+      "translation": "Chúng tôi trông thấy một hòn đảo vào buổi trưa."
+    },
+    {
+      "id": "v03",
+      "word": "vessel",
+      "meaning": "tàu, thuyền",
+      "example": "A small vessel entered the harbour.",
+      "translation": "Một con tàu nhỏ tiến vào cảng."
+    }
+  ],
+  "transcript": "On the second of the month, at two in the morning, our precious cargo of luggage was taken on board the good ship Valkyrie. On the eleventh day we sighted Cape Portland, over which towered Mount Myrdals Yokul, which, the weather being clear, we made out very readily. The Valkyrie kept off the coast, steering to the westward. On all sides were to be seen whole schools of whales and sharks. Nearly the whole population of the town was on foot to see us land. The fact was that scarcely any one of them but expected some goods by the periodical vessel.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Narrator",
+      "text": "On the second of the month, at two in the morning, our precious cargo of luggage was taken on board the good ship Valkyrie.",
+      "translationVi": "Ngày mùng hai, lúc hai giờ sáng, số hành lý quý giá của chúng tôi được đưa lên con tàu Valkyrie.",
+      "startMs": 0,
+      "endMs": 6950
+    },
+    {
+      "id": "s02",
+      "speaker": "Narrator",
+      "text": "On the eleventh day we sighted Cape Portland, over which towered Mount Myrdals Yokul, which, the weather being clear, we made out very readily.",
+      "translationVi": "Vào ngày thứ mười một, chúng tôi nhìn thấy mũi Portland. Núi Myrdals Yokul sừng sững phía trên và hiện ra rất rõ nhờ trời quang.",
+      "startMs": 7200,
+      "endMs": 15310
+    },
+    {
+      "id": "s03",
+      "speaker": "Narrator",
+      "text": "The Valkyrie kept off the coast, steering to the westward.",
+      "translationVi": "Tàu Valkyrie giữ khoảng cách với bờ và lái về phía tây.",
+      "startMs": 15560,
+      "endMs": 19405
+    },
+    {
+      "id": "s04",
+      "speaker": "Narrator",
+      "text": "On all sides were to be seen whole schools of whales and sharks.",
+      "translationVi": "Nhìn về phía nào cũng thấy từng đàn cá voi và cá mập.",
+      "startMs": 19655,
+      "endMs": 24185
+    },
+    {
+      "id": "s05",
+      "speaker": "Narrator",
+      "text": "Nearly the whole population of the town was on foot to see us land.",
+      "translationVi": "Gần như cả thị trấn đổ ra xem chúng tôi lên bờ.",
+      "startMs": 24435,
+      "endMs": 28335
+    },
+    {
+      "id": "s06",
+      "speaker": "Narrator",
+      "text": "The fact was that scarcely any one of them but expected some goods by the periodical vessel.",
+      "translationVi": "Thực ra, hầu như ai trong số họ cũng đang chờ hàng từ chuyến tàu định kỳ này.",
+      "startMs": 28585,
+      "endMs": 34445
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "What does the narrator describe?",
+      "options": [
+        {
+          "id": "A",
+          "text": "A voyage from loading to landfall"
+        },
+        {
+          "id": "B",
+          "text": "A storm that cuts a voyage short"
+        },
+        {
+          "id": "C",
+          "text": "A search for a missing vessel"
+        },
+        {
+          "id": "D",
+          "text": "A day spent fishing ashore"
+        }
+      ],
+      "correctOptionId": "A",
+      "skillCode": "listening.gist",
+      "evidenceSegmentIds": [
+        "s01",
+        "s02",
+        "s05"
+      ],
+      "explanation": "Người kể theo hành trình từ lúc hành lý lên tàu đến lúc đoàn lên bờ."
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "When was the luggage taken aboard?",
+      "options": [
+        {
+          "id": "A",
+          "text": "At noon on the second"
+        },
+        {
+          "id": "B",
+          "text": "At two in the morning on the second"
+        },
+        {
+          "id": "C",
+          "text": "At dawn on the eleventh"
+        },
+        {
+          "id": "D",
+          "text": "At two in the afternoon on the eleventh"
+        }
+      ],
+      "correctOptionId": "B",
+      "skillCode": "listening.numbers_dates_times",
+      "evidenceSegmentIds": [
+        "s01"
+      ],
+      "explanation": "Cụm “on the second of the month, at two in the morning” cho biết cả ngày và giờ."
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "Why was the mountain easy to see?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The ship stopped directly beneath it."
+        },
+        {
+          "id": "B",
+          "text": "A lighthouse lit the summit."
+        },
+        {
+          "id": "C",
+          "text": "The weather was clear."
+        },
+        {
+          "id": "D",
+          "text": "The crew used a telescope."
+        }
+      ],
+      "correctOptionId": "C",
+      "skillCode": "listening.detail",
+      "evidenceSegmentIds": [
+        "s02"
+      ],
+      "explanation": "Người kể giải thích rằng trời quang nên có thể nhìn rõ núi."
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "Which way did the ship steer?",
+      "options": [
+        {
+          "id": "A",
+          "text": "North"
+        },
+        {
+          "id": "B",
+          "text": "East"
+        },
+        {
+          "id": "C",
+          "text": "South"
+        },
+        {
+          "id": "D",
+          "text": "West"
+        }
+      ],
+      "correctOptionId": "D",
+      "skillCode": "listening.directions",
+      "evidenceSegmentIds": [
+        "s03"
+      ],
+      "explanation": "“Steering to the westward” nghĩa là lái tàu về phía tây."
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "Why did so many townspeople come to the landing?",
+      "options": [
+        {
+          "id": "A",
+          "text": "They were waiting for supplies."
+        },
+        {
+          "id": "B",
+          "text": "They wanted to see the whales."
+        },
+        {
+          "id": "C",
+          "text": "They were leaving on holiday."
+        },
+        {
+          "id": "D",
+          "text": "They had come to meet the captain."
+        }
+      ],
+      "correctOptionId": "A",
+      "skillCode": "listening.specific_information",
+      "evidenceSegmentIds": [
+        "s05",
+        "s06"
+      ],
+      "explanation": "Con tàu chạy định kỳ mang theo hàng mà dân thị trấn đang đợi."
+    }
+  ]
+}

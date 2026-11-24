@@ -1,0 +1,399 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-pilot-voa-busy-v1.wav",
+  "audioDurationMs": 77100,
+  "preparation": {
+    "situation": "Anna đi gặp đồng nghiệp tại nơi làm việc.",
+    "objective": "Theo dõi lý do Anna muốn gặp mọi người và khi nào cô có thể quay lại."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "colleague",
+      "meaning": "đồng nghiệp",
+      "example": "A colleague helped me today.",
+      "translation": "Một đồng nghiệp đã giúp tôi hôm nay."
+    },
+    {
+      "id": "v02",
+      "word": "studio",
+      "meaning": "phòng thu",
+      "example": "The team works in a studio.",
+      "translation": "Nhóm làm việc trong phòng thu."
+    },
+    {
+      "id": "v03",
+      "word": "come by",
+      "meaning": "ghé qua",
+      "example": "Come by when you have time.",
+      "translation": "Hãy ghé qua khi bạn có thời gian."
+    }
+  ],
+  "transcript": "Today is a new day! Today I want to apologize to my co-workers. Hi, Anne. Are you busy? Hi, Anna. Yes. At ten a.m. I am writing. Every day I do my morning show. Sorry! Okay. See you later, maybe. Maybe I'll see you later. Hi, Jonathan. Are you busy? Yes, I'm busy. When the studio light is on, I am recording my evening show. Right. Sorry about yesterday. No worries. May I see the studio? Maybe another time. Right now I am busy. Sure. Okay, bye. Bye. Hi, Amelia! Are you busy? I'm a little busy. I want to say I'm sorry for yesterday. It's okay, Anna. Well, I am sorry. It's okay, Anna. Come by this afternoon. Okay. Anna. Yes, Ms. Weaver. Are you busy? Yes, Ms. Weaver. I am busy. My office. Five p.m. Five p.m.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Anna",
+      "text": "Today is a new day! Today I want to apologize to my co-workers.",
+      "translationVi": "Hôm nay là một ngày mới! Hôm nay tôi muốn xin lỗi các đồng nghiệp.",
+      "startMs": 60,
+      "endMs": 5670
+    },
+    {
+      "id": "s02",
+      "speaker": "Anna",
+      "text": "Hi, Anne. Are you busy?",
+      "translationVi": "Chào Anne. Bạn đang bận à?",
+      "startMs": 7660,
+      "endMs": 9960
+    },
+    {
+      "id": "s03",
+      "speaker": "Anne",
+      "text": "Hi, Anna. Yes. At ten a.m. I am writing. Every day I do my morning show. Sorry!",
+      "translationVi": "Chào Anna. Có. Lúc mười giờ sáng tôi đang viết. Ngày nào tôi cũng làm chương trình buổi sáng. Xin lỗi nhé!",
+      "startMs": 10240,
+      "endMs": 19410
+    },
+    {
+      "id": "s04",
+      "speaker": "Anna",
+      "text": "Okay. See you later, maybe.",
+      "translationVi": "Được rồi. Có lẽ gặp lại sau nhé.",
+      "startMs": 19800,
+      "endMs": 23900
+    },
+    {
+      "id": "s05",
+      "speaker": "Anne",
+      "text": "Maybe I'll see you later.",
+      "translationVi": "Có lẽ lát nữa gặp lại bạn.",
+      "startMs": 24620,
+      "endMs": 26300
+    },
+    {
+      "id": "s06",
+      "speaker": "Anna",
+      "text": "Hi, Jonathan. Are you busy?",
+      "translationVi": "Chào Jonathan. Bạn đang bận à?",
+      "startMs": 27180,
+      "endMs": 29630
+    },
+    {
+      "id": "s07",
+      "speaker": "Jonathan",
+      "text": "Yes, I'm busy. When the studio light is on, I am recording my evening show.",
+      "translationVi": "Có, tôi đang bận. Khi đèn phòng thu sáng là tôi đang thu chương trình buổi tối.",
+      "startMs": 29880,
+      "endMs": 35830
+    },
+    {
+      "id": "s08",
+      "speaker": "Anna",
+      "text": "Right. Sorry about yesterday.",
+      "translationVi": "Tôi hiểu. Xin lỗi vì chuyện hôm qua.",
+      "startMs": 35930,
+      "endMs": 38120
+    },
+    {
+      "id": "s09",
+      "speaker": "Jonathan",
+      "text": "No worries.",
+      "translationVi": "Không sao.",
+      "startMs": 38600,
+      "endMs": 39320
+    },
+    {
+      "id": "s10",
+      "speaker": "Anna",
+      "text": "May I see the studio?",
+      "translationVi": "Tôi xem phòng thu được không?",
+      "startMs": 39740,
+      "endMs": 41020
+    },
+    {
+      "id": "s11",
+      "speaker": "Jonathan",
+      "text": "Maybe another time. Right now I am busy.",
+      "translationVi": "Để lần khác nhé. Bây giờ tôi đang bận.",
+      "startMs": 41060,
+      "endMs": 44440
+    },
+    {
+      "id": "s12",
+      "speaker": "Anna",
+      "text": "Sure. Okay, bye.",
+      "translationVi": "Được chứ. Vậy chào nhé.",
+      "startMs": 44810,
+      "endMs": 47730
+    },
+    {
+      "id": "s13",
+      "speaker": "Jonathan",
+      "text": "Bye.",
+      "translationVi": "Chào bạn.",
+      "startMs": 47900,
+      "endMs": 48560
+    },
+    {
+      "id": "s14",
+      "speaker": "Anna",
+      "text": "Hi, Amelia! Are you busy?",
+      "translationVi": "Chào Amelia! Bạn đang bận à?",
+      "startMs": 48590,
+      "endMs": 51050
+    },
+    {
+      "id": "s15",
+      "speaker": "Amelia",
+      "text": "I'm a little busy.",
+      "translationVi": "Tôi hơi bận.",
+      "startMs": 51250,
+      "endMs": 52490
+    },
+    {
+      "id": "s16",
+      "speaker": "Anna",
+      "text": "I want to say I'm sorry for yesterday.",
+      "translationVi": "Tôi muốn xin lỗi vì chuyện hôm qua.",
+      "startMs": 52650,
+      "endMs": 56710
+    },
+    {
+      "id": "s17",
+      "speaker": "Amelia",
+      "text": "It's okay, Anna.",
+      "translationVi": "Không sao đâu, Anna.",
+      "startMs": 56980,
+      "endMs": 58120
+    },
+    {
+      "id": "s18",
+      "speaker": "Anna",
+      "text": "Well, I am sorry.",
+      "translationVi": "Tôi thật sự xin lỗi.",
+      "startMs": 58340,
+      "endMs": 59780
+    },
+    {
+      "id": "s19",
+      "speaker": "Amelia",
+      "text": "It's okay, Anna. Come by this afternoon.",
+      "translationVi": "Không sao đâu, Anna. Chiều nay ghé qua nhé.",
+      "startMs": 60080,
+      "endMs": 62550
+    },
+    {
+      "id": "s20",
+      "speaker": "Anna",
+      "text": "Okay.",
+      "translationVi": "Được rồi.",
+      "startMs": 63170,
+      "endMs": 63810
+    },
+    {
+      "id": "s21",
+      "speaker": "Ms. Weaver",
+      "text": "Anna.",
+      "translationVi": "Anna.",
+      "startMs": 64530,
+      "endMs": 65420
+    },
+    {
+      "id": "s22",
+      "speaker": "Anna",
+      "text": "Yes, Ms. Weaver.",
+      "translationVi": "Vâng, bà Weaver.",
+      "startMs": 65970,
+      "endMs": 67620
+    },
+    {
+      "id": "s23",
+      "speaker": "Ms. Weaver",
+      "text": "Are you busy?",
+      "translationVi": "Cô đang bận à?",
+      "startMs": 67840,
+      "endMs": 68610
+    },
+    {
+      "id": "s24",
+      "speaker": "Anna",
+      "text": "Yes, Ms. Weaver. I am busy.",
+      "translationVi": "Vâng, bà Weaver. Tôi đang bận.",
+      "startMs": 68750,
+      "endMs": 70890
+    },
+    {
+      "id": "s25",
+      "speaker": "Ms. Weaver",
+      "text": "My office. Five p.m.",
+      "translationVi": "Đến văn phòng tôi. Năm giờ chiều.",
+      "startMs": 71100,
+      "endMs": 73250
+    },
+    {
+      "id": "s26",
+      "speaker": "Anna",
+      "text": "Five p.m.",
+      "translationVi": "Năm giờ chiều.",
+      "startMs": 75510,
+      "endMs": 76500
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "Why does Anna want to talk to her colleagues?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To ask for a new job"
+        },
+        {
+          "id": "B",
+          "text": "To invite them to lunch"
+        },
+        {
+          "id": "C",
+          "text": "To say sorry"
+        },
+        {
+          "id": "D",
+          "text": "To ask when work ends"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Anna nói muốn xin lỗi họ vì chuyện hôm qua.",
+      "evidenceSegmentIds": [
+        "s01",
+        "s08",
+        "s16"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What is Anne doing at ten in the morning?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Recording a show"
+        },
+        {
+          "id": "B",
+          "text": "Writing"
+        },
+        {
+          "id": "C",
+          "text": "Visiting the studio"
+        },
+        {
+          "id": "D",
+          "text": "Having lunch"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Anne nói mình đang viết lúc mười giờ sáng.",
+      "evidenceSegmentIds": [
+        "s03"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "Why can't Anna see Jonathan's studio right away?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Jonathan is recording a show."
+        },
+        {
+          "id": "B",
+          "text": "He cannot find the key."
+        },
+        {
+          "id": "C",
+          "text": "The studio is closed for the day."
+        },
+        {
+          "id": "D",
+          "text": "He is waiting for Amelia."
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Jonathan đang thu chương trình nên đề nghị để lúc khác.",
+      "evidenceSegmentIds": [
+        "s07",
+        "s10",
+        "s11"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.numbers_dates_times",
+      "prompt": "When does Amelia tell Anna to come back?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Tomorrow morning"
+        },
+        {
+          "id": "B",
+          "text": "At ten in the morning"
+        },
+        {
+          "id": "C",
+          "text": "Next week"
+        },
+        {
+          "id": "D",
+          "text": "This afternoon"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Amelia bảo Anna ghé lại vào buổi chiều.",
+      "evidenceSegmentIds": [
+        "s18",
+        "s19"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Who asks Anna to come to an office at five?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Anne"
+        },
+        {
+          "id": "B",
+          "text": "Ms. Weaver"
+        },
+        {
+          "id": "C",
+          "text": "Jonathan"
+        },
+        {
+          "id": "D",
+          "text": "Amelia"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Bà Weaver gọi Anna đến văn phòng lúc năm giờ chiều.",
+      "evidenceSegmentIds": [
+        "s21",
+        "s22",
+        "s25",
+        "s26"
+      ]
+    }
+  ]
+}

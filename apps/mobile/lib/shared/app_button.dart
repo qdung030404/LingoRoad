@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui' as ui;
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_radius.dart';
 import '../core/theme/app_typography.dart';
@@ -77,7 +76,6 @@ class CustomAppButton extends StatelessWidget {
                           fontSize: fontSize,
                           fontWeight: FontWeight.w500,
                           letterSpacing: -fontSize * .03,
-                          fontVariations: const [ui.FontVariation('wght', 500)],
                         ),
                       ),
                     ),

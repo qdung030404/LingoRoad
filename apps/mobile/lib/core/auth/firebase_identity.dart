@@ -38,7 +38,8 @@ class FirebaseIdentity implements AuthIdentity {
   Future<void> _initialize() async {
     if (_emulatorHost.isNotEmpty &&
         (kReleaseMode ||
-            const String.fromEnvironment('APP_ENV', defaultValue: 'dev') != 'dev')) {
+            const String.fromEnvironment('APP_ENV', defaultValue: 'dev') !=
+                'dev')) {
       throw const ApiFailure(
         'Chỉ được dùng Firebase Auth Emulator trong môi trường dev.',
         code: 'AUTH_CONFIGURATION',
@@ -85,7 +86,10 @@ class FirebaseIdentity implements AuthIdentity {
   }
 
   @override
-  bool get signedIn => _auth?.currentUser != null;
+  bool get signedIn => currentUid != null;
+
+  String? get currentUid => _auth?.currentUser?.uid;
+  String? get projectId => _auth?.app.options.projectId;
   @override
   Stream<String?> get userChanges async* {
     if (_auth == null) {
@@ -141,7 +145,9 @@ class FirebaseIdentity implements AuthIdentity {
   Future<void> signInWithGoogle() => _run((auth) async {
     if (kIsWeb) {
       if (kDebugMode) {
-        debugPrint('[FirebaseIdentity] Đăng nhập Google trên Web (signInWithPopup)...');
+        debugPrint(
+          '[FirebaseIdentity] Đăng nhập Google trên Web (signInWithPopup)...',
+        );
       }
       await auth.signInWithPopup(GoogleAuthProvider());
       return;
@@ -150,23 +156,37 @@ class FirebaseIdentity implements AuthIdentity {
     if (kDebugMode) {
       debugPrint('[FirebaseIdentity] === BẮT ĐẦU ĐĂNG KÝ/ĐĂNG NHẬP GOOGLE ===');
       debugPrint('[FirebaseIdentity] Cấu hình:');
-      debugPrint('  - Project ID: ${_projectId.isEmpty ? "<DefaultFirebaseOptions>" : _projectId}');
-      debugPrint('  - Server Client ID: ${_serverId.isEmpty ? "<Trống>" : "<Configured>"}');
-      debugPrint('  - Client ID: ${_clientId.isEmpty ? "<Trống>" : "<Configured>"}');
+      debugPrint(
+        '  - Project ID: ${_projectId.isEmpty ? "<DefaultFirebaseOptions>" : _projectId}',
+      );
+      debugPrint(
+        '  - Server Client ID: ${_serverId.isEmpty ? "<Trống>" : "<Configured>"}',
+      );
+      debugPrint(
+        '  - Client ID: ${_clientId.isEmpty ? "<Trống>" : "<Configured>"}',
+      );
     }
 
     try {
-      if (kDebugMode) debugPrint('[FirebaseIdentity] 1. Khởi tạo GoogleSignIn instance...');
+      if (kDebugMode) {
+        debugPrint('[FirebaseIdentity] 1. Khởi tạo GoogleSignIn instance...');
+      }
       await _ensureGoogleSetup();
 
-      if (kDebugMode) debugPrint('[FirebaseIdentity] 2. Mở popup tài khoản Google (authenticate)...');
+      if (kDebugMode) {
+        debugPrint(
+          '[FirebaseIdentity] 2. Mở popup tài khoản Google (authenticate)...',
+        );
+      }
       final user = await GoogleSignIn.instance.authenticate();
       final idToken = user.authentication.idToken;
 
       if (kDebugMode) {
         debugPrint('[FirebaseIdentity] 3. Google Authenticate thành công:');
         debugPrint('  - Display Name: ${user.displayName}');
-        debugPrint('  - idToken tồn tại: ${idToken != null && idToken.isNotEmpty}');
+        debugPrint(
+          '  - idToken tồn tại: ${idToken != null && idToken.isNotEmpty}',
+        );
       }
 
       if (idToken == null || idToken.isEmpty) {
@@ -176,18 +196,28 @@ class FirebaseIdentity implements AuthIdentity {
         );
       }
 
-      if (kDebugMode) debugPrint('[FirebaseIdentity] 4. Đăng nhập Firebase Auth với Google Credential...');
+      if (kDebugMode) {
+        debugPrint(
+          '[FirebaseIdentity] 4. Đăng nhập Firebase Auth với Google Credential...',
+        );
+      }
       final credential = await auth.signInWithCredential(
         GoogleAuthProvider.credential(idToken: idToken),
       );
       if (kDebugMode) {
-        debugPrint('[FirebaseIdentity] 5. Firebase Auth thành công: UID=${credential.user?.uid}');
-        debugPrint('[FirebaseIdentity] === HOÀN TẤT ĐĂNG KÝ/ĐĂNG NHẬP GOOGLE ===');
+        debugPrint(
+          '[FirebaseIdentity] 5. Firebase Auth thành công: UID=${credential.user?.uid}',
+        );
+        debugPrint(
+          '[FirebaseIdentity] === HOÀN TẤT ĐĂNG KÝ/ĐĂNG NHẬP GOOGLE ===',
+        );
       }
     } on GoogleSignInException catch (e, st) {
       _googleSetup = null;
       if (kDebugMode) {
-        debugPrint('[FirebaseIdentity] ❌ LỖI GoogleSignInException: code=${e.code}, chi tiết=$e');
+        debugPrint(
+          '[FirebaseIdentity] ❌ LỖI GoogleSignInException: code=${e.code}, chi tiết=$e',
+        );
         debugPrint('[FirebaseIdentity] StackTrace:\n$st');
       }
       if (e.code == GoogleSignInExceptionCode.canceled) {
@@ -203,14 +233,18 @@ class FirebaseIdentity implements AuthIdentity {
     } on FirebaseAuthException catch (e, st) {
       _googleSetup = null;
       if (kDebugMode) {
-        debugPrint('[FirebaseIdentity] ❌ LỖI FirebaseAuthException: code=${e.code}, message=${e.message}');
+        debugPrint(
+          '[FirebaseIdentity] ❌ LỖI FirebaseAuthException: code=${e.code}, message=${e.message}',
+        );
         debugPrint('[FirebaseIdentity] StackTrace:\n$st');
       }
       throw _failure(e);
     } catch (e, st) {
       _googleSetup = null;
       if (kDebugMode) {
-        debugPrint('[FirebaseIdentity] ❌ LỖI không xác định (${e.runtimeType}): $e');
+        debugPrint(
+          '[FirebaseIdentity] ❌ LỖI không xác định (${e.runtimeType}): $e',
+        );
         debugPrint('[FirebaseIdentity] StackTrace:\n$st');
       }
       if (e is ApiFailure) rethrow;

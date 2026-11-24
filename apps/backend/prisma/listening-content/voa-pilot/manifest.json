@@ -1,0 +1,72 @@
+[
+  {
+    "code": "listening-pilot-voa-weather",
+    "title": "Anna and Her Phone",
+    "level": "A1",
+    "description": "Anna sắp ra ngoài và nói chuyện với điện thoại. Bài thử nghiệm A1. Âm thanh: VOA Learning English (learningenglish.voanews.com).",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-lesson-9-is-it-cold/3261789.html",
+      "audioUrl": "https://voa-audio.voanews.eu/vle/2016/04/01/fe67e651-87d0-4b62-9c68-749b2d3c2f21_hq.mp3",
+      "localFile": "weather.mp3",
+      "sha256": "b99aa2e6163a830ab6e6f9377ee6dc5865eddd86b22fe299a3b560b27751e39a",
+      "startMs": 20600,
+      "endMs": 66200
+    }
+  },
+  {
+    "code": "listening-pilot-voa-gym",
+    "title": "Looking Around the Building",
+    "level": "A2",
+    "description": "Anna cần tìm một nơi trong tòa nhà và nhờ Pete chỉ giúp. Bài thử nghiệm A2. Âm thanh: VOA Learning English (learningenglish.voanews.com).",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-lesson-6-where-is-the-gym/3225958.html",
+      "audioUrl": "https://voa-audio.voanews.eu/vle/2016/03/10/66b63229-1dc5-40ab-886d-1f4b891adf6b_hq.mp3",
+      "localFile": "gym.mp3",
+      "sha256": "9f6c3de4e4e88ab46a7bfe9ffff275a60edfbbe1064c064ff2b3c1236db7c0f5",
+      "startMs": 25000,
+      "endMs": 107300
+    }
+  },
+  {
+    "code": "listening-pilot-voa-friday",
+    "title": "Are We Both Free?",
+    "level": "A2",
+    "description": "Anna và Marsha so lịch để tìm lúc có thể gặp nhau. Bài thử nghiệm A2. Âm thanh: VOA Learning English (learningenglish.voanews.com).",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/are-you-free-on-friday-lets-learn-english/3355785.html",
+      "audioUrl": "https://voa-audio.voanews.eu/vle/2016/06/07/3cb6442c-001f-4fd7-bf37-7507a49e89e4_hq.mp3",
+      "localFile": "friday.mp3",
+      "sha256": "e2048686045100634c530c584be95771ebb73df9bcc4791871795baf00cee51a",
+      "startMs": 67000,
+      "endMs": 143200
+    }
+  },
+  {
+    "code": "listening-pilot-voa-skills",
+    "title": "Anna and Pete at a Café",
+    "level": "A2",
+    "description": "Anna trò chuyện với Pete ở một quán cà phê. Bài thử nghiệm A2. Âm thanh: VOA Learning English (learningenglish.voanews.com).",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-lesson-20-what-can-you-do/3384429.html",
+      "audioUrl": "https://voa-audio.voanews.eu/vle/2016/06/29/8225db0f-179b-453f-92bb-50f548175c42_hq.mp3",
+      "localFile": "skills.mp3",
+      "sha256": "1261ee461b7aa81f998149137cf66c6485197a0cca2029242e74f3d896a5dbb3",
+      "startMs": 118650,
+      "endMs": 184500
+    }
+  },
+  {
+    "code": "listening-pilot-voa-interview",
+    "title": "Pete Meets Ms. Weaver",
+    "level": "B1",
+    "description": "Pete đi phỏng vấn và gặp lại Anna sau đó. Bài thử nghiệm B1. Âm thanh: VOA Learning English (learningenglish.voanews.com).",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-level-2-lesson-2/3960471.html",
+      "audioUrl": "https://voa-audio.voanews.eu/vle/2017/09/05/676d9800-cee0-4a59-9e79-b9378e0061ad_hq.mp3",
+      "localFile": "interview.mp3",
+      "sha256": "44bb1411913f7b46c52e84c38d03a355c4de9d8841cb6f65fbf34c27586e9a30",
+      "startMs": 159100,
+      "endMs": 239520
+    }
+  }
+]

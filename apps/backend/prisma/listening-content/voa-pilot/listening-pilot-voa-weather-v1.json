@@ -1,0 +1,311 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-pilot-voa-weather-v1.wav",
+  "audioDurationMs": 45600,
+  "preparation": {
+    "situation": "Anna sắp ra ngoài và nói chuyện với điện thoại.",
+    "objective": "Nghe câu hỏi của Anna và các câu trả lời ngắn."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "degree",
+      "meaning": "độ",
+      "example": "The water is twenty degrees.",
+      "translation": "Nước ở mức hai mươi độ."
+    },
+    {
+      "id": "v02",
+      "word": "today",
+      "meaning": "hôm nay",
+      "example": "I have class today.",
+      "translation": "Hôm nay tôi có buổi học."
+    },
+    {
+      "id": "v03",
+      "word": "excuse me",
+      "meaning": "xin lỗi, cho tôi hỏi",
+      "example": "Excuse me. Is this your seat?",
+      "translation": "Cho tôi hỏi. Đây có phải chỗ ngồi của bạn không?"
+    }
+  ],
+  "transcript": "Hello, Phone? What is today's temperature? Today it is eighteen degrees... Eighteen degrees! That is cold! Eighteen degrees Celsius. Oh, Celsius. That is sixty-five degrees Fahrenheit. That's warm. Yes, Anna. It is warm. Excuse me, Phone. Is it windy today? No, it is not windy today. Is it sunny today? Yes, Anna. It is sunny. Excuse me, Phone? Yes, Anna. Is it snowy today? No, Anna. It is not snowy. Thank you, Phone!",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "startMs": 520,
+      "endMs": 3820,
+      "speaker": "Anna",
+      "text": "Hello, Phone? What is today's temperature?",
+      "translationVi": "A lô, điện thoại ơi? Hôm nay bao nhiêu độ?"
+    },
+    {
+      "id": "s02",
+      "startMs": 4120,
+      "endMs": 6520,
+      "speaker": "Phone",
+      "text": "Today it is eighteen degrees...",
+      "translationVi": "Hôm nay là mười tám độ…"
+    },
+    {
+      "id": "s03",
+      "startMs": 6520,
+      "endMs": 9480,
+      "speaker": "Anna",
+      "text": "Eighteen degrees! That is cold!",
+      "translationVi": "Mười tám độ! Lạnh thế!"
+    },
+    {
+      "id": "s04",
+      "startMs": 9600,
+      "endMs": 11540,
+      "speaker": "Phone",
+      "text": "Eighteen degrees Celsius.",
+      "translationVi": "Mười tám độ C."
+    },
+    {
+      "id": "s05",
+      "startMs": 12250,
+      "endMs": 18080,
+      "speaker": "Anna",
+      "text": "Oh, Celsius. That is sixty-five degrees Fahrenheit. That's warm.",
+      "translationVi": "À, độ C. Tức là sáu mươi lăm độ F. Vậy là ấm."
+    },
+    {
+      "id": "s06",
+      "startMs": 18510,
+      "endMs": 20780,
+      "speaker": "Phone",
+      "text": "Yes, Anna. It is warm.",
+      "translationVi": "Đúng rồi, Anna. Trời ấm."
+    },
+    {
+      "id": "s07",
+      "startMs": 21120,
+      "endMs": 24330,
+      "speaker": "Anna",
+      "text": "Excuse me, Phone. Is it windy today?",
+      "translationVi": "Điện thoại ơi, hôm nay có gió không?"
+    },
+    {
+      "id": "s08",
+      "startMs": 24700,
+      "endMs": 27920,
+      "speaker": "Phone",
+      "text": "No, it is not windy today.",
+      "translationVi": "Không, hôm nay trời không có gió."
+    },
+    {
+      "id": "s09",
+      "startMs": 28390,
+      "endMs": 30580,
+      "speaker": "Anna",
+      "text": "Is it sunny today?",
+      "translationVi": "Hôm nay trời có nắng không?"
+    },
+    {
+      "id": "s10",
+      "startMs": 30980,
+      "endMs": 33820,
+      "speaker": "Phone",
+      "text": "Yes, Anna. It is sunny.",
+      "translationVi": "Có, Anna. Trời có nắng."
+    },
+    {
+      "id": "s11",
+      "startMs": 34340,
+      "endMs": 35530,
+      "speaker": "Anna",
+      "text": "Excuse me, Phone?",
+      "translationVi": "Điện thoại ơi?"
+    },
+    {
+      "id": "s12",
+      "startMs": 36180,
+      "endMs": 37190,
+      "speaker": "Phone",
+      "text": "Yes, Anna.",
+      "translationVi": "Tôi đây, Anna."
+    },
+    {
+      "id": "s13",
+      "startMs": 37670,
+      "endMs": 39500,
+      "speaker": "Anna",
+      "text": "Is it snowy today?",
+      "translationVi": "Hôm nay có tuyết không?"
+    },
+    {
+      "id": "s14",
+      "startMs": 39950,
+      "endMs": 43080,
+      "speaker": "Phone",
+      "text": "No, Anna. It is not snowy.",
+      "translationVi": "Không, Anna. Trời không có tuyết."
+    },
+    {
+      "id": "s15",
+      "startMs": 44100,
+      "endMs": 45100,
+      "speaker": "Anna",
+      "text": "Thank you, Phone!",
+      "translationVi": "Cảm ơn nhé, điện thoại!"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What does Anna want to know?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The time today"
+        },
+        {
+          "id": "B",
+          "text": "The weather today"
+        },
+        {
+          "id": "C",
+          "text": "The way home"
+        },
+        {
+          "id": "D",
+          "text": "The phone number"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Anna hỏi nhiệt độ, gió, nắng và tuyết.",
+      "evidenceSegmentIds": [
+        "s01",
+        "s07",
+        "s09",
+        "s13"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.numbers_dates_times",
+      "prompt": "How many degrees Celsius does the phone say?",
+      "options": [
+        {
+          "id": "A",
+          "text": "18"
+        },
+        {
+          "id": "B",
+          "text": "8"
+        },
+        {
+          "id": "C",
+          "text": "16"
+        },
+        {
+          "id": "D",
+          "text": "65"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Điện thoại nói mười tám độ C.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s04"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Does the phone say it is windy today?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Yes, very windy."
+        },
+        {
+          "id": "B",
+          "text": "Yes, a little windy."
+        },
+        {
+          "id": "C",
+          "text": "It does not say."
+        },
+        {
+          "id": "D",
+          "text": "No, it is not windy."
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Điện thoại trả lời hôm nay không có gió.",
+      "evidenceSegmentIds": [
+        "s07",
+        "s08"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "What does the phone say about the weather?",
+      "options": [
+        {
+          "id": "A",
+          "text": "It is dark."
+        },
+        {
+          "id": "B",
+          "text": "It is rainy."
+        },
+        {
+          "id": "C",
+          "text": "It is sunny."
+        },
+        {
+          "id": "D",
+          "text": "It is cloudy."
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Điện thoại xác nhận trời có nắng.",
+      "evidenceSegmentIds": [
+        "s09",
+        "s10"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.basic_dialogues",
+      "prompt": "What does Anna do after the phone answers the question about snow?",
+      "options": [
+        {
+          "id": "A",
+          "text": "She says thank you."
+        },
+        {
+          "id": "B",
+          "text": "She asks the time."
+        },
+        {
+          "id": "C",
+          "text": "She says goodbye."
+        },
+        {
+          "id": "D",
+          "text": "She calls a friend."
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Sau câu trả lời về tuyết, Anna cảm ơn điện thoại.",
+      "evidenceSegmentIds": [
+        "s13",
+        "s14",
+        "s15"
+      ]
+    }
+  ]
+}

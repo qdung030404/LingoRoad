@@ -1,314 +1,51 @@
 import { BadRequestException, ConflictException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { CefrLevel, LearningAttempt, LearningDayPlan, LearningKind, LearningLesson, LearningSkillLevel, LearningUnit, Prisma } from '@prisma/client';
-import { randomUUID } from 'node:crypto';
+import { CefrLevel, LearningAttempt, LearningDayPlan, LearningKind, LearningSkillLevel, Prisma } from '@prisma/client';
 import { isDeepStrictEqual } from 'node:util';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityBatchDto, LearningPreferencesDto } from './planning.dto';
 import { AdaptiveReadingTarget, decideReadingLevel, initialReadingLevel, isEligibleReadingEvidence } from './skill-level.policy';
 import {
-  chooseReadingFocus, countFocusQuestions, readingEvidence, READING_FOCUS_LABELS, ReadingFocusCode, selectReadingFocusAttempts,
+  chooseReadingFocus, readingEvidence, ReadingFocusCode, selectReadingFocusAttempts,
 } from './reading-focus.policy';
+import {
+  buildProgressUnits,
+  chooseDailyItems,
+  computeScoreStats,
+  CURRENT_PLAN_POLICY_VERSION,
+  DAY_MS,
+  finishedOn,
+  LEARNING_TIME_ZONE,
+  learningDate,
+  learningDayStart,
+  PlanItem,
+  PlannedLesson,
+  ProgressScoreStats,
+  ProgressUnit,
+  ProgressUnitStatus,
+  SkillLevelChange,
+} from './planning.helpers';
 
-export const LEARNING_TIME_ZONE = 'Asia/Ho_Chi_Minh';
-export const CURRENT_PLAN_POLICY_VERSION = 'adaptive-v2';
-const DAY_MS = 86400000;
+export {
+  buildProgressUnits,
+  chooseDailyItems,
+  computeScoreStats,
+  CURRENT_PLAN_POLICY_VERSION,
+  isCefrEligible,
+  LEARNING_TIME_ZONE,
+  learningDate,
+  learningDayStart,
+} from './planning.helpers';
+export type {
+  PlanItem,
+  PlannedLesson,
+  ProgressScoreStats,
+  ProgressUnit,
+  ProgressUnitStatus,
+  SkillLevelChange,
+} from './planning.helpers';
+
 type Db = Prisma.TransactionClient;
-export type SkillLevelChange = { kind: LearningKind; from: CefrLevel; to: CefrLevel; direction: 'UP' | 'DOWN' };
-export type PlanItem = {
-  id: string; lessonId: string; title: string; kind: LearningKind; estimatedMinutes: number;
-  reasonCode: string; reason: string; focusSkillCode?: ReadingFocusCode;
-};
-export type PlannedLesson = LearningLesson & {
-  unit?: { cefrLevel: CefrLevel } | null;
-};
-
-const CEFR_RANK: Record<CefrLevel, number> = {
-  A1: 1,
-  A2: 2,
-  B1: 3,
-  B2: 4,
-  C1: 5,
-  C2: 6,
-};
-
-function skillCefrRank(
-  placement: Record<string, unknown> | null | undefined,
-  skillKey: 'reading' | 'listening',
-): number {
-  const entry = placement?.[skillKey];
-  if (!entry || typeof entry !== 'object') return 0;
-  const estimated = (entry as { estimatedCefr?: unknown }).estimatedCefr;
-  if (typeof estimated === 'string' && estimated in CEFR_RANK) {
-    return CEFR_RANK[estimated as CefrLevel];
-  }
-  return 0;
-}
-
-/** Filters daily plan suggestions by adaptive READING level (when adjusted) or skill Placement ceiling (minimum A2). */
-export function isCefrEligible(
-  lesson: PlannedLesson,
-  placement?: Record<string, unknown> | null,
-  readingTarget?: AdaptiveReadingTarget | null,
-): boolean {
-  const lessonCefr = lesson.unit?.cefrLevel;
-  if (!lessonCefr) return true;
-
-  if (lesson.kind === 'READING' && readingTarget) {
-    const targetRank = CEFR_RANK[readingTarget.cefrLevel];
-    const maxAllowedRank = readingTarget.strictCeiling
-      ? targetRank
-      : Math.max(CEFR_RANK.A2, targetRank);
-    return CEFR_RANK[lessonCefr] <= maxAllowedRank;
-  }
-
-  let userSkillRank = 0;
-  if (lesson.kind === 'READING') {
-    userSkillRank = skillCefrRank(placement, 'reading');
-  } else if (lesson.kind === 'LISTENING') {
-    userSkillRank = skillCefrRank(placement, 'listening');
-  } else {
-    userSkillRank = Math.max(
-      skillCefrRank(placement, 'reading'),
-      skillCefrRank(placement, 'listening'),
-    );
-  }
-
-  // Accounts without Placement or estimated at A1 still receive A1-A2 foundation lessons.
-  const maxAllowedRank = Math.max(CEFR_RANK.A2, userSkillRank);
-  return CEFR_RANK[lessonCefr] <= maxAllowedRank;
-}
-export type ProgressUnitStatus = 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING';
-export type ProgressUnit = {
-  id: string;
-  code: string;
-  cefrLevel: CefrLevel;
-  orderIndex: number;
-  title: string;
-  description: string;
-  totalLessons: number;
-  completedLessonCount: number;
-  status: ProgressUnitStatus;
-};
-export type ProgressScoreStats = {
-  averageScore: number | null;
-  completedAttemptCount: number;
-  currentWeekAverage: number | null;
-  previousWeekAverage: number | null;
-  deltaPercent: number | null;
-};
-export const learningDate = (now: Date) => new Date(now.getTime() + 7 * 3600000).toISOString().slice(0, 10);
-export const learningDayStart = (date: string) => new Date(`${date}T00:00:00+07:00`);
-const finishedOn = (a: LearningAttempt, date: string) => a.status === 'COMPLETED' && a.submittedAt != null && learningDate(a.submittedAt) === date;
-const recentFinished = (attempts: LearningAttempt[], id: string) => attempts.filter(a => a.lessonId === id && a.status === 'COMPLETED')
-  .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0) || b.id.localeCompare(a.id))[0];
-
-/** Maps published lessons and distinct completed lesson IDs onto ordered curriculum stages. */
-export function buildProgressUnits(
-  units: Pick<LearningUnit, 'id' | 'code' | 'cefrLevel' | 'orderIndex' | 'title' | 'description'>[],
-  lessons: Pick<LearningLesson, 'id' | 'unitId'>[],
-  completedLessonIds: Set<string>,
-): ProgressUnit[] {
-  const byUnit = new Map<string, string[]>();
-  for (const lesson of lessons) {
-    if (!lesson.unitId) continue;
-    const list = byUnit.get(lesson.unitId) ?? [];
-    list.push(lesson.id);
-    byUnit.set(lesson.unitId, list);
-  }
-  let assignedActive = false;
-  return units.map((unit) => {
-    const lessonIds = byUnit.get(unit.id) ?? [];
-    const totalLessons = lessonIds.length;
-    const completedLessonCount = lessonIds.filter((id) => completedLessonIds.has(id)).length;
-    const isCompleted = totalLessons > 0 && completedLessonCount >= totalLessons;
-    let status: ProgressUnitStatus = 'UPCOMING';
-    if (isCompleted) {
-      status = 'COMPLETED';
-    } else if (!assignedActive && totalLessons > 0) {
-      status = 'IN_PROGRESS';
-      assignedActive = true;
-    }
-    return {
-      id: unit.id,
-      code: unit.code,
-      cefrLevel: unit.cefrLevel,
-      orderIndex: unit.orderIndex,
-      title: unit.title,
-      description: unit.description,
-      totalLessons,
-      completedLessonCount,
-      status,
-    };
-  });
-}
-
-/** Computes 0-100 practice attempt average and 7-day Vietnam-timezone trend; never alters CEFR. */
-export function computeScoreStats(attempts: LearningAttempt[], now: Date): ProgressScoreStats {
-  const valid = attempts.filter(
-    (a) => a.status === 'COMPLETED' && a.submittedAt != null && a.correctCount != null && a.totalQuestions > 0,
-  );
-  const average = (rows: LearningAttempt[]): number | null => {
-    if (!rows.length) return null;
-    const total = rows.reduce((sum, a) => sum + (a.correctCount! / a.totalQuestions) * 100, 0);
-    return Math.round(total / rows.length);
-  };
-  const todayStart = learningDayStart(learningDate(now));
-  const currentWeekStart = new Date(todayStart.getTime() - 6 * DAY_MS);
-  const previousWeekStart = new Date(todayStart.getTime() - 13 * DAY_MS);
-  const currentWeekAverage = average(valid.filter((a) => a.submittedAt! >= currentWeekStart && a.submittedAt! <= now));
-  const previousWeekAverage = average(
-    valid.filter((a) => a.submittedAt! >= previousWeekStart && a.submittedAt! < currentWeekStart),
-  );
-  return {
-    averageScore: average(valid),
-    completedAttemptCount: valid.length,
-    currentWeekAverage,
-    previousWeekAverage,
-    deltaPercent:
-      currentWeekAverage != null && previousWeekAverage != null
-        ? currentWeekAverage - previousWeekAverage
-        : null,
-  };
-}
-
-/** Deterministic baseline; completion is activity, not mastery. */
-export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAttempt[], date: string,
-  minutes: number, preferred: LearningKind[], previous: PlanItem[] = [], placement?: Record<string, unknown> | null,
-  readingTarget?: AdaptiveReadingTarget | null, readingFocus?: ReadingFocusCode): PlanItem[] {
-  const selected: PlanItem[] = [];
-  const seen = new Set<string>();
-  const completeToday = new Set(attempts.filter(a => finishedOn(a, date)).map(a => a.lessonId));
-  const focusCounts = new Map<string, number>();
-  if (readingFocus && readingTarget) {
-    for (const lesson of lessons) {
-      if (lesson.kind === 'READING' && lesson.unit?.cefrLevel === readingTarget.cefrLevel) {
-        focusCounts.set(lesson.id, countFocusQuestions(lesson.content, readingFocus));
-      }
-    }
-  }
-  const rankReadingFocus = (candidates: PlannedLesson[]): PlannedLesson[] => {
-    if (!focusCounts.size) return candidates;
-    const matchingTier = candidates.filter(lesson => focusCounts.has(lesson.id)).sort(
-      (a, b) => focusCounts.get(b.id)! - focusCounts.get(a.id)!,
-    );
-    let index = 0;
-    return candidates.map(lesson => focusCounts.has(lesson.id) ? matchingTier[index++] : lesson);
-  };
-  const add = (lesson: PlannedLesson, reasonCode: string, reason: string, force = false) => {
-    if (seen.has(lesson.id)) return false;
-    const used = selected.reduce((sum, item) => sum + item.estimatedMinutes, 0);
-    if (!force && used + lesson.estimatedMinutes > minutes) return false;
-    const old = previous.find(item => item.lessonId === lesson.id);
-    if (old && completeToday.has(lesson.id)) {
-      selected.push(old);
-    } else {
-      const focusSkillCode = !completeToday.has(lesson.id) && (focusCounts.get(lesson.id) ?? 0) > 0 ? readingFocus : undefined;
-      selected.push({
-        id: old?.id ?? randomUUID(), lessonId: lesson.id, title: lesson.title, kind: lesson.kind,
-        estimatedMinutes: lesson.estimatedMinutes, reasonCode,
-        reason: focusSkillCode ? `Luyện thêm · ${READING_FOCUS_LABELS[focusSkillCode]}` : reason,
-        ...(focusSkillCode ? { focusSkillCode } : {}),
-      });
-    }
-    seen.add(lesson.id); return true;
-  };
-  // Keep already completed snapshots, even if the catalogue was unpublished or ceiling lowered later.
-  for (const item of previous) if (completeToday.has(item.lessonId)) { selected.push(item); seen.add(item.lessonId); }
-  for (const lesson of lessons) if (completeToday.has(lesson.id)) add(lesson, 'COMPLETED_TODAY', 'Đã hoàn thành hôm nay', true);
-  const placementScore = (kind: LearningKind): number => {
-    const key = kind === 'READING' ? 'reading' : kind === 'LISTENING' ? 'listening' : null;
-    const value = key && placement?.[key] as { correctCount?: number; totalItems?: number } | undefined;
-    return value && value.correctCount != null && value.totalItems ? value.correctCount / value.totalItems : 1;
-  };
-  const targetReadingRank = readingTarget ? CEFR_RANK[readingTarget.cefrLevel] : null;
-  const readingDistance = (lesson: PlannedLesson): number => {
-    if (lesson.kind !== 'READING' || targetReadingRank == null || !lesson.unit?.cefrLevel) return 0;
-    return Math.abs(CEFR_RANK[lesson.unit.cefrLevel] - targetReadingRank);
-  };
-  // Rank READING strictly by target CEFR distance first, then reassign the group's sortOrder slots
-  // so cross-kind sorting maintains strict weak ordering without non-transitive cycles.
-  const readingOrderMap = new Map<string, number>();
-  if (readingTarget) {
-    const readingGroup = lessons
-      .filter(l => l.kind === 'READING')
-      .sort((a, b) => readingDistance(a) - readingDistance(b) || a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
-    const slots = [...readingGroup].map(l => l.sortOrder).sort((x, y) => x - y);
-    readingGroup.forEach((l, i) => readingOrderMap.set(l.id, slots[i]));
-  }
-  const mixOrder = (lesson: PlannedLesson): number => readingOrderMap.get(lesson.id) ?? lesson.sortOrder;
-  const newReason = (lesson: PlannedLesson): string =>
-    lesson.kind === 'READING' && readingTarget && lesson.unit?.cefrLevel === readingTarget.cefrLevel
-      ? `Bài mới · đúng mức ${readingTarget.cefrLevel}`
-      : 'Bài mới';
-  const ordered = [...lessons].sort((a, b) => Number(!preferred.includes(a.kind)) - Number(!preferred.includes(b.kind))
-    || (['READING', 'LISTENING'].includes(a.kind) && ['READING', 'LISTENING'].includes(b.kind) ? placementScore(a.kind) - placementScore(b.kind) : 0)
-    || mixOrder(a) - mixOrder(b)
-    || a.code.localeCompare(b.code));
-  const eligible = ordered.filter(l => isCefrEligible(l, placement, readingTarget));
-  const fresh = rankReadingFocus(eligible.filter(l => !recentFinished(attempts, l.id) && !seen.has(l.id)));
-  // Reserve an opportunity to progress before offering a review.
-  for (const lesson of fresh) if (add(lesson, 'NEW', newReason(lesson))) break;
-  const review = eligible.filter(l => {
-    const latest = recentFinished(attempts, l.id);
-    return latest && latest.correctCount! / latest.totalQuestions < .8 && !seen.has(l.id) && !completeToday.has(l.id);
-  }).sort((a, b) => {
-    const x = recentFinished(attempts, a.id)!, y = recentFinished(attempts, b.id)!;
-    return Number(!preferred.includes(a.kind)) - Number(!preferred.includes(b.kind))
-      || x.correctCount! / x.totalQuestions - y.correctCount! / y.totalQuestions
-      || x.submittedAt!.getTime() - y.submittedAt!.getTime()
-      || mixOrder(a) - mixOrder(b);
-  });
-  let rotationFallback: PlannedLesson | undefined;
-  if (fresh.length) {
-    for (const lesson of rankReadingFocus(review)) {
-      const result = recentFinished(attempts, lesson.id)!;
-      if (add(lesson, 'REVIEW', `Kết quả gần nhất ${result.correctCount}/${result.totalQuestions}`)) break;
-    }
-    for (const lesson of fresh) add(lesson, 'NEW', newReason(lesson));
-  } else {
-    const pool = eligible.filter(l => !seen.has(l.id) && !completeToday.has(l.id));
-    const practicedAt = (lesson: PlannedLesson): number => recentFinished(attempts, lesson.id)?.submittedAt?.getTime() ?? 0;
-    // Prioritize target-tier READING within READING's own practicedAt slots, using oldest practice to break ties within a tier.
-    const rotationTimeMap = new Map<string, number>();
-    const rotationSubRank = new Map<string, number>();
-    if (readingTarget) {
-      const readingPool = pool
-        .filter(l => l.kind === 'READING')
-        .sort((a, b) =>
-          readingDistance(a) - readingDistance(b)
-          || practicedAt(a) - practicedAt(b)
-          || mixOrder(a) - mixOrder(b)
-          || a.code.localeCompare(b.code));
-      const timeSlots = [...readingPool].map(practicedAt).sort((x, y) => x - y);
-      readingPool.forEach((l, i) => {
-        rotationTimeMap.set(l.id, timeSlots[i]);
-        rotationSubRank.set(l.id, i);
-      });
-    }
-    const rotationTime = (lesson: PlannedLesson): number => rotationTimeMap.get(lesson.id) ?? practicedAt(lesson);
-    const rotation = rankReadingFocus(pool.sort((a, b) =>
-      Number(!preferred.includes(a.kind)) - Number(!preferred.includes(b.kind))
-      || rotationTime(a) - rotationTime(b)
-      || (rotationSubRank.get(a.id) ?? 0) - (rotationSubRank.get(b.id) ?? 0)
-      || mixOrder(a) - mixOrder(b)
-      || a.code.localeCompare(b.code)));
-    rotationFallback = rotation[0];
-    for (const lesson of rotation) add(lesson, 'ROTATION', 'Luyện lại bài lâu chưa học');
-  }
-  if (!selected.length) {
-    const candidate = fresh[0] ?? rotationFallback ?? eligible[0];
-    if (candidate) {
-      add(
-        candidate,
-        fresh.includes(candidate) ? 'NEW' : 'ROTATION',
-        fresh.includes(candidate) ? newReason(candidate) : 'Luyện lại bài lâu chưa học',
-        true,
-      );
-    }
-  }
-  return selected;
-}
 
 @Injectable()
 export class PlanningService {
@@ -616,18 +353,117 @@ export class PlanningService {
     return { plan: await this.planDto(plan) };
   }
   private async planDto(plan: LearningDayPlan) {
-    const attempts = await this.prisma.learningAttempt.findMany({ where: { userId: plan.userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }] });
-    const items = (plan.items as unknown as PlanItem[]).map(item => {
-      const completed = attempts.find(a => a.lessonId === item.lessonId && finishedOn(a, plan.date));
+    const planItems = plan.items as unknown as PlanItem[];
+    const start = learningDayStart(plan.date);
+    const attempts = planItems.length === 0 ? [] : await this.prisma.learningAttempt.findMany({
+      where: {
+        userId: plan.userId, lessonId: { in: planItems.map(item => item.lessonId) }, status: 'COMPLETED',
+        submittedAt: { gte: start, lt: new Date(start.getTime() + DAY_MS) },
+      },
+      select: { id: true, lessonId: true, status: true, submittedAt: true, historyHiddenAt: true },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    });
+    const items = planItems.map(item => {
+      const completed = attempts.filter(a => a.lessonId === item.lessonId && finishedOn(a, plan.date));
+      const visibleAttempt = completed.find(a => a.historyHiddenAt == null);
       const normalized = item.reasonCode === 'RESUME'
-        ? { ...item, reasonCode: completed ? 'COMPLETED_TODAY' : 'NEW', reason: completed ? 'Đã hoàn thành hôm nay' : 'Bài mới' }
+        ? { ...item, reasonCode: completed.length ? 'COMPLETED_TODAY' : 'NEW', reason: completed.length ? 'Đã hoàn thành hôm nay' : 'Bài mới' }
         : item;
-      return { ...normalized, completed: !!completed, activeAttemptId: null, completedAttemptId: completed?.id ?? null };
+      return { ...normalized, completed: completed.length > 0, activeAttemptId: null, completedAttemptId: visibleAttempt?.id ?? null };
     });
     const next = items.find(item => !item.completed);
     return { id: plan.id, date: plan.date, timeZone: LEARNING_TIME_ZONE, version: plan.version, policyVersion: plan.policyVersion, dailyGoalMinutes: plan.dailyGoalMinutes,
       estimatedMinutes: items.reduce((sum, item) => sum + item.estimatedMinutes, 0), completedCount: items.filter(item => item.completed).length,
       totalCount: items.length, items, continueLessonId: next?.lessonId ?? null, continueAttemptId: null };
+  }
+
+  async ensureHomePlan(userId: string) {
+    const { plan } = await this.ensureToday(userId);
+    return {
+      date: plan?.date ?? learningDate(new Date()),
+      plan,
+      continueLesson: await this.homeLesson(userId, plan?.continueLessonId ?? null),
+    };
+  }
+
+  private homeLesson(userId: string, lessonId: string | null, useFallback = false) {
+    if (!lessonId && !useFallback) return null;
+    return this.prisma.learningLesson.findFirst({
+      where: {
+        published: true,
+        ...(lessonId ? { id: lessonId } : { attempts: { none: { userId, status: 'COMPLETED' as const } } }),
+      },
+      select: { id: true, kind: true, title: true, description: true, estimatedMinutes: true },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+  }
+
+  async home(userId: string) {
+    const now = new Date();
+    const date = learningDate(now);
+    const week = Array.from({ length: 7 }, (_, i) => {
+      const from = new Date(learningDayStart(date).getTime() - (6 - i) * DAY_MS);
+      return { date: learningDate(from), from, to: new Date(Math.min(from.getTime() + DAY_MS, now.getTime())) };
+    });
+    const [profile, plans, attempts, completedLessons, first, placement, skill, seconds] = await Promise.all([
+      this.profile(this.prisma, userId),
+      this.prisma.learningDayPlan.findMany({ where: { userId, date: { gte: week[0].date, lte: date } } }),
+      this.prisma.learningAttempt.findMany({
+        where: { userId, status: 'COMPLETED', submittedAt: { gte: week[0].from, lte: now } },
+        select: { lessonId: true, submittedAt: true },
+      }),
+      this.prisma.learningLesson.count({ where: { published: true, attempts: { some: { userId, status: 'COMPLETED' } } } }),
+      this.prisma.learningActivitySession.findFirst({ where: { userId }, orderBy: { anchorAt: 'asc' }, select: { anchorAt: true } }),
+      this.prisma.placementSession.findFirst({
+        where: { userId, status: 'COMPLETED' }, orderBy: { completedAt: 'desc' },
+        select: { skillResults: true, completedAt: true },
+      }),
+      this.prisma.learningSkillLevel.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }),
+      this.homeActiveSeconds(userId, [...week, { from: new Date(0), to: now }]),
+    ]);
+    const byDate = new Map(plans.map(plan => [plan.date, plan]));
+    const current = byDate.get(date);
+    const initial = initialReadingLevel(placement?.skillResults as Record<string, unknown> | undefined, placement?.completedAt);
+    const planStatus = !current ? 'missing' : current.policyVersion !== CURRENT_PLAN_POLICY_VERSION ||
+      current.preferencesVersion !== profile.preferencesVersion || current.dailyGoalMinutes !== profile.dailyGoalMinutes ||
+      (placement?.completedAt != null && current.updatedAt < placement.completedAt) ||
+      (skill != null && this.shouldUpgradeFromPlacement(skill, initial)) ? 'stale' : 'ready';
+    const plan = current && planStatus === 'ready' ? await this.planDto(current) : null;
+    const days = week.map((day, index) => {
+      const completed = attempts.filter(row => row.submittedAt && learningDate(row.submittedAt) === day.date);
+      const activeSeconds = seconds.get(index) ?? 0;
+      const dailyGoalMinutes = byDate.get(day.date)?.dailyGoalMinutes ?? (day.date === date ? profile.dailyGoalMinutes : null);
+      return {
+        date: day.date, dailyGoalMinutes, activeSeconds,
+        goalMet: dailyGoalMinutes != null && activeSeconds >= dailyGoalMinutes * 60,
+        completedLessonCount: new Set(completed.map(row => row.lessonId)).size,
+        completedAttemptCount: completed.length,
+        hasActivity: activeSeconds > 0 || completed.length > 0,
+        timeMeasured: first != null && learningDate(first.anchorAt) <= day.date,
+      };
+    });
+    return {
+      date, planStatus, plan, preferences: this.preferenceDto(profile), today: days[6], days,
+      totals: { completedLessonCount: completedLessons, activeSeconds: seconds.get(week.length) ?? 0 },
+      continueLesson: await this.homeLesson(userId, plan?.continueLessonId ?? null, plan == null),
+    };
+  }
+
+  private async homeActiveSeconds(userId: string, windows: { from: Date; to: Date }[]) {
+    const values = windows.map(({ from, to }, index) => Prisma.sql`(${index}::int, ${from}::timestamptz, ${to}::timestamptz)`);
+    const rows = await this.prisma.$queryRaw<{ idx: number; seconds: number }[]>`
+      WITH windows(idx, starts, ends) AS (VALUES ${Prisma.join(values)}),
+      merged AS (
+        SELECT w.idx, range_agg(tstzrange(GREATEST(s.start_at AT TIME ZONE 'UTC', w.starts),
+          LEAST(s.end_at AT TIME ZONE 'UTC', w.ends), '[)')) AS spans
+        FROM learning_activity_segments s JOIN learning_activity_sessions a ON a.id = s.session_id
+        JOIN windows w ON (s.end_at AT TIME ZONE 'UTC') > w.starts AND (s.start_at AT TIME ZONE 'UTC') < w.ends
+        WHERE a.user_id = ${userId}::uuid AND s.start_at IS NOT NULL
+        GROUP BY w.idx
+      )
+      SELECT idx, FLOOR(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span)))))::double precision AS seconds
+      FROM merged CROSS JOIN LATERAL unnest(spans) AS pieces(span) GROUP BY idx`;
+    return new Map(rows.map(row => [row.idx, row.seconds]));
   }
 
   /** UTC ranges are unioned across devices before summing. Time is never inferred from attempts. */
@@ -673,7 +509,7 @@ export class PlanningService {
       ? Math.round(measuredDays.reduce((sum, d) => sum + d.activeSeconds, 0) / measuredDays.length)
       : 0;
     const latestResults = Object.values(LearningKind).flatMap(kind => {
-      const a = completed.find(row => (row.lessonSnapshot as { kind?: string })?.kind === kind);
+      const a = completed.find(row => row.historyHiddenAt == null && (row.lessonSnapshot as { kind?: string })?.kind === kind);
       return a ? [{ kind, correctCount: a.correctCount!, totalQuestions: a.totalQuestions, scoreRatio: a.correctCount! / a.totalQuestions,
         submittedAt: a.submittedAt, lessonTitle: (a.lessonSnapshot as { title: string }).title }] : [];
     });

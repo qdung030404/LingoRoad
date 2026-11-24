@@ -145,6 +145,7 @@ export interface KtPredictResponse {
 }
 
 export interface ReadingExplainRequest {
+  source_kind?: 'READING' | 'LISTENING';
   passage: string;
   question_prompt: string;
   question_type: 'MULTIPLE_CHOICE' | 'GAP_FILL' | 'TRUE_FALSE_NOT_GIVEN';

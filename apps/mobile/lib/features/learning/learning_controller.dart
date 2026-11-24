@@ -7,6 +7,7 @@ import '../vocabulary/vocabulary_controller.dart';
 import 'learning_repository.dart';
 import 'daily_learning.dart';
 import 'activity_collector.dart';
+import 'home_cache.dart';
 
 /// Owns one learner's server state. Pending edits never become graded answers.
 class LearningController extends ChangeNotifier {
@@ -16,12 +17,30 @@ class LearningController extends ChangeNotifier {
     this.isAccountCurrent,
     this.daily,
     this.vocabulary,
+    this.fetchHome,
+    this.onHome,
+    this.onHomeInvalidated,
+    this.onHomeForbidden,
   });
   final LearningRepository repository;
   final String accountId;
   final bool Function()? isAccountCurrent;
   final DailyLearningController? daily;
   final VocabularyController? vocabulary;
+  final Future<Json> Function()? fetchHome;
+  final void Function(Json value)? onHome;
+  final VoidCallback? onHomeInvalidated;
+  final VoidCallback? onHomeForbidden;
+  int _catalogueEpoch = 0;
+  Future<void>? _refreshing, _catalogueRequest;
+  DateTime? _loadedAt, _catalogueAt;
+  String? _loadedDate;
+  Json? _home;
+  bool _legacy = false;
+  bool catalogueLoading = false;
+  bool get catalogueLoaded => _catalogueAt != null;
+  String? catalogueError;
+  bool get usesHomeApi => fetchHome != null && !_legacy;
   ActivityOutbox? _activity;
   ActivityOutbox? get activity =>
       daily == null ? null : (_activity ??= ActivityOutbox(owner: daily!));
@@ -37,12 +56,94 @@ class LearningController extends ChangeNotifier {
     if (active) super.notifyListeners();
   }
 
-  Future<void> refresh() async {
-    final epoch = ++_epoch;
+  void showCachedHome(Json snapshot) {
+    if (!validHomeSnapshot(snapshot)) return;
+    final sameDate = snapshot['date'] == homeLearningDate();
+    final value = sameDate
+        ? snapshot
+        : {
+            ...snapshot,
+            'plan': null,
+            'continueLesson': null,
+            'today': <String, dynamic>{},
+          };
+    _applyHome(value);
+  }
+
+  void _applyHome(Json value) {
+    _home = value;
+    summary = (value['totals'] as Map).cast<String, dynamic>();
+    daily?.applyHome(value);
+  }
+
+  void invalidateHome() {
+    if (!active) return;
+    _epoch++;
+    _refreshing = null;
+    _loadedAt = null;
+    _catalogueAt = null;
+    _catalogueEpoch++;
+    daily?.invalidateDetails();
+    onHomeInvalidated?.call();
+  }
+
+  Future<void> refreshIfStale() {
+    final at = _loadedAt;
+    if (at != null &&
+        _loadedDate == homeLearningDate() &&
+        DateTime.now().difference(at) < const Duration(seconds: 60)) {
+      return Future.value();
+    }
+    if (_home != null && _home!['date'] != homeLearningDate()) {
+      showCachedHome(_home!);
+    }
+    return refresh();
+  }
+
+  Future<void> refresh() {
+    if (!active) return Future.value();
+    return _refreshing ??= _refresh(++_epoch);
+  }
+
+  Future<void> _refresh(int epoch) async {
+    await Future<void>.value();
+    if (!active || epoch != _epoch) return;
     loading = true;
     error = null;
     notifyListeners();
     try {
+      if (usesHomeApi) {
+        final value = await _requestHome();
+        if (!active || epoch != _epoch) return;
+        if (value != null) {
+          if (!validHomeSnapshot(value)) {
+            throw const ApiFailure(
+              'Phản hồi Trang chủ chưa đầy đủ.',
+              code: 'LEARNING_RESPONSE_INVALID',
+            );
+          }
+          if (value['planStatus'] != 'ready' && daily != null) {
+            final response = await daily!.repository.ensurePlan();
+            if (!active || epoch != _epoch) return;
+            if (response['date'] != value['date']) {
+              Timer.run(() {
+                if (active && epoch == _epoch) refresh();
+              });
+              return;
+            }
+            value['plan'] = response['plan'];
+            value['continueLesson'] = response['continueLesson'];
+            value['planStatus'] = 'ready';
+          }
+          _applyHome(value);
+          onHome?.call(value);
+          _loadedAt = DateTime.now();
+          _loadedDate = value['date'] as String;
+          return;
+        }
+        _legacy = true;
+        _home = null;
+      }
       final result = await Future.wait([
         repository.catalogue(),
         repository.summary(),
@@ -52,9 +153,18 @@ class LearningController extends ChangeNotifier {
         result[0]['items'],
       ).map(LearningLesson.new).toList();
       summary = result[1];
-      await daily?.refresh();
+      _catalogueAt = DateTime.now();
+      await daily?.refreshLegacy();
+      if (active && epoch == _epoch) {
+        _loadedAt = DateTime.now();
+        _loadedDate = homeLearningDate();
+      }
     } catch (e) {
       if (active && epoch == _epoch) {
+        if (usesHomeApi && e is ApiFailure && e.status == 403) {
+          onHomeForbidden?.call();
+          return;
+        }
         error = e is ApiFailure
             ? e.message
             : 'Không tải được bài học. Hãy thử lại.';
@@ -62,12 +172,62 @@ class LearningController extends ChangeNotifier {
     } finally {
       if (active && epoch == _epoch) {
         loading = false;
+        _refreshing = null;
         notifyListeners();
       }
     }
   }
 
+  Future<Json?> _requestHome() async {
+    try {
+      return await fetchHome!();
+    } on ApiFailure catch (e) {
+      if (e.status == 404 && e.code != 'LEARNING_RECORD_NOT_FOUND') return null;
+      rethrow;
+    }
+  }
+
+  Future<void> loadCatalogue() {
+    if (!active || !usesHomeApi) return Future.value();
+    final at = _catalogueAt;
+    if (at != null &&
+        DateTime.now().difference(at) < const Duration(minutes: 20)) {
+      return Future.value();
+    }
+    return _catalogueRequest ??= _loadCatalogue();
+  }
+
+  Future<void> _loadCatalogue() async {
+    await Future<void>.value();
+    if (!active) return;
+    final epoch = _catalogueEpoch;
+    catalogueLoading = true;
+    catalogueError = null;
+    notifyListeners();
+    try {
+      final value = await repository.catalogue();
+      if (!active || epoch != _catalogueEpoch) return;
+      lessons = learningItems(value['items']).map(LearningLesson.new).toList();
+      _catalogueAt = DateTime.now();
+    } catch (e) {
+      if (active) {
+        catalogueError = e is ApiFailure
+            ? e.message
+            : 'Không tải được danh mục.';
+      }
+    } finally {
+      _catalogueRequest = null;
+      catalogueLoading = false;
+      notifyListeners();
+    }
+  }
+
   LearningLesson? get continueLesson {
+    final home = _home;
+    if (home != null) {
+      final next = home['continueLesson'];
+      return next is Map ? LearningLesson(next.cast<String, dynamic>()) : null;
+    }
     final id = daily?.plan?['continueLessonId'] ?? summary['continueLessonId'];
     if (daily?.plan != null && daily!.plan!['continueLessonId'] == null) {
       return null;
@@ -170,8 +330,10 @@ class LearningAttemptController extends ChangeNotifier {
   String _message(Object e) =>
       e is ApiFailure ? e.message : 'Không lưu được tiến độ. Hãy thử lại.';
   Future<void> _persist() {
-    final key = _key;
-    final value = _pending == null ? null : jsonEncode(_pending);
+    return _writeDraft(_key, _pending == null ? null : jsonEncode(_pending));
+  }
+
+  Future<void> _writeDraft(String key, String? value) {
     final next = _storage.catchError((_) {}).then((_) async {
       final prefs = await SharedPreferences.getInstance();
       final ok = value == null
@@ -366,13 +528,17 @@ class LearningAttemptController extends ChangeNotifier {
     }
     return result;
   }, flushPending: _pending != null && _pending?['questionId'] != questionId);
-  Future<void> submit() =>
-      _action(() => repository.submit(attempt!.id, attempt!.version));
+  Future<void> submit() => _action(() async {
+    final submitted = await repository.submit(attempt!.id, attempt!.version);
+    if (active) owner.invalidateHome();
+    return submitted;
+  });
 
   Future<bool> cancel() async {
     final current = attempt;
     if (!active || current == null || current.completed) return true;
     if (busy) return false;
+    final key = _key;
     _timer?.cancel();
     busy = true;
     error = null;
@@ -380,20 +546,25 @@ class LearningAttemptController extends ChangeNotifier {
     notifyListeners();
     try {
       await _flush?.catchError((_) => false);
-      if (!active) return false;
-      _pending = null;
-      await _persist().catchError((_) {});
-      if (!active) return false;
-      await repository.cancel(current.id);
+      if (!active || attempt?.id != current.id) return false;
+      try {
+        await repository.cancel(current.id);
+      } on ApiFailure catch (e) {
+        if (e.status != 404 || e.code != 'LEARNING_ATTEMPT_NOT_FOUND') rethrow;
+      }
+      if (attempt?.id == current.id) _pending = null;
+      await _writeDraft(key, null).catchError((_) {});
+      if (active) owner.invalidateHome();
       return true;
     } on ApiFailure catch (e) {
-      if (e.status == 404) return true;
       if (e.status == 409 && active) {
         try {
           final latest = await repository.attempt(current.id);
           if (!active) return false;
           attempt = latest;
           if (latest.completed) {
+            await _reconcile();
+            if (!active) return false;
             notice = 'Bài học đã được hoàn thành trên thiết bị khác.';
             return false;
           }
@@ -419,34 +590,35 @@ class LearningAttemptController extends ChangeNotifier {
     final previous = _aiExplanations[questionId];
     if (!active ||
         current == null ||
-        current.lesson.kind != 'READING' ||
+        !(current.lesson.kind == 'READING' ||
+            (current.lesson.kind == 'LISTENING' && current.completed)) ||
         current.answer(questionId)?['checked'] != true ||
         previous?['source'] == 'AI' ||
         previous?['retryable'] == false ||
         _explainingQuestions.contains(questionId)) {
       return;
     }
-    final targetAttemptId = current.id;
+    final epoch = _loadEpoch;
     _explainingQuestions.add(questionId);
     _explainErrors.remove(questionId);
     notifyListeners();
     try {
-      final result = await repository.explainReadingAnswer(
-        targetAttemptId,
-        questionId,
-      );
-      if (!active || attempt?.id != targetAttemptId) return;
+      final result = await repository.explainAnswer(current.id, questionId);
+      if (!active || epoch != _loadEpoch) return;
       _aiExplanations[questionId] = result;
     } catch (e) {
-      if (!active || attempt?.id != targetAttemptId) return;
+      if (!active || epoch != _loadEpoch) return;
       _explainErrors[questionId] = e is ApiFailure
           ? e.message
           : 'Không tải được giải thích AI. Hãy thử lại.';
     } finally {
-      _explainingQuestions.remove(questionId);
-      if (active) notifyListeners();
+      if (active && epoch == _loadEpoch) {
+        _explainingQuestions.remove(questionId);
+        notifyListeners();
+      }
     }
   }
+
   @override
   void dispose() {
     _disposed = true;

@@ -122,52 +122,53 @@ void main() {
     },
   );
 
-  testWidgets('topic opens talk settings without creating a call on dismiss', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(430, 900));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final api = SpeakingAppApi()..liveEnabled = true;
-    await tester.pumpWidget(MyApp(session: SessionController(api)));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('previewTab3')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Nói').first);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('My family'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Trò chuyện cùng Lingo'));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'topic opens the ready screen and saving settings does not start a call',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = SpeakingAppApi()..liveEnabled = true;
+      await tester.pumpWidget(MyApp(session: SessionController(api)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('previewTab3')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nói').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('My family'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Trò chuyện cùng Lingo'));
+      await tester.pumpAndSettle();
 
-    await tester.binding.setSurfaceSize(const Size(320, 640));
-    await tester.pumpAndSettle();
-    expect(find.text('Hội thoại AI'), findsOneWidget);
-    expect(find.text('Cài đặt trò chuyện'), findsOneWidget);
-    expect(find.text('Giọng của Lingo'), findsOneWidget);
-    expect(find.text('Tốc độ nói'), findsOneWidget);
-    expect(find.text('Chờ bạn nói tiếp'), findsOneWidget);
-    expect(api.conversationCreates, 0);
+      await tester.binding.setSurfaceSize(const Size(320, 640));
+      await tester.pumpAndSettle();
+      expect(find.text('Hội thoại AI'), findsOneWidget);
+      expect(find.text('Cùng bắt đầu câu chuyện'), findsOneWidget);
+      expect(find.text('Bắt đầu hội thoại'), findsOneWidget);
+      expect(find.text('Cài đặt trò chuyện'), findsNothing);
+      await tester.tap(find.byTooltip('Cài đặt trò chuyện'));
+      await tester.pumpAndSettle();
+      expect(find.text('Cài đặt trò chuyện'), findsOneWidget);
+      expect(find.text('Giọng của Lingo'), findsOneWidget);
+      expect(find.text('Tốc độ nói'), findsOneWidget);
+      expect(find.text('Chờ bạn nói tiếp'), findsOneWidget);
+      expect(api.conversationCreates, 0);
 
-    await tester.tap(find.text('Để sau'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
-    expect(find.text('Sẵn sàng'), findsOneWidget);
-    expect(api.conversationCreates, 0);
+      await tester.tap(find.byTooltip('Đóng cài đặt'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ConversationSettingsDialog), findsNothing);
+      expect(find.text('Sẵn sàng'), findsOneWidget);
+      expect(api.conversationCreates, 0);
 
-    expect(find.byTooltip('Lịch sử hội thoại AI'), findsNothing);
-    await tester.tap(find.byTooltip('Cài đặt trò chuyện'));
-    await tester.pumpAndSettle();
-    expect(find.byType(FigmaDropdown), findsNWidgets(3));
-    await tester.tap(find.text('Áp dụng'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AlertDialog), findsNothing);
-    expect(api.conversationCreates, 0);
-
-    await tester.tap(find.text('Bắt đầu hội thoại'));
-    await tester.pumpAndSettle();
-    expect(find.text('Cài đặt trò chuyện'), findsOneWidget);
-    expect(api.conversationCreates, 0);
-  });
+      expect(find.byTooltip('Lịch sử hội thoại AI'), findsNothing);
+      await tester.tap(find.byTooltip('Cài đặt trò chuyện'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FigmaDropdown), findsNWidgets(3));
+      await tester.tap(find.text('Lưu cài đặt'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ConversationSettingsDialog), findsNothing);
+      expect(api.conversationCreates, 0);
+    },
+  );
 
   testWidgets('live settings use shared dropdown and retry a rejected update', (
     tester,
@@ -183,7 +184,6 @@ void main() {
                 context: context,
                 builder: (_) => ConversationSettingsDialog(
                   initial: const ConversationSettings(),
-                  startOnConfirm: false,
                   onApplyLive: (choice) async {
                     applied.add(choice);
                     if (applied.length == 1) throw const ApiFailure('Thử lại');
@@ -211,11 +211,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Lâu hơn'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Áp dụng'));
+    await tester.tap(find.text('Lưu cài đặt'));
     await tester.pumpAndSettle();
     expect(find.text('Thử lại'), findsOneWidget);
     expect(find.text('Lâu hơn'), findsOneWidget);
-    await tester.tap(find.text('Áp dụng'));
+    await tester.tap(find.text('Lưu cài đặt'));
     await tester.pumpAndSettle();
     expect(applied.map((choice) => choice.turnPause), [
       ConversationTurnPause.long,
@@ -225,7 +225,7 @@ void main() {
       ConversationSpeechRate.slow,
       ConversationSpeechRate.slow,
     ]);
-    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.byType(ConversationSettingsDialog), findsNothing);
   });
 
   testWidgets('each Speaking activity opens its own history', (tester) async {

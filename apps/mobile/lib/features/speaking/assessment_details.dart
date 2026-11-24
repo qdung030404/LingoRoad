@@ -1,4 +1,7 @@
+import 'dart:ui';
+
 import '../../core/api/api_client.dart';
+import '../../core/theme/app_colors.dart';
 
 const speakingIssueLabels = {
   'Mispronunciation': 'Phát âm sai',
@@ -15,6 +18,91 @@ double? assessmentScore(dynamic value) =>
     : null;
 String assessmentScoreText(dynamic value) =>
     assessmentScore(value)?.toStringAsFixed(1) ?? 'Chưa có dữ liệu';
+
+Color scoreColor(double? value) {
+  if (value == null) return AppColors.grey500;
+  if (value < 60) return AppColors.error200;
+  if (value < 80) return AppColors.warning300;
+  return AppColors.primary700;
+}
+
+({num start, num end})? spokenTiming(Json unit) {
+  final start = unit['offsetMs'];
+  final length = unit['durationMs'];
+  if (start is! num ||
+      length is! num ||
+      !start.isFinite ||
+      !length.isFinite ||
+      start < 0 ||
+      length <= 0) {
+    return null;
+  }
+  return (start: start, end: start + length);
+}
+
+/// Provider offsets share a timeline. Keep phonemes without a reliable match
+/// visible separately so that partial or legacy results remain readable.
+({List<List<Json>> groups, List<Json> unassigned}) groupWordPhonemes(
+  List<Json> syllables,
+  List<Json> phonemes,
+) {
+  final boundaries = syllables.map(spokenTiming).toList();
+  final groups = [for (final _ in syllables) <Json>[]];
+  final unassigned = <Json>[];
+  for (final phoneme in phonemes) {
+    final timing = spokenTiming(phoneme);
+    final midpoint = timing == null ? null : (timing.start + timing.end) / 2;
+    final index = midpoint == null
+        ? -1
+        : boundaries.indexWhere(
+            (boundary) =>
+                boundary != null &&
+                boundary.start <= midpoint &&
+                midpoint < boundary.end,
+          );
+    if (index == -1) {
+      unassigned.add(phoneme);
+    } else {
+      groups[index].add(phoneme);
+    }
+  }
+  return (groups: groups, unassigned: unassigned);
+}
+
+final _suggestionLeadIn = RegExp(
+  r'^(?:Bạn có thể nói|Gợi ý(?: diễn đạt)?|You (?:can|could) say|Try saying|Suggested (?:answer|sentence)|A better way to say it is)\s*[:：]\s*',
+  caseSensitive: false,
+);
+final _quotedSuggestion = RegExp(r'^["“]([^"”]+)["”]');
+final _sentenceEnd = RegExp(r'[.!?]+(?=\s|$)');
+final _titleAbbreviation = RegExp(
+  r'\b(?:Mr|Mrs|Ms|Dr|Prof|St)\.$',
+  caseSensitive: false,
+);
+final _dottedAbbreviation = RegExp(r'(?:\b[A-Za-z]\.){2,}$');
+
+/// Older scores may include a lead-in, translations or several examples.
+String? conversationSuggestionSentence(String raw) {
+  var text = raw.trim().replaceFirst(_suggestionLeadIn, '');
+  text = _quotedSuggestion.firstMatch(text)?.group(1) ?? text;
+  text = text.replaceAll(RegExp(r'\([^()]*\)'), '').trim();
+  text = text.replaceAll(RegExp(r'\s+'), ' ');
+  for (final end in _sentenceEnd.allMatches(text)) {
+    final candidate = text.substring(0, end.end);
+    final rest = text.substring(end.end).trimLeft();
+    if (rest.isNotEmpty &&
+        (_titleAbbreviation.hasMatch(candidate) ||
+            (_dottedAbbreviation.hasMatch(candidate) &&
+                RegExp(r'^[a-z]').hasMatch(rest)))) {
+      continue;
+    }
+    text = candidate;
+    break;
+  }
+  if (!RegExp(r'[a-zA-Z]').hasMatch(text)) return null;
+  if (!RegExp(r'[.!?]$').hasMatch(text)) text = '$text.';
+  return text.length <= 300 ? text : null;
+}
 
 Set<String> speakingWordIssues(Json word) {
   final issues = <String>{};

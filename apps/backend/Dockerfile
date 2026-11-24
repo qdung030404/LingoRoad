@@ -37,8 +37,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install openssl in runtime
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Prisma verifies the managed PostgreSQL certificate using the system CA store.
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends ca-certificates openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy built application and production dependencies
 COPY --from=builder /app/node_modules ./node_modules

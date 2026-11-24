@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'core/api/api_client.dart';
+import 'core/app_startup_timing.dart';
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/session_controller.dart';
@@ -7,10 +10,13 @@ import 'features/demo_shell.dart';
 import 'core/auth/firebase_identity.dart';
 import 'features/speaking/speaking_recorder.dart';
 
-Future<void> main() async {
+void main() {
+  AppStartupTiming.start();
   WidgetsFlutterBinding.ensureInitialized();
-  await cleanStaleSpeakingAudio();
   runApp(const MyApp());
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(prepareSpeakingTemporaryAudio());
+  });
 }
 
 class MyApp extends StatefulWidget {

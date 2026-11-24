@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
+import 'conversation_recording_store.dart';
 import 'speaking_recorder.dart';
 import 'speaking_repository.dart';
 
@@ -13,11 +14,13 @@ class SpeakingController extends ChangeNotifier {
     required this.recorder,
     required this.accountId,
     required this.isCurrent,
+    this.conversationRecordings = const ConversationRecordingStore(),
   });
   final SpeakingRepository repository;
   final SpeakingRecorder recorder;
   final String accountId;
   final bool Function() isCurrent;
+  final ConversationRecordingStore conversationRecordings;
   bool _disposed = false, initialized = false, busy = false, recording = false;
   bool checking = false, enabled = true;
   String? error, audioPath, _requestId, _submissionId;

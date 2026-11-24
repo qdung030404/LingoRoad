@@ -1,0 +1,281 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-assignment-v1.wav",
+  "audioDurationMs": 79620,
+  "preparation": {
+    "situation": "Anna nghe sếp thông báo một thay đổi ở chỗ làm.",
+    "objective": "Theo dõi điều Anna hiểu lúc đầu và quyết định cô nghe được sau đó."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "read the news",
+      "meaning": "đọc bản tin"
+    },
+    {
+      "id": "v02",
+      "word": "fire someone",
+      "meaning": "sa thải ai"
+    },
+    {
+      "id": "v03",
+      "word": "assignment",
+      "meaning": "nhiệm vụ được giao"
+    },
+    {
+      "id": "v04",
+      "word": "show",
+      "meaning": "chương trình"
+    }
+  ],
+  "transcript": "The bad news is you are not good at reading the news. Oh, I am very sorry to hear that. So, starting next month, you will not read the news. Next month is July. You are firing me in July. No. I am not firing you in July, or in August or in September. Remember, that is the good news. Okay. You are not firing me. I am not reading the news. What will I be doing? Well, you are good at asking questions. You are good at talking to people. You are good at showing your feelings. And you are great at being silly. Thank you, Ms. Weaver. But what does all that mean? I have a new assignment for you. Your skills are perfect for a new show. A children’s show. A children’s show! That is awesome! When do I start? You start next month. Start thinking of ideas for the show.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Caty",
+      "startMs": 380,
+      "endMs": 4800,
+      "text": "The bad news is you are not good at reading the news.",
+      "translationVi": "Tin xấu là cô đọc bản tin chưa tốt."
+    },
+    {
+      "id": "s02",
+      "speaker": "Anna",
+      "startMs": 5560,
+      "endMs": 8520,
+      "text": "Oh, I am very sorry to hear that.",
+      "translationVi": "Ồ, tôi rất tiếc khi nghe vậy."
+    },
+    {
+      "id": "s03",
+      "speaker": "Caty",
+      "startMs": 10040,
+      "endMs": 14100,
+      "text": "So, starting next month, you will not read the news.",
+      "translationVi": "Vì vậy, từ tháng sau, cô sẽ thôi đọc bản tin."
+    },
+    {
+      "id": "s04",
+      "speaker": "Anna",
+      "startMs": 15520,
+      "endMs": 19420,
+      "text": "Next month is July. You are firing me in July.",
+      "translationVi": "Tháng sau là tháng Bảy. Bà định cho tôi nghỉ việc vào tháng Bảy."
+    },
+    {
+      "id": "s05",
+      "speaker": "Caty",
+      "startMs": 20120,
+      "endMs": 26800,
+      "text": "No. I am not firing you in July, or in August or in September. Remember, that is the good news.",
+      "translationVi": "Không. Tôi không cho cô nghỉ việc vào tháng Bảy, tháng Tám hay tháng Chín. Đó là tin tốt mà."
+    },
+    {
+      "id": "s06",
+      "speaker": "Anna",
+      "startMs": 27460,
+      "endMs": 35140,
+      "text": "Okay. You are not firing me. I am not reading the news. What will I be doing?",
+      "translationVi": "Vâng. Bà không cho tôi nghỉ việc. Tôi cũng thôi đọc bản tin. Vậy tôi sẽ làm gì?"
+    },
+    {
+      "id": "s07",
+      "speaker": "Caty",
+      "startMs": 35560,
+      "endMs": 41360,
+      "text": "Well, you are good at asking questions. You are good at talking to people.",
+      "translationVi": "Cô đặt câu hỏi tốt. Cô nói chuyện với mọi người cũng rất tốt."
+    },
+    {
+      "id": "s08",
+      "speaker": "Caty",
+      "startMs": 42140,
+      "endMs": 49260,
+      "text": "You are good at showing your feelings. And you are great at being silly.",
+      "translationVi": "Cô biết bộc lộ cảm xúc. Cô còn rất giỏi pha trò."
+    },
+    {
+      "id": "s09",
+      "speaker": "Anna",
+      "startMs": 50340,
+      "endMs": 54040,
+      "text": "Thank you, Ms. Weaver. But what does all that mean?",
+      "translationVi": "Cảm ơn bà Weaver. Nhưng những điều đó có ý nghĩa gì ạ?"
+    },
+    {
+      "id": "s10",
+      "speaker": "Caty",
+      "startMs": 54880,
+      "endMs": 64400,
+      "text": "I have a new assignment for you. Your skills are perfect for a new show. A children’s show.",
+      "translationVi": "Tôi có nhiệm vụ mới cho cô. Kỹ năng của cô rất hợp với chương trình mới. Chương trình dành cho trẻ em."
+    },
+    {
+      "id": "s11",
+      "speaker": "Anna",
+      "startMs": 65760,
+      "endMs": 74260,
+      "text": "A children’s show! That is awesome! When do I start?",
+      "translationVi": "Chương trình cho trẻ em! Tuyệt quá! Khi nào tôi bắt đầu?"
+    },
+    {
+      "id": "s12",
+      "speaker": "Caty",
+      "startMs": 74900,
+      "endMs": 79560,
+      "text": "You start next month. Start thinking of ideas for the show.",
+      "translationVi": "Cô bắt đầu từ tháng sau. Hãy bắt đầu nghĩ ý tưởng cho chương trình đi."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What is the main outcome of the conversation?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Anna asks to leave her job"
+        },
+        {
+          "id": "B",
+          "text": "Anna is given a different role"
+        },
+        {
+          "id": "C",
+          "text": "Anna stays in the same role"
+        },
+        {
+          "id": "D",
+          "text": "Anna must train a new reader"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Caty chuyển Anna từ việc đọc bản tin sang chương trình cho trẻ em.",
+      "evidenceSegmentIds": [
+        "s03",
+        "s05",
+        "s10"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What does Anna first think will happen in July?",
+      "options": [
+        {
+          "id": "A",
+          "text": "She will move offices"
+        },
+        {
+          "id": "B",
+          "text": "She will take a holiday"
+        },
+        {
+          "id": "C",
+          "text": "She will lose her job"
+        },
+        {
+          "id": "D",
+          "text": "She will get a new co-host"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Anna hiểu lời báo thôi đọc bản tin là thông báo sa thải.",
+      "evidenceSegmentIds": [
+        "s03",
+        "s04"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "Which strength does Ms. Weaver mention?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Writing news scripts"
+        },
+        {
+          "id": "B",
+          "text": "Remembering names"
+        },
+        {
+          "id": "C",
+          "text": "Working with cameras"
+        },
+        {
+          "id": "D",
+          "text": "Asking people questions"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Caty nói Anna giỏi đặt câu hỏi và trò chuyện với mọi người.",
+      "evidenceSegmentIds": [
+        "s07"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.speaker_attitude",
+      "prompt": "How does Anna react when she learns the new role?",
+      "options": [
+        {
+          "id": "A",
+          "text": "She sounds excited"
+        },
+        {
+          "id": "B",
+          "text": "She questions her abilities"
+        },
+        {
+          "id": "C",
+          "text": "She asks for her old job back"
+        },
+        {
+          "id": "D",
+          "text": "She wants more time to decide"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Anna reo lên rồi hỏi ngay khi nào bắt đầu.",
+      "evidenceSegmentIds": [
+        "s11"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What does Ms. Weaver ask Anna to do now?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Prepare a news report"
+        },
+        {
+          "id": "B",
+          "text": "Come up with ideas for the show"
+        },
+        {
+          "id": "C",
+          "text": "Meet the children next week"
+        },
+        {
+          "id": "D",
+          "text": "Pick a new presenter"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Caty bảo Anna bắt đầu nghĩ ý tưởng cho chương trình.",
+      "evidenceSegmentIds": [
+        "s12"
+      ]
+    }
+  ]
+}

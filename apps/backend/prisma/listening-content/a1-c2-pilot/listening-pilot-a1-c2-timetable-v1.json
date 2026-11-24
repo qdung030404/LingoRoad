@@ -1,0 +1,253 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-timetable-v1.wav",
+  "audioDurationMs": 77230,
+  "preparation": {
+    "situation": "Hai chuyên gia xem một cuốn lịch tàu có ghi chú của hành khách thế kỷ XIX.",
+    "objective": "Tách những gì tài liệu cho thấy trực tiếp khỏi cách nhà sử học giải thích các ghi chú."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "annotated",
+      "meaning": "có ghi chú"
+    },
+    {
+      "id": "v02",
+      "word": "pristine",
+      "meaning": "nguyên vẹn như mới"
+    },
+    {
+      "id": "v03",
+      "word": "mark up",
+      "meaning": "đánh dấu, ghi chú lên"
+    },
+    {
+      "id": "v04",
+      "word": "connection",
+      "meaning": "chuyến nối tiếp"
+    }
+  ],
+  "transcript": "I want to move from the protesters to the passengers, and you’ve found some fascinating evidence of how individual passengers navigated the railway system. Tell me about some of these annotated timetables that you’ve found in our collections. Yeah, so it’s a real surprise to find these because, you know, thinking about this, what usually ends up in an archive from the railway side of things is kind of a pristine copy. So, to find copies that people have actually used, you know, you’ve got the kind of the impression of someone from, you know, 150 years ago or longer left on this. It’s quite a dramatic act to make a mark on a document. But they also indicate, I think, some of the challenges that people were having in terms of how to navigate the system, how to understand railway travel. So there’s a brilliant example from October 1848, Bemrose’s Railway Traveller’s Guide, and in it, someone’s marked up a journey they want to make. So they’re underlined amongst a mass of tiny print and numbers and all sorts. They’ve underlined the train times they want to make for a journey from Manton for Uppingham to Stamford. And then the return journey later in the day. What’s even nicer about it is that down the side of it, they’ve annotated the bus times for the connections as well.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Jessamy Carlson",
+      "startMs": 170,
+      "endMs": 7470,
+      "text": "I want to move from the protesters to the passengers, and you’ve found some fascinating evidence of how individual passengers navigated the railway system.",
+      "translationVi": "Tôi muốn chuyển từ những người biểu tình sang hành khách. Anh đã tìm thấy những bằng chứng thú vị về cách từng hành khách di chuyển trong hệ thống đường sắt."
+    },
+    {
+      "id": "s02",
+      "speaker": "Jessamy Carlson",
+      "startMs": 7470,
+      "endMs": 11390,
+      "text": "Tell me about some of these annotated timetables that you’ve found in our collections.",
+      "translationVi": "Hãy kể về những cuốn lịch tàu có ghi chú mà anh tìm thấy trong kho lưu trữ."
+    },
+    {
+      "id": "s03",
+      "speaker": "Mike Esbester",
+      "startMs": 12050,
+      "endMs": 19190,
+      "text": "Yeah, so it’s a real surprise to find these because, you know, thinking about this, what usually ends up in an archive from the railway side of things is kind of a pristine copy.",
+      "translationVi": "Vâng, tìm thấy chúng thật sự rất bất ngờ. Vì nếu nghĩ kỹ, những gì phía đường sắt thường chuyển vào kho lưu trữ là những bản còn nguyên vẹn."
+    },
+    {
+      "id": "s04",
+      "speaker": "Mike Esbester",
+      "startMs": 19910,
+      "endMs": 31710,
+      "text": "So, to find copies that people have actually used, you know, you’ve got the kind of the impression of someone from, you know, 150 years ago or longer left on this.",
+      "translationVi": "Vì thế, khi tìm thấy những bản từng được dùng, ta bắt gặp dấu tích ai đó để lại từ khoảng 150 năm trước, hoặc lâu hơn."
+    },
+    {
+      "id": "s05",
+      "speaker": "Mike Esbester",
+      "startMs": 31890,
+      "endMs": 43790,
+      "text": "It’s quite a dramatic act to make a mark on a document. But they also indicate, I think, some of the challenges that people were having in terms of how to navigate the system, how to understand railway travel.",
+      "translationVi": "Đánh dấu lên một tài liệu là một hành động khá đáng kể. Theo tôi, những dấu đó cũng gợi ra các khó khăn người ta gặp khi tìm đường trong hệ thống và làm quen với việc đi tàu."
+    },
+    {
+      "id": "s06",
+      "speaker": "Mike Esbester",
+      "startMs": 44650,
+      "endMs": 54430,
+      "text": "So there’s a brilliant example from October 1848, Bemrose’s Railway Traveller’s Guide, and in it, someone’s marked up a journey they want to make.",
+      "translationVi": "Có một ví dụ rất hay từ tháng Mười năm 1848, cuốn hướng dẫn đi tàu của Bemrose. Trong đó, có người đã đánh dấu hành trình họ muốn đi."
+    },
+    {
+      "id": "s07",
+      "speaker": "Mike Esbester",
+      "startMs": 54870,
+      "endMs": 66350,
+      "text": "So they’re underlined amongst a mass of tiny print and numbers and all sorts. They’ve underlined the train times they want to make for a journey from Manton for Uppingham to Stamford.",
+      "translationVi": "Các ghi chú nằm giữa một mớ chữ in và con số li ti. Người đó gạch dưới các giờ tàu cho chuyến đi từ Manton for Uppingham đến Stamford."
+    },
+    {
+      "id": "s08",
+      "speaker": "Mike Esbester",
+      "startMs": 66350,
+      "endMs": 76930,
+      "text": "And then the return journey later in the day. What’s even nicer about it is that down the side of it, they’ve annotated the bus times for the connections as well.",
+      "translationVi": "Tiếp đó là chuyến về muộn hơn trong ngày. Điều thú vị hơn là bên lề họ còn ghi cả giờ xe buýt để đi nối chuyến."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What makes the timetable particularly valuable to the historian?",
+      "options": [
+        {
+          "id": "A",
+          "text": "It records why the railway company chose every stop"
+        },
+        {
+          "id": "B",
+          "text": "It gives a rare trace of how an individual planned to travel"
+        },
+        {
+          "id": "C",
+          "text": "It lists every change in the company’s timetable"
+        },
+        {
+          "id": "D",
+          "text": "It identifies the person who designed the train route"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Lịch tàu có dấu của người sử dụng, giúp hình dung cách một cá nhân tính đường đi thực tế.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s03",
+        "s04",
+        "s06"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Why is this item unusual in a railway archive?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Archives rarely keep material printed in small type"
+        },
+        {
+          "id": "B",
+          "text": "Railway companies normally preserved only passenger letters"
+        },
+        {
+          "id": "C",
+          "text": "Most timetable copies list international rather than local routes"
+        },
+        {
+          "id": "D",
+          "text": "The copies normally preserved have no signs of personal use"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Mike nói các bản trong kho thường còn nguyên vẹn. Bản này được người đi tàu thực sự sử dụng và đánh dấu.",
+      "evidenceSegmentIds": [
+        "s03",
+        "s04"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "What does the handwriting beside the timetable record?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The times of connecting buses"
+        },
+        {
+          "id": "B",
+          "text": "The prices of return tickets"
+        },
+        {
+          "id": "C",
+          "text": "The addresses of railway staff"
+        },
+        {
+          "id": "D",
+          "text": "The names of stations omitted from the guide"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Mike nói bên lề ghi giờ xe buýt để nối với hành trình bằng tàu.",
+      "evidenceSegmentIds": [
+        "s08"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "Which conclusion is supported by the item as described?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The passenger completed the journey without delays"
+        },
+        {
+          "id": "B",
+          "text": "The passenger found the printed guide too difficult to use"
+        },
+        {
+          "id": "C",
+          "text": "The passenger intended to coordinate trains and buses"
+        },
+        {
+          "id": "D",
+          "text": "The passenger was writing an official railway timetable"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Các giờ tàu và giờ xe buýt được ghi cùng nhau cho thấy dự định nối chuyến. Tài liệu không xác nhận người đó đã đi.",
+      "evidenceSegmentIds": [
+        "s06",
+        "s07",
+        "s08"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.speaker_attitude",
+      "prompt": "What is Mike doing when he says “I think” about the challenges?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Correcting the printed date of the guide"
+        },
+        {
+          "id": "B",
+          "text": "Presenting a historical interpretation of physical marks"
+        },
+        {
+          "id": "C",
+          "text": "Withdrawing the claim that the marks are genuine"
+        },
+        {
+          "id": "D",
+          "text": "Quoting how the passenger described the journey"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Mike chỉ ra dấu bút quan sát được, rồi dùng “I think” khi suy ra chúng phản ánh những khó khăn người đi tàu gặp phải.",
+      "evidenceSegmentIds": [
+        "s04",
+        "s05"
+      ]
+    }
+  ]
+}

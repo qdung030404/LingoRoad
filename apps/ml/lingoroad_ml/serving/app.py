@@ -45,7 +45,10 @@ async def lifespan(_: FastAPI):
             await asyncio.to_thread(llm_routes._client)
         if "kt" in required:
             await asyncio.to_thread(kt_routes._load)
-    yield
+    try:
+        yield
+    finally:
+        await speech_routes.close_tts_client()
 
 
 app = FastAPI(title="LingoRoad ML Service", lifespan=lifespan)

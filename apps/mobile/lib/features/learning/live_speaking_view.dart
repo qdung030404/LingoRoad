@@ -9,7 +9,7 @@ import '../../shared/figma_widgets.dart';
 import '../speaking/recording_waveform.dart';
 import '../speaking/speaking_controller.dart';
 import '../speaking/speaking_pages.dart'
-    show SpeakingHistoryPage, SpeakingResult;
+    show SpeakingHistoryPage, SpeakingResult, SpeakingSubmissionReviewHeader;
 import '../speaking/speaking_repository.dart';
 import 'learning_widgets.dart';
 import 'sample_audio.dart';
@@ -528,6 +528,8 @@ class _LiveSpeakingViewState extends State<LiveSpeakingView>
   Widget result() => ListView(
     padding: const EdgeInsets.all(16),
     children: [
+      if (c.mode != 'TONGUE_TWISTER' && c.submission != null)
+        SpeakingSubmissionReviewHeader(submission: c.submission!),
       PreviewProgress(
         index: index,
         total: total,
@@ -569,4 +571,3 @@ class _LiveSpeakingViewState extends State<LiveSpeakingView>
     ],
   );
 }
-

@@ -1,0 +1,295 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-pilot-voa-skills-v1.wav",
+  "audioDurationMs": 65850,
+  "preparation": {
+    "situation": "Anna trò chuyện với Pete ở một quán cà phê.",
+    "objective": "Theo dõi câu trả lời của Pete và đề xuất cuối cùng của Anna."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "skill",
+      "meaning": "kỹ năng",
+      "example": "Listening is a skill you can practise.",
+      "translation": "Nghe là một kỹ năng bạn có thể luyện tập."
+    },
+    {
+      "id": "v02",
+      "word": "make money",
+      "meaning": "kiếm tiền",
+      "example": "They make money by selling clothes.",
+      "translation": "Họ kiếm tiền bằng việc bán quần áo."
+    },
+    {
+      "id": "v03",
+      "word": "follower",
+      "meaning": "người theo dõi",
+      "example": "Her page has some new followers.",
+      "translation": "Trang của cô ấy có thêm người theo dõi mới."
+    }
+  ],
+  "transcript": "No, I always fall asleep when I drive. Oh, that's not good. Next question. Can you teach? You can be a teacher in a school. No, I cannot teach. Can you cook? You can be a chef in a restaurant. No, I can't code! I can't teach! I can't cook! Anna, I can't do anything. This is sad. I'm gonna write about my feelings in my blog. You write a blog? Yeah, I write a blog. How many followers do you have? I don't know … fifty-nine thousand five hundred thirty-eight. Pete, that's a lot of followers! You can make money writing! Writing is easy. Everyone can write. Not everyone can write well. You can be a writer! I can be a writer. I can be a writer! I can be a writer! Thanks, Anna.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "startMs": 240,
+      "endMs": 3590,
+      "speaker": "Pete",
+      "text": "No, I always fall asleep when I drive.",
+      "translationVi": "Không, tôi luôn ngủ thiếp đi khi lái xe."
+    },
+    {
+      "id": "s02",
+      "startMs": 3750,
+      "endMs": 12450,
+      "speaker": "Anna",
+      "text": "Oh, that's not good. Next question. Can you teach? You can be a teacher in a school.",
+      "translationVi": "Ồ, vậy thì không tốt. Câu tiếp theo. Bạn có biết dạy học không? Bạn có thể làm giáo viên ở trường."
+    },
+    {
+      "id": "s03",
+      "startMs": 12490,
+      "endMs": 14460,
+      "speaker": "Pete",
+      "text": "No, I cannot teach.",
+      "translationVi": "Không, tôi không biết dạy."
+    },
+    {
+      "id": "s04",
+      "startMs": 15090,
+      "endMs": 18900,
+      "speaker": "Anna",
+      "text": "Can you cook? You can be a chef in a restaurant.",
+      "translationVi": "Bạn có biết nấu ăn không? Bạn có thể làm đầu bếp ở nhà hàng."
+    },
+    {
+      "id": "s05",
+      "startMs": 19200,
+      "endMs": 31760,
+      "speaker": "Pete",
+      "text": "No, I can't code! I can't teach! I can't cook! Anna, I can't do anything. This is sad. I'm gonna write about my feelings in my blog.",
+      "translationVi": "Không, tôi không biết lập trình! Tôi không biết dạy! Tôi không biết nấu ăn! Anna, tôi chẳng làm được gì. Buồn quá. Tôi sẽ viết về cảm xúc của mình trên blog."
+    },
+    {
+      "id": "s06",
+      "startMs": 32290,
+      "endMs": 34030,
+      "speaker": "Anna",
+      "text": "You write a blog?",
+      "translationVi": "Bạn viết blog à?"
+    },
+    {
+      "id": "s07",
+      "startMs": 34570,
+      "endMs": 35920,
+      "speaker": "Pete",
+      "text": "Yeah, I write a blog.",
+      "translationVi": "Ừ, tôi viết blog."
+    },
+    {
+      "id": "s08",
+      "startMs": 36320,
+      "endMs": 38380,
+      "speaker": "Anna",
+      "text": "How many followers do you have?",
+      "translationVi": "Bạn có bao nhiêu người theo dõi?"
+    },
+    {
+      "id": "s09",
+      "startMs": 39210,
+      "endMs": 43110,
+      "speaker": "Pete",
+      "text": "I don't know … fifty-nine thousand five hundred thirty-eight.",
+      "translationVi": "Tôi không biết… năm mươi chín nghìn năm trăm ba mươi tám."
+    },
+    {
+      "id": "s10",
+      "startMs": 43350,
+      "endMs": 48220,
+      "speaker": "Anna",
+      "text": "Pete, that's a lot of followers! You can make money writing!",
+      "translationVi": "Pete, nhiều người theo dõi thế! Bạn có thể kiếm tiền bằng nghề viết!"
+    },
+    {
+      "id": "s11",
+      "startMs": 49500,
+      "endMs": 52890,
+      "speaker": "Pete",
+      "text": "Writing is easy. Everyone can write.",
+      "translationVi": "Viết dễ mà. Ai cũng có thể viết."
+    },
+    {
+      "id": "s12",
+      "startMs": 53040,
+      "endMs": 57690,
+      "speaker": "Anna",
+      "text": "Not everyone can write well. You can be a writer!",
+      "translationVi": "Không phải ai cũng viết hay. Bạn có thể làm nhà văn!"
+    },
+    {
+      "id": "s13",
+      "startMs": 58740,
+      "endMs": 65640,
+      "speaker": "Pete",
+      "text": "I can be a writer. I can be a writer! I can be a writer! Thanks, Anna.",
+      "translationVi": "Tôi có thể làm nhà văn. Tôi có thể làm nhà văn! Tôi có thể làm nhà văn! Cảm ơn Anna."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What do Anna and Pete talk about in this conversation?",
+      "options": [
+        {
+          "id": "A",
+          "text": "How to meet online friends"
+        },
+        {
+          "id": "B",
+          "text": "What kind of work Pete can do"
+        },
+        {
+          "id": "C",
+          "text": "How to open a restaurant"
+        },
+        {
+          "id": "D",
+          "text": "Where to learn to drive"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Hai người nói về kỹ năng của Pete để tìm một nghề phù hợp.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s04",
+        "s12"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What does Pete say happens when he drives?",
+      "options": [
+        {
+          "id": "A",
+          "text": "He gets lost."
+        },
+        {
+          "id": "B",
+          "text": "He feels hungry."
+        },
+        {
+          "id": "C",
+          "text": "He sings to himself."
+        },
+        {
+          "id": "D",
+          "text": "He falls asleep."
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Pete nói anh thường ngủ thiếp đi khi lái xe.",
+      "evidenceSegmentIds": [
+        "s01"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "Which two jobs does Anna suggest before discovering the blog?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Teacher and chef"
+        },
+        {
+          "id": "B",
+          "text": "Chef and writer"
+        },
+        {
+          "id": "C",
+          "text": "Teacher and journalist"
+        },
+        {
+          "id": "D",
+          "text": "Journalist and driver"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Anna đề cập công việc dạy học và làm đầu bếp.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s04"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Where does Pete write about his feelings?",
+      "options": [
+        {
+          "id": "A",
+          "text": "In a letter"
+        },
+        {
+          "id": "B",
+          "text": "In a school notebook"
+        },
+        {
+          "id": "C",
+          "text": "On his blog"
+        },
+        {
+          "id": "D",
+          "text": "In a newspaper"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Pete viết về cảm xúc trên blog.",
+      "evidenceSegmentIds": [
+        "s05",
+        "s06",
+        "s07"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "Why does Anna think Pete could be a writer?",
+      "options": [
+        {
+          "id": "A",
+          "text": "He has just finished teaching."
+        },
+        {
+          "id": "B",
+          "text": "Many people follow his blog."
+        },
+        {
+          "id": "C",
+          "text": "He wants to write less often."
+        },
+        {
+          "id": "D",
+          "text": "He already works as a writer."
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Anna nhận ra blog có nhiều người theo dõi và cho rằng Pete có khả năng viết.",
+      "evidenceSegmentIds": [
+        "s08",
+        "s09",
+        "s10",
+        "s12"
+      ]
+    }
+  ]
+}

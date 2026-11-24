@@ -22,7 +22,7 @@ function attempt(id: string, lessonId: string, score: number | null, submittedAt
   return { id, userId: 'u', lessonId, status: score == null ? 'IN_PROGRESS' : 'COMPLETED', version: 0, phase: 'QUIZ', positionIndex: 0,
     contentVersion: 1, eligibleForLevelEval: true,
     lessonSnapshot: {}, contentSnapshot: {}, correctCount: score, totalQuestions: 5, startedAt: submittedAt, updatedAt: submittedAt,
-    submittedAt: score == null ? null : submittedAt };
+    submittedAt: score == null ? null : submittedAt, historyHiddenAt: null };
 }
 const kinds = Object.values(LearningKind);
 

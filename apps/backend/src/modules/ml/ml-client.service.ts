@@ -190,6 +190,19 @@ export class MlClientService {
     return response.data;
   }
 
+  async synthesizeConversationSample(text: string): Promise<Buffer> {
+    const response = await firstValueFrom(this.httpService.post(
+      `${this.baseUrl}/speech/conversation/sample`, { text }, {
+        headers: this.getHeaders(), timeout: 12000, maxRedirects: 0,
+        responseType: 'arraybuffer', maxContentLength: 256 * 1024,
+      }));
+    const audio = Buffer.from(response.data);
+    if (!audio.length || response.headers['content-type'] !== 'audio/mpeg') {
+      throw new Error('Invalid sample audio');
+    }
+    return audio;
+  }
+
   async scoreReadAloud(audio: Buffer, promptText: string, profile = this.speakingProfile): Promise<ReadAloudResult> {
     const form = new FormData();
     form.append('file', audio, { filename: 'recording.wav', contentType: 'audio/wav' });

@@ -39,11 +39,15 @@ class _ConversationTimelineState extends State<ConversationTimeline> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
-    key: const ValueKey('conversation-timeline'),
-    controller: scroll,
-    reverse: true,
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    children: widget.children.reversed.toList(),
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    child: ListView(
+      key: const ValueKey('conversation-timeline'),
+      controller: scroll,
+      reverse: true,
+      shrinkWrap: true,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      children: widget.children.reversed.toList(),
+    ),
   );
 }

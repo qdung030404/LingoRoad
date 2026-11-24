@@ -63,6 +63,13 @@ Uint8List limitSpeakingWav(Uint8List bytes, {int maxSeconds = 30}) {
 }
 
 /// Called once before runApp, when no recorder can be active.
+Future<void>? _startupAudioCleanup;
+
+Future<void> prepareSpeakingTemporaryAudio() =>
+    _startupAudioCleanup ??= cleanStaleSpeakingAudio().catchError((Object _) {
+      // A failed stale-file cleanup should not prevent new recordings.
+    });
+
 Future<void> cleanStaleSpeakingAudio({Directory? temporaryDirectory}) async {
   final temporary = temporaryDirectory ?? await getTemporaryDirectory();
   await cleanSharedSpeakingAudio(temporaryDirectory: temporary);
@@ -119,6 +126,7 @@ class DeviceSpeakingRecorder implements SpeakingRecorder {
   bool _recording = false;
   Future<Directory> _folder() async {
     if (_directory != null) return _directory!;
+    await prepareSpeakingTemporaryAudio();
     final root = await getTemporaryDirectory();
     final id = accountId.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
     return _directory = await Directory(

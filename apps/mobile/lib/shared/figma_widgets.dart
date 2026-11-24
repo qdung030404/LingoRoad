@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../core/theme/app_colors.dart';
 import '../core/theme/app_radius.dart';
 import '../core/theme/app_spacing.dart';
+import '../core/theme/app_typography.dart';
 import '../core/theme/figma_assets.dart';
 import '../core/theme/learning_assets.dart';
 import '../core/theme/updated_figma_assets.dart';
@@ -16,31 +16,27 @@ TextStyle designText(
   double size, {
   FontWeight weight = FontWeight.w400,
   Color color = AppColors.grey900,
-  double height = 1.2,
+  double height = 1.35,
 }) => TextStyle(
-  fontFamily: 'Inter',
+  fontFamily: AppTextStyles.fontFamily,
+  fontFamilyFallback: AppTextStyles.fontFallback,
   fontSize: size,
   fontWeight: weight,
   color: color,
   height: height,
-  letterSpacing: -size * .03,
-  fontVariations: [ui.FontVariation('wght', weight.value.toDouble())],
+  letterSpacing: -size * .01,
 );
 
-/// Medium headings in the current LingoRoad2 design use Be Vietnam Pro.
-/// Body text and controls keep Inter, including Inter's semibold variants.
 TextStyle designHeading(
   double size, {
   Color color = AppColors.grey900,
   double height = 1.2,
-}) => TextStyle(
-  fontFamily: 'Be Vietnam Pro',
-  fontSize: size,
-  fontWeight: FontWeight.w500,
+}) => designText(
+  size,
+  weight: FontWeight.w600,
   color: color,
   height: height,
-  letterSpacing: -size * .03,
-);
+).copyWith(letterSpacing: -size * .02);
 
 class FigmaAsset extends StatelessWidget {
   const FigmaAsset(
@@ -94,6 +90,8 @@ class FigmaPage extends StatelessWidget {
     this.bottom,
     this.color = AppColors.grey25,
     this.headerHeight = 52,
+    this.leadingWidth = 56,
+    this.headerPadding = EdgeInsets.zero,
     this.titleStyle,
   });
   final Widget child;
@@ -101,6 +99,8 @@ class FigmaPage extends StatelessWidget {
   final Widget? leading, trailing, bottom;
   final Color color;
   final double headerHeight;
+  final double leadingWidth;
+  final EdgeInsetsGeometry headerPadding;
   final TextStyle? titleStyle;
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
@@ -121,33 +121,37 @@ class FigmaPage extends StatelessWidget {
             if (title != null)
               SizedBox(
                 height: headerHeight,
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 56,
-                      child:
-                          leading ??
-                          (Navigator.of(context).canPop()
-                              ? IconButton(
-                                  tooltip: 'Quay lại',
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  icon: const FigmaAsset(
-                                    'intro/imgVuesaxLinearArrowLeft',
-                                  ),
-                                )
-                              : null),
-                    ),
-                    Expanded(
-                      child: Text(
-                        title!,
-                        textAlign: TextAlign.center,
-                        style:
-                            titleStyle ??
-                            designText(18, weight: FontWeight.w600),
+                child: Padding(
+                  padding: headerPadding,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: leadingWidth,
+                        child:
+                            leading ??
+                            (Navigator.of(context).canPop()
+                                ? IconButton(
+                                    tooltip: 'Quay lại',
+                                    onPressed: () =>
+                                        Navigator.of(context).pop(),
+                                    icon: const FigmaAsset(
+                                      'intro/imgVuesaxLinearArrowLeft',
+                                    ),
+                                  )
+                                : null),
                       ),
-                    ),
-                    SizedBox(width: 56, child: trailing),
-                  ],
+                      Expanded(
+                        child: Text(
+                          title!,
+                          textAlign: TextAlign.center,
+                          style:
+                              titleStyle ??
+                              designText(18, weight: FontWeight.w600),
+                        ),
+                      ),
+                      SizedBox(width: 56, child: trailing),
+                    ],
+                  ),
                 ),
               ),
             Expanded(child: child),
@@ -454,7 +458,10 @@ class PassageCard extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const FigmaAsset('reading/imgVuesaxLinearMaximize4', size: 16),
+                  const FigmaAsset(
+                    'reading/imgVuesaxLinearMaximize4',
+                    size: 16,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Xem toàn bộ',
@@ -634,10 +641,7 @@ class PracticeVocabularyCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (trailing != null) ...[
-                const SizedBox(width: 10),
-                trailing!,
-              ],
+              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
             ],
           ),
           if (trimmedExample.isNotEmpty) ...[
@@ -715,10 +719,7 @@ class KeyVocabularySection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (header != null) ...[
-            header!,
-            SizedBox(height: compact ? 12 : 14),
-          ],
+          if (header != null) ...[header!, SizedBox(height: compact ? 12 : 14)],
           for (final (index, item) in items.indexed) ...[
             if (index > 0) SizedBox(height: compact ? 8 : 10),
             _buildWordTile(context, item, savedKeys, savingKeys),

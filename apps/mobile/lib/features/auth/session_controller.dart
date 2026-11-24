@@ -1,17 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import '../../core/api/api_client.dart';
+import '../../core/auth/firebase_identity.dart';
+import '../learning/home_cache.dart';
 
 enum SessionStage { loading, signedOut, onboarding, ready, error }
 
 class SessionController extends ChangeNotifier {
   SessionController(this.api) {
     api.onUnauthorized = () {
-      _currentUid = null;
-      _epoch++;
-      user = null;
-      placement = {};
-      placementResult = null;
+      _resetAccount(null);
       stage = SessionStage.signedOut;
       notifyListeners();
     };
@@ -28,6 +26,82 @@ class SessionController extends ChangeNotifier {
   String? _currentUid;
   StreamSubscription<String?>? _authChanges;
   String? error;
+  HomeCache? _homeCache;
+  Json? cachedHome;
+  Future<void>? _bootstrapping;
+  Future<void> _cacheOperations = Future.value();
+
+  String? get placementCefr =>
+      (placement['estimatedCefr'] ?? placementResult?['estimatedCefr'])
+          as String?;
+
+  void _cacheOperation(Future<void> Function() operation) {
+    _cacheOperations = _cacheOperations
+        .then((_) => operation())
+        .catchError((Object _) {});
+  }
+
+  void clearHome() {
+    cachedHome = null;
+    final store = _homeCache;
+    if (store != null) _cacheOperation(store.clear);
+  }
+
+  void rejectHomeSession() {
+    if (_disposed || stage == SessionStage.signedOut) return;
+    _resetAccount(null);
+    stage = SessionStage.signedOut;
+    notifyListeners();
+    unawaited(api.clearSession().catchError((Object _) {}));
+  }
+
+  void rememberHome(Json snapshot) {
+    if (_disposed ||
+        stage != SessionStage.ready ||
+        !validHomeSnapshot(snapshot)) {
+      return;
+    }
+    cachedHome = snapshot;
+    final store = _homeCache;
+    if (store != null) _cacheOperation(() => store.write(snapshot));
+  }
+
+  void _resetAccount(String? uid) {
+    clearHome();
+    _homeCache = null;
+    _currentUid = uid;
+    _epoch++;
+    _bootstrapping = null;
+    api.invalidateSessionRequests();
+    user = null;
+    placement = {};
+    placementResult = null;
+  }
+
+  Future<void> _restoreHome(FirebaseIdentity identity, int epoch) async {
+    final uid = _currentUid;
+    final project = identity.projectId;
+    if (uid == null || project == null) return;
+    final store = _homeCache ??= HomeCache(
+      server: api.config.apiBaseUrl,
+      project: project,
+      uid: uid,
+    );
+    await _cacheOperations;
+    final saved = await store.read();
+    if (_disposed ||
+        epoch != _epoch ||
+        !identical(_homeCache, store) ||
+        stage == SessionStage.signedOut ||
+        stage == SessionStage.onboarding) {
+      return;
+    }
+    if (cachedHome == null && saved != null) {
+      cachedHome = saved;
+      notifyListeners();
+    }
+  }
+
   Json get profile => (user?['profile'] as Map?)?.cast<String, dynamic>() ?? {};
   @override
   void notifyListeners() {
@@ -52,12 +126,18 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      if (kDebugMode) debugPrint('[SessionController] Bắt đầu authenticateWithGoogle...');
+      if (kDebugMode) {
+        debugPrint('[SessionController] Bắt đầu authenticateWithGoogle...');
+      }
       await signInWithGoogle();
-      if (kDebugMode) debugPrint('[SessionController] authenticateWithGoogle thành công!');
+      if (kDebugMode) {
+        debugPrint('[SessionController] authenticateWithGoogle thành công!');
+      }
     } on ApiFailure catch (e, st) {
       if (kDebugMode) {
-        debugPrint('[SessionController] ❌ ApiFailure: code=${e.code}, message=${e.message}, status=${e.status}');
+        debugPrint(
+          '[SessionController] ❌ ApiFailure: code=${e.code}, message=${e.message}, status=${e.status}',
+        );
         debugPrint('[SessionController] StackTrace:\n$st');
       }
       if (!_disposed && e.code != 'AUTH_CANCELLED') error = e.message;
@@ -74,31 +154,49 @@ class SessionController extends ChangeNotifier {
     }
   }
 
-  Future<void> initialize() async {
-    final epoch = ++_epoch;
+  Future<void> initialize() {
+    if (_disposed) return Future.value();
+    return _bootstrapping ??= _initializeOnce(++_epoch);
+  }
+
+  Future<void> _initializeOnce(int epoch) async {
+    // Yield so the shared future is installed before observers can re-enter.
+    await Future<void>.value();
+    if (_disposed || epoch != _epoch) return;
     stage = SessionStage.loading;
     error = null;
     notifyListeners();
     try {
       if (api.identity != null) {
-        await api.identity!.initialize();
+        final identity = api.identity!;
+        await identity.initialize();
         if (_disposed || epoch != _epoch) return;
-        _authChanges ??= api.identity!.userChanges.listen((uid) {
-          if (uid != _currentUid) {
-            _currentUid = uid;
-            _epoch++;
-            user = null;
-            placement = {};
-            placementResult = null;
-            if (uid == null) {
+        if (identity is FirebaseIdentity) {
+          final uid = identity.currentUid;
+          if (_currentUid != null && uid != _currentUid) {
+            _resetAccount(uid);
+            if (uid != null) {
+              await initialize();
+            } else {
               stage = SessionStage.signedOut;
               notifyListeners();
-            } else {
-              initialize();
             }
+            return;
+          }
+          _currentUid = uid;
+          unawaited(_restoreHome(identity, epoch));
+        }
+        _authChanges ??= identity.userChanges.listen((uid) {
+          if (uid == _currentUid || _disposed) return;
+          _resetAccount(uid);
+          if (uid == null) {
+            stage = SessionStage.signedOut;
+            notifyListeners();
+          } else {
+            unawaited(initialize());
           }
         });
-        if (!api.identity!.signedIn) {
+        if (!identity.signedIn) {
           stage = SessionStage.signedOut;
           notifyListeners();
           return;
@@ -121,10 +219,13 @@ class SessionController extends ChangeNotifier {
           e.status == 409 ||
           e.code == 'AUTH_ACCOUNT_LINK_REQUIRED';
       if (shouldSignOut) {
+        _resetAccount(null);
+        final rejectedEpoch = _epoch;
         if (!e.unauthorized) error = e.message;
         stage = SessionStage.signedOut;
+        notifyListeners();
         await api.clearSession();
-        if (_disposed || epoch != _epoch) return;
+        if (_disposed || rejectedEpoch != _epoch) return;
       } else {
         error = e.message;
         stage = e.code == 'AUTH_CONFIGURATION'
@@ -137,6 +238,8 @@ class SessionController extends ChangeNotifier {
       error = 'Không đọc được phiên đăng nhập. Vui lòng thử lại.';
       stage = SessionStage.error;
       notifyListeners();
+    } finally {
+      if (epoch == _epoch) _bootstrapping = null;
     }
   }
 
@@ -170,12 +273,22 @@ class SessionController extends ChangeNotifier {
 
   Future<void> signInWithGoogle() async {
     if (api.identity == null) {
-      if (kDebugMode) debugPrint('[SessionController] ❌ signInWithGoogle: api.identity == null (chưa khởi tạo Firebase)');
+      if (kDebugMode) {
+        debugPrint(
+          '[SessionController] ❌ signInWithGoogle: api.identity == null (chưa khởi tạo Firebase)',
+        );
+      }
       throw const ApiFailure('Google yêu cầu cấu hình Firebase.');
     }
-    if (kDebugMode) debugPrint('[SessionController] Gọi api.identity.signInWithGoogle()...');
+    if (kDebugMode) {
+      debugPrint('[SessionController] Gọi api.identity.signInWithGoogle()...');
+    }
     await api.identity!.signInWithGoogle();
-    if (kDebugMode) debugPrint('[SessionController] api.identity.signInWithGoogle() xong, gọi initialize()...');
+    if (kDebugMode) {
+      debugPrint(
+        '[SessionController] api.identity.signInWithGoogle() xong, gọi initialize()...',
+      );
+    }
     await initialize();
   }
 
@@ -188,15 +301,26 @@ class SessionController extends ChangeNotifier {
 
   Future<void> loadAccount({int? epoch}) async {
     final expected = epoch ?? _epoch;
-    if (kDebugMode) debugPrint('[SessionController] loadAccount: Gọi song song GET /auth/me và GET /placement/status...');
+    if (kDebugMode) {
+      debugPrint(
+        '[SessionController] loadAccount: Gọi song song GET /auth/me và GET /placement/status...',
+      );
+    }
     final results = await Future.wait([
       api.request('GET', '/auth/me'),
       api.request('GET', '/placement/status'),
     ]);
     final account = results[0];
     final assessment = results[1];
-    if (kDebugMode) debugPrint('[SessionController] GET /auth/me thành công: ID=${account['id'] ?? account['sub']}');
-    final result = assessment['status'] == 'COMPLETED'
+    if (kDebugMode) {
+      debugPrint(
+        '[SessionController] GET /auth/me thành công: ID=${account['id'] ?? account['sub']}',
+      );
+    }
+    // Older servers returned only the session ID.
+    final result =
+        assessment['status'] == 'COMPLETED' &&
+            !assessment.containsKey('estimatedCefr')
         ? await api.request(
             'GET',
             '/placement/${assessment['currentSessionId']}/result',
@@ -209,6 +333,9 @@ class SessionController extends ChangeNotifier {
     stage = profile['onboardingCompletedAt'] == null
         ? SessionStage.onboarding
         : SessionStage.ready;
+    if (stage != SessionStage.ready || assessment['status'] != 'COMPLETED') {
+      clearHome();
+    }
     error = null;
     notifyListeners();
   }
@@ -227,21 +354,20 @@ class SessionController extends ChangeNotifier {
   Future<void> refreshPlacement() async {
     final epoch = _epoch;
     final assessment = await api.request('GET', '/placement/status');
-    final result = assessment['status'] == 'COMPLETED'
-        ? await api.request(
-            'GET',
-            '/placement/${assessment['currentSessionId']}/result',
-          )
-        : null;
     if (_disposed || epoch != _epoch) return;
+    if (placement['currentSessionId'] != assessment['currentSessionId'] ||
+        placement['status'] != assessment['status']) {
+      clearHome();
+      placementResult = null;
+    }
     placement = assessment;
-    placementResult = result;
     notifyListeners();
   }
 
   Future<void> logout() async {
-    _epoch++;
-    _currentUid = null;
+    _resetAccount(null);
+    stage = SessionStage.signedOut;
+    notifyListeners();
     try {
       if (api.identity != null) return;
       final token = await api.store.read();

@@ -64,7 +64,25 @@ if ($Setup) {
     if ($LASTEXITCODE -ne 0) { throw 'Không thể thiết lập database demo.' }
 }
 Start-DemoDatabase
-# Keep the backend's configured database and auth from apps/backend/.env.
+$demoSettings = Get-DemoSettings
+$demoDatabaseUrl = [uri]$demoSettings.DatabaseUrl
+if ($demoDatabaseUrl.Host -ne '127.0.0.1' -or
+    $demoDatabaseUrl.Port -ne $demoSettings.Port -or
+    $demoDatabaseUrl.AbsolutePath -ne '/lingoroad_demo') {
+    throw 'Cấu hình DATABASE_URL không trỏ tới PostgreSQL demo local.'
+}
+
+# Apply pending migrations without reseeding an existing demo database.
+$previousDatabaseUrl = $env:DATABASE_URL
+Push-Location $backendDirectory
+try {
+    $env:DATABASE_URL = $demoSettings.DatabaseUrl
+    & npm.cmd run prisma:migrate
+    if ($LASTEXITCODE -ne 0) { throw 'Migration database demo thất bại.' }
+} finally {
+    $env:DATABASE_URL = $previousDatabaseUrl
+    Pop-Location
+}
 
 Start-LocalService -Name 'ml' -Port 8001 -IsHealthy {
     (Get-ServiceJson 'http://127.0.0.1:8001/health').status -eq 'ok'
@@ -83,7 +101,15 @@ foreach ($component in @('speech_topic', 'speaking_content')) {
 
 Start-LocalService -Name 'backend' -Port 3000 -IsHealthy {
     $health = Get-ServiceJson 'http://127.0.0.1:3000/health'
-    $health.success -and $health.data.database -eq 'ready'
+    if (!$health.success -or $health.data.database -ne 'ready' -or
+        $health.data.schema -ne 'ready') { return $false }
+    $listener = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if (!$listener) { return $false }
+    $connection = Get-NetTCPConnection -OwningProcess $listener.OwningProcess -State Established -ErrorAction SilentlyContinue |
+        Where-Object { $_.RemoteAddress -eq '127.0.0.1' -and $_.RemotePort -eq $demoSettings.Port } |
+        Select-Object -First 1
+    return [bool]$connection
 } -Launch {
     param($errorLog)
     Push-Location $DemoProjectRoot
@@ -93,7 +119,7 @@ Start-LocalService -Name 'backend' -Port 3000 -IsHealthy {
     } finally { Pop-Location }
 
     $node = (Get-Command node.exe).Source
-    $process = Start-Process -FilePath $node -ArgumentList 'dist/main.js' -WorkingDirectory $backendDirectory -RedirectStandardOutput (Join-Path $demoDirectory 'backend.log') -RedirectStandardError $errorLog -WindowStyle Hidden -PassThru
+    $process = Start-Process -FilePath $node -ArgumentList 'dist/main.js' -WorkingDirectory $backendDirectory -Environment @{ DATABASE_URL = $demoSettings.DatabaseUrl; PORT = '3000' } -RedirectStandardOutput (Join-Path $demoDirectory 'backend.log') -RedirectStandardError $errorLog -WindowStyle Hidden -PassThru
     @{ pid = $process.Id; port = 3000 } | ConvertTo-Json | Set-Content (Join-Path $demoDirectory 'backend-process.json')
     $process
 }

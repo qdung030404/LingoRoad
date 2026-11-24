@@ -178,6 +178,20 @@ def test_reading_explain_build_messages_includes_grounding_fields():
     assert "Đáp án đúng: True" in user_msg
 
 
+def test_listening_explain_uses_transcript_grounding():
+    messages = reading_explain.build_messages(
+        passage="Staff: It costs two pounds.",
+        question_prompt="How much does it cost?",
+        question_type="MULTIPLE_CHOICE",
+        options=["Two pounds", "Five pounds"],
+        selected_option="Five pounds",
+        correct_option="Two pounds",
+        source_kind="LISTENING",
+    )
+    assert "luyện nghe" in messages[0]["content"]
+    assert "Bản chép lời trích đoạn nghe:\nStaff: It costs two pounds." in messages[1]["content"]
+
+
 def test_reading_explain_req_validation_rejects_oversized_passage():
     with pytest.raises(ValidationError):
         llm_routes.ReadingExplainReq(

@@ -1,20 +1,22 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 import '../../shared/figma_dropdown.dart';
 import '../../core/api/api_client.dart';
+import 'conversation_live_view.dart';
 import 'speaking_repository.dart';
 
 class ConversationSettingsDialog extends StatefulWidget {
   const ConversationSettingsDialog({
     super.key,
     required this.initial,
-    required this.startOnConfirm,
     this.onApplyLive,
   });
 
   final ConversationSettings initial;
-  final bool startOnConfirm;
   final Future<void> Function(ConversationSettings)? onApplyLive;
 
   @override
@@ -63,90 +65,109 @@ class _ConversationSettingsDialogState
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
-    canPop: !applying,
-    child: AlertDialog(
-      title: Text('Cài đặt trò chuyện', style: designHeading(20)),
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      scrollable: true,
-      content: SizedBox(
-        width: 320,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              live
-                  ? 'Bạn có thể đổi tốc độ nói và thời gian chờ. Giọng được chọn trước cuộc gọi.'
-                  : 'Micro sẽ bật khi bạn chọn Bắt đầu.',
-              style: designText(14, color: AppColors.grey800),
-            ),
-            const SizedBox(height: 20),
-            _setting<ConversationVoice>(
-              label: 'Giọng của Lingo',
-              value: voice,
-              options: const {
-                ConversationVoice.standard: 'Mặc định',
-                ConversationVoice.ava: 'Ava (nữ)',
-                ConversationVoice.brian: 'Brian (nam)',
-              },
-              onChanged: live ? null : (value) => voice = value,
-            ),
-            const SizedBox(height: 16),
-            _setting<ConversationSpeechRate>(
-              label: 'Tốc độ nói',
-              value: speechRate,
-              options: const {
-                ConversationSpeechRate.slow: 'Chậm',
-                ConversationSpeechRate.normal: 'Bình thường',
-                ConversationSpeechRate.fast: 'Nhanh',
-              },
-              onChanged: applying ? null : (value) => speechRate = value,
-            ),
-            const SizedBox(height: 16),
-            _setting<ConversationTurnPause>(
-              label: 'Chờ bạn nói tiếp',
-              value: turnPause,
-              options: const {
-                ConversationTurnPause.normal: 'Bình thường',
-                ConversationTurnPause.long: 'Lâu hơn',
-              },
-              onChanged: applying ? null : (value) => turnPause = value,
-            ),
-            if (error != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+  Widget build(BuildContext context) => BackdropFilter(
+    filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+    child: PopScope(
+      canPop: !applying,
+      child: Dialog(
+        backgroundColor: AppColors.grey0,
+        surfaceTintColor: Colors.transparent,
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardSm),
+        clipBehavior: Clip.antiAlias,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 5, 4, 5),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Cài đặt trò chuyện',
+                        style: designText(20, weight: FontWeight.w500),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Đóng cài đặt',
+                      onPressed: applying
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: AppColors.grey100),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Tooltip(
+                      message: live
+                          ? 'Chỉ đổi giọng trước khi bắt đầu hội thoại'
+                          : '',
+                      child: _setting<ConversationVoice>(
+                        label: 'Giọng của Lingo',
+                        value: voice,
+                        options: const {
+                          ConversationVoice.standard: 'Mặc định',
+                          ConversationVoice.ava: 'Ava (nữ)',
+                          ConversationVoice.brian: 'Brian (nam)',
+                        },
+                        onChanged: live ? null : (value) => voice = value,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _setting<ConversationSpeechRate>(
+                      label: 'Tốc độ nói',
+                      value: speechRate,
+                      options: const {
+                        ConversationSpeechRate.slow: 'Chậm',
+                        ConversationSpeechRate.normal: 'Bình thường',
+                        ConversationSpeechRate.fast: 'Nhanh',
+                      },
+                      onChanged: applying
+                          ? null
+                          : (value) => speechRate = value,
+                    ),
+                    const SizedBox(height: 24),
+                    _setting<ConversationTurnPause>(
+                      label: 'Chờ bạn nói tiếp',
+                      value: turnPause,
+                      options: const {
+                        ConversationTurnPause.normal: 'Bình thường',
+                        ConversationTurnPause.long: 'Lâu hơn',
+                      },
+                      onChanged: applying ? null : (value) => turnPause = value,
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 12),
+                      Semantics(
+                        liveRegion: true,
+                        child: Text(
+                          error!,
+                          style: designText(14, color: AppColors.error300),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      style: conversationPrimaryAction(16),
+                      onPressed: applying ? null : confirm,
+                      child: Text(applying ? 'Đang cập nhật…' : 'Lưu cài đặt'),
+                    ),
+                  ],
+                ),
               ),
             ],
-          ],
+          ),
         ),
       ),
-      actions: [
-        OutlinedButton(
-          style: OutlinedButton.styleFrom(minimumSize: const Size(48, 48)),
-          onPressed: applying ? null : () => Navigator.of(context).pop(),
-          child: Text(widget.startOnConfirm ? 'Để sau' : 'Hủy'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(48, 48),
-            backgroundColor: AppColors.grey900,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: applying ? null : confirm,
-          child: Text(
-            applying
-                ? 'Đang cập nhật…'
-                : widget.startOnConfirm
-                ? 'Bắt đầu'
-                : 'Áp dụng',
-          ),
-        ),
-      ],
     ),
   );
 

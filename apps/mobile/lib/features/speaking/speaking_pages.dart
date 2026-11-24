@@ -6,7 +6,9 @@ import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import '../learning/learning_widgets.dart';
 import 'speaking_controller.dart';
+import 'speaking_history_list.dart';
 import 'speaking_repository.dart';
+import 'speaking_review_widgets.dart';
 import 'speaking_assessment.dart';
 import 'assessment_details.dart';
 
@@ -18,6 +20,43 @@ String speakingStatus(String status) => switch (status) {
   'UNKNOWN' => 'Chưa xác định được kết quả',
   _ => status,
 };
+
+String? _submissionMode(Json submission) {
+  final prompt = submission['promptSnapshot'];
+  final result = submission['result'];
+  return (prompt is Map ? prompt['mode']?.toString() : null) ??
+      (result is Map ? result['mode']?.toString() : null);
+}
+
+class SpeakingSubmissionReviewHeader extends StatelessWidget {
+  const SpeakingSubmissionReviewHeader({super.key, required this.submission});
+
+  final Json submission;
+
+  @override
+  Widget build(BuildContext context) {
+    final isTopic = _submissionMode(submission) == 'TOPIC';
+    final prompt = submission['promptSnapshot'];
+    final name = prompt is Map ? prompt['title'] : null;
+    final sentence = speakingSentence(submission).trim();
+    final title = name is String && name.trim().isNotEmpty
+        ? name.trim()
+        : sentence.isNotEmpty
+        ? sentence
+        : isTopic
+        ? 'Tự nói'
+        : 'Nghe và đọc';
+    final status = submission['status']?.toString() ?? '';
+
+    return SpeakingReviewHeader(
+      title: title,
+      icon: isTopic ? Icons.mic_none_rounded : Icons.headphones_rounded,
+      statusLabel: speakingStatus(status),
+      dateLabel: formatSpeakingHistoryDate(submission['createdAt']?.toString()),
+      completed: status == 'SUCCEEDED',
+    );
+  }
+}
 
 String speakingHistoryScore(Json submission) {
   final result = submission['result'];
@@ -124,6 +163,8 @@ class _SpeakingRecordPageState extends State<SpeakingRecordPage>
     with WidgetsBindingObserver {
   final AudioPlayer _player = AudioPlayer();
   SpeakingController get c => widget.controller;
+  bool get showReviewHeader =>
+      c.mode != 'TONGUE_TWISTER' && c.status == 'SUCCEEDED' && c.result != null;
   bool _playing = false;
   StreamSubscription<void>? _completion;
   @override
@@ -201,10 +242,14 @@ class _SpeakingRecordPageState extends State<SpeakingRecordPage>
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              LearningCard(
-                children: [Text(c.sentence, style: designHeading(26))],
-              ),
-              const SizedBox(height: 16),
+              if (showReviewHeader)
+                SpeakingSubmissionReviewHeader(submission: c.submission!)
+              else ...[
+                LearningCard(
+                  children: [Text(c.sentence, style: designHeading(26))],
+                ),
+                const SizedBox(height: 16),
+              ],
               if (!c.active)
                 learningBody('Phiên đăng nhập đã thay đổi. Vui lòng quay lại.'),
               if (c.recording) ...[
@@ -226,8 +271,10 @@ class _SpeakingRecordPageState extends State<SpeakingRecordPage>
                 )
               else ...[
                 if (c.submission != null) ...[
-                  Text(speakingStatus(c.status), style: designHeading(20)),
-                  const SizedBox(height: 12),
+                  if (!showReviewHeader) ...[
+                    Text(speakingStatus(c.status), style: designHeading(20)),
+                    const SizedBox(height: 12),
+                  ],
                   if (c.status == 'SUCCEEDED' && c.result != null)
                     SpeakingResult(
                       result: c.result!,
@@ -390,6 +437,7 @@ class _SpeakingResultState extends State<SpeakingResult> {
             content == null);
     return SpeakingAssessment(
       result: result,
+      useSharedScoreLayout: result['mode'] != 'TONGUE_TWISTER',
       referenceText: widget.referenceText,
       audioPath: widget.audioPath,
       isCurrent: widget.isCurrent,
@@ -425,137 +473,74 @@ class SpeakingHistoryPage extends StatefulWidget {
 }
 
 class _SpeakingHistoryPageState extends State<SpeakingHistoryPage> {
-  late String? mode = widget.mode;
-  List<Json> rows = [];
-  String? cursor, error;
-  bool loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(load());
-  }
-
-  Future<void> load({bool more = false}) async {
-    final c = widget.controller;
-    if (!c.active || loading || (more && cursor == null)) return;
-    setState(() {
-      loading = true;
-      error = null;
-      if (!more) {
-        rows = [];
-        cursor = null;
-      }
-    });
-    try {
-      final page = await c.repository.historyForMode(
-        cursor: more ? cursor : null,
-        mode: mode,
-      );
-      if (!mounted || !c.active) return;
-      final items = speakingItems(page['items']);
-      setState(() {
-        rows = more ? [...rows, ...items] : items;
-        cursor = page['nextCursor'] as String?;
-      });
-    } catch (_) {
-      if (mounted && c.active) {
-        setState(() => error = 'Chưa tải được lịch sử. Hãy thử lại.');
-      }
-    } finally {
-      if (mounted) setState(() => loading = false);
-    }
-  }
+  late String? _mode = widget.mode;
 
   @override
   Widget build(BuildContext context) {
-    final c = widget.controller;
+    final controller = widget.controller;
+    final repository = controller.repository;
+    final mode = _mode;
     final title = switch (widget.mode) {
       'READ_ALOUD' => 'Lịch sử nghe và đọc',
       'TOPIC' => 'Lịch sử tự nói',
       'TONGUE_TWISTER' => 'Lịch sử thử thách phát âm',
       _ => 'Lịch sử Speaking',
     };
-    if (!c.active) {
-      return FigmaPage(
-        title: title,
-        child: const Center(child: Text('Phiên đăng nhập đã thay đổi.')),
-      );
-    }
-    final list = ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (widget.mode == null)
-          DropdownButtonFormField<String>(
-            initialValue: mode ?? 'ALL',
-            decoration: const InputDecoration(labelText: 'Chế độ'),
-            items: const [
-              DropdownMenuItem(value: 'ALL', child: Text('Tất cả')),
-              DropdownMenuItem(value: 'READ_ALOUD', child: Text('Luyện đọc')),
-              DropdownMenuItem(value: 'TOPIC', child: Text('Nói theo chủ đề')),
-              DropdownMenuItem(
-                value: 'TONGUE_TWISTER',
-                child: Text('Thử thách phát âm'),
-              ),
-            ],
-            onChanged: loading
-                ? null
-                : (value) {
-                    mode = value == 'ALL' ? null : value;
-                    unawaited(load());
-                  },
-          ),
-        OutlinedButton(
-          onPressed: loading ? null : load,
-          child: const Text('Làm mới'),
-        ),
-        if (error != null) learningBody(error!),
-        if (!loading && error == null && rows.isEmpty)
-          learningBody('Chưa có bài nộp. Hãy luyện câu đầu tiên.'),
-        for (final row in rows)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: LearningCard(
-              children: [
-                Text(speakingSentence(row), style: designHeading(18)),
-                if (row['result'] is Map)
-                  learningBody(speakingHistoryScore(row)),
-                learningBody(speakingStatus(row['status']?.toString() ?? '')),
-                if (row['result'] case {'content': final Map content})
-                  if (content['status'] == 'unavailable')
-                    learningBody('Nội dung chưa chấm được', size: 14)
-                  else if (content['status'] == 'insufficient_data')
-                    learningBody('Chưa đủ dữ liệu chấm nội dung', size: 14),
-                learningBody(_date(row['createdAt']?.toString()), size: 14),
-                OutlinedButton(
-                  onPressed: () => previewPush(
-                    context,
-                    SpeakingHistoryDetail(
-                      controller: c,
-                      id: row['id'] as String,
-                    ),
-                  ),
-                  child: const Text('Xem kết quả'),
+    return SpeakingHistoryList(
+      key: ValueKey(mode),
+      title: title,
+      emptyMessage: 'Chưa có bài nộp. Hãy luyện câu đầu tiên.',
+      active: () => controller.active,
+      loadPage: (cursor) =>
+          repository.historyForMode(cursor: cursor, mode: mode),
+      hide: repository.hideSpeakingHistory,
+      describe: (row) {
+        final status = row['status']?.toString() ?? '';
+        final content = (row['result'] as Map?)?['content'];
+        final contentStatus = content is Map ? content['status'] : null;
+        return SpeakingHistoryEntry(
+          id: row['id'] as String,
+          title: speakingSentence(row),
+          date: row['createdAt']?.toString(),
+          canHide: const {'SUCCEEDED', 'FAILED', 'UNKNOWN'}.contains(status),
+          details: [
+            if (row['result'] is Map) speakingHistoryScore(row),
+            speakingStatus(status),
+            if (contentStatus == 'unavailable') 'Nội dung chưa chấm được',
+            if (contentStatus == 'insufficient_data')
+              'Chưa đủ dữ liệu chấm nội dung',
+          ],
+        );
+      },
+      open: (id) async {
+        await previewPush<void>(
+          context,
+          SpeakingHistoryDetail(controller: controller, id: id),
+        );
+      },
+      filter: widget.mode != null
+          ? null
+          : (enabled) => DropdownButtonFormField<String>(
+              initialValue: mode ?? 'ALL',
+              decoration: const InputDecoration(labelText: 'Chế độ'),
+              items: const [
+                DropdownMenuItem(value: 'ALL', child: Text('Tất cả')),
+                DropdownMenuItem(value: 'READ_ALOUD', child: Text('Luyện đọc')),
+                DropdownMenuItem(
+                  value: 'TOPIC',
+                  child: Text('Nói theo chủ đề'),
+                ),
+                DropdownMenuItem(
+                  value: 'TONGUE_TWISTER',
+                  child: Text('Thử thách phát âm'),
                 ),
               ],
+              onChanged: enabled
+                  ? (value) =>
+                        setState(() => _mode = value == 'ALL' ? null : value)
+                  : null,
             ),
-          ),
-        if (loading) const Center(child: CircularProgressIndicator()),
-        if (cursor != null)
-          TextButton(
-            onPressed: loading ? null : () => load(more: true),
-            child: const Text('Xem thêm'),
-          ),
-      ],
     );
-    return FigmaPage(title: title, child: list);
-  }
-
-  String _date(String? value) {
-    final date = value == null ? null : DateTime.tryParse(value)?.toLocal();
-    return date == null
-        ? ''
-        : '${date.day}/${date.month}/${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
 
@@ -614,11 +599,14 @@ class _SpeakingHistoryDetailState extends State<SpeakingHistoryDetail> {
           ] else if (submission == null)
             const Center(child: CircularProgressIndicator())
           else ...[
-            Text(speakingSentence(submission!), style: designHeading(24)),
-            const SizedBox(height: 16),
-            learningBody(
-              speakingStatus(submission!['status']?.toString() ?? ''),
-            ),
+            if (_submissionMode(submission!) == 'TONGUE_TWISTER') ...[
+              Text(speakingSentence(submission!), style: designHeading(24)),
+              const SizedBox(height: 16),
+              learningBody(
+                speakingStatus(submission!['status']?.toString() ?? ''),
+              ),
+            ] else
+              SpeakingSubmissionReviewHeader(submission: submission!),
             if (submission!['status'] == 'FAILED')
               learningBody(
                 speakingErrorMessage(submission!['errorCode']?.toString()),

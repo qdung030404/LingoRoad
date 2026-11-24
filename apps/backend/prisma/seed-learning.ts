@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { LearningContent, LearningQuestion, LISTENING_SKILL_CODES, READING_SKILL_CODES, validateLearningContent } from '../src/modules/learning/learning.types';
 import { validateListeningAudio } from '../src/modules/learning/listening-media';
-import { loadCampusCafeListening } from './listening-content/load-listening';
+import { loadListeningLesson } from './listening-content/load-listening';
 
 export interface LearningUnitSeed {
   code: string;
@@ -76,6 +76,13 @@ export function loadLearningUnits(): LearningUnitSeed[] {
       orderIndex: 1,
       title: 'Đô thị và phát triển bền vững',
       description: 'Phân tích bài viết về không gian xanh và quy hoạch đô thị',
+    },
+    {
+      code: 'b2-unit-2',
+      cefrLevel: 'B2',
+      orderIndex: 2,
+      title: 'Những chuyến khám phá',
+      description: 'Nghe trích đoạn sách nói về những chuyến đi và quan sát hiện trường.',
     },
     {
       code: 'c1-unit-1',
@@ -151,7 +158,13 @@ export function loadLearningContent(): LearningSeed[] {
       content: { steps: [], audioUrl: '/media/learning/v1/listening.wav', transcript, questions: comprehension('listening') } },
     { code: 'listening-campus-cafe', kind: 'LISTENING', title: 'At the campus café',
       description: 'Nghe hội thoại gọi món, kiểm tra từng câu rồi nghe lại lời thoại để chữa bài.',
-      estimatedMinutes: 6, sortOrder: 50, contentVersion: 1, unitCode: 'a1-unit-2', content: loadCampusCafeListening() },
+      estimatedMinutes: 6, sortOrder: 50, contentVersion: 1, unitCode: 'a1-unit-2', content: loadListeningLesson('campus-cafe') },
+    { code: 'listening-valkyrie', kind: 'LISTENING', title: 'Aboard the Valkyrie',
+      description: 'Nghe hành trình đến Iceland qua giọng đọc của badey (LibriVox, Mini LibriSpeech, CC BY 4.0).',
+      estimatedMinutes: 5, sortOrder: 51, contentVersion: 1, unitCode: 'b2-unit-2', content: loadListeningLesson('valkyrie') },
+    { code: 'listening-underground', kind: 'LISTENING', title: 'A Walk Underground',
+      description: 'Theo lối xuống hầm mỏ qua giọng đọc của aquielisunari (LibriVox, Mini LibriSpeech, CC BY 4.0).',
+      estimatedMinutes: 6, sortOrder: 52, contentVersion: 1, unitCode: 'b2-unit-2', content: loadListeningLesson('underground') },
     {
       code: 'reading-a2-club-meeting', kind: 'READING', title: 'A New Time for the Club Meeting',
       description: 'Đọc email đổi lịch câu lạc bộ và xác định thời gian, địa điểm cùng việc cần làm.',

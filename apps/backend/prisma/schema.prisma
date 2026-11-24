@@ -97,6 +97,7 @@ model VoiceConversation {
   startedAt DateTime? @map("started_at")
   endedAt DateTime? @map("ended_at")
   historyStatus VoiceHistoryStatus @default(SAVED) @map("history_status")
+  historyHiddenAt DateTime? @map("history_hidden_at")
   assessmentStatus String @default("UNASSESSED") @map("assessment_status") @db.VarChar(30)
   assessment Json? @db.JsonB
   assessmentAudioHash String? @map("assessment_audio_hash") @db.VarChar(64)
@@ -171,6 +172,7 @@ model SpeakingSubmission {
   processingAt DateTime? @map("processing_at")
   completedAt DateTime? @map("completed_at")
   createdAt DateTime @default(now()) @map("created_at")
+  historyHiddenAt DateTime? @map("history_hidden_at")
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   prompt SpeakingPrompt @relation(fields: [promptId], references: [id], onDelete: Restrict)
   @@unique([userId, clientRequestId])
@@ -406,6 +408,7 @@ model LearningAttempt {
   startedAt            DateTime                  @default(now()) @map("started_at")
   updatedAt            DateTime                  @updatedAt @map("updated_at")
   submittedAt          DateTime?                 @map("submitted_at")
+  historyHiddenAt      DateTime?                 @map("history_hidden_at")
   user                 User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
   lesson               LearningLesson            @relation(fields: [lessonId], references: [id], onDelete: Restrict)
   answers              LearningAttemptAnswer[]

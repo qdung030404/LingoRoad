@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
+import 'learning_controller.dart';
 import 'learning_repository.dart';
 import 'learning_widgets.dart';
 import 'listening_audio.dart';
@@ -70,10 +71,16 @@ class PracticeLessonFacts extends StatelessWidget {
 }
 
 class PracticeReviewPage extends StatefulWidget {
-  const PracticeReviewPage({super.key, required this.attempt, this.audio});
+  const PracticeReviewPage({
+    super.key,
+    required this.attempt,
+    this.audio,
+    this.controller,
+  });
 
   final LearningAttempt attempt;
   final ListeningAudioController? audio;
+  final LearningAttemptController? controller;
 
   @override
   State<PracticeReviewPage> createState() => _PracticeReviewPageState();
@@ -116,7 +123,8 @@ class _PracticeReviewPageState extends State<PracticeReviewPage> {
     ];
     final index = _wrongOnly ? incorrect[_position] : _position;
     final question = questions[index];
-    final answer = attempt.answer(question['id'] as String);
+    final questionId = question['id'] as String;
+    final answer = attempt.answer(questionId);
     final last =
         _position == (_wrongOnly ? incorrect.length : questions.length) - 1;
     final evidenceIds = (answer?['evidenceSegmentIds'] as List? ?? []).toSet();
@@ -127,6 +135,7 @@ class _PracticeReviewPageState extends State<PracticeReviewPage> {
     final hasPassage = passage != null && passage.trim().isNotEmpty;
     final explanation = (answer?['explanation'] as String? ?? '').trim();
     final audio = widget.audio;
+    final controller = widget.controller;
     return PopScope(
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) unawaited(audio?.pause());
@@ -416,6 +425,24 @@ class _PracticeReviewPageState extends State<PracticeReviewPage> {
                   ],
                 ),
               ),
+            if (attempt.lesson.kind == 'LISTENING' &&
+                attempt.completed &&
+                answer?['checked'] == true &&
+                controller != null) ...[
+              const SizedBox(height: 12),
+              ListenableBuilder(
+                listenable: controller,
+                builder: (context, _) => PracticeAiExplainCard(
+                  questionId: questionId,
+                  originalExplanation: explanation,
+                  ai: controller.aiExplanation(questionId),
+                  explaining: controller.isExplaining(questionId),
+                  errorText: controller.explainError(questionId),
+                  onExplain: () => controller.explainQuestion(questionId),
+                  listening: true,
+                ),
+              ),
+            ],
             if ((attempt.content['transcript'] as String? ?? '').isNotEmpty ||
                 learningItems(
                   attempt.content['transcriptSegments'],

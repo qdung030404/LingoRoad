@@ -200,6 +200,10 @@ describe("AssessmentSafeMapper (Zero Leak Security)", () => {
     expect(rubricObj.coherenceCohesion).toBeUndefined();
     expect(rubricObj.lexicalResource).toBeUndefined();
     expect(rubricObj.grammarAccuracy).toBeUndefined();
+    expect(AssessmentSafeMapper.toSafeItem({
+      ...essayItem,
+      prompt: 'Write an essay (220–260 words) about AI.',
+    }).rubricCriteria).toEqual({ wordCount: { min: 220, max: 260 } });
   });
 
   it("should safely handle non-object or array rubricCriteria without throwing errors", () => {
