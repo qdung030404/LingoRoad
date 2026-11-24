@@ -15,6 +15,7 @@ export class VocabularyService {
     return (
       await db.vocabularyDeck.findFirst({
         where: { userId, systemKey: READING_DECK_SYSTEM_KEY, deletedAt: null },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       })
     ) ?? db.vocabularyDeck.findFirst({
       where: { userId, deletedAt: null, name: { equals: READING_DECK_DEFAULT_NAME, mode: 'insensitive' } },
@@ -77,6 +78,9 @@ export class VocabularyService {
       return { targetId: id, appliedVersion: saved.version, result: { deckId: id, deleted: remove } };
     });
     return { receipt: this.commands.view(receipt), ...await this.deck(userId, id, true) };
+  }
+  async deleteDeck(userId: string, id: string, dto: VocabularyVersionDto) {
+    return this.updateDeck(userId, id, dto, true);
   }
   private wordData(dto: VocabularyCreateWordDto | VocabularyBatchWordItemDto, old?: VocabularyWord) {
     const english = dto.english.trim(), meaning = dto.meaning.trim();
@@ -187,6 +191,9 @@ export class VocabularyService {
       return { targetId: id, appliedVersion: saved.version, result: { wordId: id, deleted: remove } };
     });
     return { receipt: this.commands.view(receipt), word: await this.readWord(userId, id) };
+  }
+  async deleteWord(userId: string, id: string, dto: VocabularyVersionDto) {
+    return this.updateWord(userId, id, dto, true);
   }
   async summary(userId: string) {
     return this.prisma.$transaction(async db => {

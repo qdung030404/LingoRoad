@@ -526,6 +526,7 @@ model LearningActivitySegment {
 model VocabularyDeck {
   id String @id @default(uuid()) @db.Uuid
   userId String @map("user_id") @db.Uuid
+  sourceTopicId String? @map("source_topic_id") @db.Uuid
   name String @db.VarChar(60)
   systemKey String? @map("system_key") @db.VarChar(40)
   version Int @default(0)
@@ -536,6 +537,7 @@ model VocabularyDeck {
   words VocabularyWord[]
   reviews VocabularyReviewAttempt[]
   @@index([userId, deletedAt, createdAt, id])
+  @@index([userId, sourceTopicId])
   @@index([userId, systemKey, deletedAt])
   @@map("vocabulary_decks")
 }
@@ -659,8 +661,10 @@ model CuratedTopicWord {
   meaningVi String @map("meaning") @db.VarChar(500)
   exampleEn String @default("") @map("example") @db.VarChar(1000)
   exampleVi String @default("") @map("translation") @db.VarChar(1000)
+  imageUrl String? @map("image_url") @db.VarChar(500)
   audioUrl String? @map("audio_url") @db.VarChar(500)
   createdAt DateTime @default(now()) @map("created_at")
   topic CuratedTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  @@index([topicId])
   @@map("topic_words")
 }

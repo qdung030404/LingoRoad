@@ -47,6 +47,8 @@ dependencies:
   flutter_webrtc: 1.6.3
   image_picker: ^1.1.2
   flutter_tts: ^4.2.5
+  flutter_card_swiper: ^7.0.0
+  flip_card: ^0.7.0
 
 dev_dependencies:
   flutter_test:

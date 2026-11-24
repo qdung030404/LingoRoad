@@ -39,6 +39,19 @@ class VocabularyWord {
   String get learningState =>
       json['learningState'] as String? ?? 'NEEDS_REVIEW';
   String field(String name) => json[name] as String? ?? '';
+  String get phonetic => field('phonetic');
+  String get partOfSpeech =>
+      field('partOfSpeech').isNotEmpty ? field('partOfSpeech') : field('part_of_speech');
+  String get example => field('example');
+  String get translation => field('translation');
+  String? get imageUrl {
+    final url = field('imageUrl').isNotEmpty ? field('imageUrl') : field('image_url');
+    return url.isNotEmpty ? url : null;
+  }
+  String? get audioUrl {
+    final url = field('audioUrl').isNotEmpty ? field('audioUrl') : field('audio_url');
+    return url.isNotEmpty ? url : null;
+  }
 }
 
 class VocabularyReviewItem {
@@ -64,8 +77,11 @@ class VocabularyReviewAttempt {
   String get phase => json['phase'] as String? ?? 'FRONT';
   String get status => json['status'] as String;
   bool get finished => status != 'IN_PROGRESS';
-  List<VocabularyReviewItem> get items =>
+  late final List<VocabularyReviewItem> items =
       vocabularyItems(json['items']).map(VocabularyReviewItem.new).toList();
+  late final Map<String, VocabularyReviewItem> itemMap = {
+    for (final item in items) item.id: item,
+  };
   List<String> get queue => (json['queue'] as List).cast<String>();
   VocabularyReviewItem? get current => json['currentItem'] is Map
       ? VocabularyReviewItem(vocabularyJson(json['currentItem']))

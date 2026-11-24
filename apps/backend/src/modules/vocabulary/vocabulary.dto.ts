@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsISO8601, IsOptional, IsString, IsUrl, IsUUID, Max, MaxLength, Min, MinLength, ValidateNested } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
 export class VocabularyCommandDto { @IsUUID() commandId!: string; }
@@ -15,7 +15,7 @@ export class VocabularyCreateWordDto extends VocabularyCommandDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(50) partOfSpeech?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) example?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) translation?: string;
-  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) imageUrl?: string;
+  @IsOptional() @Transform(trim) @IsUrl({ protocols: ['https', 'http'], require_protocol: true }) @MaxLength(500) imageUrl?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(11) @IsString({ each: true }) @MinLength(1, { each: true }) @MaxLength(100, { each: true }) acceptedAnswers?: string[];
 }
 export class VocabularyUpdateWordDto extends VocabularyCreateWordDto { @IsInt() @Min(0) expectedVersion!: number; }
@@ -27,7 +27,7 @@ export class VocabularyBatchWordItemDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(50) partOfSpeech?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) example?: string;
   @IsOptional() @Transform(trim) @IsString() @MaxLength(1000) translation?: string;
-  @IsOptional() @Transform(trim) @IsString() @MaxLength(500) imageUrl?: string;
+  @IsOptional() @Transform(trim) @IsUrl({ protocols: ['https', 'http'], require_protocol: true }) @MaxLength(500) imageUrl?: string;
   @IsOptional() @IsArray() @ArrayMaxSize(11) @IsString({ each: true }) @MinLength(1, { each: true }) @MaxLength(100, { each: true }) acceptedAnswers?: string[];
 }
 
@@ -55,6 +55,23 @@ export class VocabularyReviewCommandDto extends VocabularyVersionDto {
   @IsOptional() @IsString() @MaxLength(1000) draft?: string;
   @IsOptional() @IsString() @MaxLength(1000) answer?: string;
   @IsOptional() @IsIn(['EASY', 'MEDIUM', 'HARD']) rating?: string;
+}
+
+export class VocabularyBatchReviewResultDto {
+  @IsUUID() itemId!: string;
+  @IsIn(['EASY', 'MEDIUM', 'HARD']) rating!: string;
+  @IsOptional() @IsString() @MaxLength(1000) checkedAnswer?: string;
+  @IsOptional() @IsISO8601() finalizedAt?: string;
+}
+
+export class VocabularyBatchSubmitDto extends VocabularyVersionDto {
+  @IsOptional() @IsBoolean() isFinal: boolean = true;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @ValidateNested({ each: true })
+  @Type(() => VocabularyBatchReviewResultDto)
+  results!: VocabularyBatchReviewResultDto[];
 }
 
 export class CuratedTopicWordsQueryDto {

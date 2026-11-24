@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { VocabularyCommandService } from './vocabulary-command.service';
 import { VocabularyService } from './vocabulary.service';
-import { VocabularyListQuery, VocabularyReviewCommandDto, VocabularyStartDto } from './vocabulary.dto';
+import { VocabularyBatchSubmitDto, VocabularyListQuery, VocabularyReviewCommandDto, VocabularyStartDto } from './vocabulary.dto';
 import { Db, normalizeVocabularyAnswer, Review, reviewView, vocabConflict, vocabInvalid, vocabMissing, wordView } from './vocabulary.types';
 
 const withItems = { items: { orderBy: { initialOrdinal: 'asc' as const } } };
@@ -90,6 +90,166 @@ export class VocabularyReviewService {
       }
       const saved = await db.vocabularyReviewAttempt.update({ where: { id }, data: { queue, phase, status, submittedAt, version: { increment: 1 } } });
       return { targetId: id, appliedVersion: saved.version, result: { attemptId: id, action: dto.action } };
+    });
+    return { receipt: this.commands.view(receipt), ...await this.attempt(userId, id) };
+  }
+  async batchSubmit(userId: string, id: string, dto: VocabularyBatchSubmitDto) {
+    const action = dto.isFinal ? 'BATCH_SUBMIT' : 'BATCH_CHECKPOINT';
+    const receipt = await this.commands.execute(userId, dto.commandId, action, id, dto, async db => {
+      const attempt = await this.owned(db, userId, id);
+      if (attempt.version !== dto.expectedVersion) vocabConflict();
+      if (attempt.status !== 'IN_PROGRESS') vocabInvalid('Lượt ôn đã kết thúc.');
+
+      const now = new Date();
+      const rawMinTime = attempt.startedAt ? new Date(attempt.startedAt).getTime() : 0;
+      const minTime = Number.isNaN(rawMinTime) ? 0 : rawMinTime;
+      const itemMap = new Map(attempt.items.map(i => [i.id, i]));
+      const reviewedItemIds = new Set<string>();
+      const preparedItems: Array<{ id: string; data: Prisma.VocabularyReviewItemUpdateInput }> = [];
+      const wordUpdatesByWordId = new Map<
+        string,
+        {
+          wordId: string;
+          contentVersion: number;
+          learningState: 'REMEMBERED' | 'NEEDS_REVIEW';
+          finalizedAt: Date;
+          lastReviewItemId: string;
+        }
+      >();
+
+      for (const res of dto.results) {
+        const item = itemMap.get(res.itemId);
+        if (!item) vocabInvalid('Từ ôn tập không thuộc lượt ôn này.');
+        if (reviewedItemIds.has(item.id)) vocabInvalid('Danh sách kết quả chứa từ bị trùng lặp.');
+        if (item.state === 'SKIPPED') vocabInvalid('Không thể cập nhật từ đã bỏ qua.');
+        if (item.state !== 'PENDING') vocabInvalid('Từ này đã được hoàn thành trước đó.');
+        if (item.isCorrect === false && res.rating !== 'HARD') {
+          vocabInvalid('Câu trả lời sai cần ôn lại.', 'VOCAB_INVALID_RATING');
+        }
+
+        const parsedDate = res.finalizedAt ? new Date(res.finalizedAt) : now;
+        const ts = parsedDate.getTime();
+        const validDate = Number.isNaN(ts) || ts > now.getTime() || ts < minTime ? now : parsedDate;
+
+        let itemData: Prisma.VocabularyReviewItemUpdateInput;
+        if (item.checkedAt != null) {
+          if (res.checkedAnswer !== undefined && res.checkedAnswer !== item.checkedAnswer) {
+            vocabInvalid('Đáp án đã kiểm tra không thể sửa.');
+          }
+          itemData = {
+            state: 'REVIEWED',
+            rating: res.rating,
+            resultSource: 'RECALL_AFTER_REVEAL',
+            finalizedAt: validDate,
+          };
+        } else if (res.checkedAnswer !== undefined) {
+          const normalized = normalizeVocabularyAnswer(res.checkedAnswer);
+          if (!normalized) vocabInvalid('Nhập từ tiếng Anh trước khi kiểm tra.');
+          const snapshot = item.wordSnapshot as { acceptedAnswers?: string[] } | null;
+          const accepted = Array.isArray(snapshot?.acceptedAnswers) ? snapshot.acceptedAnswers : [];
+          const isCorrect = accepted.some(a => normalizeVocabularyAnswer(a) === normalized);
+          if (!isCorrect && res.rating !== 'HARD') {
+            vocabInvalid('Câu trả lời sai cần ôn lại.', 'VOCAB_INVALID_RATING');
+          }
+          itemData = {
+            state: 'REVIEWED',
+            rating: res.rating,
+            draft: res.checkedAnswer,
+            checkedAnswer: res.checkedAnswer,
+            normalizedAnswer: normalized,
+            normalizationVersion: 'v1',
+            isCorrect,
+            checkedAt: validDate,
+            resultSource: 'RECALL_AFTER_REVEAL',
+            finalizedAt: validDate,
+          };
+        } else {
+          itemData = {
+            state: 'REVIEWED',
+            rating: res.rating,
+            resultSource: 'SELF_REPORT',
+            finalizedAt: validDate,
+          };
+        }
+
+        reviewedItemIds.add(item.id);
+        preparedItems.push({ id: item.id, data: itemData });
+
+        const learningState = res.rating === 'EASY' ? 'REMEMBERED' : 'NEEDS_REVIEW';
+        const existing = wordUpdatesByWordId.get(item.wordId);
+        if (!existing || validDate.getTime() >= existing.finalizedAt.getTime()) {
+          wordUpdatesByWordId.set(item.wordId, {
+            wordId: item.wordId,
+            contentVersion: item.wordContentVersion,
+            learningState,
+            finalizedAt: validDate,
+            lastReviewItemId: item.id,
+          });
+        }
+      }
+
+      const queue = attempt.queue.filter(itemId => !reviewedItemIds.has(itemId));
+      if (dto.isFinal && queue.length) {
+        vocabInvalid('Hãy hoàn thành hoặc bỏ qua các từ còn lại trước khi kết thúc.');
+      }
+
+      const activeDeck = await db.vocabularyDeck.findFirst({
+        where: { id: attempt.deckId, userId, deletedAt: null },
+        select: { id: true },
+      });
+
+      const chunkSize = 20;
+      for (let i = 0; i < preparedItems.length; i += chunkSize) {
+        const chunk = preparedItems.slice(i, i + chunkSize);
+        await Promise.all(
+          chunk.map(entry =>
+            db.vocabularyReviewItem.update({
+              where: { id: entry.id },
+              data: entry.data,
+            }),
+          ),
+        );
+      }
+
+      if (activeDeck) {
+        const wordEntries = Array.from(wordUpdatesByWordId.values());
+        for (let i = 0; i < wordEntries.length; i += chunkSize) {
+          const chunk = wordEntries.slice(i, i + chunkSize);
+          await Promise.all(
+            chunk.map(entry =>
+              db.vocabularyWord.updateMany({
+                where: {
+                  id: entry.wordId,
+                  deckId: attempt.deckId,
+                  contentVersion: entry.contentVersion,
+                  deletedAt: null,
+                },
+                data: {
+                  learningState: entry.learningState,
+                  lastReviewedAt: entry.finalizedAt,
+                  lastReviewItemId: entry.lastReviewItemId,
+                },
+              }),
+            ),
+          );
+        }
+      }
+
+      const status = dto.isFinal ? 'COMPLETED' : 'IN_PROGRESS';
+      const submittedAt = dto.isFinal ? now : undefined;
+
+      const saved = await db.vocabularyReviewAttempt.update({
+        where: { id },
+        data: {
+          queue,
+          phase: 'FRONT',
+          status,
+          submittedAt,
+          version: { increment: 1 },
+        },
+      });
+
+      return { targetId: id, appliedVersion: saved.version, result: { attemptId: id, action } };
     });
     return { receipt: this.commands.view(receipt), ...await this.attempt(userId, id) };
   }

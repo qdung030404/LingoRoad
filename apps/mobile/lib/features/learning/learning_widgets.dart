@@ -479,9 +479,11 @@ class ReadingEvidenceQuote extends StatelessWidget {
         children: [
           Container(
             width: 3,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.warning200,
-              borderRadius: BorderRadius.circular(2),
+              borderRadius: BorderRadius.all(
+                Radius.circular(AppRadius.xxs / 2),
+              ),
             ),
           ),
           const SizedBox(width: 10),
