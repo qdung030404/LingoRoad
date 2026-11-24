@@ -241,4 +241,79 @@ describe('Speaking read aloud persisted workflow', () => {
     } finally {behavior=null;config.set('SPEAKING_SCORING_PROFILE','read-aloud-v1');}
   });
 
+  it('hides speaking rows only for their owner, preserving results and game progress', async () => {
+    const fresh = await create();
+    const topic = await prisma.speakingPrompt.findFirstOrThrow({ where: { mode: 'TOPIC', published: true } });
+    const game = await prisma.speakingPrompt.findFirstOrThrow({
+      where: { mode: 'TONGUE_TWISTER', published: true }, orderBy: { sortOrder: 'asc' },
+    });
+    const completed = [];
+    for (const prompt of [prompts[0], topic, game]) {
+      const row = await create(prompt);
+      completed.push(await prisma.speakingSubmission.update({
+        where: { id: row.id }, data: { status: 'SUCCEEDED', completedAt: new Date(), result },
+      }));
+    }
+    const endpoint = '/speaking/history/hide';
+    const ids = completed.map(row => row.id);
+    await request(app.getHttpServer()).post(endpoint).send({ ids }).expect(401);
+    await api(b, 'post', endpoint, { ids }).expect(404);
+    await api(a, 'post', endpoint, { ids: [ids[0], ids[0].toUpperCase()] }).expect(400);
+    await api(a, 'post', endpoint, { ids: [ids[0], fresh.id] }).expect(404);
+    assert.equal((await read(ids[0])).historyHiddenAt, null);
+    const gameBefore = (await api(a, 'get', '/speaking/game/progress').expect(200)).body.data;
+    await api(a, 'post', endpoint, { ids }).expect(200);
+    await api(a, 'post', endpoint, { ids }).expect(200);
+    for (const row of completed) {
+      await api(a, 'get', '/speaking/submissions/' + row.id).expect(404);
+      const mode = row.promptSnapshot.mode;
+      const { items } = (await api(a, 'get', '/speaking/history?mode=' + mode).expect(200)).body.data;
+      assert.ok(!items.some(item => item.id === row.id));
+      const stored = await prisma.speakingSubmission.findUniqueOrThrow({ where: { id: row.id } });
+      assert.ok(stored.historyHiddenAt);
+      assert.deepEqual(stored.result, row.result);
+      assert.deepEqual(stored.completedAt, row.completedAt);
+    }
+    await api(a, 'get', '/speaking/history?cursor=' + ids[0]).expect(200);
+    assert.deepEqual((await api(a, 'get', '/speaking/game/progress').expect(200)).body.data, gameBefore);
+  });
+
+  it('hides saved conversations atomically and keeps transcripts and assessment storage', async () => {
+    const topic = await prisma.speakingPrompt.findFirstOrThrow({ where: { mode: 'TOPIC' } });
+    async function fixture(historyStatus = 'SAVED', status = 'ENDED') {
+      return prisma.voiceConversation.create({ data: {
+        userId: a.userId, topicId: topic.id, clientRequestId: randomUUID(),
+        topicSnapshot: { text: topic.text }, historyStatus, status,
+        assessment: { fixture: true },
+        turns: { create: [{ providerItemId: randomUUID(), sequence: 1, role: 'USER', transcript: 'A saved turn.' }] },
+      }, include: { turns: true } });
+    }
+    const first = await fixture();
+    const second = await fixture();
+    const active = await fixture('SAVED', 'ACTIVE');
+    const pending = await fixture('PENDING');
+    const path = '/speaking/conversations';
+    const endpoint = path + '/history/hide';
+    const ids = [first.id, second.id];
+    await api(b, 'post', endpoint, { ids }).expect(404);
+    for (const id of [active.id, pending.id, randomUUID()]) {
+      await api(a, 'post', endpoint, { ids: [first.id, id] }).expect(404);
+    }
+    assert.equal((await prisma.voiceConversation.findUniqueOrThrow({ where: { id: first.id } })).historyHiddenAt, null);
+    await api(a, 'post', endpoint, { ids }).expect(200);
+    await api(a, 'post', endpoint, { ids }).expect(200);
+    const history = (await api(a, 'get', path).expect(200)).body.data.items;
+    assert.ok(history.some(row => row.id === active.id));
+    assert.ok(ids.every(id => !history.some(row => row.id === id)));
+    await api(a, 'get', path + '?cursor=' + second.id).expect(200);
+    for (const row of [first, second]) {
+      await api(a, 'get', path + '/' + row.id + '/summary').expect(404);
+      await api(a, 'get', path + '/' + row.id + '/turns').expect(404);
+      const saved = await prisma.voiceConversation.findUniqueOrThrow({ where: { id: row.id }, include: { turns: true } });
+      assert.ok(saved.historyHiddenAt);
+      assert.equal(saved.historyStatus, 'SAVED');
+      assert.deepEqual(saved.assessment, row.assessment);
+      assert.deepEqual(saved.turns, row.turns);
+    }
+  });
 });

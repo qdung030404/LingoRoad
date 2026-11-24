@@ -1,6 +1,7 @@
-import { Body, Controller, Get, HttpException, Param, ParseUUIDPipe, Post, Put, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Get, HttpCode, HttpException, Param, ParseBoolPipe, ParseUUIDPipe, Post, Put, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { IsBoolean, IsIn, IsJSON, IsOptional, IsUUID } from 'class-validator';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { IsBoolean, IsIn, IsJSON, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,6 +11,7 @@ import {
 import { VoiceConversationsService } from './voice-conversations.service';
 import { conversationPreparation } from './conversation-preparation';
 import { SpeakingService } from './speaking.service';
+import { HideSpeakingHistoryDto } from './speaking.dto';
 
 const readingByTopic: Record<string, readonly string[]> = {
   'topic-1': ['read-aloud-2', 'read-aloud-3'],
@@ -36,6 +38,9 @@ class ConversationHistoryQuery {
 }
 class ConversationAudioDto {
   @IsOptional() @IsJSON() segments?: string;
+}
+class ConversationSampleDto {
+  @IsString() @MaxLength(300) @Matches(/\S/) text!: string;
 }
 
 @Controller('speaking/conversations')
@@ -85,9 +90,14 @@ export class VoiceConversationsController {
     return { success: true, data: await this.conversations.history(userId, query.cursor) };
   }
 
+  @Post('history/hide') @HttpCode(200)
+  async hideHistory(@CurrentUser('sub') userId: string, @Body() dto: HideSpeakingHistoryDto) {
+    return { success: true, data: await this.conversations.hideHistory(userId, dto.ids) };
+  }
+
   @Get(':id')
   async detail(@CurrentUser('sub') userId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return { success: true, data: await this.conversations.detail(userId, id) };
+    return { success: true, data: await this.conversations.detail(userId, id, true) };
   }
 
   @Get(':id/summary')
@@ -119,9 +129,10 @@ export class VoiceConversationsController {
   @Put(':id/assessment/audio')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 6 * 1024 * 1024, files: 1, fields: 1, fieldSize: 32768 } }))
   async assessAudio(@CurrentUser('sub') userId: string, @Param('id', ParseUUIDPipe) id: string,
-    @UploadedFile() file: { buffer: Buffer } | undefined, @Body() body: ConversationAudioDto) {
+    @UploadedFile() file: { buffer: Buffer } | undefined, @Body() body: ConversationAudioDto,
+    @Query('retryPronunciation', new DefaultValuePipe(false), ParseBoolPipe) retryPronunciation: boolean) {
     if (!file?.buffer) throw new HttpException({ code: 'audio_empty', message: 'Chưa có bản thu để chấm.' }, 422);
-    return { success: true, data: await this.conversations.assess(userId, id, file.buffer, body.segments) };
+    return { success: true, data: await this.conversations.assess(userId, id, file.buffer, body.segments, retryPronunciation) };
   }
 
   @Post(':id/assessment')
@@ -134,5 +145,12 @@ export class VoiceConversationsController {
     return { success: true, data: await this.conversations.retryContent(userId, id) };
   }
 
+  @Post(':id/assessment/sample')
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  async sample(@CurrentUser('sub') userId: string, @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ConversationSampleDto) {
+    return { success: true, data: await this.conversations.sample(userId, id, body.text.trim()) };
+  }
 
 }

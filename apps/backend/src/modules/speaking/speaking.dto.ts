@@ -1,11 +1,17 @@
 import { SpeakingMode } from '@prisma/client';
-import { IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { ArrayMaxSize, ArrayNotEmpty, ArrayUnique, IsArray, IsEnum, IsOptional, IsUUID } from 'class-validator';
 export class CreateSpeakingDto {
   @IsUUID() promptId!: string;
   @IsUUID() clientRequestId!: string;
 }
 export class SpeakingPromptsQuery { @IsOptional() @IsEnum(SpeakingMode) mode?: SpeakingMode; }
 export class SpeakingHistoryQuery extends SpeakingPromptsQuery { @IsOptional() @IsUUID() cursor?: string; }
+export class HideSpeakingHistoryDto {
+  @IsArray() @ArrayNotEmpty() @ArrayMaxSize(100)
+  @ArrayUnique((id: unknown) => typeof id === 'string' ? id.toLowerCase() : id)
+  @IsUUID(undefined, { each: true })
+  ids!: string[];
+}
 
 export interface ReadAloudResult {
   overall?: number | null;

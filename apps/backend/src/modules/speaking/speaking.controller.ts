@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Put, Body, Param, Query, UploadedFile, UseGuards, UseInterceptors, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, HttpCode, Param, Query, UploadedFile, UseGuards, UseInterceptors, ParseUUIDPipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { SpeakingService } from './speaking.service';
-import { CreateSpeakingDto, SpeakingHistoryQuery, SpeakingPromptsQuery } from './speaking.dto';
+import { CreateSpeakingDto, HideSpeakingHistoryDto, SpeakingHistoryQuery, SpeakingPromptsQuery } from './speaking.dto';
 import { MAX_SPEAKING_BYTES } from './wav';
 
 @Controller('speaking')
@@ -18,8 +18,12 @@ export class SpeakingController {
   @Get('history') async history(@CurrentUser('sub') userId: string, @Query() query: SpeakingHistoryQuery) {
     return { success: true, data: await this.speaking.history(userId, query.cursor, query.mode) };
   }
+  @Post('history/hide') @HttpCode(200)
+  async hideHistory(@CurrentUser('sub') userId: string, @Body() dto: HideSpeakingHistoryDto) {
+    return { success: true, data: await this.speaking.hideHistory(userId, dto.ids) };
+  }
   @Get('submissions/:id') async detail(@CurrentUser('sub') userId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return { success: true, data: await this.speaking.detail(userId, id) };
+    return { success: true, data: await this.speaking.detail(userId, id, true) };
   }
   @Post('submissions/:id/content')
   async retryContent(@CurrentUser('sub') userId: string, @Param('id', ParseUUIDPipe) id: string) {

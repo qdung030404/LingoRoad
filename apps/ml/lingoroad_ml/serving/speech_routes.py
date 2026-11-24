@@ -2,6 +2,8 @@ import asyncio
 import io
 import os
 from functools import lru_cache
+from xml.sax.saxutils import escape
+import httpx
 from fastapi import APIRouter, UploadFile, Form, HTTPException, Request
 from python_multipart.multipart import MultipartParser, parse_options_header
 from lingoroad_ml.speech.scoring import word_scores, fluency_from_wpm
@@ -202,6 +204,41 @@ async def conversation_content(req: ConversationAssessmentRequest):
     result = await asyncio.to_thread(evaluate, req.topic, [], transcript, None, conversation=turns)
     return {**result, "assessmentScope": "whole_conversation"}
 
+
+class ConversationSampleRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=300)
+
+
+@router.post("/speech/conversation/sample")
+async def conversation_sample(req: ConversationSampleRequest):
+    from fastapi.responses import Response
+
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(422, "sample_empty")
+    key, region = azure.configuration()
+    ssml = (
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US">'
+        f'<voice name="en-US-JennyNeural">{escape(text)}</voice></speak>'
+    )
+    try:
+        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
+            result = await client.post(
+                f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1",
+                headers={
+                    "Ocp-Apim-Subscription-Key": key,
+                    "Content-Type": "application/ssml+xml",
+                    "X-Microsoft-OutputFormat": "audio-16khz-32kbitrate-mono-mp3",
+                    "User-Agent": "LingoRoad",
+                },
+                content=ssml.encode("utf-8"),
+            )
+            result.raise_for_status()
+    except httpx.HTTPError:
+        raise HTTPException(503, "sample_unavailable") from None
+    if not result.content or len(result.content) > 256 * 1024:
+        raise HTTPException(502, "sample_invalid_response")
+    return Response(content=result.content, media_type="audio/mpeg")
 
 
 @router.post("/speech/conversation/score")
