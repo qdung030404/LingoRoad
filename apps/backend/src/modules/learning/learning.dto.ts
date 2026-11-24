@@ -1,4 +1,4 @@
-import { IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { ArrayMaxSize, ArrayNotEmpty, ArrayUnique, IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
 
 export class VersionDto {
   @IsInt() @Min(0) expectedVersion!: number;
@@ -15,7 +15,13 @@ export class CheckLearningAnswerDto extends VersionDto {
 export class LearningCatalogueQuery {
   @IsOptional() @IsIn(['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING']) kind?: 'GRAMMAR' | 'VOCABULARY' | 'READING' | 'LISTENING';
 }
-export class LearningHistoryQuery {
+export class LearningHistoryQuery extends LearningCatalogueQuery {
   @IsOptional() @IsUUID() cursor?: string;
   @IsOptional() @IsInt() @Min(1) @Max(50) limit: number = 20;
+}
+
+export class HideLearningHistoryDto {
+  @IsArray() @ArrayNotEmpty() @ArrayMaxSize(100) @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  attemptIds!: string[];
 }

@@ -27,7 +27,7 @@ function fixture(ml?: Partial<MlClientService>) {
     id: 'attempt', userId: 'owner', lessonId: lesson.id,
     status: 'IN_PROGRESS', version: 0, phase: 'STUDY', positionIndex: 0, contentVersion: 1, eligibleForLevelEval: true, totalQuestions: 5, correctCount: null,
     lessonSnapshot: { id: lesson.id, code: lesson.code, kind: lesson.kind, title: lesson.title, description: lesson.description, estimatedMinutes: 10, contentVersion: 1 },
-    contentSnapshot: structuredClone(content) as unknown as Prisma.JsonValue, startedAt: now, updatedAt: now, submittedAt: null, answers: []
+    contentSnapshot: structuredClone(content) as unknown as Prisma.JsonValue, startedAt: now, updatedAt: now, submittedAt: null, historyHiddenAt: null, answers: []
   };
   const exposures: Array<{ id: string; userId: string; lessonId: string; contentVersion: number; firstAttemptId: string }> = [];
   let savedLevelEvent: { kind: string; fromCefr: string; toCefr: string; direction: string } | null = null;
@@ -416,11 +416,31 @@ describe('LearningService', () => {
     expect(checked.answers[1]).not.toHaveProperty('evidence');
 
     const listed = await service.history('owner');
-    expect(db.learningAttempt.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'owner', status: 'COMPLETED' } }));
+    expect(db.learningAttempt.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: 'owner', status: 'COMPLETED', historyHiddenAt: null } }));
     expect(listed.items[0].lesson.questionCount).toBe(5);
   });
 
-  describe('explainReadingAnswer', () => {
+  it('uses the same completed skill filter for the history cursor and page', async () => {
+    const { service, db, attempt } = fixture();
+    attempt.status = 'COMPLETED';
+    const where = { userId: 'owner', status: 'COMPLETED', lessonSnapshot: { path: ['kind'], equals: 'LISTENING' } };
+
+    await service.history('owner', attempt.id, 1, 'LISTENING');
+    expect(db.learningAttempt.findFirst).toHaveBeenCalledWith({ where: { ...where, id: attempt.id }, select: { id: true, updatedAt: true } });
+    expect(db.learningAttempt.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { ...where, historyHiddenAt: null, OR: [
+        { updatedAt: { lt: attempt.updatedAt } },
+        { updatedAt: attempt.updatedAt, id: { lt: attempt.id } },
+      ] },
+      take: 2,
+    }));
+    db.learningAttempt.findMany.mockClear();
+    db.learningAttempt.findFirst.mockResolvedValueOnce(null);
+    await expect(service.history('owner', 'other-skill', 1, 'LISTENING')).rejects.toThrow(NotFoundException);
+    expect(db.learningAttempt.findMany).not.toHaveBeenCalled();
+  });
+
+  describe('explainAnswer', () => {
     function readingFixture(passage = 'Pocket parks cool urban streets by two degrees.') {
       const ml = { explainReadingAnswer: jest.fn() };
       const tfngContent: LearningContent = {
@@ -488,8 +508,8 @@ describe('LearningService', () => {
 
     it('rejects foreign attempts and unchecked answers before calling ML', async () => {
       const { service, ml } = readingFixture();
-      await expect(service.explainReadingAnswer('stranger', 'attempt', 'q0')).rejects.toThrow(NotFoundException);
-      await expect(service.explainReadingAnswer('owner', 'attempt', 'q0')).rejects.toThrow(BadRequestException);
+      await expect(service.explainAnswer('stranger', 'attempt', 'q0')).rejects.toThrow(NotFoundException);
+      await expect(service.explainAnswer('owner', 'attempt', 'q0')).rejects.toThrow(BadRequestException);
       expect(ml.explainReadingAnswer).not.toHaveBeenCalled();
     });
 
@@ -501,7 +521,7 @@ describe('LearningService', () => {
         explanation: 'Đáp án đúng là Two degrees vì đoạn văn nói "cool urban streets by two degrees".',
         model_version: 'gemini-2.5-flash',
       });
-      const aiRes = await service.explainReadingAnswer('owner', 'attempt', 'q0');
+      const aiRes = await service.explainAnswer('owner', 'attempt', 'q0');
       expect(aiRes).toEqual({
         questionId: 'q0',
         explanation: 'Đáp án đúng là Two degrees vì đoạn văn nói "cool urban streets by two degrees".',
@@ -515,7 +535,7 @@ describe('LearningService', () => {
       }));
 
       ml.explainReadingAnswer.mockRejectedValueOnce(new Error('timeout of 12000ms exceeded'));
-      const fallbackRes = await service.explainReadingAnswer('owner', 'attempt', 'q0');
+      const fallbackRes = await service.explainAnswer('owner', 'attempt', 'q0');
       expect(fallbackRes).toEqual({
         questionId: 'q0',
         explanation: 'Đoạn văn nêu công viên bỏ túi làm mát hai độ.',
@@ -530,7 +550,7 @@ describe('LearningService', () => {
       const { service, ml } = readingFixture(longPassage);
 
       await service.check('owner', 'attempt', 'q1', { expectedVersion: 0, optionId: 'C' });
-      const notGivenRes = await service.explainReadingAnswer('owner', 'attempt', 'q1');
+      const notGivenRes = await service.explainAnswer('owner', 'attempt', 'q1');
       expect(notGivenRes).toEqual({
         questionId: 'q1',
         explanation: 'Bài đọc không đề cập ngân sách năm sau.',
@@ -539,7 +559,7 @@ describe('LearningService', () => {
       });
 
       await service.check('owner', 'attempt', 'q2', { expectedVersion: 1, optionId: 'A' });
-      const mainIdeaRes = await service.explainReadingAnswer('owner', 'attempt', 'q2');
+      const mainIdeaRes = await service.explainAnswer('owner', 'attempt', 'q2');
       expect(mainIdeaRes).toEqual({
         questionId: 'q2',
         explanation: 'Ý chính nói về lợi ích làm mát của công viên nhỏ.',
@@ -548,6 +568,33 @@ describe('LearningService', () => {
       });
 
       expect(ml.explainReadingAnswer).not.toHaveBeenCalled();
+    });
+
+    it('uses only the completed listening question’s evidence and the saved choice', async () => {
+      const { service, attempt, ml } = readingFixture();
+      const content = attempt.contentSnapshot as unknown as LearningContent;
+      const question = content.questions[0];
+      await service.check('owner', 'attempt', 'q0', { expectedVersion: 0, optionId: 'B' });
+      attempt.lessonSnapshot = { ...(attempt.lessonSnapshot as object), kind: 'LISTENING' };
+      question.evidenceSegmentIds = ['s2'];
+      content.listeningVersion = 1;
+      content.transcriptSegments = [
+        { id: 's1', startMs: 0, endMs: 1000, speaker: 'Ben', text: 'Hello.', translationVi: 'Xin chào.' },
+        { id: 's2', startMs: 1000, endMs: 2000, speaker: 'Staff', text: 'It costs two pounds.', translationVi: 'Giá hai bảng.' },
+      ];
+      await expect(service.explainAnswer('owner', 'attempt', 'q0')).rejects.toThrow(BadRequestException);
+      expect(ml.explainReadingAnswer).not.toHaveBeenCalled();
+      attempt.status = 'COMPLETED';
+      ml.explainReadingAnswer.mockResolvedValue({ explanation: 'Chi tiết nghe được là two pounds.' });
+      await expect(service.explainAnswer('owner', 'attempt', 'q0')).resolves.toMatchObject({ source: 'AI' });
+      expect(ml.explainReadingAnswer).toHaveBeenCalledWith(expect.objectContaining({
+        source_kind: 'LISTENING', passage: 'Staff: It costs two pounds.', selected_option: 'Ten degrees',
+      }));
+      expect(ml.explainReadingAnswer.mock.calls[0][0]).not.toHaveProperty('evidence');
+      ml.explainReadingAnswer.mockRejectedValueOnce(new Error('Unavailable'));
+      await expect(service.explainAnswer('owner', 'attempt', 'q0')).resolves.toMatchObject({
+        source: 'CURRICULUM', retryable: true, explanation: question.explanation,
+      });
     });
   });
 

@@ -63,7 +63,9 @@ export class LearningService {
 
   private async owned(db: Database, userId: string, attemptId: string): Promise<Attempt> {
     // The same response for unknown and foreign IDs prevents disclosing another learner's history.
-    const attempt = await db.learningAttempt.findFirst({ where: { id: attemptId, userId }, include: includeAnswers });
+    const attempt = await db.learningAttempt.findFirst({
+      where: { id: attemptId, userId, historyHiddenAt: null }, include: includeAnswers,
+    });
     if (!attempt) throw new NotFoundException({ code: 'LEARNING_ATTEMPT_NOT_FOUND', message: 'Không tìm thấy lượt học.' });
     return attempt;
   }
@@ -151,8 +153,9 @@ export class LearningService {
     ]);
     return { items: lessons.map((lesson) => {
       const records = attempts.filter((attempt) => attempt.lessonId === lesson.id);
-      const latest = records.find((attempt) => attempt.status === 'COMPLETED');
-      return { ...this.lessonInfo(lesson), state: latest ? 'COMPLETED' : 'NOT_STARTED',
+      const completed = records.filter((attempt) => attempt.status === 'COMPLETED');
+      const latest = completed.find((attempt) => attempt.historyHiddenAt == null);
+      return { ...this.lessonInfo(lesson), state: completed.length ? 'COMPLETED' : 'NOT_STARTED',
         activeAttemptId: null, latestResult: latest ? this.result(latest) : null };
     }) };
   }
@@ -339,11 +342,52 @@ export class LearningService {
     }
   }
 
-  async history(userId: string, cursor?: string, limit = 20) {
-    if (cursor) await this.owned(this.prisma, userId, cursor);
-    const attempts = await this.prisma.learningAttempt.findMany({ where: { userId, status: 'COMPLETED' }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-      take: limit + 1, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
+  async history(userId: string, cursor?: string, limit = 20, kind?: LearningLesson['kind']) {
+    const where: Prisma.LearningAttemptWhereInput = {
+      userId,
+      status: 'COMPLETED',
+      ...(kind ? { lessonSnapshot: { path: ['kind'], equals: kind } } : {}),
+    };
+    const anchor = cursor ? await this.prisma.learningAttempt.findFirst({
+      where: { ...where, id: cursor }, select: { id: true, updatedAt: true },
+    }) : null;
+    if (cursor && !anchor) {
+      throw new NotFoundException({ code: 'LEARNING_ATTEMPT_NOT_FOUND', message: 'Không tìm thấy lượt học.' });
+    }
+    const attempts = await this.prisma.learningAttempt.findMany({
+      where: { ...where, historyHiddenAt: null, ...(anchor ? { OR: [
+        { updatedAt: { lt: anchor.updatedAt } },
+        { updatedAt: anchor.updatedAt, id: { lt: anchor.id } },
+      ] } : {}) },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: limit + 1,
+    });
     return { items: attempts.slice(0, limit).map((attempt) => this.summaryItem(attempt)), nextCursor: attempts.length > limit ? attempts[limit - 1].id : null };
+  }
+
+  async hideHistory(userId: string, attemptId: string) {
+    await this.hideHistoryBatch(userId, [attemptId]);
+    return { hiddenAttemptId: attemptId };
+  }
+
+  async hideHistoryBatch(userId: string, attemptIds: string[]) {
+    // UUIDs are case-insensitive in PostgreSQL.
+    const ids = [...new Set(attemptIds.map(id => id.toLowerCase()))].sort();
+    return this.prisma.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+      const matching = await tx.learningAttempt.count({
+        where: { userId, status: 'COMPLETED', id: { in: ids } },
+      });
+      if (matching !== ids.length) {
+        throw new NotFoundException({ code: 'LEARNING_ATTEMPT_NOT_FOUND', message: 'Không tìm thấy một hoặc nhiều lượt học đã hoàn thành.' });
+      }
+      // Preserve updated_at so previously issued history cursors keep their position.
+      await tx.$executeRaw`
+        UPDATE learning_attempts SET history_hidden_at = ${new Date()}
+        WHERE user_id = ${userId}::uuid AND status = 'COMPLETED' AND history_hidden_at IS NULL
+          AND id IN (${Prisma.join(ids.map(id => Prisma.sql`${id}::uuid`))})
+      `;
+      return { hiddenAttemptIds: ids };
+    });
   }
 
   async summary(userId: string) {
@@ -356,8 +400,8 @@ export class LearningService {
       continueLessonId: next?.id ?? null, continueAttemptId: null };
   }
 
-  /** Explain a checked reading question from snapshot context, falling back to curriculum explanation cleanly. */
-  async explainReadingAnswer(userId: string, attemptId: string, questionId: string): Promise<{
+  /** Ground explanations in the attempt snapshot and enforce the review visibility rules. */
+  async explainAnswer(userId: string, attemptId: string, questionId: string): Promise<{
     questionId: string;
     explanation: string;
     source: 'AI' | 'CURRICULUM';
@@ -366,21 +410,27 @@ export class LearningService {
     const attempt = await this.owned(this.prisma, userId, attemptId);
     const lesson = attempt.lessonSnapshot as unknown as LessonSnapshot & { cefrLevel?: string };
     const content = this.content(attempt);
-    if (lesson.kind !== 'READING' || !content.passage?.trim()) {
-      this.invalid('Chỉ hỗ trợ giải thích AI cho câu hỏi đọc hiểu.');
+    const listening = lesson.kind === 'LISTENING';
+    if (!listening && (lesson.kind !== 'READING' || !content.passage?.trim())) {
+      this.invalid('Chỉ hỗ trợ giải thích AI cho câu hỏi nghe và đọc hiểu.');
+    }
+    if (listening && attempt.status !== 'COMPLETED') {
+      this.invalid('Hãy nộp bài nghe trước khi hỏi AI giải thích thêm.');
     }
     const question = content.questions.find((item) => item.id === questionId);
     if (!question) this.invalid('Không tìm thấy câu hỏi trong lượt học.');
     const saved = attempt.answers.find((item) => item.questionId === questionId);
     if (!saved?.checked) this.invalid('Hãy kiểm tra đáp án trước khi hỏi AI giải thích thêm.');
 
-    const boundedPassage = extractBoundedPassage(
-      content.passage,
-      question.skillCode,
-      question.type ?? 'MULTIPLE_CHOICE',
-      question.evidence,
-    );
-    if (!boundedPassage) {
+    const evidenceIds = new Set(question.evidenceSegmentIds);
+    const transcript = content.listeningVersion === 1
+      ? content.transcriptSegments?.filter(segment => evidenceIds.has(segment.id))
+        .map(segment => `${segment.speaker}: ${segment.text}`).join('\n')
+      : content.transcript?.trim();
+    const boundedPassage = listening
+      ? transcript
+      : extractBoundedPassage(content.passage!, question.skillCode, question.type, question.evidence);
+    if (!boundedPassage || boundedPassage.length > MAX_READING_EXPLAIN_PASSAGE_CHARS) {
       return { questionId, explanation: question.explanation, source: 'CURRICULUM', retryable: false };
     }
     const retryableFallback = { questionId, explanation: question.explanation, source: 'CURRICULUM' as const, retryable: true };
@@ -391,12 +441,13 @@ export class LearningService {
     try {
       const ai = await this.ml.explainReadingAnswer({
         passage: boundedPassage,
+        ...(listening ? { source_kind: 'LISTENING' as const } : {}),
         question_prompt: question.prompt,
         question_type: question.type ?? 'MULTIPLE_CHOICE',
         options: question.options.map((option) => option.text),
         selected_option: selectedText,
         correct_option: correctText,
-        ...(question.evidence ? { evidence: question.evidence } : {}),
+        ...(!listening && question.evidence ? { evidence: question.evidence } : {}),
         curriculum_explanation: question.explanation,
         ...(lesson.cefrLevel ? { cefr: lesson.cefrLevel } : {}),
         locale: 'vi',

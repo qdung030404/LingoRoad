@@ -211,6 +211,7 @@ def llm_awe_evaluate_cefr(req: CefrAweReq):
 
 
 class ReadingExplainReq(BaseModel):
+    source_kind: Literal["READING", "LISTENING"] = "READING"
     passage: str = Field(..., min_length=1, max_length=6000)
     question_prompt: str = Field(..., min_length=1, max_length=1000)
     question_type: Literal["MULTIPLE_CHOICE", "GAP_FILL", "TRUE_FALSE_NOT_GIVEN"] = "MULTIPLE_CHOICE"
@@ -244,6 +245,7 @@ def llm_reading_explain(req: ReadingExplainReq):
             evidence=req.evidence,
             curriculum_explanation=req.curriculum_explanation,
             cefr=req.cefr,
+            source_kind=req.source_kind,
         )
     except RateLimitError as exc:
         raise HTTPException(
