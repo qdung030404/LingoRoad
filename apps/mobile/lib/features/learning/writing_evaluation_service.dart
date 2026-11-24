@@ -539,6 +539,11 @@ class WritingPracticeItem {
     ),
   ];
 
+  static final _promptWordRange = RegExp(
+    r'\((\d+)\s*[-–—]\s*(\d+)\s+words?\)',
+    caseSensitive: false,
+  );
+
   factory WritingPracticeItem.fromJson(Map<String, dynamic> json) {
     final rubric = json['rubricCriteria'] is Map<String, dynamic>
         ? json['rubricCriteria'] as Map<String, dynamic>
@@ -547,12 +552,21 @@ class WritingPracticeItem {
         rubric?['sampleText']?.toString();
     final defaultMatch =
         defaultItems.where((d) => d.id == json['id']).firstOrNull;
+    final prompt = json['prompt']?.toString() ?? '';
+    final range = _promptWordRange.firstMatch(prompt);
+    final min = int.tryParse(range?.group(1) ?? '');
+    final max = int.tryParse(range?.group(2) ?? '');
     return WritingPracticeItem(
       id: json['id']?.toString() ?? '',
       skillCode: json['skillCode']?.toString() ?? '',
       cefrLevel: json['cefrLevel']?.toString() ?? 'B1',
-      prompt: json['prompt']?.toString() ?? '',
-      rubricCriteria: rubric,
+      prompt: prompt,
+      rubricCriteria: min != null && max != null && min > 0 && min <= max
+          ? {
+              ...?rubric,
+              'wordCount': {'min': min, 'max': max},
+            }
+          : rubric,
       sampleText: sampleFromRubric ?? defaultMatch?.sampleText,
     );
   }

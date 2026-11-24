@@ -49,6 +49,17 @@ export class AssessmentSafeMapper {
   static toSafeItem(
     item: AssessmentItem & { group?: AssessmentItemGroup | null },
   ): AssessmentSafeItemDto {
+    let rubricCriteria = AssessmentSafeMapper.sanitizeRubricCriteria(item.rubricCriteria);
+    if (item.skill === "WRITING") {
+      const range = item.prompt.match(/\((\d+)\s*[-–—]\s*(\d+)\s+words?\)/i);
+      if (range) {
+        const min = Number(range[1]);
+        const max = Number(range[2]);
+        if (Number.isSafeInteger(max) && min > 0 && min <= max) {
+          rubricCriteria = { ...rubricCriteria, wordCount: { min, max } };
+        }
+      }
+    }
     const safeItem: AssessmentSafeItemDto = {
       id: item.id,
       groupId: item.groupId,
@@ -62,9 +73,7 @@ export class AssessmentSafeMapper {
       options: item.options,
       passage: item.passage,
       audioUrl: item.audioUrl,
-      rubricCriteria: AssessmentSafeMapper.sanitizeRubricCriteria(
-        item.rubricCriteria,
-      ),
+      rubricCriteria,
       usageScope: item.usageScope,
     };
 
