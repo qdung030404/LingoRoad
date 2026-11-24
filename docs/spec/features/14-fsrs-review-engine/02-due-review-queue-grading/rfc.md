@@ -35,24 +35,29 @@ RFC định nghĩa kiến trúc kỹ thuật của `VocabularyReviewService` và
 
 ```
 Mobile (VocabularyReviewController)
+  │  ├── _inFlightBatch (đóng băng {commandId, results, isFinal} khi đang chờ ACK)
+  │  └── _queuedResults (hứng đánh giá mới Zero-Latency, lưu bền vững vào journal)
   │
   ├── POST /vocabulary/decks/:id/reviews (commandId, scope)
-  └── POST /vocabulary/reviews/:id/commands (commandId, expectedVersion, command)
+  ├── POST /vocabulary/reviews/:id/commands (commandId, expectedVersion, action, ...)
+  └── POST /vocabulary/reviews/:id/batch-submit (commandId, expectedVersion, isFinal, results[])
         │
         ▼
-VocabularyController ──[JwtAuthGuard]──> VocabularyReviewService
-                                                  │
-                                                  ▼
-                                      VocabularyCommandService.execute()
-                                      ├── 1. BEGIN TRANSACTION
-                                      ├── 2. SELECT id FROM users WHERE id = $1 FOR UPDATE
-                                      ├── 3. Lookup VocabularyCommandReceipt(userId, commandId)
-                                      │      ├── Match hash -> Return cached receipt.result
-                                      │      └── Mismatch hash -> Throw 409 VOCAB_COMMAND_CONFLICT
-                                      ├── 4. Verify attempt.version === expectedVersion
-                                      ├── 5. Apply command state transition on Attempt & Item
-                                      ├── 6. Insert VocabularyCommandReceipt
-                                      └── 7. COMMIT & Return ReviewAttemptView
+VocabularyController ──[JwtAuthGuard + ThrottlerGuard]──> VocabularyReviewService
+                                                                │
+                                                                ▼
+                                                    VocabularyCommandService.execute()
+                                                    ├── 1. BEGIN TRANSACTION (timeout: 10000ms)
+                                                    ├── 2. SELECT id FROM users WHERE id = $1 FOR UPDATE
+                                                    ├── 3. Lookup VocabularyCommandReceipt(userId, commandId)
+                                                    │      ├── Match hash -> Return cached receipt.result
+                                                    │      └── Mismatch hash -> Throw 409 VOCAB_COMMAND_CONFLICT
+                                                    ├── 4. Verify attempt.version === expectedVersion & status === IN_PROGRESS
+                                                    ├── 5. Validate all items upfront (PENDING only, no dup/foreign IDs,
+                                                    │      server-side checkedAnswer verification, clamp finalizedAt)
+                                                    ├── 6. Apply chunked updates on ReviewItems & VocabularyWords
+                                                    ├── 7. Insert VocabularyCommandReceipt
+                                                    └── 8. COMMIT & Return ReviewAttemptView
 ```
 
 ---
@@ -88,16 +93,32 @@ VocabularyController ──[JwtAuthGuard]──> VocabularyReviewService
   {
     "commandId": "d9e2f3a4-5555-6666-7777-888899990000",
     "expectedVersion": 0,
-    "command": {
-      "type": "RATE",
-      "wordId": "e4f5a6b7-1111-2222-3333-444455556666",
-      "rating": "EASY"
-    }
+    "action": "RATE",
+    "itemId": "e4f5a6b7-1111-2222-3333-444455556666",
+    "rating": "EASY"
   }
   ```
 - **Response**: `200 OK` (`ReviewAttemptView` đã cập nhật `version: 1`).
 
-### 3. `GET /vocabulary/history?limit=20&cursor=...`
+### 3. `POST /vocabulary/reviews/:id/batch-submit`
+- **Request Body**:
+  ```json
+  {
+    "commandId": "b1c2d3e4-5555-6666-7777-888899990000",
+    "expectedVersion": 1,
+    "isFinal": true,
+    "results": [
+      {
+        "itemId": "e4f5a6b7-1111-2222-3333-444455556666",
+        "rating": "EASY",
+        "finalizedAt": "2026-11-24T04:30:00.000Z"
+      }
+    ]
+  }
+  ```
+- **Response**: `200 OK` (`{ receipt, attempt }` với `status: "COMPLETED"` khi `isFinal: true` và `queue` đã rỗng, hoặc `status: "IN_PROGRESS"` khi `isFinal: false`).
+
+### 4. `GET /vocabulary/history?limit=20&cursor=...`
 - **Response**: `200 OK` (`{ items: [...], nextCursor: string | null }`).
 
 ---
