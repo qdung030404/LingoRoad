@@ -8,7 +8,7 @@ import { AzureBlobStorageService } from './azure-storage.service';
 import { CuratedVocabularyService } from './curated-vocabulary.service';
 import { VocabularyService } from './vocabulary.service';
 import { VocabularyReviewService } from './vocabulary-review.service';
-import { CuratedTopicWordsQueryDto, LookupOnlineQueryDto, VocabularyCreateBatchWordsDto, VocabularyCreateDeckDto, VocabularyCreateWordDto, VocabularyListQuery, VocabularyReviewCommandDto, VocabularyStartDto, VocabularySuggestQueryDto, VocabularyUpdateDeckDto, VocabularyUpdateWordDto, VocabularyVersionDto } from './vocabulary.dto';
+import { CuratedTopicWordsQueryDto, LookupOnlineQueryDto, VocabularyBatchSubmitDto, VocabularyCreateBatchWordsDto, VocabularyCreateDeckDto, VocabularyCreateWordDto, VocabularyListQuery, VocabularyReviewCommandDto, VocabularyStartDto, VocabularySuggestQueryDto, VocabularyUpdateDeckDto, VocabularyUpdateWordDto, VocabularyVersionDto } from './vocabulary.dto';
 const response = (data: unknown) => ({ success: true, data });
 @Controller('vocabulary')
 @UseGuards(JwtAuthGuard)
@@ -86,5 +86,16 @@ export class VocabularyController {
   @Post('decks/:id/reviews') @HttpCode(200) async start(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyStartDto) { return response(await this.reviews.start(u, id, d)); }
   @Get('reviews/:id') async attempt(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string) { return response(await this.reviews.attempt(u, id)); }
   @Post('reviews/:id/commands') @HttpCode(200) async command(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyReviewCommandDto) { return response(await this.reviews.command(u, id, d)); }
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 12, ttl: 60000 } })
+  @Post('reviews/:id/batch-submit')
+  @HttpCode(200)
+  async batchSubmit(
+    @CurrentUser('sub') u: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() d: VocabularyBatchSubmitDto,
+  ) {
+    return response(await this.reviews.batchSubmit(u, id, d));
+  }
   @Get('history') async history(@CurrentUser('sub') u: string, @Query() q: VocabularyListQuery) { return response(await this.reviews.history(u, q)); }
 }
