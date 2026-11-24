@@ -168,14 +168,16 @@ class FirebaseIdentity implements AuthIdentity {
     }
 
     try {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('[FirebaseIdentity] 1. Khởi tạo GoogleSignIn instance...');
+      }
       await _ensureGoogleSetup();
 
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint(
           '[FirebaseIdentity] 2. Mở popup tài khoản Google (authenticate)...',
         );
+      }
       final user = await GoogleSignIn.instance.authenticate();
       final idToken = user.authentication.idToken;
 
@@ -194,10 +196,11 @@ class FirebaseIdentity implements AuthIdentity {
         );
       }
 
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint(
           '[FirebaseIdentity] 4. Đăng nhập Firebase Auth với Google Credential...',
         );
+      }
       final credential = await auth.signInWithCredential(
         GoogleAuthProvider.credential(idToken: idToken),
       );
