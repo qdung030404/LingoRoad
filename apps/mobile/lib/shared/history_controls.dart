@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../core/theme/app_colors.dart';
+import '../core/theme/app_radius.dart';
 import 'figma_widgets.dart';
+
+String formatVietnamHistoryDate(String? value, {bool compact = false}) {
+  final utc = DateTime.tryParse(value ?? '')?.toUtc();
+  if (utc == null) return '';
+  final vn = utc.add(const Duration(hours: 7));
+  String two(int v) => v.toString().padLeft(2, '0');
+  final day = '${two(vn.day)}/${two(vn.month)}';
+  final time = '${two(vn.hour)}:${two(vn.minute)}';
+  return compact ? '$day · $time' : '$day/${vn.year}, $time';
+}
 
 TextStyle historyHeading(double size) =>
     designHeading(size).copyWith(fontWeight: FontWeight.w500);
@@ -10,11 +21,7 @@ TextStyle historyText(
   double size, {
   Color color = AppColors.grey900,
   FontWeight weight = FontWeight.w400,
-}) => designText(
-  size,
-  color: color,
-  weight: weight,
-).copyWith(fontFamily: 'Inter');
+}) => designText(size, color: color, weight: weight);
 
 ButtonStyle historyButtonStyle(Color color) => FilledButton.styleFrom(
   minimumSize: const Size(0, 48),
@@ -41,7 +48,7 @@ class _HistoryConfirmSheet extends StatelessWidget {
     minimum: const EdgeInsets.fromLTRB(8, 0, 8, 8),
     child: Material(
       color: AppColors.grey0,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: AppRadius.dialogRadius,
       clipBehavior: Clip.antiAlias,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 16),
@@ -57,7 +64,7 @@ class _HistoryConfirmSheet extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: AppColors.error0,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: AppRadius.cardSm,
                 ),
                 child: const HistoryIcon(HistoryIcon.trash),
               ),
@@ -80,7 +87,7 @@ class _HistoryConfirmSheet extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
               decoration: BoxDecoration(
                 color: AppColors.grey25,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: AppRadius.cardSm,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -338,5 +345,5 @@ SnackBar historyHiddenMessage(int count) => SnackBar(
   backgroundColor: AppColors.primary900,
   behavior: SnackBarBehavior.floating,
   margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+  shape: RoundedRectangleBorder(borderRadius: AppRadius.cardRadius),
 );

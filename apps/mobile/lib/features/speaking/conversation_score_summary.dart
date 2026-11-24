@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 import 'assessment_details.dart';
 
@@ -119,7 +120,7 @@ class SpeakingScoreSummary extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: color.withValues(alpha: .10),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.tagRadius,
             ),
             child: Text(
               _grade(value),
@@ -256,7 +257,7 @@ class _Metric extends StatelessWidget {
         LinearProgressIndicator(
           value: (value ?? 0) / 100,
           minHeight: 5,
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: AppRadius.xxsRadius,
           color: scoreColor(value),
           backgroundColor: AppColors.grey100,
         ),

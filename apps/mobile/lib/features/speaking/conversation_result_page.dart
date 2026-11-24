@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 import 'conversation_assessment.dart';
 import 'conversation_audio.dart';
@@ -109,8 +110,8 @@ class _ConversationResultPageState extends State<ConversationResultPage> {
               style: IconButton.styleFrom(
                 backgroundColor: Colors.white,
                 minimumSize: const Size(48, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: AppRadius.tagRadius,
                 ),
               ),
               icon: const Icon(Icons.chevron_left),
@@ -123,8 +124,8 @@ class _ConversationResultPageState extends State<ConversationResultPage> {
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(48),
                   textStyle: designText(18, weight: FontWeight.w500),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: AppRadius.tagRadius,
                   ),
                 ),
                 onPressed: saving || saved || !widget.controller.active

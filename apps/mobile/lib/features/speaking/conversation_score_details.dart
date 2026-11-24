@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 import 'assessment_details.dart';
 import 'speaking_content_feedback.dart';
@@ -97,9 +98,9 @@ class _ScoreGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
+    decoration: const BoxDecoration(
       color: AppColors.grey25,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: AppRadius.cardSm,
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -145,7 +146,7 @@ class _CriterionScore extends StatelessWidget {
                 Text(label, style: designText(13, weight: FontWeight.w500)),
                 LinearProgressIndicator(
                   value: (score ?? 0) / 100,
-                  borderRadius: BorderRadius.circular(4),
+                  borderRadius: AppRadius.xxsRadius,
                   minHeight: 4,
                   color: color,
                   backgroundColor: AppColors.grey100,
@@ -160,7 +161,7 @@ class _CriterionScore extends StatelessWidget {
               color: scoreLabel == null
                   ? AppColors.grey100
                   : color.withValues(alpha: .09),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.tagRadius,
             ),
             child: Text(
               scoreLabel ?? '—',

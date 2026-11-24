@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 
 const speakingReviewSpeechDecoration = BoxDecoration(
   color: AppColors.grey25,
-  borderRadius: BorderRadius.all(Radius.circular(12)),
+  borderRadius: AppRadius.cardSm,
 );
 
 class SpeakingReviewHeader extends StatelessWidget {
@@ -39,9 +40,9 @@ class SpeakingReviewHeader extends StatelessWidget {
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.grey0,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: AppRadius.cardSm,
             ),
             child: Icon(icon, color: AppColors.primary700, size: 22),
           ),
@@ -66,9 +67,9 @@ class SpeakingReviewHeader extends StatelessWidget {
                             horizontal: 8,
                             vertical: 4,
                           ),
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: AppColors.grey0,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: AppRadius.tagRadius,
                           ),
                           child: Text(
                             statusLabel,
@@ -114,7 +115,7 @@ class SpeakingReviewCard extends StatelessWidget {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: AppColors.grey0,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: AppRadius.cardRadius,
       border: Border.all(color: AppColors.grey100),
     ),
     child: Column(
@@ -147,7 +148,7 @@ class SpeakingReviewExpansionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(16)),
+      borderRadius: AppRadius.cardRadius,
       side: BorderSide(color: AppColors.grey100),
     );
     return ExpansionTile(

@@ -16,19 +16,37 @@ import { AudioSegment, ConversationTurn, conversationAnswers, conversationPronun
 const pendingHistoryLifetimeMs = 24 * 60 * 60 * 1000;
 const emptySegmentHash = createHash('sha256').update('[]').digest('hex');
 
-function wholeAudioScore(assessment: Record<string, any>) {
+interface StoredAssessedTurn {
+  itemId: string;
+  pronunciation?: Record<string, unknown> | null;
+  content?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
+interface StoredConversationAssessment {
+  schemaVersion?: number;
+  segmentHash?: string | null;
+  pronunciationScope?: string;
+  pronunciation?: Record<string, unknown> | null;
+  content?: Record<string, unknown> | null;
+  turns?: StoredAssessedTurn[];
+  audioSource?: string | null;
+  [key: string]: unknown;
+}
+
+function wholeAudioScore(assessment: StoredConversationAssessment) {
   if (assessment.pronunciationScope === 'per_turn') return null;
   if (assessment.pronunciationScope === 'whole_audio' || (
-    !assessment.turns?.some((turn: any) => turn.pronunciation) &&
+    !assessment.turns?.some((turn) => turn.pronunciation) &&
     (!assessment.segmentHash || assessment.segmentHash === emptySegmentHash)
   )) return assessment.pronunciation ?? null;
   return null;
 }
 
 function assessmentStatus(row: { assessmentStatus: string; assessment: unknown }) {
-  const stored = row.assessment as Record<string, any> | null;
+  const stored = row.assessment as StoredConversationAssessment | null;
   if (row.assessmentStatus === 'READY' && stored?.schemaVersion === 2 &&
-      Array.isArray(stored.turns) && stored.turns.some((turn: any) => !turn.pronunciation) &&
+      Array.isArray(stored.turns) && stored.turns.some((turn) => !turn.pronunciation) &&
       !wholeAudioScore(stored)) return 'PARTIAL';
   return row.assessmentStatus;
 }
@@ -107,10 +125,10 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
         assessmentStartedAt: row.assessmentStartedAt }, data: { assessmentStatus: 'UNKNOWN' } });
       if (changed.count) row.assessmentStatus = 'UNKNOWN';
     }
-    const stored = row.assessment as any;
+    const stored = row.assessment as StoredConversationAssessment | null;
     if (stored?.schemaVersion === 2 && Array.isArray(stored.turns)) {
       stored.pronunciation = conversationPronunciation(stored.turns) ?? stored.pronunciation;
-      row.assessment = stored;
+      row.assessment = stored as Prisma.JsonValue;
     }
     const { activeUserId, ...result } = row;
     return { ...result, assessmentStatus: assessmentStatus(row), supportsPronunciationRetry: true };
@@ -124,7 +142,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       const changed = await this.prisma.voiceConversation.updateMany({ where: { id, userId, assessmentStatus: 'PROCESSING', assessmentStartedAt: row.assessmentStartedAt }, data: { assessmentStatus: 'UNKNOWN' } });
       if (changed.count) row.assessmentStatus = 'UNKNOWN';
     }
-    const stored = row.assessment as any;
+    const stored = row.assessment as StoredConversationAssessment | null;
     if (stored?.schemaVersion === 2 && Array.isArray(stored.turns)) {
       stored.pronunciation = conversationPronunciation(stored.turns) ?? stored.pronunciation;
     }
@@ -142,7 +160,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
 
   async sample(userId: string, id: string, text: string) {
     const owned = await this.prisma.voiceConversation.findFirst({
-      where: { id, userId, historyStatus: { not: 'DISCARDED' }, status: { in: ['ENDED', 'INTERRUPTED'] } },
+      where: { id, userId, historyHiddenAt: null, historyStatus: { not: 'DISCARDED' }, status: { in: ['ENDED', 'INTERRUPTED'] } },
       select: { id: true },
     });
     if (!owned) throw new HttpException({ code: 'conversation_not_found', message: 'Không tìm thấy hội thoại.' }, 404);
@@ -164,7 +182,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
     const segmentHash = createHash('sha256').update(JSON.stringify(segments)).digest('hex');
     const hash = audio ? createHash('sha256').update(audio).digest('hex') : null;
     const initial = row.assessmentStatus === 'UNASSESSED';
-    const previous = (row.assessment ?? {}) as Record<string, any>;
+    const previous = (row.assessment ?? {}) as StoredConversationAssessment;
     const turns = row.turns.map((turn, index) => ({ itemId: turn.providerItemId ?? `turn-${index}`, role: turn.role, transcript: turn.transcript }));
     const conflicts = (stored: typeof row) => {
       const storedSegments = (stored.assessment as Record<string, unknown> | null)?.segmentHash;
@@ -179,7 +197,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       const recorded = new Set(segments.map(segment => segment.itemId));
       const canRecover = conversationAnswers(turns).some(answer =>
         (!segments.length || recorded.has(answer.itemId)) &&
-        !previous.turns?.some((turn: any) => turn.itemId === answer.itemId && turn.pronunciation),
+        !previous.turns?.some((turn) => turn.itemId === answer.itemId && turn.pronunciation),
       );
       if (!canRecover) return row;
     }
@@ -197,7 +215,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       },
       data: {
         assessmentStatus: 'PROCESSING', assessmentStartedAt, assessmentAudioHash: hash,
-        assessment: { ...previous, segmentHash },
+        assessment: { ...previous, segmentHash } as Prisma.InputJsonValue,
       },
     });
     if (!claimed.count) {
@@ -207,7 +225,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       }
       return winner;
     }
-    const topic = (row.topicSnapshot as Record<string, any>).text;
+    const topic = (row.topicSnapshot as { text: string }).text;
     void this.processAssessment(id, userId, topic, turns, audio, segments,
       { ...previous, segmentHash }, assessmentStartedAt, retryPronunciation).catch(() => {
       this.logger.warn(JSON.stringify({ event: 'conversation_assessment_save_failed', conversationId: id }));
@@ -220,7 +238,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
     if (!['ENDED', 'INTERRUPTED'].includes(row.status)) {
       throw new HttpException({ code: 'conversation_active', message: 'Hãy kết thúc hội thoại trước khi chấm.' }, 409);
     }
-    const previous = (row.assessment ?? {}) as Record<string, any>;
+    const previous = (row.assessment ?? {}) as StoredConversationAssessment;
     if (row.assessmentStatus === 'PROCESSING' || previous.content?.status === 'succeeded' && previous.content?.assessmentScope === 'whole_conversation') return row;
     if (!row.turns.some(turn => turn.role === 'USER' && turn.transcript.trim())) {
       throw new HttpException({ code: 'conversation_empty', message: 'Phiên chưa có lời nói của bạn để chấm điểm.' }, 422);
@@ -231,31 +249,31 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       data: { assessmentStatus: 'PROCESSING', assessmentStartedAt } });
     if (!claim.count) return this.detail(userId, id);
     const turns = row.turns.map(turn => ({ itemId: turn.providerItemId, role: turn.role, transcript: turn.transcript }));
-    void this.processAssessment(id, userId, (row.topicSnapshot as any).text, turns, undefined, [], previous, assessmentStartedAt)
+    void this.processAssessment(id, userId, (row.topicSnapshot as { text: string }).text, turns, undefined, [], previous, assessmentStartedAt)
       .catch(() => this.logger.warn(JSON.stringify({ event: 'conversation_content_save_failed', conversationId: id })));
     return this.detail(userId, id);
   }
 
   private async processAssessment(id: string, userId: string, topic: string,
-    turns: ConversationTurn[], audio: Buffer | undefined, segments: AudioSegment[], previous: Record<string, any>, assessmentStartedAt: Date,
+    turns: ConversationTurn[], audio: Buffer | undefined, segments: AudioSegment[], previous: StoredConversationAssessment, assessmentStartedAt: Date,
     pronunciationRetry = false) {
     const started = Date.now();
     const answers = conversationAnswers(turns);
     const clips = audio && segments.length ? splitConversationAudio(audio, segments) : new Map<string, Buffer>();
-    const scoreAudio = async (bytes: Buffer) => {
+    const scoreAudio = async (bytes: Buffer): Promise<Record<string, unknown> | null> => {
       try {
-        const result = await this.ml.scoreConversationAudio(bytes);
+        const result = await this.ml.scoreConversationAudio(bytes) as Record<string, unknown>;
         const hash = createHash('sha256').update(bytes).digest('hex');
         if (validTopicResult(result, hash, 180, 'conversation-speaking-v1')) return result;
       } catch { /* Individual failure leaves the other replies available. */ }
       return null;
     };
     const scoreReplies = async () => {
-      const results = new Map<string, any>();
+      const results = new Map<string, Record<string, unknown> | null>();
       // Sequential provider calls respect the speech resource's concurrency limit.
       for (const answer of answers) {
         const clip = clips.get(answer.itemId);
-        const saved = previous.turns?.find((turn: any) => turn.itemId === answer.itemId)?.pronunciation;
+        const saved = previous.turns?.find((turn) => turn.itemId === answer.itemId)?.pronunciation;
         results.set(answer.itemId, saved ?? (clip ? await scoreAudio(clip) : null));
       }
       return results;
@@ -263,7 +281,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
     const reuseContent = pronunciationRetry;
     this.logger.log(JSON.stringify({ event: 'conversation_assessment_started', conversationId: id,
       pronunciationCalls: segments.length ? answers.filter(answer => clips.has(answer.itemId) &&
-        !previous.turns?.some((turn: any) => turn.itemId === answer.itemId && turn.pronunciation)).length : audio ? 1 : 0,
+        !previous.turns?.some((turn) => turn.itemId === answer.itemId && turn.pronunciation)).length : audio ? 1 : 0,
       contentCalls: reuseContent ? 0 : 1 }));
     const contentPromise = reuseContent ? Promise.resolve(previous.content ?? { status: 'unavailable' }) :
       this.ml.scoreConversationContent(topic, turns.filter(turn => turn.transcript.trim())).catch(contentRequestFailure);
@@ -272,13 +290,15 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       audio && !segments.length ? scoreAudio(audio) : Promise.resolve(wholeAudioScore(previous)),
     ]);
     const transcript = turns.filter(turn => turn.role === 'USER').map(turn => turn.transcript).join('\n');
-    const content: Record<string, any> = reuseContent && previous.content
+    const content: Record<string, unknown> = reuseContent && previous.content
       ? previous.content
       : validContentResult(contentResult, transcript, 'conversation-content-v1')
-        ? contentResult : { status: 'unavailable', errorCode: 'content_invalid_response' };
+        ? contentResult as Record<string, unknown> : { status: 'unavailable', errorCode: 'content_invalid_response' };
     const results = answers.map(answer => {
-      const candidate = Array.isArray(content.turns) ? content.turns.find((item: any) => item.itemId === answer.itemId)?.content : null;
-      const saved = reuseContent ? previous.turns?.find((turn: any) => turn.itemId === answer.itemId)?.content : null;
+      const candidate = Array.isArray(content.turns)
+        ? (content.turns as StoredAssessedTurn[]).find((item) => item.itemId === answer.itemId)?.content
+        : null;
+      const saved = reuseContent ? previous.turns?.find((turn) => turn.itemId === answer.itemId)?.content : null;
       const turnContent = saved ?? (candidate && validContentResult(candidate, answer.answer, 'conversation-content-v1')
         ? candidate : { status: 'unavailable', errorCode: 'content_assessment_failed' });
       return { ...answer, pronunciation: replies.get(answer.itemId), content: turnContent };
@@ -352,18 +372,19 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
   }
 
   async hideHistory(userId: string, ids: string[]) {
+    const normalizedIds = [...new Set(ids.map(id => id.toLowerCase()))];
     return this.prisma.$transaction(async tx => {
       const where: Prisma.VoiceConversationWhereInput = {
-        userId, id: { in: ids }, historyStatus: VoiceHistoryStatus.SAVED, status: { in: ['ENDED', 'INTERRUPTED'] },
+        userId, id: { in: normalizedIds }, historyStatus: VoiceHistoryStatus.SAVED, status: { in: ['ENDED', 'INTERRUPTED'] },
       };
+      const matching = await tx.voiceConversation.count({ where });
+      if (matching !== normalizedIds.length) {
+        throw new HttpException({ code: 'conversation_not_found', message: 'Không tìm thấy hội thoại đã kết thúc.' }, 404);
+      }
       await tx.voiceConversation.updateMany({
         where: { ...where, historyHiddenAt: null }, data: { historyHiddenAt: new Date() },
       });
-      const hidden = await tx.voiceConversation.count({ where: { ...where, historyHiddenAt: { not: null } } });
-      if (hidden !== ids.length) {
-        throw new HttpException({ code: 'conversation_not_found', message: 'Không tìm thấy hội thoại đã kết thúc.' }, 404);
-      }
-      return { hiddenIds: ids };
+      return { hiddenIds: normalizedIds };
     });
   }
 

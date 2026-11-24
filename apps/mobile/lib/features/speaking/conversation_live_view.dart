@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_shadows.dart';
 import '../../shared/figma_widgets.dart';
 import 'recording_waveform.dart';
 
@@ -53,15 +55,9 @@ class ConversationCallHeader extends StatelessWidget {
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         color: AppColors.grey0,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppRadius.cardRadius,
         border: Border.all(color: AppColors.grey100),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F0D2249),
-            offset: Offset(0, 1),
-            blurRadius: 4,
-          ),
-        ],
+        boxShadow: AppShadows.level1,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -73,9 +69,9 @@ class ConversationCallHeader extends StatelessWidget {
                 width: 44,
                 height: 44,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.primary25,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: AppRadius.tagRadius,
                 ),
                 child: const ConversationLiveIcon('topic', size: 20),
               ),
@@ -97,7 +93,7 @@ class ConversationCallHeader extends StatelessWidget {
             child: LinearProgressIndicator(
               value: (seconds / 180).clamp(0, 1).toDouble(),
               minHeight: 6,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppRadius.tagRadius,
               color: AppColors.primary500,
               backgroundColor: AppColors.grey100,
             ),
@@ -189,7 +185,7 @@ class ConversationCallActions extends StatelessWidget {
           Center(
             child: Material(
               color: AppColors.grey0,
-              shadowColor: const Color(0x400D2249),
+              shadowColor: AppColors.grey900.withValues(alpha: 0.25),
               elevation: 2,
               shape: const CircleBorder(
                 side: BorderSide(color: AppColors.grey100),
@@ -266,10 +262,4 @@ ButtonStyle conversationPrimaryAction(double fontSize) =>
     );
 
 TextStyle _bodyStyle(double size, [Color color = AppColors.grey900]) =>
-    TextStyle(
-      fontFamily: 'Inter',
-      fontFamilyFallback: const ['Be Vietnam Pro'],
-      color: color,
-      fontSize: size,
-      height: 1.5,
-    );
+    designText(size, color: color, height: 1.5);

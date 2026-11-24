@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 import '../../shared/history_controls.dart';
 import '../learning/learning_widgets.dart';
@@ -27,14 +28,8 @@ class SpeakingHistoryEntry {
       formatSpeakingHistoryDate(date, compact: compact);
 }
 
-String formatSpeakingHistoryDate(String? value, {bool compact = false}) {
-  final date = DateTime.tryParse(value ?? '')?.toLocal();
-  if (date == null) return '';
-  String two(int value) => value.toString().padLeft(2, '0');
-  final day = '${two(date.day)}/${two(date.month)}';
-  final time = '${two(date.hour)}:${two(date.minute)}';
-  return compact ? '$day · $time' : '$day/${date.year}, $time';
-}
+String formatSpeakingHistoryDate(String? value, {bool compact = false}) =>
+    formatVietnamHistoryDate(value, compact: compact);
 
 class SpeakingHistoryList extends StatefulWidget {
   const SpeakingHistoryList({
@@ -251,7 +246,6 @@ class _SpeakingHistoryListState extends State<SpeakingHistoryList> {
       if (!_selected.remove(entry.id)) _selected.add(entry.id);
     });
     final date = entry.dateLabel();
-    final border = BorderRadius.circular(16);
     return AnimatedContainer(
       key: ValueKey('speaking-history-${entry.id}'),
       duration: duration,
@@ -259,7 +253,7 @@ class _SpeakingHistoryListState extends State<SpeakingHistoryList> {
       constraints: const BoxConstraints(minHeight: 80),
       decoration: BoxDecoration(
         color: selected ? AppColors.primary25 : AppColors.grey5,
-        borderRadius: border,
+        borderRadius: AppRadius.cardRadius,
         border: Border.all(
           color: selected ? AppColors.primary200 : AppColors.grey100,
         ),
@@ -267,7 +261,7 @@ class _SpeakingHistoryListState extends State<SpeakingHistoryList> {
       child: Material(
         type: MaterialType.transparency,
         child: InkWell(
-          borderRadius: border,
+          borderRadius: AppRadius.cardRadius,
           excludeFromSemantics: _selecting,
           onLongPress: !_selecting && !_loading && !_hiding && entry.canHide
               ? () => _hide([entry])

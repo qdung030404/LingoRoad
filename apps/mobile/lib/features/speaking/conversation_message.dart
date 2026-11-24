@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
+import '../../shared/figma_widgets.dart';
 import 'conversation_live_view.dart';
 
 class ConversationMessage extends StatefulWidget {
@@ -75,7 +77,7 @@ class _ConversationMessageState extends State<ConversationMessage> {
             border: Border.all(
               color: user ? AppColors.primary500 : AppColors.grey100,
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppRadius.cardRadius,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,10 +165,5 @@ class _ConversationMessageState extends State<ConversationMessage> {
   );
 }
 
-TextStyle _messageStyle(double size, Color color) => TextStyle(
-  fontFamily: 'Inter',
-  fontFamilyFallback: const ['Be Vietnam Pro'],
-  fontSize: size,
-  height: 1.5,
-  color: color,
-);
+TextStyle _messageStyle(double size, Color color) =>
+    designText(size, color: color, height: 1.5);

@@ -92,4 +92,23 @@ class ConversationRecordingStore {
       return null;
     }
   }
+
+  Future<void> deleteBatch(
+    String accountId,
+    Iterable<String> conversationIds,
+  ) async {
+    if (!Platform.isAndroid) return;
+    for (final id in conversationIds) {
+      try {
+        final directory = await _directory(accountId, id);
+        if (await directory.exists()) {
+          await directory.delete(recursive: true);
+        }
+      } on FileSystemException {
+        // Best-effort local cleanup after server-side history hide.
+      } on PlatformException {
+        // Ignore when native storage directory is unavailable.
+      }
+    }
+  }
 }

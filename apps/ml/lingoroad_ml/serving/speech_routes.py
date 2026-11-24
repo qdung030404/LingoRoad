@@ -15,6 +15,21 @@ MAX_DURATION_SECONDS = 120
 MODEL_VERSION = os.environ.get("LINGOROAD_SPEECH_MODEL_VERSION", "faster-whisper-small")
 _speech_slots = asyncio.Semaphore(max(
     1, int(os.environ.get("LINGOROAD_SPEECH_CONCURRENCY", "1"))))
+_tts_client: httpx.AsyncClient | None = None
+
+
+def _get_tts_client() -> httpx.AsyncClient:
+    global _tts_client
+    if _tts_client is None or _tts_client.is_closed:
+        _tts_client = httpx.AsyncClient(timeout=10, follow_redirects=False)
+    return _tts_client
+
+
+async def close_tts_client() -> None:
+    global _tts_client
+    if _tts_client is not None and not _tts_client.is_closed:
+        await _tts_client.aclose()
+    _tts_client = None
 
 
 @router.post("/speech/topic/score")
@@ -222,18 +237,18 @@ async def conversation_sample(req: ConversationSampleRequest):
         f'<voice name="en-US-JennyNeural">{escape(text)}</voice></speak>'
     )
     try:
-        async with httpx.AsyncClient(timeout=10, follow_redirects=False) as client:
-            result = await client.post(
-                f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1",
-                headers={
-                    "Ocp-Apim-Subscription-Key": key,
-                    "Content-Type": "application/ssml+xml",
-                    "X-Microsoft-OutputFormat": "audio-16khz-32kbitrate-mono-mp3",
-                    "User-Agent": "LingoRoad",
-                },
-                content=ssml.encode("utf-8"),
-            )
-            result.raise_for_status()
+        client = _get_tts_client()
+        result = await client.post(
+            f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1",
+            headers={
+                "Ocp-Apim-Subscription-Key": key,
+                "Content-Type": "application/ssml+xml",
+                "X-Microsoft-OutputFormat": "audio-16khz-32kbitrate-mono-mp3",
+                "User-Agent": "LingoRoad",
+            },
+            content=ssml.encode("utf-8"),
+        )
+        result.raise_for_status()
     except httpx.HTTPError:
         raise HTTPException(503, "sample_unavailable") from None
     if not result.content or len(result.content) > 256 * 1024:

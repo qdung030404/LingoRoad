@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 import '../learning/learning_widgets.dart';
 import 'speaking_controller.dart';
@@ -64,7 +66,15 @@ class _VoiceConversationsPageState extends State<VoiceConversationsPage> {
           errorMessage: 'Chưa tải được hội thoại.',
           active: () => widget.controller.active,
           loadPage: (cursor) => repository.conversations(cursor: cursor),
-          hide: repository.hideConversationHistory,
+          hide: (ids) async {
+            await repository.hideConversationHistory(ids);
+            unawaited(
+              widget.controller.conversationRecordings.deleteBatch(
+                widget.controller.accountId,
+                ids,
+              ),
+            );
+          },
           onBack: widget.historyOnly
               ? null
               : () => setState(() => viewingHistory = false),
@@ -145,7 +155,7 @@ class _VoiceConversationsPageState extends State<VoiceConversationsPage> {
                 padding: EdgeInsets.zero,
                 child: Material(
                   color: Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: AppRadius.cardRadius,
                   clipBehavior: Clip.antiAlias,
                   child: ListTile(
                     key: ValueKey('conversation-topic-${item['id']}'),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 
 class AssessmentAnnotation extends StatelessWidget {
@@ -47,8 +49,8 @@ class AssessmentAnnotation extends StatelessWidget {
       (
         compact ? '~' : '⌁',
         'Cần ngắt nghỉ',
-        compact ? const Color(0xff1e713b) : const Color(0xFF70539A),
-        compact ? const Color(0xffe7f6ed) : const Color(0xFFF2ECF8),
+        compact ? AppColors.primary700 : const Color(0xFF70539A),
+        compact ? AppColors.primary25 : const Color(0xFFF2ECF8),
         null,
       ),
       if (showMonotone)
@@ -66,8 +68,8 @@ class AssessmentAnnotation extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xffdbe2eb)),
-              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.grey200),
+              borderRadius: AppRadius.tagRadius,
             ),
             child: Row(
               children: [
@@ -147,7 +149,7 @@ class AssessmentAnnotation extends StatelessWidget {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: entry.$4,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: AppRadius.xsRadius,
                           ),
                           child: Text(
                             entry.$1,

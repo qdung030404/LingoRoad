@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 import '../../shared/figma_dropdown.dart';
 import '../../core/api/api_client.dart';
@@ -71,7 +72,7 @@ class _ConversationSettingsDialogState
       child: Dialog(
         backgroundColor: AppColors.grey0,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadius.cardSm),
         clipBehavior: Clip.antiAlias,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         constraints: const BoxConstraints(maxWidth: 420),

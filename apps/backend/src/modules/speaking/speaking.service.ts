@@ -78,16 +78,17 @@ export class SpeakingService {
     return { items, nextCursor: rows.length > 20 ? items[19].id : null };
   }
   async hideHistory(userId: string, ids: string[]) {
+    const normalizedIds = [...new Set(ids.map(id => id.toLowerCase()))];
     return this.prisma.$transaction(async tx => {
       const where: Prisma.SpeakingSubmissionWhereInput = {
-        userId, id: { in: ids }, status: { in: ['SUCCEEDED', 'FAILED', 'UNKNOWN'] },
+        userId, id: { in: normalizedIds }, status: { in: ['SUCCEEDED', 'FAILED', 'UNKNOWN'] },
       };
+      const matching = await tx.speakingSubmission.count({ where });
+      if (matching !== normalizedIds.length) this.missing();
       await tx.speakingSubmission.updateMany({
         where: { ...where, historyHiddenAt: null }, data: { historyHiddenAt: new Date() },
       });
-      const hidden = await tx.speakingSubmission.count({ where: { ...where, historyHiddenAt: { not: null } } });
-      if (hidden !== ids.length) this.missing();
-      return { hiddenIds: ids };
+      return { hiddenIds: normalizedIds };
     });
   }
   async upload(userId: string, id: string, audio?: Buffer) {
