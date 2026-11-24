@@ -46,25 +46,37 @@ Triển khai API Phiên Ôn tập Từ vựng & Thực thi Lệnh Flashcard Bấ
 - **Files đã tạo/chỉnh sửa**:
   - `apps/backend/src/modules/vocabulary/vocabulary.controller.ts`
   - `apps/backend/src/modules/vocabulary/vocabulary-review.service.ts`
+  - `apps/backend/src/modules/vocabulary/vocabulary-review.service.spec.ts`
   - `apps/backend/src/modules/vocabulary/vocabulary-command.service.ts`
-  - `apps/backend/src/modules/vocabulary/vocabulary.repository.ts`
   - `apps/backend/src/modules/vocabulary/vocabulary.dto.ts`
-  - `apps/mobile/lib/features/vocabulary/application/vocabulary_review_controller.dart`
-  - `apps/mobile/lib/features/vocabulary/data/vocabulary_pending_store.dart`
+  - `apps/mobile/lib/features/vocabulary/vocabulary_models.dart`
+  - `apps/mobile/lib/features/vocabulary/vocabulary_review_controller.dart`
+  - `apps/mobile/lib/features/vocabulary/vocabulary_review_page.dart`
+  - `apps/mobile/lib/features/vocabulary/vocabulary_pending_store.dart`
+  - `apps/mobile/lib/features/vocabulary/widgets/vocabulary_flashcard_deck.dart`
+  - `apps/mobile/lib/features/vocabulary/widgets/vocabulary_flip_card_item.dart`
+  - `apps/mobile/lib/features/vocabulary/widgets/vocabulary_review_bottom_bar.dart`
+  - `apps/mobile/lib/features/vocabulary/widgets/vocabulary_review_sheet.dart`
+  - `apps/mobile/lib/features/vocabulary/widgets/vocabulary_srs_rating_bar.dart`
+  - `apps/mobile/test/vocabulary_controller_test.dart`
+  - `apps/mobile/test/vocabulary_review_test.dart`
 
 ---
 
 # 6. Dependencies (Sự phụ thuộc)
 
-- `PrismaModule`, `JwtAuthGuard`.
+- `PrismaModule`, `JwtAuthGuard`, `ThrottlerGuard`.
+- `flutter_card_swiper`, `flip_card`, `audioplayers` (Flutter).
 
 ---
 
 # 7. Acceptance Criteria (Tiêu chí Nghiệm thu)
 
 - [x] `POST /vocabulary/decks/:id/reviews` tạo hoặc tiếp tục phiên ôn tập (HTTP 200).
-- [x] `POST /vocabulary/reviews/:id/commands` xử lý đúng 8 lệnh và kiểm tra `expectedVersion` (HTTP 200).
+- [x] `POST /vocabulary/reviews/:id/commands` xử lý đúng 8 lệnh đơn và kiểm tra `expectedVersion` (HTTP 200).
+- [x] `POST /vocabulary/reviews/:id/batch-submit` đồng bộ theo lô kết quả đánh giá (checkpoint `isFinal: false` và hoàn tất `isFinal: true`), kiểm định chặt tính bất biến (`PENDING` only, đối chiếu `checkedAnswer`, kẹp `finalizedAt`, xử lý deck xóa mềm) (HTTP 200).
 - [x] Gửi lại cùng `commandId` trả về kết quả từ `VocabularyCommandReceipt`.
+- [x] `VocabularyReviewController` trên Mobile hỗ trợ đánh giá tức thì không khóa UI trên bộ nhiều thẻ, tách `_inFlightBatch` đóng băng và `_queuedResults`, chống reentrancy `_rating`, sao lưu `.rejectedJournal` khi xung đột, và đạt 28/28 Flutter tests + 23/23 Backend Jest tests.
 - [x] `GET /vocabulary/history` trả về lịch sử phân trang theo cursor.
 
 ---
