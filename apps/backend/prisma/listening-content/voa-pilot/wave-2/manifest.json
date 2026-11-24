@@ -1,0 +1,44 @@
+[
+  {
+    "code": "listening-pilot-voa-rooms",
+    "title": "A Visit with Marsha",
+    "level": "A1",
+    "description": "Anna và Marsha gặp nhau để tham quan một nơi mới. Bài thử nghiệm A1. Âm thanh: VOA Learning English (learningenglish.voanews.com).",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-lesson-5-where-are-you/3168971.html",
+      "audioUrl": "https://voa-audio.voanews.eu/vle/2016/03/01/ab9c2944-eddc-4806-9296-290bfa8c6ff2_hq.mp3",
+      "localFile": "rooms.mp3",
+      "sha256": "e6ca2de9116750b3dfe7b99a455f21bc6a84fdacc72cc9b8f5f13aaf4260fd94",
+      "startMs": 14900,
+      "endMs": 59300
+    }
+  },
+  {
+    "code": "listening-pilot-voa-busy",
+    "title": "Anna Talks to Her Colleagues",
+    "level": "A2",
+    "description": "Anna đi gặp đồng nghiệp tại nơi làm việc. Bài thử nghiệm A2. Âm thanh: VOA Learning English (learningenglish.voanews.com).",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-lesson-8-are-you-busy/3253185.html",
+      "audioUrl": "https://voa-audio.voanews.eu/vle/2016/03/25/ae6c5055-13ae-485b-995d-b347125ecf10_hq.mp3",
+      "localFile": "busy.mp3",
+      "sha256": "5e063515a76627bd05ca37e426887e0250699e25f41b3606a792a1d87374247f",
+      "startMs": 10700,
+      "endMs": 87800
+    }
+  },
+  {
+    "code": "listening-pilot-voa-late",
+    "title": "Pete Explains the Delay",
+    "level": "B1",
+    "description": "Pete, Anna và Kelly nói chuyện trước khi bắt đầu công việc. Bài thử nghiệm B1. Âm thanh: VOA Learning English (learningenglish.voanews.com).",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-level-2-lesson-3/4027340.html",
+      "audioUrl": "https://voa-audio.voanews.eu/vle/2017/09/15/078ffce1-f691-4e1e-811e-058154119d2d_hq.mp3",
+      "localFile": "late.mp3",
+      "sha256": "892b245d213a7cb551dfa048b4c8e5378bad53c4bc5179dfd9f34a8059fddf24",
+      "startMs": 163100,
+      "endMs": 247000
+    }
+  }
+]

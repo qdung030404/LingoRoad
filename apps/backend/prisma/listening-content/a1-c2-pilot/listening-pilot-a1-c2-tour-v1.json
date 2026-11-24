@@ -1,0 +1,256 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-tour-v1.wav",
+  "audioDurationMs": 66200,
+  "preparation": {
+    "situation": "Anna và Penelope tham quan thành phố trên một chiếc xe đặc biệt.",
+    "objective": "Theo dõi lộ trình qua lời kể và nhận ra chi tiết mỗi người chú ý."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "ride along",
+      "meaning": "đi dọc theo"
+    },
+    {
+      "id": "v02",
+      "word": "pass by",
+      "meaning": "đi ngang qua"
+    },
+    {
+      "id": "v03",
+      "word": "sail",
+      "meaning": "di chuyển trên mặt nước"
+    },
+    {
+      "id": "v04",
+      "word": "railroad tracks",
+      "meaning": "đường ray"
+    }
+  ],
+  "transcript": "More fun facts, please! I love riding over bridges. The water looks so pretty from here! Penelope, this is amazing! A minute ago, we were riding along the river, and now we’re riding in the river! Awesome. Hey, we’re passing by the Pentagon on our right! Penelope, you love riding over the water on a bridge. But I love riding under a bridge in a boat! Anna, look! An airplane is flying right over our heads! Wow! This is the closest I’ve ever been to an airplane in flight. Well, I’ve been inside a flying airplane. But not outside of an airplane as it flies over my head! And now we’re driving out of the water. I still can’t believe this thing drives and sails! I know. It’s amazing. After we ride along these railroad tracks, you’ll see my favorite part of the tour! The U.S. Treasury, where they make money!",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Penelope",
+      "startMs": 280,
+      "endMs": 7240,
+      "text": "More fun facts, please! I love riding over bridges. The water looks so pretty from here!",
+      "translationVi": "Kể thêm chuyện thú vị đi! Mình thích đi qua cầu. Nhìn từ đây mặt nước đẹp quá!"
+    },
+    {
+      "id": "s02",
+      "speaker": "Anna",
+      "startMs": 7240,
+      "endMs": 17360,
+      "text": "Penelope, this is amazing! A minute ago, we were riding along the river, and now we’re riding in the river! Awesome.",
+      "translationVi": "Penelope, kỳ diệu thật! Mới một phút trước chúng ta đi dọc bờ sông, giờ đã chạy ngay trên sông rồi! Tuyệt thật."
+    },
+    {
+      "id": "s03",
+      "speaker": "Penelope",
+      "startMs": 17700,
+      "endMs": 20340,
+      "text": "Hey, we’re passing by the Pentagon on our right!",
+      "translationVi": "Này, chúng ta đang đi ngang qua Lầu Năm Góc bên phải!"
+    },
+    {
+      "id": "s04",
+      "speaker": "Anna",
+      "startMs": 20740,
+      "endMs": 27880,
+      "text": "Penelope, you love riding over the water on a bridge. But I love riding under a bridge in a boat!",
+      "translationVi": "Penelope, bạn thích ngồi xe qua cầu trên mặt nước. Còn mình thích ngồi thuyền đi dưới cầu!"
+    },
+    {
+      "id": "s05",
+      "speaker": "Penelope",
+      "startMs": 28800,
+      "endMs": 32220,
+      "text": "Anna, look! An airplane is flying right over our heads!",
+      "translationVi": "Anna, nhìn kìa! Máy bay đang bay ngay trên đầu chúng ta!"
+    },
+    {
+      "id": "s06",
+      "speaker": "Anna",
+      "startMs": 32460,
+      "endMs": 45900,
+      "text": "Wow! This is the closest I’ve ever been to an airplane in flight. Well, I’ve been inside a flying airplane. But not outside of an airplane as it flies over my head!",
+      "translationVi": "Ôi! Chưa bao giờ mình ở gần một chiếc máy bay đang bay đến thế. Ừ thì mình từng ngồi trong máy bay đang bay. Nhưng chưa từng đứng bên ngoài khi máy bay bay qua ngay trên đầu!"
+    },
+    {
+      "id": "s07",
+      "speaker": "Penelope",
+      "startMs": 46640,
+      "endMs": 52120,
+      "text": "And now we’re driving out of the water. I still can’t believe this thing drives and sails!",
+      "translationVi": "Và giờ xe đang chạy lên bờ. Mình vẫn khó tin là chiếc này vừa chạy trên đường vừa chạy dưới nước!"
+    },
+    {
+      "id": "s08",
+      "speaker": "Anna",
+      "startMs": 52500,
+      "endMs": 54160,
+      "text": "I know. It’s amazing.",
+      "translationVi": "Mình biết. Tuyệt thật đấy."
+    },
+    {
+      "id": "s09",
+      "speaker": "Boy",
+      "startMs": 55360,
+      "endMs": 65880,
+      "text": "After we ride along these railroad tracks, you’ll see my favorite part of the tour! The U.S. Treasury, where they make money!",
+      "translationVi": "Sau khi đi dọc các đường ray này, các cô sẽ thấy chỗ cháu thích nhất trong chuyến tham quan! Bộ Ngân khố Mỹ, nơi người ta làm ra tiền!"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What makes this tour unusual?",
+      "options": [
+        {
+          "id": "A",
+          "text": "It takes place at night"
+        },
+        {
+          "id": "B",
+          "text": "It goes inside an airport"
+        },
+        {
+          "id": "C",
+          "text": "The same vehicle travels on land and water"
+        },
+        {
+          "id": "D",
+          "text": "It follows a train for the entire route"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Anna nhận ra xe vừa đi dọc sông thì đã chạy ngay trên sông. Penelope nhắc lại xe vừa chạy đường bộ vừa chạy trên nước.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s07"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.directions",
+      "prompt": "On which side do they pass the Pentagon?",
+      "options": [
+        {
+          "id": "A",
+          "text": "On their left"
+        },
+        {
+          "id": "B",
+          "text": "On their right"
+        },
+        {
+          "id": "C",
+          "text": "Straight behind them"
+        },
+        {
+          "id": "D",
+          "text": "Directly ahead of them"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Penelope nói Lầu Năm Góc ở bên phải khi họ đi ngang qua.",
+      "evidenceSegmentIds": [
+        "s03"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What does Anna prefer to do near a bridge?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Go under it in a boat"
+        },
+        {
+          "id": "B",
+          "text": "Walk across it"
+        },
+        {
+          "id": "C",
+          "text": "Wait beside it"
+        },
+        {
+          "id": "D",
+          "text": "Drive across it"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Anna bảo cô thích ngồi thuyền đi dưới cầu.",
+      "evidenceSegmentIds": [
+        "s04"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "What surprises Anna about the airplane?",
+      "options": [
+        {
+          "id": "A",
+          "text": "It has just taken off from the water"
+        },
+        {
+          "id": "B",
+          "text": "It is the first airplane she has ever seen"
+        },
+        {
+          "id": "C",
+          "text": "It follows their boat for several minutes"
+        },
+        {
+          "id": "D",
+          "text": "It passes directly above them while she is outside"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Anna từng ngồi trong máy bay. Lần này cô ngạc nhiên vì ở bên ngoài mà máy bay bay sát phía trên.",
+      "evidenceSegmentIds": [
+        "s05",
+        "s06"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What will they see after riding along the tracks?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The Pentagon"
+        },
+        {
+          "id": "B",
+          "text": "A railway museum"
+        },
+        {
+          "id": "C",
+          "text": "The U.S. Treasury"
+        },
+        {
+          "id": "D",
+          "text": "A different bridge"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Cậu bé báo sau đường ray sẽ đến Bộ Ngân khố Mỹ.",
+      "evidenceSegmentIds": [
+        "s09"
+      ]
+    }
+  ]
+}

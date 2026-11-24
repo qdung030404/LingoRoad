@@ -1,0 +1,152 @@
+[
+  {
+    "code": "listening-pilot-a1-c2-bag",
+    "title": "What's in Anna's Bag?",
+    "description": "Marsha cần mượn đồ và Anna mở túi tìm. Nguồn: VOA Learning English.",
+    "level": "A1",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-lesson-4/3168920.html",
+      "mediaUrl": "https://voa-audio.voanews.eu/vle/2016/02/26/af0324f6-67c5-4c0c-ab42-abb0cd33817c_hq.mp3",
+      "credit": "VOA Learning English",
+      "usageUrl": "https://learningenglish.voanews.com/p/6861.html",
+      "sha256": "367bf49cd0bce99226bcbbcb3cad7a3f8b9a5d1b9b829dfe8486d71533ad299d",
+      "startMs": 30300,
+      "endMs": 88300
+    }
+  },
+  {
+    "code": "listening-pilot-a1-c2-seafood",
+    "title": "Seafood for Five",
+    "description": "Anna gặp Pete tại quầy hải sản ngoài trời. Nguồn: VOA Learning English.",
+    "level": "A2",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-lesson-30-rolling-river/3522798.html",
+      "mediaUrl": "https://voa-audio.voanews.eu/vle/2016/09/27/a8dbb32b-ada5-4441-a2d1-340924241a4b_hq.mp3",
+      "credit": "VOA Learning English",
+      "usageUrl": "https://learningenglish.voanews.com/p/6861.html",
+      "sha256": "e7181023cd77424ae59ad493f535237c090572f9cb32b3253f2ba980f470854c",
+      "startMs": 52220,
+      "endMs": 142200
+    }
+  },
+  {
+    "code": "listening-pilot-a1-c2-assignment",
+    "title": "Anna’s New Assignment",
+    "description": "Anna nghe sếp thông báo một thay đổi ở chỗ làm. Nguồn: VOA Learning English.",
+    "level": "B1",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lets-learn-english-lesson-19-when-do-you-start/3357760.html",
+      "mediaUrl": "https://voa-audio.voanews.eu/vle/2016/06/20/11279270-a48f-4bca-851e-e6477329717b_hq.mp3",
+      "credit": "VOA Learning English",
+      "usageUrl": "https://learningenglish.voanews.com/p/6861.html",
+      "sha256": "aac0e5a56f3037988dbe5aa8567797a44fcdf5453f4df568896af0cf96be0145",
+      "startMs": 58980,
+      "endMs": 138600
+    }
+  },
+  {
+    "code": "listening-pilot-a1-c2-tour",
+    "title": "A Tour on Land and Water",
+    "description": "Anna và Penelope tham quan thành phố trên một chiếc xe đặc biệt. Nguồn: VOA Learning English.",
+    "level": "B1",
+    "source": {
+      "pageUrl": "https://learningenglish.voanews.com/a/lesson-7-tip-your-tour-guide/4064769.html",
+      "mediaUrl": "https://voa-audio.voanews.eu/vle/2017/10/17/45e008c5-648b-4275-ad2d-d3b058d199a6_hq.mp3",
+      "credit": "VOA Learning English",
+      "usageUrl": "https://learningenglish.voanews.com/p/6861.html",
+      "sha256": "3b7a578ff851b6601a39139e8d298838b05e2ec5708f4209757d7ae5766dd428",
+      "startMs": 50460,
+      "endMs": 116660
+    }
+  },
+  {
+    "code": "listening-pilot-a1-c2-ocean",
+    "title": "Why the Ocean Is Getting Louder",
+    "description": "Nhà sinh thái Leila Hatch giải thích một nguồn tiếng ồn dưới biển. Nguồn: NOAA National Ocean Service / Dr. Leila Hatch.",
+    "level": "B2",
+    "source": {
+      "pageUrl": "https://oceanservice.noaa.gov/podcast/dec16/mw138-ocean-noise.html",
+      "mediaUrl": "https://oceanservice.noaa.gov/podcast/dec16/mw120816.mp3",
+      "credit": "NOAA National Ocean Service / Dr. Leila Hatch",
+      "usageUrl": "https://www.noaa.gov/office-education/outreach-communication/faq",
+      "sha256": "0a96fc078b42c4b4fd4be2e6a675296609daf49daf2d2f71d409389464eb3345",
+      "startMs": 191760,
+      "endMs": 248100
+    }
+  },
+  {
+    "code": "listening-pilot-a1-c2-launch",
+    "title": "What It Takes to Launch",
+    "description": "Giám đốc phóng Artemis II mô tả công việc trước giờ cất cánh. Nguồn: NASA Johnson Space Center.",
+    "level": "B2",
+    "source": {
+      "pageUrl": "https://www.nasa.gov/podcasts/houston-we-have-a-podcast/artemis-ii-launch/",
+      "mediaUrl": "https://www.nasa.gov/wp-content/uploads/2025/09/ep401-artemis-ii-launch.mp3",
+      "credit": "NASA Johnson Space Center",
+      "usageUrl": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+      "sha256": "0d4c2147a57b7852cfddb4cfe19f0e97d45f1c8a935466ca0f2470289099aca4",
+      "startMs": 873550,
+      "endMs": 949000
+    }
+  },
+  {
+    "code": "listening-pilot-a1-c2-speak-up",
+    "title": "When It’s Time to Speak Up",
+    "description": "Cuộc phỏng vấn bàn về cách NASA xử lý bất đồng khi đánh giá an toàn. Nguồn: NASA Johnson Space Center.",
+    "level": "C1",
+    "source": {
+      "pageUrl": "https://www.nasa.gov/podcasts/houston-we-have-a-podcast/ep-302-nasa-safety-culture/",
+      "mediaUrl": "https://www.nasa.gov/wp-content/uploads/2023/09/ep302_nasa_safety_culture.mp3",
+      "credit": "NASA Johnson Space Center",
+      "usageUrl": "https://www.nasa.gov/nasa-brand-center/images-and-media/",
+      "sha256": "d3a40e762cc8d43a632a6e8142570aebedc6c813dffc5ed7a53650679f358ce6",
+      "startMs": 2087830,
+      "endMs": 2174940
+    }
+  },
+  {
+    "code": "listening-pilot-a1-c2-fed",
+    "title": "Is the Fed Behind the Curve?",
+    "description": "Trong buổi họp báo, phóng viên hỏi liệu Fed có chậm thay đổi chính sách lãi suất. Nguồn: Board of Governors of the Federal Reserve System.",
+    "level": "C2",
+    "source": {
+      "pageUrl": "https://www.federalreserve.gov/monetarypolicy/fomcpresconf20240731.htm",
+      "mediaUrl": "https://www.federalreserve.gov/monetarypolicy/fomcpresconf20240731.htm",
+      "credit": "Board of Governors of the Federal Reserve System",
+      "usageUrl": "https://www.federalreserve.gov/disclaimer.htm",
+      "sha256": "9605b8e7062f5fdf9fa340a1f89230f11582a46ab84d08b35542fe7a69a8eef7",
+      "startMs": 1514540,
+      "endMs": 1598280
+    }
+  },
+  {
+    "code": "listening-pilot-a1-c2-timetable",
+    "title": "What a Handwritten Timetable Reveals",
+    "description": "Hai chuyên gia xem một cuốn lịch tàu có ghi chú của hành khách thế kỷ XIX. Nguồn: The National Archives (UK) • Crown copyright.",
+    "level": "C1",
+    "source": {
+      "pageUrl": "https://www.nationalarchives.gov.uk/explore-the-collection/on-the-record-podcast/people-of-the-railways/",
+      "mediaUrl": "https://www.nationalarchives.gov.uk/media/media/railways-july-2025.mp3",
+      "credit": "The National Archives (UK) • Crown copyright",
+      "usageUrl": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+      "sha256": "65518e2910f49cc868239374a08a12266d480573b6a4b9c49706aa96894f6965",
+      "startMs": 725550,
+      "endMs": 802780
+    }
+  },
+  {
+    "code": "listening-pilot-a1-c2-victory",
+    "title": "A Victory Worth Celebrating?",
+    "description": "Hai người bàn về lễ mừng chiến thắng tại châu Âu khi chiến sự vẫn tiếp diễn ở châu Á. Nguồn: The National Archives (UK) • Crown copyright.",
+    "level": "C2",
+    "source": {
+      "pageUrl": "https://www.nationalarchives.gov.uk/explore-the-collection/on-the-record-podcast/ve-day/",
+      "mediaUrl": "https://www.nationalarchives.gov.uk/media/media/OTR_-_VE_Day_-_May_2025_-_v4.mp3",
+      "credit": "The National Archives (UK) • Crown copyright",
+      "usageUrl": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+      "sha256": "136a58141108235faad0863253073711cc425d7d5ee6bb0563f16d48fe851562",
+      "startMs": 716020,
+      "endMs": 805920
+    }
+  }
+]

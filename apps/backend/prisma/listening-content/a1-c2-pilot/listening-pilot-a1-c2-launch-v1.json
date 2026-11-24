@@ -1,0 +1,258 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-launch-v1.wav",
+  "audioDurationMs": 75450,
+  "preparation": {
+    "situation": "Giám đốc phóng Artemis II mô tả công việc trước giờ cất cánh.",
+    "objective": "Phân biệt phần chuẩn bị đã xong và những quyết định còn phải xử lý trong ngày phóng."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "launch pad",
+      "meaning": "bệ phóng"
+    },
+    {
+      "id": "v02",
+      "word": "rollout",
+      "meaning": "việc đưa tàu ra bệ phóng"
+    },
+    {
+      "id": "v03",
+      "word": "supplier",
+      "meaning": "nhà cung cấp"
+    },
+    {
+      "id": "v04",
+      "word": "timeline",
+      "meaning": "tiến độ"
+    },
+    {
+      "id": "v05",
+      "word": "launch window",
+      "meaning": "khoảng thời gian có thể phóng"
+    }
+  ],
+  "transcript": "You know, it’s a mix of emotions. To get to launch, you have to have completed all of your vehicle integration, your tests, your checkout, your rollout to the pad, your validation, once you get to the pad, any testing. And so it takes a lot of work to get to launch day. And it takes hard work and dedication by a large group of people, not just those sitting in Firing Room One, but folks that have contributed to the integration of this hardware, the test of this hardware. They may work at a different NASA center, they may work at a supplier site, but everybody has a hand in getting us to the point of launch. And so there’s a sense of pride that comes with that. But there’s also a healthy respect for the work that is ahead, because launch can sometimes be challenging. There can be problems that you have to resolve. There can be, you know, you may get behind on your timeline. You may have to, you know, figure out a way to, are we going to be able to make up that time? Are we going to eat launch window? They’re all different things that you have to take into consideration.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Charlie Blackwell-Thompson",
+      "startMs": 330,
+      "endMs": 2010,
+      "text": "You know, it’s a mix of emotions.",
+      "translationVi": "Có nhiều cảm xúc đan xen."
+    },
+    {
+      "id": "s02",
+      "speaker": "Charlie Blackwell-Thompson",
+      "startMs": 3330,
+      "endMs": 17350,
+      "text": "To get to launch, you have to have completed all of your vehicle integration, your tests, your checkout, your rollout to the pad, your validation, once you get to the pad, any testing.",
+      "translationVi": "Để phóng được, phải hoàn thành việc tích hợp phương tiện, thử nghiệm, kiểm tra, đưa ra bệ phóng và xác nhận các hệ thống, kể cả các thử nghiệm tại bệ."
+    },
+    {
+      "id": "s03",
+      "speaker": "Charlie Blackwell-Thompson",
+      "startMs": 17830,
+      "endMs": 23170,
+      "text": "And so it takes a lot of work to get to launch day.",
+      "translationVi": "Vì vậy, phải làm rất nhiều việc mới đến được ngày phóng."
+    },
+    {
+      "id": "s04",
+      "speaker": "Charlie Blackwell-Thompson",
+      "startMs": 23170,
+      "endMs": 36170,
+      "text": "And it takes hard work and dedication by a large group of people, not just those sitting in Firing Room One, but folks that have contributed to the integration of this hardware, the test of this hardware.",
+      "translationVi": "Cần công sức và sự tận tâm của một nhóm rất đông, từ những người ở Phòng Điều khiển số Một đến những người tham gia tích hợp và thử nghiệm thiết bị."
+    },
+    {
+      "id": "s05",
+      "speaker": "Charlie Blackwell-Thompson",
+      "startMs": 36170,
+      "endMs": 46450,
+      "text": "They may work at a different NASA center, they may work at a supplier site, but everybody has a hand in getting us to the point of launch.",
+      "translationVi": "Họ có thể làm ở một trung tâm NASA khác hoặc tại cơ sở của nhà cung cấp. Ai cũng góp phần đưa chúng tôi đến thời điểm phóng."
+    },
+    {
+      "id": "s06",
+      "speaker": "Charlie Blackwell-Thompson",
+      "startMs": 47450,
+      "endMs": 55910,
+      "text": "And so there’s a sense of pride that comes with that. But there’s also a healthy respect for the work that is ahead, because launch can sometimes be challenging.",
+      "translationVi": "Vì thế chúng tôi thấy tự hào. Đồng thời, chúng tôi ý thức rõ công việc còn ở phía trước, vì việc phóng đôi khi rất phức tạp."
+    },
+    {
+      "id": "s07",
+      "speaker": "Charlie Blackwell-Thompson",
+      "startMs": 55910,
+      "endMs": 63350,
+      "text": "There can be problems that you have to resolve. There can be, you know, you may get behind on your timeline.",
+      "translationVi": "Có thể phát sinh vấn đề phải giải quyết. Chẳng hạn, công việc có thể chậm tiến độ."
+    },
+    {
+      "id": "s08",
+      "speaker": "Charlie Blackwell-Thompson",
+      "startMs": 63350,
+      "endMs": 75050,
+      "text": "You may have to, you know, figure out a way to, are we going to be able to make up that time? Are we going to eat launch window? They’re all different things that you have to take into consideration.",
+      "translationVi": "Có khi phải tìm cách xử lý: Liệu chúng ta bù được thời gian đã mất không? Có phải dùng mất một phần khung giờ phóng không? Đó đều là những điều phải cân nhắc."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "How does she describe reaching launch day?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The suppliers hand over work after launch"
+        },
+        {
+          "id": "B",
+          "text": "A single team controls every part of the work"
+        },
+        {
+          "id": "C",
+          "text": "Many teams prepare for a launch that can still present challenges"
+        },
+        {
+          "id": "D",
+          "text": "The hardest part begins after the rocket has left"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Bà kể công việc của nhiều đội và những khó khăn có thể phát sinh ngay trong ngày phóng.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s04",
+        "s05",
+        "s06"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "Who does she say can also help get the vehicle ready?",
+      "options": [
+        {
+          "id": "A",
+          "text": "People at other NASA centers or supplier sites"
+        },
+        {
+          "id": "B",
+          "text": "Only people at the launch site"
+        },
+        {
+          "id": "C",
+          "text": "Only the flight crew"
+        },
+        {
+          "id": "D",
+          "text": "Reporters covering the launch"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Bà nêu người ở trung tâm NASA khác và ở cơ sở nhà cung cấp.",
+      "evidenceSegmentIds": [
+        "s04",
+        "s05"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.speaker_attitude",
+      "prompt": "How does she feel about the work still ahead?",
+      "options": [
+        {
+          "id": "A",
+          "text": "She is sure it will be easy"
+        },
+        {
+          "id": "B",
+          "text": "She wishes the technicians had done more"
+        },
+        {
+          "id": "C",
+          "text": "She is impatient to hand it to another team"
+        },
+        {
+          "id": "D",
+          "text": "She takes possible challenges seriously"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Bà tự hào về công sức chuẩn bị và vẫn ý thức rõ khó khăn có thể xuất hiện.",
+      "evidenceSegmentIds": [
+        "s06",
+        "s07"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What does she give as an example of a launch-day problem?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The rocket arrives before tests begin"
+        },
+        {
+          "id": "B",
+          "text": "The team falls behind schedule"
+        },
+        {
+          "id": "C",
+          "text": "The suppliers cannot find the launch site"
+        },
+        {
+          "id": "D",
+          "text": "The crew asks to change which center is in charge"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Bà nêu khả năng chậm tiến độ và phải tìm cách bù thời gian.",
+      "evidenceSegmentIds": [
+        "s07",
+        "s08"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "If the team cannot make up lost time, what may happen?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The launch team gets an extra window automatically"
+        },
+        {
+          "id": "B",
+          "text": "The team has to redo the entire rollout"
+        },
+        {
+          "id": "C",
+          "text": "Some of the available launch window may be used up"
+        },
+        {
+          "id": "D",
+          "text": "A different control room takes over the countdown"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Cụm “eat launch window” chỉ khả năng dùng mất một phần thời gian vốn có thể dành cho việc phóng.",
+      "evidenceSegmentIds": [
+        "s07",
+        "s08"
+      ]
+    }
+  ]
+}

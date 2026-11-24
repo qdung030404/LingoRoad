@@ -1,0 +1,339 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-seafood-v1.wav",
+  "audioDurationMs": 89980,
+  "preparation": {
+    "situation": "Anna gặp Pete tại quầy hải sản ngoài trời.",
+    "objective": "Nghe để ghi đúng danh sách mua hàng và tổng tiền."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "shrimp",
+      "meaning": "tôm"
+    },
+    {
+      "id": "v02",
+      "word": "crab",
+      "meaning": "cua"
+    },
+    {
+      "id": "v03",
+      "word": "pound",
+      "meaning": "pao, đơn vị khối lượng"
+    },
+    {
+      "id": "v04",
+      "word": "dozen",
+      "meaning": "một tá, 12 cái"
+    }
+  ],
+  "transcript": "That is great, Pete. In fact, I am here to buy some seafood for my dinner party. You came to the right place. They have the freshest seafood in town. How much money can you spend? I can only spend fifty dollars. Okay. What do you want? First, I want to buy some shrimp. Sure thing. Follow me. How much shrimp do you want? How much do I need for five people? Give her a pound of shrimp! Okay, now I want to buy some crabs. The crabs here are delicious! They are the best because they come from the nearby Chesapeake Bay. Walk this way. How many crabs do you want? I want a dozen crabs. You should get the larger crabs. They have the most meat. Then I want a dozen large crabs, please. Is that everything you need? Let’s see. I have shrimp and crabs, and a friend is bringing a salad and many ears of corn on the cob. Is that all the seafood that you need? Yes. That’ll be forty-nine ninety-five. Cash or credit? Credit, please.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Anna",
+      "startMs": 140,
+      "endMs": 6860,
+      "text": "That is great, Pete. In fact, I am here to buy some seafood for my dinner party.",
+      "translationVi": "Hay quá, Pete. Thật ra mình đến mua hải sản cho bữa tiệc tối."
+    },
+    {
+      "id": "s02",
+      "speaker": "Pete",
+      "startMs": 7300,
+      "endMs": 13220,
+      "text": "You came to the right place. They have the freshest seafood in town. How much money can you spend?",
+      "translationVi": "Bạn đến đúng chỗ rồi. Ở đây có hải sản tươi nhất thành phố. Bạn chi được bao nhiêu?"
+    },
+    {
+      "id": "s03",
+      "speaker": "Anna",
+      "startMs": 13700,
+      "endMs": 15880,
+      "text": "I can only spend fifty dollars.",
+      "translationVi": "Mình chỉ chi được 50 đô."
+    },
+    {
+      "id": "s04",
+      "speaker": "Pete",
+      "startMs": 17040,
+      "endMs": 18820,
+      "text": "Okay. What do you want?",
+      "translationVi": "Được. Bạn muốn mua gì?"
+    },
+    {
+      "id": "s05",
+      "speaker": "Anna",
+      "startMs": 19360,
+      "endMs": 22380,
+      "text": "First, I want to buy some shrimp.",
+      "translationVi": "Trước hết, mình muốn mua tôm."
+    },
+    {
+      "id": "s06",
+      "speaker": "Pete",
+      "startMs": 23580,
+      "endMs": 27540,
+      "text": "Sure thing. Follow me. How much shrimp do you want?",
+      "translationVi": "Được chứ. Đi theo mình. Bạn muốn bao nhiêu tôm?"
+    },
+    {
+      "id": "s07",
+      "speaker": "Anna",
+      "startMs": 27540,
+      "endMs": 31280,
+      "text": "How much do I need for five people?",
+      "translationVi": "Mình cần bao nhiêu cho năm người?"
+    },
+    {
+      "id": "s08",
+      "speaker": "Pete",
+      "startMs": 32100,
+      "endMs": 34240,
+      "text": "Give her a pound of shrimp!",
+      "translationVi": "Lấy cho cô ấy một pao tôm nhé!"
+    },
+    {
+      "id": "s09",
+      "speaker": "Anna",
+      "startMs": 35060,
+      "endMs": 38340,
+      "text": "Okay, now I want to buy some crabs.",
+      "translationVi": "Rồi, giờ mình muốn mua cua."
+    },
+    {
+      "id": "s10",
+      "speaker": "Pete",
+      "startMs": 40180,
+      "endMs": 52500,
+      "text": "The crabs here are delicious! They are the best because they come from the nearby Chesapeake Bay. Walk this way. How many crabs do you want?",
+      "translationVi": "Cua ở đây ngon lắm! Cua ngon nhất vì được đánh bắt ở vịnh Chesapeake gần đây. Mời qua lối này. Bạn muốn bao nhiêu con?"
+    },
+    {
+      "id": "s11",
+      "speaker": "Anna",
+      "startMs": 52500,
+      "endMs": 55640,
+      "text": "I want a dozen crabs.",
+      "translationVi": "Mình muốn một tá cua."
+    },
+    {
+      "id": "s12",
+      "speaker": "Pete",
+      "startMs": 56460,
+      "endMs": 60320,
+      "text": "You should get the larger crabs. They have the most meat.",
+      "translationVi": "Bạn nên lấy loại cua to hơn. Loại đó nhiều thịt nhất."
+    },
+    {
+      "id": "s13",
+      "speaker": "Anna",
+      "startMs": 60860,
+      "endMs": 65420,
+      "text": "Then I want a dozen large crabs, please.",
+      "translationVi": "Vậy cho mình một tá cua to nhé."
+    },
+    {
+      "id": "s14",
+      "speaker": "Pete",
+      "startMs": 66840,
+      "endMs": 68500,
+      "text": "Is that everything you need?",
+      "translationVi": "Vậy là đủ hết chưa?"
+    },
+    {
+      "id": "s15",
+      "speaker": "Anna",
+      "startMs": 68960,
+      "endMs": 78120,
+      "text": "Let’s see. I have shrimp and crabs, and a friend is bringing a salad and many ears of corn on the cob.",
+      "translationVi": "Để xem. Mình có tôm, cua, và một người bạn sẽ mang salad cùng nhiều bắp ngô nguyên trái."
+    },
+    {
+      "id": "s16",
+      "speaker": "Pete",
+      "startMs": 78640,
+      "endMs": 81360,
+      "text": "Is that all the seafood that you need?",
+      "translationVi": "Vậy là đủ hải sản bạn cần rồi chứ?"
+    },
+    {
+      "id": "s17",
+      "speaker": "Anna",
+      "startMs": 81360,
+      "endMs": 81900,
+      "text": "Yes.",
+      "translationVi": "Ừ."
+    },
+    {
+      "id": "s18",
+      "speaker": "Pete",
+      "startMs": 83000,
+      "endMs": 88000,
+      "text": "That’ll be forty-nine ninety-five. Cash or credit?",
+      "translationVi": "Tổng cộng 49 đô 95 xu. Tiền mặt hay thẻ tín dụng?"
+    },
+    {
+      "id": "s19",
+      "speaker": "Anna",
+      "startMs": 88460,
+      "endMs": 89420,
+      "text": "Credit, please.",
+      "translationVi": "Cho mình trả bằng thẻ tín dụng."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "Why is Anna at the market?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To sell seafood"
+        },
+        {
+          "id": "B",
+          "text": "To meet a dinner guest"
+        },
+        {
+          "id": "C",
+          "text": "To buy food for a party"
+        },
+        {
+          "id": "D",
+          "text": "To help Pete at work"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Anna đến mua hải sản cho bữa tiệc tối.",
+      "evidenceSegmentIds": [
+        "s01"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.numbers_dates_times",
+      "prompt": "What is Anna’s spending limit?",
+      "options": [
+        {
+          "id": "A",
+          "text": "$15"
+        },
+        {
+          "id": "B",
+          "text": "$40"
+        },
+        {
+          "id": "C",
+          "text": "$49.95"
+        },
+        {
+          "id": "D",
+          "text": "$50"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Anna cho biết chỉ có thể chi 50 đô. 49,95 đô là số tiền phải trả ở cuối.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s03",
+        "s18"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "How much shrimp does Pete order for Anna?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Half a pound"
+        },
+        {
+          "id": "B",
+          "text": "One pound"
+        },
+        {
+          "id": "C",
+          "text": "Five pounds"
+        },
+        {
+          "id": "D",
+          "text": "One and a half pounds"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Pete yêu cầu lấy một pao tôm. Năm là số người ăn.",
+      "evidenceSegmentIds": [
+        "s07",
+        "s08"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What kind of crabs does Anna finally choose?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Large crabs"
+        },
+        {
+          "id": "B",
+          "text": "Small crabs"
+        },
+        {
+          "id": "C",
+          "text": "Mixed-size crabs"
+        },
+        {
+          "id": "D",
+          "text": "Cooked crabs"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Pete nói cua to nhiều thịt hơn và Anna chọn loại đó.",
+      "evidenceSegmentIds": [
+        "s11",
+        "s12",
+        "s13"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.numbers_dates_times",
+      "prompt": "What is the final bill?",
+      "options": [
+        {
+          "id": "A",
+          "text": "$40.95"
+        },
+        {
+          "id": "B",
+          "text": "$49.50"
+        },
+        {
+          "id": "C",
+          "text": "$49.95"
+        },
+        {
+          "id": "D",
+          "text": "$50.95"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Pete báo tổng tiền 49 đô 95 xu trước khi hỏi cách thanh toán.",
+      "evidenceSegmentIds": [
+        "s18"
+      ]
+    }
+  ]
+}

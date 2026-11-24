@@ -1,0 +1,218 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-underground-v1.wav",
+  "audioDurationMs": 49955,
+  "preparation": {
+    "situation": "Bạn nghe người kể hướng dẫn khách đi từ cửa hầm xuống một lối đi dưới lòng đất.",
+    "objective": "Hình dung đường đi, theo dõi lời nhắc an toàn và nhận ra những dấu tích người kể chỉ cho khách."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "slope",
+      "meaning": "dốc xuống hoặc dốc lên",
+      "example": "The garden slopes towards the river.",
+      "translation": "Khu vườn dốc về phía con sông."
+    },
+    {
+      "id": "v02",
+      "word": "loaded",
+      "meaning": "đã chất hàng",
+      "example": "The loaded truck waited at the gate.",
+      "translation": "Chiếc xe tải đã chất hàng đợi ở cổng."
+    },
+    {
+      "id": "v03",
+      "word": "trunk",
+      "meaning": "thân cây",
+      "example": "The trunk is wider at its base.",
+      "translation": "Thân cây rộng hơn ở phần gốc."
+    }
+  ],
+  "transcript": "The entrance is light because it opens so wide, but we can see that the floor slopes downward and the way looks dark and narrow before us. Walk down the sloping foot-path now, and be careful to keep out of the way of the little cars that are coming and going on each side of you, loaded on one side and empty on the other, and seeming to run up and down by themselves. Look a little closer while our guide lets the light of his lamp fall upon the black wall at your side. See, beneath your feet is the marking of great tree trunks lying aslant across the floor, and the forms of gigantic palm leaves strewed among them.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Narrator",
+      "text": "The entrance is light because it opens so wide, but we can see that the floor slopes downward and the way looks dark and narrow before us.",
+      "translationVi": "Cửa hầm sáng vì mở rất rộng, nhưng chúng ta có thể thấy nền dốc xuống và lối phía trước có vẻ tối và hẹp.",
+      "startMs": 0,
+      "endMs": 11225
+    },
+    {
+      "id": "s02",
+      "speaker": "Narrator",
+      "text": "Walk down the sloping foot-path now, and be careful to keep out of the way of the little cars that are coming and going on each side of you, loaded on one side and empty on the other, and seeming to run up and down by themselves.",
+      "translationVi": "Hãy đi xuống theo lối dốc và cẩn thận tránh các toa xe nhỏ chạy hai bên. Một bên xe chở đầy, bên kia xe chạy rỗng, trông như chúng tự chạy lên xuống.",
+      "startMs": 11475,
+      "endMs": 28270
+    },
+    {
+      "id": "s03",
+      "speaker": "Narrator",
+      "text": "Look a little closer while our guide lets the light of his lamp fall upon the black wall at your side.",
+      "translationVi": "Hãy nhìn kỹ hơn khi người hướng dẫn soi đèn vào vách đen bên cạnh bạn.",
+      "startMs": 28520,
+      "endMs": 36990
+    },
+    {
+      "id": "s04",
+      "speaker": "Narrator",
+      "text": "See, beneath your feet is the marking of great tree trunks lying aslant across the floor, and the forms of gigantic palm leaves strewed among them.",
+      "translationVi": "Nhìn kìa, dưới chân bạn là dấu những thân cây lớn nằm chéo trên nền, xen giữa là hình những chiếc lá cọ khổng lồ.",
+      "startMs": 37240,
+      "endMs": 49955
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "What is the listener invited to do?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Repair some small rail cars"
+        },
+        {
+          "id": "B",
+          "text": "Follow a path underground and observe things along it"
+        },
+        {
+          "id": "C",
+          "text": "Plant trees beside an entrance"
+        },
+        {
+          "id": "D",
+          "text": "Choose a lamp for a night walk"
+        }
+      ],
+      "correctOptionId": "B",
+      "skillCode": "listening.gist",
+      "evidenceSegmentIds": [
+        "s01",
+        "s02",
+        "s03",
+        "s04"
+      ],
+      "explanation": "Các lời chỉ dẫn đưa người nghe xuống lối dốc, qua các toa xe rồi dừng lại quan sát."
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "How does the path change beyond the entrance?",
+      "options": [
+        {
+          "id": "A",
+          "text": "It becomes wider and brighter."
+        },
+        {
+          "id": "B",
+          "text": "It rises into daylight."
+        },
+        {
+          "id": "C",
+          "text": "It levels out and turns left."
+        },
+        {
+          "id": "D",
+          "text": "It slopes down and looks darker."
+        }
+      ],
+      "correctOptionId": "D",
+      "skillCode": "listening.detail",
+      "evidenceSegmentIds": [
+        "s01"
+      ],
+      "explanation": "Sau cửa hầm rộng và sáng, nền dốc xuống, còn đường phía trước tối và hẹp."
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "What does the visitor need to avoid?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The moving cars"
+        },
+        {
+          "id": "B",
+          "text": "The guide's lamp"
+        },
+        {
+          "id": "C",
+          "text": "A pile of leaves"
+        },
+        {
+          "id": "D",
+          "text": "The wide entrance"
+        }
+      ],
+      "correctOptionId": "A",
+      "skillCode": "listening.specific_information",
+      "evidenceSegmentIds": [
+        "s02"
+      ],
+      "explanation": "Người kể dặn tránh các toa xe nhỏ chạy qua lại hai bên."
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "How do the cars on opposite sides differ?",
+      "options": [
+        {
+          "id": "A",
+          "text": "One side has larger wheels."
+        },
+        {
+          "id": "B",
+          "text": "Only one side has lights."
+        },
+        {
+          "id": "C",
+          "text": "One side carries loads and the other runs empty."
+        },
+        {
+          "id": "D",
+          "text": "Only the empty cars are moving."
+        }
+      ],
+      "correctOptionId": "C",
+      "skillCode": "listening.detail",
+      "evidenceSegmentIds": [
+        "s02"
+      ],
+      "explanation": "“Loaded on one side and empty on the other” đối chiếu toa có hàng với toa rỗng."
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "prompt": "Where are the marks of tree trunks?",
+      "options": [
+        {
+          "id": "A",
+          "text": "On the black wall"
+        },
+        {
+          "id": "B",
+          "text": "On the floor underfoot"
+        },
+        {
+          "id": "C",
+          "text": "On the guide's lamp"
+        },
+        {
+          "id": "D",
+          "text": "At the top of the entrance"
+        }
+      ],
+      "correctOptionId": "B",
+      "skillCode": "listening.specific_information",
+      "evidenceSegmentIds": [
+        "s04"
+      ],
+      "explanation": "“Beneath your feet” xác định vị trí các dấu thân cây ngay dưới chân khách."
+    }
+  ]
+}

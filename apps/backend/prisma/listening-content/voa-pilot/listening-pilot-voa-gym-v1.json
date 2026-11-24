@@ -1,0 +1,331 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-pilot-voa-gym-v1.wav",
+  "audioDurationMs": 82300,
+  "preparation": {
+    "situation": "Anna cần tìm một nơi trong tòa nhà và nhờ Pete chỉ giúp.",
+    "objective": "Theo dõi các vị trí Pete mô tả và những chỗ Anna đi nhầm."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "work out",
+      "meaning": "tập thể dục",
+      "example": "We work out after class.",
+      "translation": "Chúng tôi tập thể dục sau buổi học."
+    },
+    {
+      "id": "v02",
+      "word": "across from",
+      "meaning": "đối diện",
+      "example": "The bank is across from the school.",
+      "translation": "Ngân hàng đối diện trường học."
+    },
+    {
+      "id": "v03",
+      "word": "lobby",
+      "meaning": "sảnh",
+      "example": "Please wait in the lobby.",
+      "translation": "Vui lòng đợi ở sảnh."
+    }
+  ],
+  "transcript": "Pete, I want to work out. Where is the gym? The gym is across from the lounge. It's next to the mailroom. Go that way. Thanks, Pete! No, Anna! Not that way! Go that way! Oh, Pete. This is not the gym. That's right, Anna. This is the mailroom. The gym is across from what? The gym is across from the lounge. Across from the lounge. Right. Thanks! Pete! This is not the gym! The gym is across from the lounge. It is behind the lobby. Right. Right. See you. See you, Anna! See you. See you, Anna. This is not the gym. This is a parking garage. Hello? Pete? This is not a gym. This is a rooftop. Pete? I want to work out too! Join me! I'm good.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "startMs": 350,
+      "endMs": 4250,
+      "speaker": "Anna",
+      "text": "Pete, I want to work out. Where is the gym?",
+      "translationVi": "Pete, tôi muốn tập thể dục. Phòng tập ở đâu?"
+    },
+    {
+      "id": "s02",
+      "startMs": 4900,
+      "endMs": 12430,
+      "speaker": "Pete",
+      "text": "The gym is across from the lounge. It's next to the mailroom. Go that way.",
+      "translationVi": "Phòng tập đối diện phòng sinh hoạt chung. Nó cạnh phòng thư. Đi lối đó."
+    },
+    {
+      "id": "s03",
+      "startMs": 13090,
+      "endMs": 14260,
+      "speaker": "Anna",
+      "text": "Thanks, Pete!",
+      "translationVi": "Cảm ơn, Pete!"
+    },
+    {
+      "id": "s04",
+      "startMs": 14720,
+      "endMs": 19300,
+      "speaker": "Pete",
+      "text": "No, Anna! Not that way! Go that way!",
+      "translationVi": "Không, Anna! Không phải lối đó! Đi lối kia!"
+    },
+    {
+      "id": "s05",
+      "startMs": 20000,
+      "endMs": 23800,
+      "speaker": "Anna",
+      "text": "Oh, Pete. This is not the gym.",
+      "translationVi": "Ôi, Pete. Đây đâu phải phòng tập."
+    },
+    {
+      "id": "s06",
+      "startMs": 24750,
+      "endMs": 28100,
+      "speaker": "Pete",
+      "text": "That's right, Anna. This is the mailroom.",
+      "translationVi": "Đúng rồi, Anna. Đây là phòng thư."
+    },
+    {
+      "id": "s07",
+      "startMs": 28100,
+      "endMs": 32000,
+      "speaker": "Anna",
+      "text": "The gym is across from what?",
+      "translationVi": "Phòng tập đối diện chỗ nào?"
+    },
+    {
+      "id": "s08",
+      "startMs": 32750,
+      "endMs": 36020,
+      "speaker": "Pete",
+      "text": "The gym is across from the lounge.",
+      "translationVi": "Phòng tập đối diện phòng sinh hoạt chung."
+    },
+    {
+      "id": "s09",
+      "startMs": 36640,
+      "endMs": 39140,
+      "speaker": "Anna",
+      "text": "Across from the lounge. Right. Thanks!",
+      "translationVi": "Đối diện phòng sinh hoạt chung. Được rồi. Cảm ơn!"
+    },
+    {
+      "id": "s10",
+      "startMs": 41190,
+      "endMs": 44290,
+      "speaker": "Anna",
+      "text": "Pete! This is not the gym!",
+      "translationVi": "Pete! Đây đâu phải phòng tập!"
+    },
+    {
+      "id": "s11",
+      "startMs": 45100,
+      "endMs": 50780,
+      "speaker": "Pete",
+      "text": "The gym is across from the lounge. It is behind the lobby.",
+      "translationVi": "Phòng tập đối diện phòng sinh hoạt chung. Nó ở phía sau sảnh."
+    },
+    {
+      "id": "s12",
+      "startMs": 51020,
+      "endMs": 53080,
+      "speaker": "Anna",
+      "text": "Right. Right. See you.",
+      "translationVi": "Được rồi. Được rồi. Hẹn gặp lại."
+    },
+    {
+      "id": "s13",
+      "startMs": 53360,
+      "endMs": 54560,
+      "speaker": "Pete",
+      "text": "See you, Anna!",
+      "translationVi": "Hẹn gặp lại, Anna!"
+    },
+    {
+      "id": "s14",
+      "startMs": 55460,
+      "endMs": 56250,
+      "speaker": "Anna",
+      "text": "See you.",
+      "translationVi": "Hẹn gặp lại."
+    },
+    {
+      "id": "s15",
+      "startMs": 57040,
+      "endMs": 58160,
+      "speaker": "Pete",
+      "text": "See you, Anna.",
+      "translationVi": "Hẹn gặp lại, Anna."
+    },
+    {
+      "id": "s16",
+      "startMs": 58980,
+      "endMs": 75390,
+      "speaker": "Anna",
+      "text": "This is not the gym. This is a parking garage. Hello? Pete? This is not a gym. This is a rooftop. Pete?",
+      "translationVi": "Đây đâu phải phòng tập. Đây là nhà để xe. A lô? Pete? Đây không phải phòng tập. Đây là sân thượng. Pete?"
+    },
+    {
+      "id": "s17",
+      "startMs": 76980,
+      "endMs": 80670,
+      "speaker": "Pete",
+      "text": "I want to work out too! Join me!",
+      "translationVi": "Tôi cũng muốn tập! Tập cùng tôi nhé!"
+    },
+    {
+      "id": "s18",
+      "startMs": 81080,
+      "endMs": 81970,
+      "speaker": "Anna",
+      "text": "I'm good.",
+      "translationVi": "Tôi thôi, cảm ơn."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What is Anna trying to find?",
+      "options": [
+        {
+          "id": "A",
+          "text": "A classroom"
+        },
+        {
+          "id": "B",
+          "text": "A café"
+        },
+        {
+          "id": "C",
+          "text": "A gym"
+        },
+        {
+          "id": "D",
+          "text": "A parking space"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Anna hỏi phòng tập ở đâu.",
+      "evidenceSegmentIds": [
+        "s01"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.directions",
+      "prompt": "What is directly across from the gym?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The lobby"
+        },
+        {
+          "id": "B",
+          "text": "The lounge"
+        },
+        {
+          "id": "C",
+          "text": "The rooftop"
+        },
+        {
+          "id": "D",
+          "text": "The garage"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Pete nói phòng tập đối diện phòng sinh hoạt chung.",
+      "evidenceSegmentIds": [
+        "s02",
+        "s07",
+        "s08"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "When Anna first says she is in the wrong room, where does Pete say she is?",
+      "options": [
+        {
+          "id": "A",
+          "text": "In the lobby"
+        },
+        {
+          "id": "B",
+          "text": "In the lounge"
+        },
+        {
+          "id": "C",
+          "text": "In the garage"
+        },
+        {
+          "id": "D",
+          "text": "In the mailroom"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Pete xác nhận chỗ đó là phòng thư.",
+      "evidenceSegmentIds": [
+        "s05",
+        "s06"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.directions",
+      "prompt": "Where is the gym in relation to the lobby?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Behind it"
+        },
+        {
+          "id": "B",
+          "text": "In front of it"
+        },
+        {
+          "id": "C",
+          "text": "Above it"
+        },
+        {
+          "id": "D",
+          "text": "Inside it"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Pete nói phòng tập ở phía sau sảnh.",
+      "evidenceSegmentIds": [
+        "s11"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "Which two wrong places does Anna name after saying goodbye to Pete?",
+      "options": [
+        {
+          "id": "A",
+          "text": "The café and the lobby"
+        },
+        {
+          "id": "B",
+          "text": "The mailroom and the lounge"
+        },
+        {
+          "id": "C",
+          "text": "The garage and the rooftop"
+        },
+        {
+          "id": "D",
+          "text": "The lobby and the mailroom"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Anna nói là nhà để xe rồi sân thượng.",
+      "evidenceSegmentIds": [
+        "s12",
+        "s16"
+      ]
+    }
+  ]
+}

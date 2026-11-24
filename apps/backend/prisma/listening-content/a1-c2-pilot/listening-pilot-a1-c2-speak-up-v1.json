@@ -1,0 +1,285 @@
+{
+  "steps": [],
+  "listeningVersion": 1,
+  "audioUrl": "/media/learning/v1/listening-pilot-a1-c2-speak-up-v1.wav",
+  "audioDurationMs": 87110,
+  "preparation": {
+    "situation": "Cuộc phỏng vấn bàn về cách NASA xử lý bất đồng khi đánh giá an toàn.",
+    "objective": "Nghe lập luận của khách mời và suy ra vì sao một nhóm cần mời ý kiến phản biện."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "schedule pressure",
+      "meaning": "áp lực tiến độ"
+    },
+    {
+      "id": "v02",
+      "word": "buy down the risk",
+      "meaning": "giảm mức rủi ro"
+    },
+    {
+      "id": "v03",
+      "word": "development cycle",
+      "meaning": "chu kỳ phát triển"
+    },
+    {
+      "id": "v04",
+      "word": "differing opinion",
+      "meaning": "ý kiến bất đồng"
+    },
+    {
+      "id": "v05",
+      "word": "take it to another level",
+      "meaning": "chuyển vấn đề lên cấp khác"
+    }
+  ],
+  "transcript": "We hear about schedule pressure, trying to launch on time, trying to do these things. You hear about budget, right? Trying to stay within budget. And a lot of times, safety can cause delays, they can increase budgets, they can slip launches, things like that. How do you build a culture that emphasizes more of the safety side, and how do you weigh that? You still don’t want to go massively over budget, and you don’t want to slip a launch by years, but how do you weigh that? Well, I think the key thing that we have to realize is that you’re never going to fly completely safe, and you’re never going to fly completely risk-free. You’re always going to have some risk involved. So what we try to do is buy down the risk as much as we can. And the key thing is that I think if you’re working this all throughout the process, through the whole development cycle, through DDT&E and all the way through the op cycle, and having this conversation, just having the communication along the way. And again, at every board you meet, in every panel, I think you have to always offer up to see if anyone has a differing opinion. And I’ve seen a lot of that done. I’ve worked on the program side, and I’ve worked now on the directorate side. And definitely, I know most of the program managers, and they do that well. We keep emphasizing it with them, and they do that well. They look for different, altering opinions, as we talked about. And if something gets strong enough that it seems to be where they’re really wanting to take it to another level and say, “Hey, this just can’t fly,” we’re not going to fly.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "speaker": "Gary Jordan",
+      "startMs": 150,
+      "endMs": 6270,
+      "text": "We hear about schedule pressure, trying to launch on time, trying to do these things. You hear about budget, right? Trying to stay within budget.",
+      "translationVi": "Có những chuyện như áp lực tiến độ, phải phóng đúng giờ, phải làm xong từng ấy việc. Rồi đến ngân sách, phải chi tiêu trong hạn mức."
+    },
+    {
+      "id": "s02",
+      "speaker": "Gary Jordan",
+      "startMs": 6590,
+      "endMs": 13910,
+      "text": "And a lot of times, safety can cause delays, they can increase budgets, they can slip launches, things like that.",
+      "translationVi": "Nhiều khi các yêu cầu an toàn khiến công việc chậm lại, chi phí tăng hoặc ngày phóng phải lùi."
+    },
+    {
+      "id": "s03",
+      "speaker": "Gary Jordan",
+      "startMs": 14590,
+      "endMs": 20090,
+      "text": "How do you build a culture that emphasizes more of the safety side, and how do you weigh that?",
+      "translationVi": "Làm sao xây dựng văn hóa coi trọng an toàn hơn, và cân nhắc các yếu tố đó thế nào?"
+    },
+    {
+      "id": "s04",
+      "speaker": "Gary Jordan",
+      "startMs": 20310,
+      "endMs": 25370,
+      "text": "You still don’t want to go massively over budget, and you don’t want to slip a launch by years, but how do you weigh that?",
+      "translationVi": "Ai cũng muốn tránh vượt ngân sách quá nhiều hay lùi ngày phóng đến vài năm. Vậy phải cân nhắc ra sao?"
+    },
+    {
+      "id": "s05",
+      "speaker": "Willie Lyles",
+      "startMs": 25550,
+      "endMs": 33910,
+      "text": "Well, I think the key thing that we have to realize is that you’re never going to fly completely safe, and you’re never going to fly completely risk-free.",
+      "translationVi": "Tôi nghĩ điều cần hiểu là mỗi chuyến bay đều có giới hạn về mức an toàn, và luôn có rủi ro."
+    },
+    {
+      "id": "s06",
+      "speaker": "Willie Lyles",
+      "startMs": 34710,
+      "endMs": 40610,
+      "text": "You’re always going to have some risk involved. So what we try to do is buy down the risk as much as we can.",
+      "translationVi": "Lúc nào cũng còn một mức rủi ro nhất định. Vì thế chúng tôi cố giảm rủi ro hết mức có thể."
+    },
+    {
+      "id": "s07",
+      "speaker": "Willie Lyles",
+      "startMs": 41490,
+      "endMs": 53350,
+      "text": "And the key thing is that I think if you’re working this all throughout the process, through the whole development cycle, through DDT&E and all the way through the op cycle, and having this conversation, just having the communication along the way.",
+      "translationVi": "Tôi nghĩ quan trọng là làm việc này suốt cả quy trình, qua khâu thiết kế, phát triển, thử nghiệm, đánh giá rồi đến vận hành, và duy trì trao đổi trong suốt quá trình."
+    },
+    {
+      "id": "s08",
+      "speaker": "Willie Lyles",
+      "startMs": 53570,
+      "endMs": 60490,
+      "text": "And again, at every board you meet, in every panel, I think you have to always offer up to see if anyone has a differing opinion.",
+      "translationVi": "Và trong mỗi cuộc họp hội đồng, trong mỗi nhóm thảo luận, tôi nghĩ phải luôn chủ động hỏi xem có ai nghĩ khác hay không."
+    },
+    {
+      "id": "s09",
+      "speaker": "Willie Lyles",
+      "startMs": 61190,
+      "endMs": 67110,
+      "text": "And I’ve seen a lot of that done. I’ve worked on the program side, and I’ve worked now on the directorate side.",
+      "translationVi": "Tôi từng thấy nhiều nơi làm vậy. Tôi từng làm ở phía chương trình, và giờ làm ở phía ban chuyên môn."
+    },
+    {
+      "id": "s10",
+      "speaker": "Willie Lyles",
+      "startMs": 67890,
+      "endMs": 78430,
+      "text": "And definitely, I know most of the program managers, and they do that well. We keep emphasizing it with them, and they do that well. They look for different, altering opinions, as we talked about.",
+      "translationVi": "Tôi biết phần lớn quản lý chương trình, và họ làm tốt việc đó. Chúng tôi thường xuyên nhấn mạnh điều ấy với họ. Họ chủ động tìm các góc nhìn khác nhau, như ta vừa nói."
+    },
+    {
+      "id": "s11",
+      "speaker": "Willie Lyles",
+      "startMs": 78870,
+      "endMs": 86950,
+      "text": "And if something gets strong enough that it seems to be where they’re really wanting to take it to another level and say, “Hey, this just can’t fly,” we’re not going to fly.",
+      "translationVi": "Và nếu có vấn đề đủ nghiêm trọng để họ muốn đưa lên cấp trên và nói “Chuyến này chưa thể bay”, thì chúng tôi sẽ dừng chuyến bay."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "How does Lyles respond to the trade-off raised by the host?",
+      "options": [
+        {
+          "id": "A",
+          "text": "He treats safety as a one-time approval at the end"
+        },
+        {
+          "id": "B",
+          "text": "He argues for reducing risk through ongoing discussion and escalation"
+        },
+        {
+          "id": "C",
+          "text": "He sets an acceptable delay for every mission"
+        },
+        {
+          "id": "D",
+          "text": "He leaves each team to define safety independently"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Lyles xem giảm rủi ro là việc xuyên suốt, có trao đổi, mời phản biện và đưa vấn đề nghiêm trọng lên cấp khác.",
+      "evidenceSegmentIds": [
+        "s06",
+        "s07",
+        "s08",
+        "s11"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What two practical pressures does the host bring up?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Training and staffing"
+        },
+        {
+          "id": "B",
+          "text": "Weather and public attention"
+        },
+        {
+          "id": "C",
+          "text": "Flight duration and crew fatigue"
+        },
+        {
+          "id": "D",
+          "text": "Schedule and budget"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Người dẫn nêu áp lực phóng đúng tiến độ, giữ ngân sách và hệ quả khi yêu cầu an toàn làm các khoản này thay đổi.",
+      "evidenceSegmentIds": [
+        "s01",
+        "s02",
+        "s04"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "In this exchange, what does “buy down the risk” amount to?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Reducing exposure while accepting that some risk remains"
+        },
+        {
+          "id": "B",
+          "text": "Buying more insurance once a launch is delayed"
+        },
+        {
+          "id": "C",
+          "text": "Trading away safety to stay within budget"
+        },
+        {
+          "id": "D",
+          "text": "Setting a fixed price for every extra day"
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Lyles nói mọi chuyến bay vẫn còn rủi ro. Mục tiêu là tìm cách giảm rủi ro trong suốt quy trình.",
+      "evidenceSegmentIds": [
+        "s05",
+        "s06",
+        "s07"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "What is the point of asking for dissent at every panel?",
+      "options": [
+        {
+          "id": "A",
+          "text": "To make every decision unanimous before anyone speaks"
+        },
+        {
+          "id": "B",
+          "text": "To establish who should pay if the schedule slips"
+        },
+        {
+          "id": "C",
+          "text": "To surface concerns early enough to affect a decision"
+        },
+        {
+          "id": "D",
+          "text": "To transfer every disagreement directly to senior leadership"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Việc chủ động hỏi ở mỗi nhóm giữ cho các lo ngại được đưa ra và xử lý. Vấn đề đủ nghiêm trọng mới được chuyển lên.",
+      "evidenceSegmentIds": [
+        "s07",
+        "s08",
+        "s11"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.speaker_attitude",
+      "prompt": "What does Lyles’s final example imply about launch commitments?",
+      "options": [
+        {
+          "id": "A",
+          "text": "He expects scheduled launches to go ahead regardless"
+        },
+        {
+          "id": "B",
+          "text": "He accepts that a serious objection can stop a launch"
+        },
+        {
+          "id": "C",
+          "text": "He assumes schedule owners will always overrule dissent"
+        },
+        {
+          "id": "D",
+          "text": "He expects every difference of opinion to stop a launch"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Ví dụ cuối cho thấy một lo ngại đủ nghiêm trọng có thể khiến chuyến bay dừng lại.",
+      "evidenceSegmentIds": [
+        "s10",
+        "s11"
+      ]
+    }
+  ]
+}

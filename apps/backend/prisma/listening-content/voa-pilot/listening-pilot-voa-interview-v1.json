@@ -1,0 +1,317 @@
+{
+  "listeningVersion": 1,
+  "steps": [],
+  "audioUrl": "/media/learning/v1/listening-pilot-voa-interview-v1.wav",
+  "audioDurationMs": 80420,
+  "preparation": {
+    "situation": "Pete đi phỏng vấn và gặp lại Anna sau đó.",
+    "objective": "Theo dõi điều người phỏng vấn muốn biết, cách Pete trả lời và kết quả."
+  },
+  "keyVocabulary": [
+    {
+      "id": "v01",
+      "word": "opportunity",
+      "meaning": "cơ hội",
+      "example": "She thanked the team for the opportunity.",
+      "translation": "Cô ấy cảm ơn cả nhóm vì cơ hội này."
+    },
+    {
+      "id": "v02",
+      "word": "people person",
+      "meaning": "người hòa đồng, thích giao tiếp",
+      "example": "My roommate is a people person.",
+      "translation": "Bạn cùng phòng tôi rất hòa đồng."
+    },
+    {
+      "id": "v03",
+      "word": "proud of",
+      "meaning": "tự hào về",
+      "example": "They are proud of their project.",
+      "translation": "Họ tự hào về dự án của mình."
+    }
+  ],
+  "transcript": "Thanks for coming in, Pete. Thanks for the opportunity, Ms. Weaver. I need to find out if you have the skills for this job. And I want you to be completely honest. Okay. First, let's talk about your personal skills. Pete, are you a people person? Well, okay. Sometimes I think people talk too much. Pete, what work of yours are you most proud of? Last year, I locked myself in a cabin and wrote a book. I didn't speak to anybody the entire time! It was the best two months of my life. Okay. I think I've heard enough. Hey! Hey! Pete, how was the interview with Ms. Weaver? Well, she said I was grumpy and not good with people. And? And I got the job! I knew it! Let's go celebrate. Okay.",
+  "transcriptSegments": [
+    {
+      "id": "s01",
+      "startMs": 360,
+      "endMs": 2380,
+      "speaker": "Ms. Weaver",
+      "text": "Thanks for coming in, Pete.",
+      "translationVi": "Cảm ơn cậu đã đến, Pete."
+    },
+    {
+      "id": "s02",
+      "startMs": 2850,
+      "endMs": 4920,
+      "speaker": "Pete",
+      "text": "Thanks for the opportunity, Ms. Weaver.",
+      "translationVi": "Cảm ơn bà đã cho tôi cơ hội này, bà Weaver."
+    },
+    {
+      "id": "s03",
+      "startMs": 4920,
+      "endMs": 16080,
+      "speaker": "Ms. Weaver",
+      "text": "I need to find out if you have the skills for this job. And I want you to be completely honest.",
+      "translationVi": "Tôi cần biết cậu có kỹ năng phù hợp với công việc này không. Và tôi muốn cậu hoàn toàn trung thực."
+    },
+    {
+      "id": "s04",
+      "startMs": 16760,
+      "endMs": 17750,
+      "speaker": "Pete",
+      "text": "Okay.",
+      "translationVi": "Vâng."
+    },
+    {
+      "id": "s05",
+      "startMs": 17990,
+      "endMs": 26130,
+      "speaker": "Ms. Weaver",
+      "text": "First, let's talk about your personal skills. Pete, are you a people person?",
+      "translationVi": "Trước tiên, hãy nói về kỹ năng cá nhân. Pete, cậu có phải là người hòa đồng không?"
+    },
+    {
+      "id": "s06",
+      "startMs": 27940,
+      "endMs": 33740,
+      "speaker": "Pete",
+      "text": "Well, okay. Sometimes I think people talk too much.",
+      "translationVi": "Ừm, vâng. Đôi lúc tôi thấy mọi người nói quá nhiều."
+    },
+    {
+      "id": "s07",
+      "startMs": 33740,
+      "endMs": 40210,
+      "speaker": "Ms. Weaver",
+      "text": "Pete, what work of yours are you most proud of?",
+      "translationVi": "Pete, cậu tự hào nhất về công việc nào mình từng làm?"
+    },
+    {
+      "id": "s08",
+      "startMs": 40380,
+      "endMs": 52050,
+      "speaker": "Pete",
+      "text": "Last year, I locked myself in a cabin and wrote a book. I didn't speak to anybody the entire time! It was the best two months of my life.",
+      "translationVi": "Năm ngoái, tôi ở một mình trong căn nhà gỗ và viết một cuốn sách. Suốt thời gian đó tôi không nói chuyện với ai! Đó là hai tháng tuyệt nhất đời tôi."
+    },
+    {
+      "id": "s09",
+      "startMs": 52800,
+      "endMs": 56750,
+      "speaker": "Ms. Weaver",
+      "text": "Okay. I think I've heard enough.",
+      "translationVi": "Được rồi. Tôi nghĩ mình đã nghe đủ."
+    },
+    {
+      "id": "s10",
+      "startMs": 58400,
+      "endMs": 59420,
+      "speaker": "Pete",
+      "text": "Hey!",
+      "translationVi": "Chào!"
+    },
+    {
+      "id": "s11",
+      "startMs": 60180,
+      "endMs": 64420,
+      "speaker": "Anna",
+      "text": "Hey! Pete, how was the interview with Ms. Weaver?",
+      "translationVi": "Chào! Pete, buổi phỏng vấn với bà Weaver thế nào?"
+    },
+    {
+      "id": "s12",
+      "startMs": 64840,
+      "endMs": 70900,
+      "speaker": "Pete",
+      "text": "Well, she said I was grumpy and not good with people.",
+      "translationVi": "À, bà ấy nói tôi hay cáu kỉnh và không giỏi giao tiếp."
+    },
+    {
+      "id": "s13",
+      "startMs": 71160,
+      "endMs": 72130,
+      "speaker": "Anna",
+      "text": "And?",
+      "translationVi": "Rồi sao?"
+    },
+    {
+      "id": "s14",
+      "startMs": 72470,
+      "endMs": 74820,
+      "speaker": "Pete",
+      "text": "And I got the job!",
+      "translationVi": "Và tôi được nhận việc!"
+    },
+    {
+      "id": "s15",
+      "startMs": 74990,
+      "endMs": 78780,
+      "speaker": "Anna",
+      "text": "I knew it! Let's go celebrate.",
+      "translationVi": "Tôi biết ngay mà! Đi ăn mừng nào."
+    },
+    {
+      "id": "s16",
+      "startMs": 79860,
+      "endMs": 80220,
+      "speaker": "Pete",
+      "text": "Okay.",
+      "translationVi": "Được."
+    }
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.gist",
+      "prompt": "What is Ms. Weaver trying to find out?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Where Pete learned to write"
+        },
+        {
+          "id": "B",
+          "text": "Which job Pete would refuse"
+        },
+        {
+          "id": "C",
+          "text": "Whether Pete has the right skills"
+        },
+        {
+          "id": "D",
+          "text": "How long Pete can stay"
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Bà Weaver hỏi để biết Pete có kỹ năng phù hợp với công việc không.",
+      "evidenceSegmentIds": [
+        "s03",
+        "s05",
+        "s07"
+      ]
+    },
+    {
+      "id": "q02",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.specific_information",
+      "prompt": "What does Ms. Weaver ask Pete to do when he answers?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Give shorter answers"
+        },
+        {
+          "id": "B",
+          "text": "Be completely honest"
+        },
+        {
+          "id": "C",
+          "text": "Read from his notes"
+        },
+        {
+          "id": "D",
+          "text": "Answer in writing"
+        }
+      ],
+      "correctOptionId": "B",
+      "explanation": "Bà muốn Pete trả lời hoàn toàn trung thực.",
+      "evidenceSegmentIds": [
+        "s03"
+      ]
+    },
+    {
+      "id": "q03",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.detail",
+      "prompt": "What work is Pete most proud of?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Hosting a show with Anna"
+        },
+        {
+          "id": "B",
+          "text": "Helping a new colleague"
+        },
+        {
+          "id": "C",
+          "text": "Giving a talk to a group"
+        },
+        {
+          "id": "D",
+          "text": "Writing a book alone in a cabin"
+        }
+      ],
+      "correctOptionId": "D",
+      "explanation": "Pete kể rằng anh viết một cuốn sách khi ở một mình trong căn nhà gỗ.",
+      "evidenceSegmentIds": [
+        "s07",
+        "s08"
+      ]
+    },
+    {
+      "id": "q04",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.implied_meaning",
+      "prompt": "What does Pete's story suggest about how he likes to work?",
+      "options": [
+        {
+          "id": "A",
+          "text": "He enjoys working by himself."
+        },
+        {
+          "id": "B",
+          "text": "He prefers a large team."
+        },
+        {
+          "id": "C",
+          "text": "He needs constant advice."
+        },
+        {
+          "id": "D",
+          "text": "He likes meeting new customers."
+        }
+      ],
+      "correctOptionId": "A",
+      "explanation": "Pete coi khoảng thời gian tự viết sách không giao tiếp với ai là hai tháng tuyệt nhất.",
+      "evidenceSegmentIds": [
+        "s06",
+        "s08"
+      ]
+    },
+    {
+      "id": "q05",
+      "type": "MULTIPLE_CHOICE",
+      "skillCode": "listening.speaker_attitude",
+      "prompt": "Why is the outcome surprising after Pete reports the feedback?",
+      "options": [
+        {
+          "id": "A",
+          "text": "Pete refused the offer after positive feedback."
+        },
+        {
+          "id": "B",
+          "text": "Anna was asked to interview instead."
+        },
+        {
+          "id": "C",
+          "text": "Pete got the job despite the criticism."
+        },
+        {
+          "id": "D",
+          "text": "The employer gave Pete a different interview date."
+        }
+      ],
+      "correctOptionId": "C",
+      "explanation": "Bà Weaver nhận xét Pete hay cáu và không giỏi giao tiếp, nhưng anh vẫn được nhận việc.",
+      "evidenceSegmentIds": [
+        "s12",
+        "s13",
+        "s14"
+      ]
+    }
+  ]
+}
