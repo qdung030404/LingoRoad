@@ -243,10 +243,14 @@ class ApiClient {
     await acceptTokens(tokens);
   }
 
-  Future<void> clearSession() async {
+  void invalidateSessionRequests() {
     _sessionEpoch++;
     accessToken = null;
     _refreshing = null;
+  }
+
+  Future<void> clearSession() async {
+    invalidateSessionRequests();
     try {
       await identity?.signOut();
     } finally {

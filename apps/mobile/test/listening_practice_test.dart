@@ -338,6 +338,9 @@ void main() {
       engine: engine,
     );
     final attempt = LearningAttempt({
+      'id': 'legacy-review',
+      'status': 'COMPLETED',
+      'lesson': {'kind': 'LISTENING'},
       'content': {'transcript': 'Welcome to our school.'},
       'questions': [
         {
@@ -354,16 +357,33 @@ void main() {
           'questionId': 'q1',
           'optionId': 'a',
           'correctOptionId': 'a',
+          'checked': true,
           'isCorrect': true,
         },
       ],
     });
+    final repository = MemoryLearningRepository()
+      ..explainHandler = (id, question) async {
+        expect(id, 'legacy-review');
+        expect(question, 'q1');
+        return {'source': 'AI', 'explanation': 'Cụm “our school” là dấu hiệu.'};
+      };
+    final owner = LearningController(
+      repository: repository,
+      accountId: 'learner',
+    );
+    final controller = LearningAttemptController(owner: owner)
+      ..attempt = attempt;
     await tester.pumpWidget(
       MaterialApp(
         theme: AppTheme.lightTheme,
         home: MediaQuery(
           data: const MediaQueryData(textScaler: TextScaler.linear(1.5)),
-          child: PracticeReviewPage(attempt: attempt, audio: audio),
+          child: PracticeReviewPage(
+            attempt: attempt,
+            audio: audio,
+            controller: controller,
+          ),
         ),
       ),
     );
@@ -372,6 +392,12 @@ void main() {
     expect(find.text('Đáp án đúng · Bạn chọn'), findsOneWidget);
     expect(find.text('Đoạn dẫn chứng'), findsNothing);
     expect(find.text('Về kết quả'), findsOneWidget);
+    final explain = find.byKey(const ValueKey('learning-ai-explain-q1'));
+    await tester.scrollUntilVisible(explain.hitTestable(), 160);
+    await tester.tap(explain);
+    await tester.pumpAndSettle();
+    expect(find.text('Theo bài nghe'), findsOneWidget);
+    expect(repository.explainCalls, 1);
     await tester.scrollUntilVisible(find.text('Bản chép lời'), 160);
     await tester.ensureVisible(find.text('Bản chép lời'));
     await tester.tap(find.text('Bản chép lời'));
@@ -383,6 +409,8 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     audio.dispose();
+    controller.dispose();
+    owner.dispose();
   });
 
   testWidgets(

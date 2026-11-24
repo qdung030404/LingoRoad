@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, HttpCode, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ActivityBatchDto, LearningPreferencesDto, OpenActivityDto } from './planning.dto';
@@ -9,7 +9,9 @@ export class PlanningController {
   constructor(private readonly planning: PlanningService) {}
   @Get('preferences') async preferences(@CurrentUser('sub') userId: string) { return { success: true, data: await this.planning.preferences(userId) }; }
   @Patch('preferences') async update(@CurrentUser('sub') userId: string, @Body() dto: LearningPreferencesDto) { return { success: true, data: await this.planning.updatePreferences(userId, dto) }; }
-  @Post('plan/today') @HttpCode(200) async ensure(@CurrentUser('sub') userId: string) { return { success: true, data: await this.planning.ensureToday(userId) }; }
+  @Get('home') @Header('Cache-Control', 'private, no-store')
+  async home(@CurrentUser('sub') userId: string) { return { success: true, data: await this.planning.home(userId) }; }
+  @Post('plan/today') @HttpCode(200) async ensure(@CurrentUser('sub') userId: string) { return { success: true, data: await this.planning.ensureHomePlan(userId) }; }
   @Get('plan/today') async today(@CurrentUser('sub') userId: string) { return { success: true, data: await this.planning.today(userId) }; }
   @Get('progress') async progress(@CurrentUser('sub') userId: string) { return { success: true, data: await this.planning.progress(userId) }; }
   @Post('attempts/:attemptId/activity-sessions') @HttpCode(200)

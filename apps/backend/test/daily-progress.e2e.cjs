@@ -102,6 +102,13 @@ describe('Daily plans and observed learning time', () => {
     await request(app.getHttpServer()).get('/learning/progress').expect(401);
     const owner = await account();
     assert.equal((await api(owner, 'get', '/learning/plan/today').expect(200)).body.data.plan, null);
+    const home = (await api(owner, 'get', '/learning/home').expect(200)
+      .expect('Cache-Control', 'private, no-store')).body.data;
+    assert.equal(home.planStatus, 'missing');
+    assert.equal(home.plan, null);
+    assert.ok(home.continueLesson?.id);
+    assert.equal(await prisma.learningDayPlan.count({ where: { userId: owner.userId } }), 0);
+    assert.equal(home.days.length, 7);
     const initial = await progress(owner);
     assert.equal(initial.today.activeSeconds, 0);
     assert.equal(initial.today.timeMeasured, false);
@@ -111,6 +118,11 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(await prisma.learningDayPlan.count({ where: { userId: owner.userId } }), 1);
     assert.equal(results[0].timeZone, 'Asia/Ho_Chi_Minh');
     assert.deepEqual((await plan(owner)).items, results[0].items);
+    const currentHome = (await api(owner, 'get', '/learning/home').expect(200)).body.data;
+    assert.equal(currentHome.planStatus, 'ready');
+    assert.equal(currentHome.plan.id, results[0].id);
+    assert.equal(currentHome.plan.continueLessonId, currentHome.continueLesson.id);
+    assert.deepEqual(currentHome.days, (await progress(owner)).days);
     assert.ok(results[0].items.every(item => item.reason && item.reasonCode));
   });
 
@@ -220,6 +232,9 @@ describe('Daily plans and observed learning time', () => {
     stats = await progress(owner);
     assert.equal(stats.today.activeSeconds, 345);
     assert.equal(stats.today.goalMet, true);
+    const home = (await api(owner, 'get', '/learning/home').expect(200)).body.data;
+    assert.deepEqual(home.days, stats.days);
+    assert.equal(home.totals.activeSeconds, stats.totals.activeSeconds);
     const summary = (await api(owner, 'get', '/learning/summary').expect(200)).body.data;
     assert.equal(summary.activeSeconds, stats.totals.activeSeconds);
     assert.equal(summary.completedAttemptCount, stats.totals.completedAttemptCount);
@@ -243,6 +258,9 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(stats.days.find(day => day.date === localDate(boundary)).activeSeconds, 5);
     assert.equal(stats.today.activeSeconds, 0);
     assert.equal(stats.totals.activeSeconds, 15);
+    const home = (await api(owner, 'get', '/learning/home').expect(200)).body.data;
+    assert.deepEqual(home.days, stats.days);
+    assert.equal(home.totals.activeSeconds, 15);
     const before = stats.days.find(day => day.date < localDate(boundary.getTime() - 10000));
     assert.ok(before && !before.timeMeasured);
     const saved = await prisma.learningActivitySegment.findUnique({ where: { sessionId_seq: { sessionId, seq: 0 } } });
@@ -295,7 +313,7 @@ describe('Daily plans and observed learning time', () => {
   it('tracks A1 roadmap units and practice score stats across weeks', async () => {
     const owner = await account();
     const initial = await progress(owner);
-    assert.equal(initial.units.length, 8);
+    assert.equal(initial.units.length, 9);
     assert.equal(initial.units.find(unit => unit.cefrLevel === 'A2').totalLessons, 3);
     assert.equal(initial.units[0].status, 'IN_PROGRESS');
     assert.equal(initial.units[0].totalLessons, 3);

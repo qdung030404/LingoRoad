@@ -21,6 +21,7 @@ import 'package:mobile/features/learning/learning_controller.dart';
 import 'package:mobile/features/learning/learning_repository.dart';
 import 'package:mobile/features/auth/welcome_page.dart';
 import 'test_helpers.dart';
+import 'support/ui_fonts.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -63,20 +64,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.runAsync(() async {
-      await (FontLoader(
-        'Inter',
-      )..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'))).load();
-      await (FontLoader('Be Vietnam Pro')
-            ..addFont(rootBundle.load('assets/fonts/BeVietnamPro-Medium.ttf')))
-          .load();
-      await (FontLoader('Hanken Grotesk')
-            ..addFont(rootBundle.load('assets/fonts/HankenGrotesk[wght].ttf')))
-          .load();
-      await (FontLoader(
-        'Madimi One',
-      )..addFont(rootBundle.load('assets/fonts/MadimiOne-Regular.ttf'))).load();
-    });
+    await tester.runAsync(loadUiFonts);
     await tester.pumpWidget(
       RepaintBoundary(
         key: boundaryKey,
@@ -657,13 +645,48 @@ void main() {
       daily.progress = {
         'today': {'date': '2026-11-12', 'activeSeconds': 1200, 'goalMet': true},
         'days': [
-          {'date': '2026-11-06', 'activeSeconds': 0, 'completedLessonCount': 0, 'goalMet': false},
-          {'date': '2026-11-07', 'activeSeconds': 0, 'completedLessonCount': 0, 'goalMet': false},
-          {'date': '2026-11-08', 'activeSeconds': 0, 'completedLessonCount': 0, 'goalMet': false},
-          {'date': '2026-11-09', 'activeSeconds': 300, 'completedLessonCount': 1, 'goalMet': false},
-          {'date': '2026-11-10', 'activeSeconds': 0, 'completedLessonCount': 0, 'goalMet': false},
-          {'date': '2026-11-11', 'activeSeconds': 600, 'completedLessonCount': 0, 'goalMet': true},
-          {'date': '2026-11-12', 'activeSeconds': 1200, 'completedLessonCount': 2, 'goalMet': true},
+          {
+            'date': '2026-11-06',
+            'activeSeconds': 0,
+            'completedLessonCount': 0,
+            'goalMet': false,
+          },
+          {
+            'date': '2026-11-07',
+            'activeSeconds': 0,
+            'completedLessonCount': 0,
+            'goalMet': false,
+          },
+          {
+            'date': '2026-11-08',
+            'activeSeconds': 0,
+            'completedLessonCount': 0,
+            'goalMet': false,
+          },
+          {
+            'date': '2026-11-09',
+            'activeSeconds': 300,
+            'completedLessonCount': 1,
+            'goalMet': false,
+          },
+          {
+            'date': '2026-11-10',
+            'activeSeconds': 0,
+            'completedLessonCount': 0,
+            'goalMet': false,
+          },
+          {
+            'date': '2026-11-11',
+            'activeSeconds': 600,
+            'completedLessonCount': 0,
+            'goalMet': true,
+          },
+          {
+            'date': '2026-11-12',
+            'activeSeconds': 1200,
+            'completedLessonCount': 2,
+            'goalMet': true,
+          },
         ],
       };
 
@@ -731,10 +754,7 @@ void main() {
   testWidgets(
     'QuizSummaryPage returns to LearningPreview without escaping Guest shell to WelcomePage',
     (tester) async {
-      await show(
-        tester,
-        WelcomePage(onGoogle: () {}, onEmail: () {}),
-      );
+      await show(tester, WelcomePage(onGoogle: () {}, onEmail: () {}));
       await tap(tester, find.byKey(const Key('openLearningPreview')));
       expect(find.byType(LearningPreview), findsOneWidget);
 

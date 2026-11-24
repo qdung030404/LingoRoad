@@ -244,7 +244,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                     if (widget.learning?.error != null) ...[
                       LearningError(
                         widget.learning!.error!,
-                        retry: widget.learning!.refresh,
+                        retry: widget.daily?.loadDetails ?? widget.learning!.refresh,
                       ),
                       const SizedBox(height: 12),
                     ],

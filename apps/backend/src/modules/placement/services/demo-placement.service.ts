@@ -131,13 +131,16 @@ export class DemoPlacementService {
   }
 
   async status(userId: string) {
-    const active = await this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS } });
-    const completed = await this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED }, orderBy: { completedAt: 'desc' } });
+    const select = { id: true, status: true, currentItemIndex: true, totalItems: true, estimatedCefr: true } as const;
+    const [active, completed] = await Promise.all([
+      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS }, select }),
+      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED }, orderBy: { completedAt: 'desc' }, select }),
+    ]);
     const session = active ?? completed;
     return {
       hasCompleted: !!completed, currentSessionId: session?.id ?? null,
       status: session?.status ?? null, currentIndex: session?.currentItemIndex ?? 0,
-      totalItems: session?.totalItems ?? PLACEMENT_TOTAL,
+      totalItems: session?.totalItems ?? PLACEMENT_TOTAL, estimatedCefr: session?.estimatedCefr ?? null,
     };
   }
 

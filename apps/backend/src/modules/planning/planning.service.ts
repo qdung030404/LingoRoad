@@ -99,7 +99,7 @@ export type ProgressScoreStats = {
 };
 export const learningDate = (now: Date) => new Date(now.getTime() + 7 * 3600000).toISOString().slice(0, 10);
 export const learningDayStart = (date: string) => new Date(`${date}T00:00:00+07:00`);
-const finishedOn = (a: LearningAttempt, date: string) => a.status === 'COMPLETED' && a.submittedAt != null && learningDate(a.submittedAt) === date;
+const finishedOn = (a: Pick<LearningAttempt, 'status' | 'submittedAt'>, date: string) => a.status === 'COMPLETED' && a.submittedAt != null && learningDate(a.submittedAt) === date;
 const recentFinished = (attempts: LearningAttempt[], id: string) => attempts.filter(a => a.lessonId === id && a.status === 'COMPLETED')
   .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0) || b.id.localeCompare(a.id))[0];
 
@@ -616,18 +616,117 @@ export class PlanningService {
     return { plan: await this.planDto(plan) };
   }
   private async planDto(plan: LearningDayPlan) {
-    const attempts = await this.prisma.learningAttempt.findMany({ where: { userId: plan.userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }] });
-    const items = (plan.items as unknown as PlanItem[]).map(item => {
-      const completed = attempts.find(a => a.lessonId === item.lessonId && finishedOn(a, plan.date));
+    const planItems = plan.items as unknown as PlanItem[];
+    const start = learningDayStart(plan.date);
+    const attempts = planItems.length === 0 ? [] : await this.prisma.learningAttempt.findMany({
+      where: {
+        userId: plan.userId, lessonId: { in: planItems.map(item => item.lessonId) }, status: 'COMPLETED',
+        submittedAt: { gte: start, lt: new Date(start.getTime() + DAY_MS) },
+      },
+      select: { id: true, lessonId: true, status: true, submittedAt: true, historyHiddenAt: true },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+    });
+    const items = planItems.map(item => {
+      const completed = attempts.filter(a => a.lessonId === item.lessonId && finishedOn(a, plan.date));
+      const visibleAttempt = completed.find(a => a.historyHiddenAt == null);
       const normalized = item.reasonCode === 'RESUME'
-        ? { ...item, reasonCode: completed ? 'COMPLETED_TODAY' : 'NEW', reason: completed ? 'Đã hoàn thành hôm nay' : 'Bài mới' }
+        ? { ...item, reasonCode: completed.length ? 'COMPLETED_TODAY' : 'NEW', reason: completed.length ? 'Đã hoàn thành hôm nay' : 'Bài mới' }
         : item;
-      return { ...normalized, completed: !!completed, activeAttemptId: null, completedAttemptId: completed?.id ?? null };
+      return { ...normalized, completed: completed.length > 0, activeAttemptId: null, completedAttemptId: visibleAttempt?.id ?? null };
     });
     const next = items.find(item => !item.completed);
     return { id: plan.id, date: plan.date, timeZone: LEARNING_TIME_ZONE, version: plan.version, policyVersion: plan.policyVersion, dailyGoalMinutes: plan.dailyGoalMinutes,
       estimatedMinutes: items.reduce((sum, item) => sum + item.estimatedMinutes, 0), completedCount: items.filter(item => item.completed).length,
       totalCount: items.length, items, continueLessonId: next?.lessonId ?? null, continueAttemptId: null };
+  }
+
+  async ensureHomePlan(userId: string) {
+    const { plan } = await this.ensureToday(userId);
+    return {
+      date: plan?.date ?? learningDate(new Date()),
+      plan,
+      continueLesson: await this.homeLesson(userId, plan?.continueLessonId ?? null),
+    };
+  }
+
+  private homeLesson(userId: string, lessonId: string | null, useFallback = false) {
+    if (!lessonId && !useFallback) return null;
+    return this.prisma.learningLesson.findFirst({
+      where: {
+        published: true,
+        ...(lessonId ? { id: lessonId } : { attempts: { none: { userId, status: 'COMPLETED' as const } } }),
+      },
+      select: { id: true, kind: true, title: true, description: true, estimatedMinutes: true },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+  }
+
+  async home(userId: string) {
+    const now = new Date();
+    const date = learningDate(now);
+    const week = Array.from({ length: 7 }, (_, i) => {
+      const from = new Date(learningDayStart(date).getTime() - (6 - i) * DAY_MS);
+      return { date: learningDate(from), from, to: new Date(Math.min(from.getTime() + DAY_MS, now.getTime())) };
+    });
+    const [profile, plans, attempts, completedLessons, first, placement, skill, seconds] = await Promise.all([
+      this.profile(this.prisma, userId),
+      this.prisma.learningDayPlan.findMany({ where: { userId, date: { gte: week[0].date, lte: date } } }),
+      this.prisma.learningAttempt.findMany({
+        where: { userId, status: 'COMPLETED', submittedAt: { gte: week[0].from, lte: now } },
+        select: { lessonId: true, submittedAt: true },
+      }),
+      this.prisma.learningLesson.count({ where: { published: true, attempts: { some: { userId, status: 'COMPLETED' } } } }),
+      this.prisma.learningActivitySession.findFirst({ where: { userId }, orderBy: { anchorAt: 'asc' }, select: { anchorAt: true } }),
+      this.prisma.placementSession.findFirst({
+        where: { userId, status: 'COMPLETED' }, orderBy: { completedAt: 'desc' },
+        select: { skillResults: true, completedAt: true },
+      }),
+      this.prisma.learningSkillLevel.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }),
+      this.homeActiveSeconds(userId, [...week, { from: new Date(0), to: now }]),
+    ]);
+    const byDate = new Map(plans.map(plan => [plan.date, plan]));
+    const current = byDate.get(date);
+    const initial = initialReadingLevel(placement?.skillResults as Record<string, unknown> | undefined, placement?.completedAt);
+    const planStatus = !current ? 'missing' : current.policyVersion !== CURRENT_PLAN_POLICY_VERSION ||
+      current.preferencesVersion !== profile.preferencesVersion || current.dailyGoalMinutes !== profile.dailyGoalMinutes ||
+      (placement?.completedAt != null && current.updatedAt < placement.completedAt) ||
+      (skill != null && this.shouldUpgradeFromPlacement(skill, initial)) ? 'stale' : 'ready';
+    const plan = current && planStatus === 'ready' ? await this.planDto(current) : null;
+    const days = week.map((day, index) => {
+      const completed = attempts.filter(row => row.submittedAt && learningDate(row.submittedAt) === day.date);
+      const activeSeconds = seconds.get(index) ?? 0;
+      const dailyGoalMinutes = byDate.get(day.date)?.dailyGoalMinutes ?? (day.date === date ? profile.dailyGoalMinutes : null);
+      return {
+        date: day.date, dailyGoalMinutes, activeSeconds,
+        goalMet: dailyGoalMinutes != null && activeSeconds >= dailyGoalMinutes * 60,
+        completedLessonCount: new Set(completed.map(row => row.lessonId)).size,
+        completedAttemptCount: completed.length,
+        hasActivity: activeSeconds > 0 || completed.length > 0,
+        timeMeasured: first != null && learningDate(first.anchorAt) <= day.date,
+      };
+    });
+    return {
+      date, planStatus, plan, preferences: this.preferenceDto(profile), today: days[6], days,
+      totals: { completedLessonCount: completedLessons, activeSeconds: seconds.get(week.length) ?? 0 },
+      continueLesson: await this.homeLesson(userId, plan?.continueLessonId ?? null, plan == null),
+    };
+  }
+
+  private async homeActiveSeconds(userId: string, windows: { from: Date; to: Date }[]) {
+    const values = windows.map(({ from, to }, index) => Prisma.sql`(${index}::int, ${from}::timestamptz, ${to}::timestamptz)`);
+    const rows = await this.prisma.$queryRaw<{ idx: number; seconds: number }[]>`
+      WITH windows(idx, starts, ends) AS (VALUES ${Prisma.join(values)}),
+      merged AS (
+        SELECT w.idx, range_agg(tstzrange(GREATEST(s.start_at AT TIME ZONE 'UTC', w.starts),
+          LEAST(s.end_at AT TIME ZONE 'UTC', w.ends), '[)')) AS spans
+        FROM learning_activity_segments s JOIN learning_activity_sessions a ON a.id = s.session_id
+        JOIN windows w ON (s.end_at AT TIME ZONE 'UTC') > w.starts AND (s.start_at AT TIME ZONE 'UTC') < w.ends
+        WHERE a.user_id = ${userId}::uuid AND s.start_at IS NOT NULL
+        GROUP BY w.idx
+      )
+      SELECT idx, FLOOR(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span)))))::double precision AS seconds
+      FROM merged CROSS JOIN LATERAL unnest(spans) AS pieces(span) GROUP BY idx`;
+    return new Map(rows.map(row => [row.idx, row.seconds]));
   }
 
   /** UTC ranges are unioned across devices before summing. Time is never inferred from attempts. */
@@ -673,7 +772,7 @@ export class PlanningService {
       ? Math.round(measuredDays.reduce((sum, d) => sum + d.activeSeconds, 0) / measuredDays.length)
       : 0;
     const latestResults = Object.values(LearningKind).flatMap(kind => {
-      const a = completed.find(row => (row.lessonSnapshot as { kind?: string })?.kind === kind);
+      const a = completed.find(row => row.historyHiddenAt == null && (row.lessonSnapshot as { kind?: string })?.kind === kind);
       return a ? [{ kind, correctCount: a.correctCount!, totalQuestions: a.totalQuestions, scoreRatio: a.correctCount! / a.totalQuestions,
         submittedAt: a.submittedAt, lessonTitle: (a.lessonSnapshot as { title: string }).title }] : [];
     });

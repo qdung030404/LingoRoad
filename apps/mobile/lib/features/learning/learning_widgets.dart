@@ -52,10 +52,12 @@ class LearningCard extends StatelessWidget {
     required this.children,
     this.gap = 16,
     this.onTap,
+    this.onLongPress,
   });
   final List<Widget> children;
   final double gap;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   @override
   Widget build(BuildContext context) {
     final card = FigmaCard(
@@ -70,12 +72,13 @@ class LearningCard extends StatelessWidget {
         ],
       ),
     );
-    return onTap == null
+    return onTap == null && onLongPress == null
         ? card
         : Semantics(
             button: true,
             child: InkWell(
               onTap: onTap,
+              onLongPress: onLongPress,
               borderRadius: AppRadius.cardRadius,
               child: card,
             ),
@@ -345,10 +348,7 @@ class LearningGradientBackdrop extends StatelessWidget {
               ),
             ),
           ),
-          Image.asset(
-            'assets/figma/home_v2_glow_3x.png',
-            fit: BoxFit.fill,
-          ),
+          Image.asset('assets/figma/home_v2_glow_3x.png', fit: BoxFit.fill),
         ],
       ),
       builder: (context, child) => Transform.translate(
@@ -414,20 +414,13 @@ String formatAiExplanationText(String raw) {
     line = line.replaceFirst(RegExp(r'^\s*[-*]\s+'), '• ');
     cleanedLines.add(line);
   }
-  return cleanedLines
-      .join('\n')
-      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-      .trim();
+  return cleanedLines.join('\n').replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
 }
 
 /// Renders reading explanations with lightweight inline **bold** support
 /// so LLM output never leaks raw Markdown asterisks in the UI.
 class ReadingFormattedText extends StatelessWidget {
-  const ReadingFormattedText(
-    this.text, {
-    super.key,
-    required this.style,
-  });
+  const ReadingFormattedText(this.text, {super.key, required this.style});
 
   final String text;
   final TextStyle style;
@@ -517,11 +510,7 @@ class ReadingEvidenceQuote extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   '"${evidence.trim()}"',
-                  style: designText(
-                    14,
-                    color: AppColors.grey900,
-                    height: 1.5,
-                  ),
+                  style: designText(14, color: AppColors.grey900, height: 1.5),
                 ),
               ],
             ),
@@ -623,7 +612,9 @@ class ReadingAnswerFeedbackCard extends StatelessWidget {
                   isCorrect ? 'Chính xác!' : 'Chưa chính xác',
                   style: designHeading(
                     18,
-                    color: isCorrect ? AppColors.primary800 : AppColors.error200,
+                    color: isCorrect
+                        ? AppColors.primary800
+                        : AppColors.error200,
                   ),
                 ),
               ),
@@ -646,9 +637,9 @@ class ReadingAnswerFeedbackCard extends StatelessWidget {
   }
 }
 
-/// Separate AI assistant card rendered below [ReadingAnswerFeedbackCard] for reading questions.
-class ReadingAiExplainCard extends StatelessWidget {
-  const ReadingAiExplainCard({
+/// On-demand AI explanation alongside the curriculum answer feedback.
+class PracticeAiExplainCard extends StatelessWidget {
+  const PracticeAiExplainCard({
     super.key,
     required this.questionId,
     required this.originalExplanation,
@@ -656,6 +647,7 @@ class ReadingAiExplainCard extends StatelessWidget {
     required this.explaining,
     required this.errorText,
     required this.onExplain,
+    this.listening = false,
   });
 
   final String questionId;
@@ -664,6 +656,7 @@ class ReadingAiExplainCard extends StatelessWidget {
   final bool explaining;
   final String? errorText;
   final VoidCallback onExplain;
+  final bool listening;
 
   @override
   Widget build(BuildContext context) {
@@ -767,7 +760,9 @@ class ReadingAiExplainCard extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             explaining
-                                ? 'Trợ giảng AI đang đối chiếu bài đọc...'
+                                ? (listening
+                                      ? 'Trợ giảng AI đang đối chiếu bản chép lời…'
+                                      : 'Trợ giảng AI đang đối chiếu bài đọc...')
                                 : 'Phân tích chi tiết dựa trên đáp án bạn chọn',
                             style: designText(
                               13,
@@ -838,21 +833,25 @@ class ReadingAiExplainCard extends StatelessWidget {
                     style: designHeading(16, color: AppColors.primary900),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary100,
-                    borderRadius: AppRadius.pill,
-                  ),
-                  child: Text(
-                    'Theo bài đọc',
-                    style: designText(
-                      11,
-                      weight: FontWeight.w600,
-                      color: AppColors.primary800,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary100,
+                      borderRadius: AppRadius.pill,
+                    ),
+                    child: Text(
+                      listening ? 'Theo bài nghe' : 'Theo bài đọc',
+                      textAlign: TextAlign.center,
+                      style: designText(
+                        11,
+                        weight: FontWeight.w600,
+                        color: AppColors.primary800,
+                      ),
                     ),
                   ),
                 ),
@@ -912,7 +911,9 @@ class ReadingAiExplainCard extends StatelessWidget {
           Text(
             retryable
                 ? 'AI tạm thời chưa phản hồi. Bạn có thể giữ lời giải trên hoặc thử lại.'
-                : 'Câu hỏi này cần toàn bộ ngữ cảnh bài đọc nên dùng lời giải từ học liệu.',
+                : (listening
+                      ? 'Chưa đủ dẫn chứng để tạo giải thích AI. Bạn có thể xem lời giải của bài nghe.'
+                      : 'Câu hỏi này cần toàn bộ ngữ cảnh bài đọc nên dùng lời giải từ học liệu.'),
             style: designText(14, color: AppColors.grey800, height: 1.45),
           ),
           if (showExtraText) ...[
@@ -1012,7 +1013,10 @@ class LearningResultQuestionCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.grey25,
                   borderRadius: AppRadius.pill,

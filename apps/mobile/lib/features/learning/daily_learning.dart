@@ -44,11 +44,16 @@ class DailyLearningController extends ChangeNotifier {
     required this.accountId,
     required this.isCurrent,
     this.onPreferences,
+    this.onHomeChanged,
   });
   final DailyRepository repository;
   final String accountId;
   final bool Function() isCurrent;
   final void Function(Json preferences)? onPreferences;
+  final Future<void> Function()? onHomeChanged;
+  Future<void>? _details;
+  DateTime? _detailsAt;
+  int _detailsEpoch = 0;
   Json? plan, preferences, progress;
   String? error;
   bool loading = false, _disposed = false;
@@ -60,7 +65,67 @@ class DailyLearningController extends ChangeNotifier {
     if (active) super.notifyListeners();
   }
 
-  Future<void> refresh() async {
+  void applyHome(Json home) {
+    if (!active) return;
+    plan = (home['plan'] as Map?)?.cast<String, dynamic>();
+    preferences = (home['preferences'] as Map).cast<String, dynamic>();
+    onPreferences?.call(preferences!);
+    progress = {
+      ...?progress,
+      'today': home['today'],
+      'days': home['days'],
+      'totals': {...?(progress?['totals'] as Map?), ...(home['totals'] as Map)},
+    };
+    error = null;
+    notifyListeners();
+  }
+
+  void invalidateDetails() {
+    _detailsEpoch++;
+    loading = false;
+    _detailsAt = null;
+    _details = null;
+  }
+
+  Future<void> loadDetails() {
+    if (!active) return Future.value();
+    final at = _detailsAt;
+    if (at != null &&
+        DateTime.now().difference(at) < const Duration(seconds: 60)) {
+      return Future.value();
+    }
+    return _details ??= _loadDetails(_detailsEpoch);
+  }
+
+  Future<void> _loadDetails(int epoch) async {
+    await Future<void>.value();
+    if (!active || epoch != _detailsEpoch) return;
+    loading = true;
+    error = null;
+    notifyListeners();
+    try {
+      final value = await repository.progress();
+      if (!active || epoch != _detailsEpoch) return;
+      progress = value;
+      _detailsAt = DateTime.now();
+    } catch (e) {
+      if (active && epoch == _detailsEpoch) {
+        error = e is ApiFailure
+            ? e.message
+            : 'Không tải được tiến độ. Hãy thử lại.';
+      }
+    } finally {
+      if (active && epoch == _detailsEpoch) {
+        loading = false;
+        _details = null;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> refresh() => onHomeChanged?.call() ?? refreshLegacy();
+
+  Future<void> refreshLegacy() async {
     if (!active) return;
     final epoch = ++_epoch;
     loading = true;
@@ -88,6 +153,7 @@ class DailyLearningController extends ChangeNotifier {
       preferences = results[0];
       onPreferences?.call(preferences!);
       progress = results[1];
+      _detailsAt = DateTime.now();
     } catch (e) {
       if (active && epoch == _epoch) {
         error = e is ApiFailure

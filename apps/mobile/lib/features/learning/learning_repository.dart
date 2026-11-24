@@ -33,7 +33,8 @@ class LearningAttempt {
   List<Json> get steps => learningItems(content['steps']);
   List<Json> get questions => learningItems(json['questions']);
   List<Json> get answers => learningItems(json['answers']);
-  Json? get levelChange => (json['levelChange'] as Map?)?.cast<String, dynamic>();
+  Json? get levelChange =>
+      (json['levelChange'] as Map?)?.cast<String, dynamic>();
   Json? answer(String questionId) {
     for (final a in answers) {
       if (a['questionId'] == questionId) return a;
@@ -56,8 +57,10 @@ abstract class LearningRepository {
   Future<LearningAttempt> check(String id, String questionId, Json body);
   Future<LearningAttempt> submit(String id, int version);
   Future<void> cancel(String id);
-  Future<Json> explainReadingAnswer(String id, String questionId);
-  Future<Json> history({String? cursor});
+  Future<Json> explainAnswer(String id, String questionId);
+  Future<Json> history({String? cursor, String? kind});
+  Future<void> hideHistory(String id);
+  Future<void> hideHistoryBatch(List<String> ids);
   String audioUrl(String path);
 }
 
@@ -71,6 +74,7 @@ class ApiLearningRepository implements LearningRepository {
       api.request('GET', '/learning/lessons/$lessonId');
   @override
   Future<Json> summary() => api.request('GET', '/learning/summary');
+  Future<Json> home() => api.request('GET', '/learning/home');
   @override
   Future<LearningAttempt> start(String lessonId) async => LearningAttempt(
     await api.request('POST', '/learning/lessons/$lessonId/attempts', data: {}),
@@ -112,18 +116,35 @@ class ApiLearningRepository implements LearningRepository {
   Future<void> cancel(String id) async {
     await api.request('DELETE', '/learning/attempts/$id');
   }
+
   @override
-  Future<Json> explainReadingAnswer(String id, String questionId) =>
-      api.request(
-        'POST',
-        '/learning/attempts/$id/answers/$questionId/explain',
-        data: {},
-      );
-  @override
-  Future<Json> history({String? cursor}) => api.request(
-    'GET',
-    '/learning/history?limit=20${cursor == null ? '' : '&cursor=${Uri.encodeQueryComponent(cursor)}'}',
+  Future<Json> explainAnswer(String id, String questionId) => api.request(
+    'POST',
+    '/learning/attempts/$id/answers/$questionId/explain',
+    data: {},
   );
+  @override
+  Future<Json> history({String? cursor, String? kind}) => api.request(
+    'GET',
+    Uri(
+      path: '/learning/history',
+      queryParameters: {'limit': '20', 'cursor': ?cursor, 'kind': ?kind},
+    ).toString(),
+  );
+  @override
+  Future<void> hideHistory(String id) async {
+    await api.request('DELETE', '/learning/history/$id');
+  }
+
+  @override
+  Future<void> hideHistoryBatch(List<String> ids) async {
+    await api.request(
+      'POST',
+      '/learning/history/hide',
+      data: {'attemptIds': ids},
+    );
+  }
+
   @override
   String audioUrl(String path) => api.config.resolve(path).toString();
 }

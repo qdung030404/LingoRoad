@@ -85,6 +85,7 @@ class ActivityOutbox {
     try {
       await restore();
       await _writes;
+      var acknowledged = false;
       final sessions = entries
           .where((e) => e['expired'] != true && e['rejected'] != true)
           .map((e) => e['sessionId'] as String)
@@ -171,6 +172,7 @@ class ActivityOutbox {
           );
           await persist();
           if (!ack.any((seq) => rows.any((row) => row['seq'] == seq))) break;
+          acknowledged = true;
         }
       }
       error = entries.any((e) => e['rejected'] == true)
@@ -178,7 +180,7 @@ class ActivityOutbox {
           : entries.any((e) => e['expired'] == true)
           ? 'Một số bản ghi đã quá hạn đồng bộ 7 ngày và không được cộng vào thời gian đã xác nhận.'
           : null;
-      if (owner.active) await owner.refresh();
+      if (owner.active && acknowledged) await owner.refresh();
     } catch (e) {
       error = e is ApiFailure
           ? e.message

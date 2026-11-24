@@ -47,6 +47,29 @@ class HomeDashboard extends StatefulWidget {
 
 class _HomeDashboardState extends State<HomeDashboard> {
   final scroll = ScrollController();
+  final catalogueKey = GlobalKey();
+  bool _requestedCatalogue = false;
+
+  @override
+  void initState() {
+    super.initState();
+    scroll.addListener(_loadVisibleCatalogue);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _loadVisibleCatalogue(),
+    );
+  }
+
+  void _loadVisibleCatalogue() {
+    if (_requestedCatalogue || !mounted || !scroll.hasClients) return;
+    final section = catalogueKey.currentContext?.findRenderObject();
+    if (section is! RenderBox || !section.hasSize) return;
+    if (section.localToGlobal(Offset.zero).dy <=
+        MediaQuery.sizeOf(context).height) {
+      _requestedCatalogue = true;
+      widget.learning?.loadCatalogue();
+    }
+  }
+
   PreviewModel get model => widget.model;
   WordLibrary get library => widget.library;
   VoidCallback get onProfile => widget.onProfile;
@@ -76,7 +99,8 @@ class _HomeDashboardState extends State<HomeDashboard> {
           (
             rawDays[i]['date'] is String &&
                     DateTime.tryParse(rawDays[i]['date'] as String) != null
-                ? labels[DateTime.parse(rawDays[i]['date'] as String).weekday - 1]
+                ? labels[DateTime.parse(rawDays[i]['date'] as String).weekday -
+                      1]
                 : labels[i],
             ((rawDays[i]['activeSeconds'] as num? ?? 0) > 0) ||
                 ((rawDays[i]['completedLessonCount'] as num? ?? 0) > 0) ||
@@ -272,7 +296,10 @@ class _HomeDashboardState extends State<HomeDashboard> {
                                       : 'Đã ghi nhận',
                                   widget.learning == null
                                       ? '2h 15p'
-                                      : (widget.learning!.daily?.progress?['totals']
+                                      : (widget
+                                                    .learning!
+                                                    .daily
+                                                    ?.progress?['totals']
                                                 is! Map
                                             ? '—'
                                             : '${(((widget.learning!.daily!.progress!['totals'] as Map)['activeSeconds'] as num?) ?? 0) ~/ 60} phút'),
@@ -307,11 +334,16 @@ class _HomeDashboardState extends State<HomeDashboard> {
                               ),
                             learningHeading(
                               widget.learning!.continueLesson?.title ??
-                                  (widget.learning!.lessons.isEmpty
-                                      ? 'Chưa có bài học'
-                                      : widget.learning!.daily?.plan != null
+                                  (widget.learning!.daily?.plan != null &&
+                                          widget
+                                                  .learning!
+                                                  .daily!
+                                                  .plan!['totalCount'] !=
+                                              0
                                       ? 'Đã hoàn thành kế hoạch hôm nay'
-                                      : 'Bạn đã hoàn thành các bài hiện có'),
+                                      : widget.learning!.loading
+                                      ? 'Đang tải bài tiếp theo'
+                                      : 'Chưa có bài học tiếp theo'),
                             ),
                             const SizedBox(height: 8),
                             learningBody(
@@ -335,7 +367,13 @@ class _HomeDashboardState extends State<HomeDashboard> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            learningHeading('Bài học của bạn', size: 24),
+                            KeyedSubtree(
+                              key: catalogueKey,
+                              child: learningHeading(
+                                'Bài học của bạn',
+                                size: 24,
+                              ),
+                            ),
                             const SizedBox(height: 16),
                             LearningCatalogue(
                               controller: widget.learning!,
