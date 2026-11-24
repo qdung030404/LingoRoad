@@ -34,7 +34,8 @@
     "speaking:device-server": "node test/speaking-device-server.cjs",
     "seed:learning:validate": "ts-node prisma/seed-learning.ts --validate",
     "seed:cefr-bank": "ts-node prisma/seed-cefr-bank.ts",
-    "prisma:migrate": "prisma migrate deploy"
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:verify-schema": "node prisma/verify-schema-integrity.cjs"
   },
   "dependencies": {
     "@azure/storage-blob": "^12.34.0",
