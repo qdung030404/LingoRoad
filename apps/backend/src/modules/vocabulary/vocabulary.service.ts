@@ -57,17 +57,36 @@ export class VocabularyService {
     ]);
     const statsByDeck = new Map(wordStats.map(row => [row.deckId, row]));
     const activeByDeck = new Map(activeAttempts.map(row => [row.deckId, row.id]));
-    return decks.map(deck => {
-      const stats = statsByDeck.get(deck.id);
-      const totalWords = Number(stats?.totalWords ?? 0);
-      const rememberedWords = Number(stats?.rememberedWords ?? 0);
-      const reviewedWords = Number(stats?.reviewedWords ?? 0);
-      return {
-        id: deck.id, name: deck.name, version: deck.version, deletedAt: deck.deletedAt, createdAt: deck.createdAt,
-        totalWords, rememberedWords, needsReviewWords: totalWords - rememberedWords,
-        reviewedWords, activeAttemptId: activeByDeck.get(deck.id) ?? null,
-      };
-    });
+    return decks.map(deck =>
+      this.buildDeckView(deck, statsByDeck.get(deck.id), activeByDeck.get(deck.id) ?? null),
+    );
+  }
+  private buildDeckView(
+    deck: {
+      id: string;
+      name: string;
+      version: number;
+      deletedAt: Date | string | null;
+      createdAt: Date | string;
+    },
+    stats?: { totalWords?: number; rememberedWords?: number; reviewedWords?: number },
+    activeAttemptId: string | null = null,
+  ) {
+    const totalWords = Number(stats?.totalWords ?? 0);
+    const rememberedWords = Number(stats?.rememberedWords ?? 0);
+    const reviewedWords = Number(stats?.reviewedWords ?? 0);
+    return {
+      id: deck.id,
+      name: deck.name,
+      version: Number(deck.version),
+      deletedAt: deck.deletedAt ? new Date(deck.deletedAt) : null,
+      createdAt: new Date(deck.createdAt),
+      totalWords,
+      rememberedWords,
+      needsReviewWords: totalWords - rememberedWords,
+      reviewedWords,
+      activeAttemptId,
+    };
   }
   private async deckView(db: Db, deck: VocabularyDeck) {
     return (await this.deckViews(db, deck.userId, [deck]))[0];
@@ -228,34 +247,130 @@ export class VocabularyService {
     return this.updateWord(userId, id, dto, true);
   }
   async summary(userId: string) {
-    return this.prisma.$transaction(async db => {
-      const [totalsRows, decks, completedReviewCount] = await Promise.all([
-        db.$queryRaw<{ totalWords: number; rememberedWords: number; reviewedWords: number }[]>`
-          SELECT
-            COUNT(*)::int AS "totalWords",
-            COUNT(*) FILTER (WHERE w.learning_state = 'REMEMBERED')::int AS "rememberedWords",
-            COUNT(*) FILTER (WHERE w.last_reviewed_at IS NOT NULL)::int AS "reviewedWords"
-          FROM vocabulary_words w
-          JOIN vocabulary_decks d ON d.id = w.deck_id
-          WHERE d.user_id = ${userId}::uuid
-            AND d.deleted_at IS NULL
-            AND w.deleted_at IS NULL
-        `,
-        db.vocabularyDeck.findMany({ where: { userId, deletedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 3 }),
-        db.vocabularyReviewAttempt.count({ where: { userId, status: 'COMPLETED' } }),
-      ]);
-      const totalsRow = totalsRows[0];
-      const totalWords = Number(totalsRow?.totalWords ?? 0);
-      const rememberedWords = Number(totalsRow?.rememberedWords ?? 0);
-      const reviewedWords = Number(totalsRow?.reviewedWords ?? 0);
-      return {
-        totals: {
-          totalWords, rememberedWords, needsReviewWords: totalWords - rememberedWords,
-          reviewedWords, completedReviewCount,
-        },
-        decks: await this.deckViews(db, userId, decks.slice(0, 2)), hasMoreDecks: decks.length > 2,
-      };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+    type SummaryDeckRow = {
+      id: string;
+      name: string;
+      version: number;
+      deletedAt: Date | string | null;
+      createdAt: Date | string;
+      totalWords: number;
+      rememberedWords: number;
+      reviewedWords: number;
+      activeAttemptId: string | null;
+    };
+    const [row] = await this.prisma.$queryRaw<{
+      totalWords: number;
+      rememberedWords: number;
+      reviewedWords: number;
+      completedReviewCount: number;
+      hasMoreDecks: boolean;
+      decks: SummaryDeckRow[] | null;
+    }[]>`
+      WITH
+      word_totals AS (
+        SELECT
+          COUNT(*)::int AS total_words,
+          COUNT(*) FILTER (WHERE w.learning_state = 'REMEMBERED')::int AS remembered_words,
+          COUNT(*) FILTER (WHERE w.last_reviewed_at IS NOT NULL)::int AS reviewed_words
+        FROM vocabulary_words w
+        JOIN vocabulary_decks d ON d.id = w.deck_id
+        WHERE d.user_id = ${userId}::uuid
+          AND d.deleted_at IS NULL
+          AND w.deleted_at IS NULL
+      ),
+      rev_done AS (
+        SELECT COUNT(*)::int AS completed_review_count
+        FROM vocabulary_review_attempts
+        WHERE user_id = ${userId}::uuid
+          AND status = 'COMPLETED'
+      ),
+      top3 AS (
+        SELECT
+          id,
+          name,
+          version,
+          deleted_at,
+          created_at,
+          ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC) AS rn
+        FROM vocabulary_decks
+        WHERE user_id = ${userId}::uuid
+          AND deleted_at IS NULL
+        ORDER BY created_at ASC, id ASC
+        LIMIT 3
+      ),
+      deck_rows AS (
+        SELECT id, name, version, deleted_at, created_at, rn
+        FROM top3
+        WHERE rn <= 2
+      ),
+      deck_word_stats AS (
+        SELECT
+          w.deck_id,
+          COUNT(*)::int AS total_words,
+          COUNT(*) FILTER (WHERE w.learning_state = 'REMEMBERED')::int AS remembered_words,
+          COUNT(*) FILTER (WHERE w.last_reviewed_at IS NOT NULL)::int AS reviewed_words
+        FROM vocabulary_words w
+        JOIN deck_rows dr ON dr.id = w.deck_id
+        WHERE w.deleted_at IS NULL
+        GROUP BY w.deck_id
+      ),
+      deck_active AS (
+        SELECT DISTINCT ON (r.deck_id)
+          r.deck_id,
+          r.id AS active_attempt_id
+        FROM vocabulary_review_attempts r
+        JOIN deck_rows dr ON dr.id = r.deck_id
+        WHERE r.user_id = ${userId}::uuid
+          AND r.status = 'IN_PROGRESS'
+        ORDER BY r.deck_id, r.started_at DESC, r.id DESC
+      )
+      SELECT
+        wt.total_words AS "totalWords",
+        wt.remembered_words AS "rememberedWords",
+        wt.reviewed_words AS "reviewedWords",
+        rd.completed_review_count AS "completedReviewCount",
+        (SELECT COUNT(*) > 2 FROM top3) AS "hasMoreDecks",
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', dr.id,
+                'name', dr.name,
+                'version', dr.version,
+                'deletedAt', (dr.deleted_at AT TIME ZONE 'UTC'),
+                'createdAt', (dr.created_at AT TIME ZONE 'UTC'),
+                'totalWords', COALESCE(dws.total_words, 0),
+                'rememberedWords', COALESCE(dws.remembered_words, 0),
+                'reviewedWords', COALESCE(dws.reviewed_words, 0),
+                'activeAttemptId', da.active_attempt_id
+              )
+              ORDER BY dr.rn
+            )
+            FROM deck_rows dr
+            LEFT JOIN deck_word_stats dws ON dws.deck_id = dr.id
+            LEFT JOIN deck_active da ON da.deck_id = dr.id
+          ),
+          '[]'::json
+        ) AS decks
+      FROM word_totals wt
+      CROSS JOIN rev_done rd
+    `;
+    const totalWords = Number(row?.totalWords ?? 0);
+    const rememberedWords = Number(row?.rememberedWords ?? 0);
+    const reviewedWords = Number(row?.reviewedWords ?? 0);
+    const completedReviewCount = Number(row?.completedReviewCount ?? 0);
+    const deckRows = Array.isArray(row?.decks) ? row.decks : [];
+    return {
+      totals: {
+        totalWords,
+        rememberedWords,
+        needsReviewWords: totalWords - rememberedWords,
+        reviewedWords,
+        completedReviewCount,
+      },
+      decks: deckRows.map(deck => this.buildDeckView(deck, deck, deck.activeAttemptId ?? null)),
+      hasMoreDecks: Boolean(row?.hasMoreDecks),
+    };
   }
 
   /** Returns active words stored in the account's stable Reading vocabulary deck. */

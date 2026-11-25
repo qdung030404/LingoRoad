@@ -16,7 +16,33 @@ const content: LearningContent = {
   })),
 };
 
-function fixture(ml?: Partial<MlClientService>) {
+function collectSqlArg(arg: unknown, textParts: string[], values: unknown[]) {
+  if (arg && typeof arg === 'object' && Array.isArray((arg as { strings?: unknown }).strings)) {
+    const sqlObj = arg as { strings: readonly string[]; values?: readonly unknown[] };
+    textParts.push(sqlObj.strings.join(' '));
+    for (const val of sqlObj.values ?? []) collectSqlArg(val, textParts, values);
+  } else {
+    values.push(arg);
+  }
+}
+
+function extractSqlParts(args: unknown[]) {
+  const textParts: string[] = [];
+  const values: unknown[] = [];
+  if (Array.isArray(args[0])) {
+    textParts.push((args[0] as readonly string[]).join(' '));
+    for (const val of args.slice(1)) collectSqlArg(val, textParts, values);
+  } else if (args.length > 0) {
+    collectSqlArg(args[0], textParts, values);
+    if (textParts.length === 0) textParts.push(String(args[0]));
+  }
+  return { sql: textParts.join(' '), values };
+}
+
+function fixture(
+  ml?: Partial<MlClientService>,
+  extraLessons: Array<LearningLesson & { unit?: { cefrLevel: string } | null }> = [],
+) {
   const now = new Date('2026-11-01T00:00:00Z');
   const lesson: LearningLesson = {
     id: 'lesson', code: 'test-lesson', kind: 'GRAMMAR', title: 'A lesson', description: 'Practice',
@@ -73,8 +99,30 @@ function fixture(ml?: Partial<MlClientService>) {
     },
     learningSkillLevel: { findUnique: jest.fn(async () => null) },
     learningSkillLevelEvent: { findUnique: jest.fn(async () => savedLevelEvent) },
-    learningLesson: { findMany: jest.fn(async () => [lesson]), findFirst: jest.fn(async () => lesson) },
-    $queryRaw: jest.fn(async () => []),
+    learningLesson: { findMany: jest.fn(async () => [lesson, ...extraLessons]), findFirst: jest.fn(async () => lesson) },
+    $queryRaw: jest.fn(async (...args: unknown[]) => {
+      const { sql, values } = extractSqlParts(args);
+      if (!sql.includes('FROM learning_lessons')) return [];
+      const kindFilter = values.length > 0 ? String(values[0]) : undefined;
+      return [lesson as LearningLesson & { unit?: { cefrLevel: string } | null }, ...extraLessons]
+        .filter((row) => row.published && (!kindFilter || row.kind === kindFilter))
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code))
+        .map((row) => {
+          const lessonContent = row.content as Partial<LearningContent> | null;
+          return {
+            id: row.id,
+            code: row.code,
+            kind: row.kind,
+            title: row.title,
+            description: row.description,
+            estimatedMinutes: row.estimatedMinutes,
+            contentVersion: row.contentVersion,
+            questionCount: Array.isArray(lessonContent?.questions) ? lessonContent.questions.length : 5,
+            audioDurationMs: typeof lessonContent?.audioDurationMs === 'number' ? lessonContent.audioDurationMs : null,
+            cefrLevel: row.unit?.cefrLevel ?? null,
+          };
+        });
+    }),
     $transaction: jest.fn(),
   };
   db.$transaction.mockImplementation(async (work: (tx: unknown) => Promise<unknown>) => work(db));
@@ -288,6 +336,75 @@ describe('LearningService', () => {
     expect(summary).toMatchObject({ totalLessons: 1, completedLessonCount: 1, completedAttemptCount: 2, activeAttemptCount: 0, continueAttemptId: null });
     const catalogue = await service.catalogue('owner');
     expect(catalogue.items[0]).toMatchObject({ state: 'COMPLETED', activeAttemptId: null });
+  });
+
+  it('extracts catalogue metadata via $queryRaw without calling learningLesson.findMany, preserves defaults, filters by kind, and isolates latestResult per learner', async () => {
+    const now = new Date('2026-11-01T00:00:00Z');
+    const listening = JSON.parse(readFileSync(join(__dirname, '../../../prisma/listening-content/campus-cafe-v1.json'), 'utf8')) as LearningContent;
+    const extra: Array<LearningLesson & { unit?: { cefrLevel: string } | null }> = [
+      {
+        id: 'legacy-lesson',
+        code: 'a-legacy',
+        kind: 'GRAMMAR',
+        title: 'Legacy',
+        description: 'No questions field',
+        estimatedMinutes: 6,
+        sortOrder: 0,
+        published: true,
+        contentVersion: 1,
+        unitId: null,
+        content: {} as Prisma.JsonValue,
+        createdAt: now,
+        updatedAt: now,
+        unit: null,
+      },
+      {
+        id: 'listening-lesson',
+        code: 'z-listening',
+        kind: 'LISTENING',
+        title: 'Cafe',
+        description: 'Listening',
+        estimatedMinutes: 8,
+        sortOrder: 5,
+        published: true,
+        contentVersion: 1,
+        unitId: 'unit-b1',
+        content: structuredClone(listening) as unknown as Prisma.JsonValue,
+        createdAt: now,
+        updatedAt: now,
+        unit: { cefrLevel: 'B1' },
+      },
+    ];
+    const { service, db, attempt } = fixture(undefined, extra);
+    db.learningAttempt.findMany.mockResolvedValue([
+      { ...attempt, lessonId: 'listening-lesson', status: 'COMPLETED', correctCount: 4, totalQuestions: 5, historyHiddenAt: null },
+      { ...attempt, lessonId: 'legacy-lesson', status: 'COMPLETED', correctCount: 2, totalQuestions: 5, historyHiddenAt: new Date() },
+    ]);
+
+    const all = await service.catalogue('owner');
+    expect(db.learningLesson.findMany).not.toHaveBeenCalled();
+    expect(db.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(all.items.map(i => i.code)).toEqual(['a-legacy', 'test-lesson', 'z-listening']);
+    expect(all.items[0]).toMatchObject({
+      id: 'legacy-lesson',
+      questionCount: 5,
+      state: 'COMPLETED',
+      latestResult: null,
+    });
+    expect(all.items[0]).not.toHaveProperty('audioDurationMs');
+    expect(all.items[0]).not.toHaveProperty('cefrLevel');
+    expect(all.items[2]).toMatchObject({
+      id: 'listening-lesson',
+      cefrLevel: 'B1',
+      questionCount: 5,
+      audioDurationMs: listening.audioDurationMs,
+      state: 'COMPLETED',
+      latestResult: { correctCount: 4, totalQuestions: 5, scoreRatio: 0.8 },
+    });
+
+    const filtered = await service.catalogue('owner', 'LISTENING');
+    expect(filtered.items).toHaveLength(1);
+    expect(filtered.items[0].id).toBe('listening-lesson');
   });
 
   it('starts a fresh attempt by discarding leftover IN_PROGRESS progress and supports explicit cancel', async () => {

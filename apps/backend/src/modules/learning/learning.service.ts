@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
-import { LearningAttempt, LearningAttemptAnswer, LearningLesson, Prisma } from '@prisma/client';
+import { CefrLevel, LearningAttempt, LearningAttemptAnswer, LearningLesson, Prisma } from '@prisma/client';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { PrismaService } from '../prisma/prisma.service';
@@ -34,6 +34,18 @@ function extractBoundedPassage(passage: string, skillCode?: string, questionType
 }
 
 type Attempt = LearningAttempt & { answers: LearningAttemptAnswer[] };
+interface CatalogueLessonRow {
+  id: string;
+  code: string;
+  kind: LearningLesson['kind'];
+  title: string;
+  description: string;
+  estimatedMinutes: number;
+  contentVersion: number;
+  questionCount: number;
+  audioDurationMs: number | null;
+  cefrLevel: CefrLevel | null;
+}
 const includeAnswers = { answers: true } as const;
 const includeUnitLevel = { unit: { select: { cefrLevel: true } } } as const;
 type Database = Prisma.TransactionClient;
@@ -74,13 +86,34 @@ export class LearningService {
     return attempt.contentSnapshot as unknown as LearningContent;
   }
 
+  private buildLessonSnapshot(
+    lesson: Pick<LearningLesson, 'id' | 'code' | 'kind' | 'title' | 'description' | 'estimatedMinutes' | 'contentVersion'>,
+    questionCount: number,
+    audioDurationMs?: number | null,
+    cefrLevel?: CefrLevel | null,
+  ): LessonSnapshot {
+    return {
+      id: lesson.id,
+      code: lesson.code,
+      kind: lesson.kind,
+      title: lesson.title,
+      description: lesson.description,
+      estimatedMinutes: Number(lesson.estimatedMinutes),
+      contentVersion: Number(lesson.contentVersion),
+      questionCount: Number(questionCount),
+      ...(audioDurationMs ? { audioDurationMs: Number(audioDurationMs) } : {}),
+      ...(cefrLevel ? { cefrLevel } : {}),
+    };
+  }
+
   private lessonInfo(lesson: Prisma.LearningLessonGetPayload<{ include: typeof includeUnitLevel }>): LessonSnapshot {
     const content = lesson.content as unknown as LearningContent;
-    return { id: lesson.id, code: lesson.code, kind: lesson.kind, title: lesson.title, description: lesson.description,
-      estimatedMinutes: lesson.estimatedMinutes, contentVersion: lesson.contentVersion,
-      questionCount: Array.isArray(content?.questions) ? content.questions.length : 5,
-      ...(content.audioDurationMs ? { audioDurationMs: content.audioDurationMs } : {}),
-      ...(lesson.unit ? { cefrLevel: lesson.unit.cefrLevel } : {}) };
+    return this.buildLessonSnapshot(
+      lesson,
+      Array.isArray(content?.questions) ? content.questions.length : 5,
+      content?.audioDurationMs,
+      lesson.unit?.cefrLevel,
+    );
   }
 
   private publicContent(content: LearningContent, completed: boolean) {
@@ -146,9 +179,34 @@ export class LearningService {
   }
 
   async catalogue(userId: string, kind?: LearningLesson['kind']) {
+    const kindClause = kind ? Prisma.sql`AND l.kind = ${kind}::"LearningKind"` : Prisma.empty;
     const [lessons, attempts] = await Promise.all([
-      this.prisma.learningLesson.findMany({ where: { published: true, ...(kind ? { kind } : {}) }, include: includeUnitLevel,
-        orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }] }),
+      this.prisma.$queryRaw<CatalogueLessonRow[]>`
+        SELECT
+          l.id,
+          l.code,
+          l.kind::text AS kind,
+          l.title,
+          l.description,
+          l.estimated_minutes AS "estimatedMinutes",
+          l.content_version AS "contentVersion",
+          CASE
+            WHEN jsonb_typeof(l.content -> 'questions') = 'array'
+              THEN jsonb_array_length(l.content -> 'questions')
+            ELSE 5
+          END AS "questionCount",
+          CASE
+            WHEN jsonb_typeof(l.content -> 'audioDurationMs') = 'number'
+              THEN (l.content ->> 'audioDurationMs')::double precision
+            ELSE NULL
+          END AS "audioDurationMs",
+          u.cefr_level::text AS "cefrLevel"
+        FROM learning_lessons l
+        LEFT JOIN learning_units u ON u.id = l.unit_id
+        WHERE l.published = true
+          ${kindClause}
+        ORDER BY l.sort_order ASC, l.code ASC
+      `,
       this.prisma.learningAttempt.findMany({
         where: { userId },
         select: { lessonId: true, status: true, correctCount: true, totalQuestions: true, historyHiddenAt: true },
@@ -159,8 +217,12 @@ export class LearningService {
       const records = attempts.filter((attempt) => attempt.lessonId === lesson.id);
       const completed = records.filter((attempt) => attempt.status === 'COMPLETED');
       const latest = completed.find((attempt) => attempt.historyHiddenAt == null);
-      return { ...this.lessonInfo(lesson), state: completed.length ? 'COMPLETED' : 'NOT_STARTED',
-        activeAttemptId: null, latestResult: latest ? this.result(latest) : null };
+      return {
+        ...this.buildLessonSnapshot(lesson, lesson.questionCount, lesson.audioDurationMs, lesson.cefrLevel),
+        state: completed.length ? 'COMPLETED' : 'NOT_STARTED',
+        activeAttemptId: null,
+        latestResult: latest ? this.result(latest) : null,
+      };
     }) };
   }
 
