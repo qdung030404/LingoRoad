@@ -88,6 +88,8 @@ describe('RegisterUseCase', () => {
         preferredKinds: ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'],
         preferencesVersion: 0,
         reminderEnabled: true,
+        reminderTime: '19:30',
+        reminderVersion: 0,
         updatedAt: new Date('2026-10-08T00:00:00Z'),
       },
     };

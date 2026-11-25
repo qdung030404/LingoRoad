@@ -195,6 +195,8 @@ model UserProfile {
   selfAssessedCefr CefrLevel? @map("self_assessed_cefr")
   onboardingCompletedAt DateTime? @map("onboarding_completed_at")
   reminderEnabled  Boolean   @default(true) @map("reminder_enabled")
+  reminderTime     String    @default("19:30") @map("reminder_time") @db.VarChar(5)
+  reminderVersion  Int       @default(0) @map("reminder_version")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

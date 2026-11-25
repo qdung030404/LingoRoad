@@ -60,9 +60,35 @@ export class PlanningService {
     return profile;
   }
   private preferenceDto(profile: Awaited<ReturnType<PlanningService['profile']>>) {
-    return { dailyGoalMinutes: profile.dailyGoalMinutes, preferredKinds: profile.preferredKinds, version: profile.preferencesVersion };
+    return {
+      learningPurpose: profile.learningPurpose ?? null,
+      targetCefr: profile.targetCefr,
+      dailyGoalMinutes: profile.dailyGoalMinutes,
+      preferredKinds: profile.preferredKinds,
+      version: profile.preferencesVersion,
+    };
   }
-  async preferences(userId: string) { return this.preferenceDto(await this.profile(this.prisma, userId)); }
+  async preferences(userId: string) {
+    const profile = await this.profile(this.prisma, userId);
+    const [skillLevel, placement] = await Promise.all([
+      this.prisma.learningSkillLevel?.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }) ?? Promise.resolve(null),
+      this.prisma.placementSession?.findFirst({
+        where: { userId, status: 'COMPLETED' },
+        orderBy: { completedAt: 'desc' },
+        select: { skillResults: true, completedAt: true },
+      }) ?? Promise.resolve(null),
+    ]);
+    const placementInit = initialReadingLevel(
+      placement?.skillResults as Record<string, unknown> | undefined,
+      placement?.completedAt,
+    );
+    const readingLevel = skillLevel
+      ? this.shouldUpgradeFromPlacement(skillLevel, placementInit)
+        ? { cefrLevel: placementInit.cefrLevel, source: placementInit.source }
+        : { cefrLevel: skillLevel.cefrLevel, source: skillLevel.source }
+      : { cefrLevel: placementInit.cefrLevel, source: placementInit.source };
+    return { ...this.preferenceDto(profile), readingLevel };
+  }
 
   async updatePreferences(userId: string, dto: LearningPreferencesDto) {
     return this.prisma.$transaction(async tx => {
@@ -70,10 +96,21 @@ export class PlanningService {
       const profile = await this.profile(tx, userId);
       if (profile.preferencesVersion !== dto.expectedVersion) this.conflict();
       const preferredKinds = [...new Set(dto.preferredKinds)];
-      const changed = profile.dailyGoalMinutes !== dto.dailyGoalMinutes || [...profile.preferredKinds].sort().join() !== [...preferredKinds].sort().join();
-      const saved = changed ? await tx.userProfile.update({ where: { userId }, data: {
-        dailyGoalMinutes: dto.dailyGoalMinutes, preferredKinds, preferencesVersion: { increment: 1 },
-      } }) : profile;
+      const kindsChanged = [...profile.preferredKinds].sort().join() !== [...preferredKinds].sort().join();
+      const minutesChanged = profile.dailyGoalMinutes !== dto.dailyGoalMinutes;
+      const purposeChanged = dto.learningPurpose !== undefined && dto.learningPurpose !== profile.learningPurpose;
+      const cefrChanged = dto.targetCefr !== undefined && dto.targetCefr !== profile.targetCefr;
+      const changed = minutesChanged || kindsChanged || purposeChanged || cefrChanged;
+      const saved = changed ? await tx.userProfile.update({
+        where: { userId },
+        data: {
+          dailyGoalMinutes: dto.dailyGoalMinutes,
+          preferredKinds,
+          ...(dto.learningPurpose === undefined ? {} : { learningPurpose: dto.learningPurpose }),
+          ...(dto.targetCefr === undefined ? {} : { targetCefr: dto.targetCefr }),
+          preferencesVersion: { increment: 1 },
+        },
+      }) : profile;
       const existing = await tx.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });
       if (existing && changed) await this.ensureIn(tx, userId);
       return this.preferenceDto(saved);
@@ -89,12 +126,18 @@ export class PlanningService {
     });
   }
 
-  async updateAccountProfile<T>(userId: string, write: (db: Db) => Promise<T>): Promise<T> {
+  async updateAccountProfile<T>(
+    userId: string,
+    write: (db: Db) => Promise<T>,
+    shouldReconcile?: (result: T) => boolean,
+  ): Promise<T> {
     return this.prisma.$transaction(async tx => {
       await this.lock(tx, userId);
       const result = await write(tx);
-      const existing = await tx.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });
-      if (existing) await this.ensureIn(tx, userId);
+      if (shouldReconcile ? shouldReconcile(result) : true) {
+        const existing = await tx.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });
+        if (existing) await this.ensureIn(tx, userId);
+      }
       return result;
     });
   }

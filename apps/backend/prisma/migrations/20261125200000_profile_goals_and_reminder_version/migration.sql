@@ -1,0 +1,3 @@
+ALTER TABLE "user_profiles"
+ADD COLUMN "reminder_time" VARCHAR(5) NOT NULL DEFAULT '19:30',
+ADD COLUMN "reminder_version" INTEGER NOT NULL DEFAULT 0;

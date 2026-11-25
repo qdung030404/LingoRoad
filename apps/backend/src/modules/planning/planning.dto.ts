@@ -1,9 +1,24 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, ArrayMinSize, ArrayUnique, IsArray, IsEnum, IsInt, IsUUID, Max, Min, ValidateNested } from 'class-validator';
-import { LearningKind } from '@prisma/client';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsUUID,
+  Max,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { LearningKind, LearningPurpose } from '@prisma/client';
 
 export class LearningPreferencesDto {
   @IsInt() @Min(0) expectedVersion!: number;
+  @IsOptional() @IsEnum(LearningPurpose) learningPurpose?: LearningPurpose;
+  @IsOptional() @IsIn(['A1', 'A2', 'B1', 'B2', 'C1']) targetCefr?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
   @IsInt() @Min(5) @Max(120) dailyGoalMinutes!: number;
   @IsArray() @ArrayMinSize(1) @ArrayMaxSize(4) @ArrayUnique() @IsEnum(LearningKind, { each: true }) preferredKinds!: LearningKind[];
 }
