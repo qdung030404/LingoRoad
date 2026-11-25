@@ -1385,6 +1385,70 @@
       "parent": null
     },
     {
+      "code": "grammar.foundations",
+      "name": "Foundations and parts of speech",
+      "name_vi": "Từ loại và nền tảng câu",
+      "category": "grammar",
+      "cefr": "A1",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.clauses_voice",
+      "name": "Clauses, voice and reported speech",
+      "name_vi": "Mệnh đề, thể bị động và câu tường thuật",
+      "category": "grammar",
+      "cefr": "B1",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.discourse_emphasis",
+      "name": "Academic syntax, inversion and discourse",
+      "name_vi": "Cú pháp học thuật, đảo ngữ và nhấn mạnh",
+      "category": "grammar",
+      "cefr": "C1",
+      "parent": "grammar"
+    },
+    {
+      "code": "grammar.cleft_sentences",
+      "name": "Cleft sentences",
+      "name_vi": "Câu chẻ nhấn mạnh",
+      "category": "grammar",
+      "cefr": "C1",
+      "parent": "grammar.discourse_emphasis"
+    },
+    {
+      "code": "grammar.ellipsis_substitution",
+      "name": "Advanced ellipsis and substitution",
+      "name_vi": "Tỉnh lược và thay thế nâng cao",
+      "category": "grammar",
+      "cefr": "C2",
+      "parent": "grammar.discourse_emphasis"
+    },
+    {
+      "code": "grammar.fronting_emphasis",
+      "name": "Rhetorical fronting and thematic progression",
+      "name_vi": "Đưa thành phần câu lên đầu và đảo trật tự tu từ",
+      "category": "grammar",
+      "cefr": "C2",
+      "parent": "grammar.discourse_emphasis"
+    },
+    {
+      "code": "grammar.formulaic_subjunctive",
+      "name": "Formulaic subjunctive and idiomatic frames",
+      "name_vi": "Thức giả định cổ điển và khung cú pháp thành ngữ",
+      "category": "grammar",
+      "cefr": "C2",
+      "parent": "grammar.discourse_emphasis"
+    },
+    {
+      "code": "grammar.nuanced_modality",
+      "name": "Nuanced modality and concession",
+      "name_vi": "Sắc thái động từ khuyết thiếu tinh tế",
+      "category": "grammar",
+      "cefr": "C2",
+      "parent": "grammar.discourse_emphasis"
+    },
+    {
       "code": "vocabulary",
       "name": "Vocabulary",
       "name_vi": "Vocabulary",

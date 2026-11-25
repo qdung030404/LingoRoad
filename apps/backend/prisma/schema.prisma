@@ -385,6 +385,8 @@ model LearningLesson {
   content          Json              @db.JsonB
   unitId           String?           @map("unit_id") @db.Uuid
   unit             LearningUnit?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  grammarTopicId   String?           @map("grammar_topic_id") @db.Uuid
+  grammarTopic     GrammarTopic?     @relation(fields: [grammarTopicId], references: [id], onDelete: SetNull)
   createdAt        DateTime                 @default(now()) @map("created_at")
   updatedAt        DateTime                 @updatedAt @map("updated_at")
   attempts         LearningAttempt[]
@@ -392,7 +394,51 @@ model LearningLesson {
 
   @@index([published, sortOrder])
   @@index([unitId, sortOrder])
+  @@index([grammarTopicId])
   @@map("learning_lessons")
+}
+
+model GrammarTopic {
+  id             String   @id @default(uuid()) @db.Uuid
+  code           String   @unique @db.VarChar(100)
+  parentId       String?  @map("parent_id") @db.Uuid
+  cefrLevel      CefrLevel @map("cefr_level")
+  isLeaf         Boolean  @default(true) @map("is_leaf")
+  titleEn        String   @map("title_en") @db.VarChar(150)
+  titleVi        String   @map("title_vi") @db.VarChar(150)
+  summaryVi      String   @default("") @map("summary_vi") @db.Text
+  formulas       Json     @default("[]") @db.JsonB
+  usageNotes     Json     @default("[]") @map("usage_notes") @db.JsonB
+  examples       Json     @default("[]") @db.JsonB
+  orderIndex     Int      @default(0) @map("order_index")
+  published      Boolean  @default(true)
+  contentVersion Int      @default(1) @map("content_version")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  parent        GrammarTopic?         @relation("GrammarHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children      GrammarTopic[]        @relation("GrammarHierarchy")
+  prerequisites GrammarPrerequisite[] @relation("TargetGrammarTopic")
+  dependents    GrammarPrerequisite[] @relation("PrerequisiteGrammarTopic")
+  lessons       LearningLesson[]
+
+  @@index([cefrLevel, published, orderIndex])
+  @@index([parentId, orderIndex])
+  @@index([published, isLeaf, orderIndex])
+  @@map("grammar_topics")
+}
+
+model GrammarPrerequisite {
+  prerequisiteId String       @map("prerequisite_id") @db.Uuid
+  targetId       String       @map("target_id") @db.Uuid
+  createdAt      DateTime     @default(now()) @map("created_at")
+
+  prerequisite GrammarTopic @relation("PrerequisiteGrammarTopic", fields: [prerequisiteId], references: [id], onDelete: Cascade)
+  target       GrammarTopic @relation("TargetGrammarTopic", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([prerequisiteId, targetId])
+  @@index([targetId])
+  @@map("grammar_prerequisites")
 }
 
 model LearningAttempt {

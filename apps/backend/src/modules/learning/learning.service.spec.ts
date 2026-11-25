@@ -46,7 +46,7 @@ function fixture(
   const now = new Date('2026-11-01T00:00:00Z');
   const lesson: LearningLesson = {
     id: 'lesson', code: 'test-lesson', kind: 'GRAMMAR', title: 'A lesson', description: 'Practice',
-    estimatedMinutes: 10, sortOrder: 1, published: true, contentVersion: 1, unitId: null, content: structuredClone(content) as unknown as Prisma.JsonValue,
+    estimatedMinutes: 10, sortOrder: 1, published: true, contentVersion: 1, unitId: null, grammarTopicId: null, content: structuredClone(content) as unknown as Prisma.JsonValue,
     createdAt: now, updatedAt: now
   };
   const attempt: LearningAttempt & { answers: LearningAttemptAnswer[] } = {
@@ -353,6 +353,7 @@ describe('LearningService', () => {
         published: true,
         contentVersion: 1,
         unitId: null,
+        grammarTopicId: null,
         content: {} as Prisma.JsonValue,
         createdAt: now,
         updatedAt: now,
@@ -369,6 +370,7 @@ describe('LearningService', () => {
         published: true,
         contentVersion: 1,
         unitId: 'unit-b1',
+        grammarTopicId: null,
         content: structuredClone(listening) as unknown as Prisma.JsonValue,
         createdAt: now,
         updatedAt: now,

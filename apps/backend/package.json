@@ -33,6 +33,8 @@
     "test:speaking:live": "node --test test/speaking-live.e2e.cjs",
     "speaking:device-server": "node test/speaking-device-server.cjs",
     "seed:learning:validate": "ts-node prisma/seed-learning.ts --validate",
+    "seed:grammar": "ts-node prisma/seed-grammar.ts",
+    "seed:grammar:validate": "ts-node prisma/seed-grammar.ts --validate",
     "seed:cefr-bank": "ts-node prisma/seed-cefr-bank.ts",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:verify-schema": "node prisma/verify-schema-integrity.cjs"
