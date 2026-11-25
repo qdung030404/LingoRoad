@@ -1,12 +1,28 @@
+import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { VocabularyCommandService } from './vocabulary-command.service';
 import { VocabularyService } from './vocabulary.service';
 
+function collectSqlValues(arg: unknown, values: unknown[] = []): unknown[] {
+  if (arg && typeof arg === 'object' && Array.isArray((arg as { values?: unknown[] }).values)) {
+    for (const val of (arg as { values: unknown[] }).values) {
+      if (val && typeof val === 'object' && Array.isArray((val as { strings?: unknown[] }).strings)) {
+        collectSqlValues(val, values);
+      } else {
+        values.push(val);
+      }
+    }
+  }
+  return values;
+}
+
 describe('VocabularyService batched queries', () => {
   const now = new Date('2026-11-24T00:00:00Z');
+  const userId = '11111111-1111-4111-8111-111111111111';
   const deckRow = (id: string, name: string, deletedAt: Date | null = null) => ({
     id,
-    userId: '11111111-1111-4111-8111-111111111111',
+    userId,
     sourceTopicId: null,
     name,
     systemKey: null,
@@ -14,6 +30,21 @@ describe('VocabularyService batched queries', () => {
     createdAt: now,
     updatedAt: now,
     deletedAt,
+  });
+  const rawDeckRow = (
+    id: string,
+    name: string,
+    stats: Partial<{ totalWords: number; rememberedWords: number; reviewedWords: number; activeAttemptId: string | null }> = {},
+  ) => ({
+    id,
+    name,
+    version: 1,
+    deletedAt: null,
+    createdAt: now.toISOString(),
+    totalWords: stats.totalWords ?? 0,
+    rememberedWords: stats.rememberedWords ?? 0,
+    reviewedWords: stats.reviewedWords ?? 0,
+    activeAttemptId: stats.activeAttemptId ?? null,
   });
 
   function makeService(overrides: Record<string, any> = {}) {
@@ -39,36 +70,34 @@ describe('VocabularyService batched queries', () => {
     return { db, service: new VocabularyService(db as unknown as PrismaService, commands) };
   }
 
-  it('batches word counts and active review lookup for a 20-deck page into 3 queries total', async () => {
+  it('batches paginated deck stats and active review lookup into a single parameterized CTE query', async () => {
     const decks = Array.from({ length: 20 }, (_, i) =>
-      deckRow(`00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`, `Deck ${i + 1}`),
+      rawDeckRow(
+        `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+        `Deck ${i + 1}`,
+        i === 0
+          ? { totalWords: 12, rememberedWords: 5, reviewedWords: 8, activeAttemptId: 'att-1' }
+          : i === 4
+            ? { totalWords: 3, rememberedWords: 3, reviewedWords: 3, activeAttemptId: 'att-5' }
+            : {},
+      ),
     );
-    const { db, service } = makeService({
-      vocabularyDeck: {
-        findMany: jest.fn(async () => decks),
-        findFirst: jest.fn(async () => decks[0]),
-      },
-      vocabularyReviewAttempt: {
-        findMany: jest.fn(async () => [
-          { id: 'att-1', deckId: decks[0].id },
-          { id: 'att-5', deckId: decks[4].id },
-        ]),
-      },
-      $queryRaw: jest.fn(async () => [
-        { deckId: decks[0].id, totalWords: 12, rememberedWords: 5, reviewedWords: 8 },
-        { deckId: decks[4].id, totalWords: 3, rememberedWords: 3, reviewedWords: 3 },
-      ]),
-    });
+    const queryRaw = jest.fn().mockResolvedValueOnce([{ cursorValid: true, hasMore: true, decks }]);
+    const { db, service } = makeService({ $queryRaw: queryRaw });
 
-    const result = await service.decks('11111111-1111-4111-8111-111111111111', { limit: 20 });
+    const result = await service.decks(userId, { limit: 20 });
 
     expect(result.items).toHaveLength(20);
-    expect(result.nextCursor).toBeNull();
-    expect(db.vocabularyDeck.findMany).toHaveBeenCalledTimes(1);
-    expect(db.$queryRaw).toHaveBeenCalledTimes(1);
-    expect(db.vocabularyReviewAttempt.findMany).toHaveBeenCalledTimes(1);
+    expect(result.nextCursor).toBe(decks[19].id);
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(db.vocabularyDeck.findMany).not.toHaveBeenCalled();
+    expect(db.vocabularyDeck.findFirst).not.toHaveBeenCalled();
     expect(db.vocabularyWord.findMany).not.toHaveBeenCalled();
+    expect(db.vocabularyReviewAttempt.findMany).not.toHaveBeenCalled();
 
+    expect(result.items[0].createdAt).toBeInstanceOf(Date);
+    expect(result.items[0].createdAt.toISOString()).toBe('2026-11-24T00:00:00.000Z');
     expect(result.items[0]).toMatchObject({
       id: decks[0].id,
       totalWords: 12,
@@ -95,12 +124,43 @@ describe('VocabularyService batched queries', () => {
     });
   });
 
-  it('skips word/attempt batch queries when user has no decks', async () => {
-    const { db, service } = makeService();
-    const result = await service.decks('11111111-1111-4111-8111-111111111111', { limit: 20 });
+  it('returns empty list and null cursor when user has no decks in a single query', async () => {
+    const queryRaw = jest.fn().mockResolvedValueOnce([{ cursorValid: true, hasMore: false, decks: [] }]);
+    const { db, service } = makeService({ $queryRaw: queryRaw });
+
+    const result = await service.decks(userId, { limit: 20 });
+
     expect(result).toEqual({ items: [], nextCursor: null });
-    expect(db.$queryRaw).not.toHaveBeenCalled();
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(db.$transaction).not.toHaveBeenCalled();
     expect(db.vocabularyReviewAttempt.findMany).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFoundException when decks cursor does not resolve to an active owned deck', async () => {
+    const queryRaw = jest.fn().mockResolvedValueOnce([{ cursorValid: false, hasMore: false, decks: [] }]);
+    const { db, service } = makeService({ $queryRaw: queryRaw });
+
+    await expect(
+      service.decks(userId, { limit: 20, cursor: '00000000-0000-4000-8000-000000000404' }),
+    ).rejects.toThrow(NotFoundException);
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('passes trimmed parameterized ILIKE pattern preserving native wildcards and backslash semantics', async () => {
+    const queryRaw = jest.fn((strings: TemplateStringsArray, ...values: unknown[]) => {
+      expect(Array.isArray(strings)).toBe(true);
+      const sql = Prisma.sql(strings, ...values);
+      const allValues = collectSqlValues(sql);
+      expect(allValues).toContain('%A_B%\\test%');
+      expect(strings.join(' ').toUpperCase()).not.toContain('ESCAPE');
+      return Promise.resolve([{ cursorValid: true, hasMore: false, decks: [] }]);
+    });
+    const { service } = makeService({ $queryRaw: queryRaw });
+
+    const result = await service.decks(userId, { limit: 20, query: '  A_B%\\test  ' });
+    expect(result).toEqual({ items: [], nextCursor: null });
+    expect(queryRaw).toHaveBeenCalledTimes(1);
   });
 
   it('returns zero word counts for a soft-deleted deck while preserving activeAttemptId', async () => {

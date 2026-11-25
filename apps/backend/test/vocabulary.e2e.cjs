@@ -502,4 +502,182 @@ describe('Personal vocabulary and persisted review', () => {
     assert.equal(otherSummary.decks[0].id, otherDeck.id);
     assert.equal(otherSummary.decks[0].activeAttemptId, null);
   });
+
+  it('keeps /vocabulary/decks exact across empty accounts, tie-break pagination, native ILIKE %, _, \\ semantics, non-matching cursors, invalid cursors, active reviews and isolated users', async () => {
+    await request(app.getHttpServer()).get('/vocabulary/decks').expect(401);
+
+    const emptyUser = await account();
+    const emptyDecks = (await api(emptyUser, 'get', '/vocabulary/decks').expect(200)).body.data;
+    assert.deepEqual(emptyDecks, { items: [], nextCursor: null });
+
+    const owner = await account();
+    const other = await account();
+
+    const otherDeck = await createDeck(other, 'A_B Secret');
+    await createWord(other, otherDeck, 'secret');
+
+    const tieA = await createDeck(owner, 'Tie Deck A');
+    const tieB = await createDeck(owner, 'Tie Deck B');
+    const sharedCreatedAt = new Date('2026-11-24T00:00:00.000Z');
+    await prisma.vocabularyDeck.updateMany({
+      where: { id: { in: [tieA.id, tieB.id] } },
+      data: { createdAt: sharedCreatedAt },
+    });
+
+    await createWord(owner, tieA, 'alpha');
+    await finish(owner, (await start(owner, tieA)).attempt, 'EASY');
+
+    await createWord(owner, tieB, 'bravo');
+    await finish(owner, (await start(owner, tieB)).attempt, 'HARD');
+    const abandonedOnTieB = (await start(owner, tieB, 'ALL')).attempt;
+    await act(owner, abandonedOnTieB, 'ABANDON');
+
+    const deckAB = await createDeck(owner, 'AB');
+    const deckAUnderB = await createDeck(owner, 'A_B');
+    const deckAPctB = await createDeck(owner, 'A%B');
+    const deckAHashB = await createDeck(owner, 'A#B');
+    const deckASlashB = await createDeck(owner, 'A\\B');
+
+    await createWord(owner, deckAPctB, 'metric');
+    const softDeletedWord = await createWord(owner, deckAPctB, 'obsolete');
+    await api(owner, 'delete', `/vocabulary/words/${softDeletedWord.id}`, {
+      commandId: randomUUID(),
+      expectedVersion: softDeletedWord.version,
+    }).expect(200);
+    const activeOnPctB = (await start(owner, deckAPctB, 'ALL')).attempt;
+
+    const nonMatchMid = await createDeck(owner, 'Mid NonMatch');
+    const beta1 = await createDeck(owner, 'Beta 1');
+    const beta2 = await createDeck(owner, 'Beta 2');
+    const beta3 = await createDeck(owner, 'Beta 3');
+
+    const orderedDecks = [
+      [deckAB, '2026-11-24T00:01:00.000Z'],
+      [deckAUnderB, '2026-11-24T00:02:00.000Z'],
+      [deckAPctB, '2026-11-24T00:03:00.000Z'],
+      [deckAHashB, '2026-11-24T00:04:00.000Z'],
+      [deckASlashB, '2026-11-24T00:05:00.000Z'],
+      [nonMatchMid, '2026-11-24T00:06:00.000Z'],
+      [beta1, '2026-11-24T00:07:00.000Z'],
+      [beta2, '2026-11-24T00:08:00.000Z'],
+      [beta3, '2026-11-24T00:09:00.000Z'],
+    ];
+    for (const [deck, iso] of orderedDecks) {
+      await prisma.vocabularyDeck.update({ where: { id: deck.id }, data: { createdAt: new Date(iso) } });
+    }
+
+    const softDeletedDeck = await createDeck(owner, 'Removed Deck');
+    await api(owner, 'delete', `/vocabulary/decks/${softDeletedDeck.id}`, {
+      commandId: randomUUID(),
+      expectedVersion: softDeletedDeck.version,
+    }).expect(200);
+
+    const expectedTieOrder = [tieA.id, tieB.id].sort();
+    const expectedAllOrder = [...expectedTieOrder, ...orderedDecks.map(([deck]) => deck.id)];
+
+    const pagedItems = [];
+    let cursor = null;
+    do {
+      const url = `/vocabulary/decks?limit=1${cursor ? `&cursor=${cursor}` : ''}`;
+      const page = (await api(owner, 'get', url).expect(200)).body.data;
+      assert.equal(page.items.length, 1);
+      pagedItems.push(page.items[0]);
+      cursor = page.nextCursor;
+      if (pagedItems.length < expectedAllOrder.length) {
+        assert.equal(cursor, page.items[0].id);
+      } else {
+        assert.equal(cursor, null);
+      }
+    } while (cursor);
+
+    assert.deepEqual(pagedItems.map(i => i.id), expectedAllOrder);
+
+    const byId = new Map(pagedItems.map(item => [item.id, item]));
+    assert.equal(new Date(byId.get(tieA.id).createdAt).toISOString(), sharedCreatedAt.toISOString());
+    assert.equal(byId.get(tieA.id).deletedAt, null);
+    assert.equal(byId.get(tieA.id).totalWords, 1);
+    assert.equal(byId.get(tieA.id).rememberedWords, 1);
+    assert.equal(byId.get(tieA.id).needsReviewWords, 0);
+    assert.equal(byId.get(tieA.id).reviewedWords, 1);
+    assert.equal(byId.get(tieA.id).activeAttemptId, null);
+
+    assert.equal(byId.get(tieB.id).totalWords, 1);
+    assert.equal(byId.get(tieB.id).rememberedWords, 0);
+    assert.equal(byId.get(tieB.id).needsReviewWords, 1);
+    assert.equal(byId.get(tieB.id).reviewedWords, 1);
+    assert.equal(byId.get(tieB.id).activeAttemptId, null);
+
+    assert.equal(byId.get(deckAPctB.id).totalWords, 1);
+    assert.equal(byId.get(deckAPctB.id).rememberedWords, 0);
+    assert.equal(byId.get(deckAPctB.id).needsReviewWords, 1);
+    assert.equal(byId.get(deckAPctB.id).reviewedWords, 0);
+    assert.equal(byId.get(deckAPctB.id).activeAttemptId, activeOnPctB.id);
+
+    // Preserves PostgreSQL native ILIKE semantics (wildcards %, _ and backslash escape \).
+    const searchCases = [
+      ['A_B', [deckAUnderB.id, deckAPctB.id, deckAHashB.id, deckASlashB.id]],
+      ['A%B', [deckAB.id, deckAUnderB.id, deckAPctB.id, deckAHashB.id, deckASlashB.id]],
+      ['A\\B', [deckAB.id]],
+      ['A\\\\B', [deckASlashB.id]],
+      ['A\\%B', [deckAPctB.id]],
+      ['A\\_B', [deckAUnderB.id]],
+      ['\\', []],
+    ];
+    for (const [term, expectedIds] of searchCases) {
+      const res = (
+        await api(owner, 'get', `/vocabulary/decks?query=${encodeURIComponent(term)}`).expect(200)
+      ).body.data;
+      assert.deepEqual(res.items.map(i => i.id), expectedIds, `query=${term}`);
+      assert.equal(res.nextCursor, null);
+    }
+
+    // Standard pagination over matching cursor rows.
+    const betaPage1 = (
+      await api(owner, 'get', '/vocabulary/decks?query=Beta&limit=1').expect(200)
+    ).body.data;
+    assert.deepEqual(betaPage1.items.map(i => i.id), [beta1.id]);
+    assert.equal(betaPage1.nextCursor, beta1.id);
+
+    const betaPage2 = (
+      await api(owner, 'get', `/vocabulary/decks?query=Beta&limit=1&cursor=${betaPage1.nextCursor}`).expect(200)
+    ).body.data;
+    assert.deepEqual(betaPage2.items.map(i => i.id), [beta2.id]);
+    assert.equal(betaPage2.nextCursor, beta2.id);
+
+    // Valid owned cursor whose deck name does NOT match query before matching rows (>= cursor + OFFSET 1 parity).
+    const nonMatchingBeforePage1 = (
+      await api(owner, 'get', `/vocabulary/decks?query=Beta&limit=1&cursor=${nonMatchMid.id}`).expect(200)
+    ).body.data;
+    assert.deepEqual(nonMatchingBeforePage1.items.map(i => i.id), [beta2.id]);
+    assert.equal(nonMatchingBeforePage1.nextCursor, beta2.id);
+
+    const nonMatchingBeforePage2 = (
+      await api(owner, 'get', `/vocabulary/decks?query=Beta&limit=1&cursor=${nonMatchingBeforePage1.nextCursor}`).expect(200)
+    ).body.data;
+    assert.deepEqual(nonMatchingBeforePage2.items.map(i => i.id), [beta3.id]);
+    assert.equal(nonMatchingBeforePage2.nextCursor, null);
+
+    // Valid owned non-matching cursor positioned after all matching rows returns an empty page (not 404).
+    const nonMatchingAfter = (
+      await api(owner, 'get', `/vocabulary/decks?query=Tie&cursor=${beta3.id}`).expect(200)
+    ).body.data;
+    assert.deepEqual(nonMatchingAfter, { items: [], nextCursor: null });
+
+    // Valid cursor at the very end without query returns an empty page (not 404).
+    const tailPage = (
+      await api(owner, 'get', `/vocabulary/decks?cursor=${beta3.id}`).expect(200)
+    ).body.data;
+    assert.deepEqual(tailPage, { items: [], nextCursor: null });
+
+    // Soft-deleted, cross-user, or missing cursor must return 404.
+    for (const badCursor of [softDeletedDeck.id, otherDeck.id, randomUUID()]) {
+      const errRes = await api(owner, 'get', `/vocabulary/decks?cursor=${badCursor}`).expect(404);
+      assert.equal(errRes.body.error.code, 'VOCAB_NOT_FOUND');
+    }
+
+    const otherDecks = (await api(other, 'get', '/vocabulary/decks').expect(200)).body.data;
+    assert.deepEqual(otherDecks.items.map(i => i.id), [otherDeck.id]);
+    assert.equal(otherDecks.items[0].totalWords, 1);
+    assert.equal(otherDecks.nextCursor, null);
+  });
 });

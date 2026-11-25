@@ -8,6 +8,18 @@ import { Db, vocabConflict, vocabInvalid, vocabMissing, wordView } from './vocab
 const READING_DECK_SYSTEM_KEY = 'READING_WORDS';
 const READING_DECK_DEFAULT_NAME = 'Từ vựng Bài đọc';
 
+type RawDeckStatsRow = {
+  id: string;
+  name: string;
+  version: number;
+  deletedAt: Date | string | null;
+  createdAt: Date | string;
+  totalWords: number;
+  rememberedWords: number;
+  reviewedWords: number;
+  activeAttemptId: string | null;
+};
+
 @Injectable()
 export class VocabularyService {
   constructor(private readonly prisma: PrismaService, private readonly commands: VocabularyCommandService) {}
@@ -96,12 +108,108 @@ export class VocabularyService {
   }
   async decks(userId: string, query: VocabularyListQuery) {
     query.limit ??= 20;
-    return this.prisma.$transaction(async db => {
-      if (query.cursor) await this.ownedDeck(db, userId, query.cursor);
-      const rows = await db.vocabularyDeck.findMany({ where: { userId, deletedAt: null, ...(query.query?.trim() ? { name: { contains: query.query.trim(), mode: 'insensitive' as const } } : {}) },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: query.limit + 1, ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}) });
-      return { items: await this.deckViews(db, userId, rows.slice(0, query.limit)), nextCursor: rows.length > query.limit ? rows[query.limit - 1].id : null };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+    const limit = query.limit;
+    const take = limit + 1;
+    const cursor = query.cursor;
+    const search = query.query?.trim();
+    const likePattern = search ? `%${search}%` : null;
+    const [row] = await this.prisma.$queryRaw<{
+      cursorValid: boolean;
+      hasMore: boolean;
+      decks: RawDeckStatsRow[] | null;
+    }[]>`
+      WITH
+      cursor_anchor AS (
+        SELECT id, created_at
+        FROM vocabulary_decks
+        WHERE ${
+          cursor
+            ? Prisma.sql`id = ${cursor}::uuid AND user_id = ${userId}::uuid AND deleted_at IS NULL`
+            : Prisma.sql`FALSE`
+        }
+      ),
+      fetched AS (
+        SELECT
+          d.id,
+          d.name,
+          d.version,
+          d.deleted_at,
+          d.created_at
+        FROM vocabulary_decks d
+        ${cursor ? Prisma.sql`JOIN cursor_anchor ca ON (d.created_at, d.id) >= (ca.created_at, ca.id)` : Prisma.empty}
+        WHERE d.user_id = ${userId}::uuid
+          AND d.deleted_at IS NULL
+          ${likePattern ? Prisma.sql`AND d.name ILIKE ${likePattern}` : Prisma.empty}
+        ORDER BY d.created_at ASC, d.id ASC
+        LIMIT ${take}
+        ${cursor ? Prisma.sql`OFFSET 1` : Prisma.empty}
+      ),
+      deck_rows AS (
+        SELECT
+          id,
+          name,
+          version,
+          deleted_at,
+          created_at,
+          ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC) AS rn
+        FROM fetched
+        ORDER BY created_at ASC, id ASC
+        LIMIT ${limit}
+      ),
+      deck_word_stats AS (
+        SELECT
+          w.deck_id,
+          COUNT(*)::int AS total_words,
+          COUNT(*) FILTER (WHERE w.learning_state = 'REMEMBERED')::int AS remembered_words,
+          COUNT(*) FILTER (WHERE w.last_reviewed_at IS NOT NULL)::int AS reviewed_words
+        FROM vocabulary_words w
+        JOIN deck_rows dr ON dr.id = w.deck_id
+        WHERE w.deleted_at IS NULL
+        GROUP BY w.deck_id
+      ),
+      deck_active AS (
+        SELECT DISTINCT ON (r.deck_id)
+          r.deck_id,
+          r.id AS active_attempt_id
+        FROM vocabulary_review_attempts r
+        JOIN deck_rows dr ON dr.id = r.deck_id
+        WHERE r.user_id = ${userId}::uuid
+          AND r.status = 'IN_PROGRESS'
+        ORDER BY r.deck_id, r.started_at DESC, r.id DESC
+      )
+      SELECT
+        (${cursor ? Prisma.sql`EXISTS (SELECT 1 FROM cursor_anchor)` : Prisma.sql`TRUE`}) AS "cursorValid",
+        (SELECT COUNT(*) > ${limit} FROM fetched) AS "hasMore",
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', dr.id,
+                'name', dr.name,
+                'version', dr.version,
+                'deletedAt', (dr.deleted_at AT TIME ZONE 'UTC'),
+                'createdAt', (dr.created_at AT TIME ZONE 'UTC'),
+                'totalWords', COALESCE(dws.total_words, 0),
+                'rememberedWords', COALESCE(dws.remembered_words, 0),
+                'reviewedWords', COALESCE(dws.reviewed_words, 0),
+                'activeAttemptId', da.active_attempt_id
+              )
+              ORDER BY dr.rn
+            )
+            FROM deck_rows dr
+            LEFT JOIN deck_word_stats dws ON dws.deck_id = dr.id
+            LEFT JOIN deck_active da ON da.deck_id = dr.id
+          ),
+          '[]'::json
+        ) AS decks
+    `;
+    if (cursor && !row?.cursorValid) vocabMissing();
+    const deckRows = Array.isArray(row?.decks) ? row.decks : [];
+    const items = deckRows.map(deck => this.buildDeckView(deck, deck, deck.activeAttemptId ?? null));
+    return {
+      items,
+      nextCursor: row?.hasMore && items.length > 0 ? items[items.length - 1].id : null,
+    };
   }
   async words(userId: string, deckId: string, query: VocabularyListQuery) {
     query.limit ??= 20;
@@ -247,24 +355,13 @@ export class VocabularyService {
     return this.updateWord(userId, id, dto, true);
   }
   async summary(userId: string) {
-    type SummaryDeckRow = {
-      id: string;
-      name: string;
-      version: number;
-      deletedAt: Date | string | null;
-      createdAt: Date | string;
-      totalWords: number;
-      rememberedWords: number;
-      reviewedWords: number;
-      activeAttemptId: string | null;
-    };
     const [row] = await this.prisma.$queryRaw<{
       totalWords: number;
       rememberedWords: number;
       reviewedWords: number;
       completedReviewCount: number;
       hasMoreDecks: boolean;
-      decks: SummaryDeckRow[] | null;
+      decks: RawDeckStatsRow[] | null;
     }[]>`
       WITH
       word_totals AS (
