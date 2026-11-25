@@ -14,6 +14,7 @@ import { ChangePasswordUseCase } from './use-cases/change-password.use-case';
 import { ProfileService } from './profile.service';
 import { FirebaseAuthModule } from './firebase/firebase-auth.module';
 import { PlanningModule } from '../planning/planning.module';
+import { RefreshSessionCleanupService } from './services/refresh-session-cleanup.service';
 
 @Module({
   imports: [FirebaseAuthModule, PlanningModule, PassportModule.register({ defaultStrategy: 'jwt' })],
@@ -22,6 +23,7 @@ import { PlanningModule } from '../planning/planning.module';
     JwtStrategy,
     UserRepository,
     RefreshSessionRepository,
+    RefreshSessionCleanupService,
     RegisterUseCase,
     LoginUseCase,
     GoogleLoginUseCase,
@@ -31,6 +33,11 @@ import { PlanningModule } from '../planning/planning.module';
     ChangePasswordUseCase,
     ProfileService,
   ],
-  exports: [UserRepository, RefreshSessionRepository, JwtStrategy],
+  exports: [
+    UserRepository,
+    RefreshSessionRepository,
+    RefreshSessionCleanupService,
+    JwtStrategy,
+  ],
 })
 export class AuthModule {}

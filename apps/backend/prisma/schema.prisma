@@ -216,6 +216,7 @@ model RefreshSession {
 
   @@index([userId, isRevoked])
   @@index([tokenHash])
+  @@index([expiresAt])
   @@map("refresh_sessions")
 }
 
