@@ -941,4 +941,149 @@ describe('Persisted learning workflow', () => {
       [[b1Seed.id, 'ROTATION']],
     );
   });
+
+  it('keeps /learning/lessons metadata, ordering, CEFR levels, kind filter and per-learner latestResult exact without loading content', async () => {
+    const unitB2 = await prisma.learningUnit.findFirst({ where: { cefrLevel: 'B2' } })
+      ?? await prisma.learningUnit.findFirstOrThrow({ orderBy: { orderIndex: 'asc' } });
+    const tag = randomUUID().slice(0, 8);
+    const makeQuestions = (count) => Array.from({ length: count }, (_, idx) => ({
+      id: `q-${idx}`,
+      prompt: `Question ${idx}?`,
+      options: ['A', 'B', 'C', 'D'].map((id) => ({ id, text: `Opt ${id}` })),
+      correctOptionId: 'A',
+      explanation: `Exp ${idx}`,
+    }));
+
+    // Insert beta before alpha at equal sortOrder so code tie-breaking is genuinely exercised.
+    const beta = await prisma.learningLesson.create({
+      data: {
+        code: `cat-b-${tag}`,
+        kind: 'READING',
+        title: 'Catalogue Tie Beta',
+        description: '4 questions',
+        estimatedMinutes: 7,
+        sortOrder: 9002,
+        published: true,
+        contentVersion: 1,
+        unitId: unitB2.id,
+        content: { steps: [{ id: 's1', title: 'Intro', body: 'Text' }], questions: makeQuestions(4) },
+      },
+    });
+    fixtures.push(beta.id);
+
+    const alpha = await prisma.learningLesson.create({
+      data: {
+        code: `cat-a-${tag}`,
+        kind: 'READING',
+        title: 'Catalogue Tie Alpha',
+        description: '3 questions',
+        estimatedMinutes: 6,
+        sortOrder: 9002,
+        published: true,
+        contentVersion: 2,
+        unitId: unitB2.id,
+        content: { steps: [{ id: 's1', title: 'Intro', body: 'Text' }], questions: makeQuestions(3) },
+      },
+    });
+    fixtures.push(alpha.id);
+
+    const legacy = await prisma.learningLesson.create({
+      data: {
+        code: `cat-legacy-${tag}`,
+        kind: 'GRAMMAR',
+        title: 'Legacy No Questions Array',
+        description: 'Defaults to 5 questions',
+        estimatedMinutes: 5,
+        sortOrder: 9001,
+        published: true,
+        contentVersion: 1,
+        unitId: null,
+        content: {},
+      },
+    });
+    fixtures.push(legacy.id);
+
+    const learner1 = await account();
+    const learner2 = await account();
+
+    // Learner 1 completes alpha (2/3), completes and hides seeds[0], and leaves an active attempt on beta.
+    let alphaAttempt = await start(learner1, alpha);
+    const alphaQuestions = alpha.content.questions;
+    for (const [idx, q] of alphaQuestions.entries()) {
+      const optionId = idx < 2 ? q.correctOptionId : 'B';
+      alphaAttempt = (await send(learner1, 'put', `/learning/attempts/${alphaAttempt.id}/answers/${q.id}/check`, {
+        expectedVersion: alphaAttempt.version, optionId,
+      }).expect(200)).body.data;
+    }
+    await send(learner1, 'post', `/learning/attempts/${alphaAttempt.id}/submit`, {
+      expectedVersion: alphaAttempt.version,
+    }).expect(200);
+
+    let hiddenAttempt = await start(learner1, seeds[0]);
+    hiddenAttempt = await checkAll(learner1, hiddenAttempt, seeds[0], false);
+    await send(learner1, 'post', `/learning/attempts/${hiddenAttempt.id}/submit`, {
+      expectedVersion: hiddenAttempt.version,
+    }).expect(200);
+    await send(learner1, 'delete', `/learning/history/${hiddenAttempt.id}`).expect(200);
+
+    await start(learner1, beta);
+
+    const allRes = (await send(learner1, 'get', '/learning/lessons').expect(200)).body.data;
+    const tailCodes = allRes.items.slice(-3).map((item) => item.code);
+    assert.deepEqual(tailCodes, [legacy.code, alpha.code, beta.code]);
+
+    for (const item of allRes.items) {
+      assert.equal(Object.prototype.hasOwnProperty.call(item, 'content'), false);
+    }
+
+    const legacyItem = allRes.items.find((item) => item.id === legacy.id);
+    assert.equal(legacyItem.questionCount, 5);
+    assert.equal(Object.prototype.hasOwnProperty.call(legacyItem, 'cefrLevel'), false);
+    assert.equal(Object.prototype.hasOwnProperty.call(legacyItem, 'audioDurationMs'), false);
+
+    const hiddenSeedItem = allRes.items.find((item) => item.id === seeds[0].id);
+    assert.equal(hiddenSeedItem.state, 'COMPLETED');
+    assert.equal(hiddenSeedItem.latestResult, null);
+
+    const alphaItem = allRes.items.find((item) => item.id === alpha.id);
+    assert.equal(alphaItem.questionCount, 3);
+    assert.equal(alphaItem.cefrLevel, unitB2.cefrLevel);
+    assert.equal(alphaItem.state, 'COMPLETED');
+    assert.equal(alphaItem.activeAttemptId, null);
+    assert.deepEqual(alphaItem.latestResult, {
+      correctCount: 2,
+      totalQuestions: 3,
+      scoreRatio: 2 / 3,
+    });
+    assert.equal(Object.prototype.hasOwnProperty.call(alphaItem, 'audioDurationMs'), false);
+
+    const betaItem = allRes.items.find((item) => item.id === beta.id);
+    assert.equal(betaItem.questionCount, 4);
+    assert.equal(betaItem.cefrLevel, unitB2.cefrLevel);
+    assert.equal(betaItem.state, 'NOT_STARTED');
+    assert.equal(betaItem.latestResult, null);
+
+    // Filter by READING and LISTENING.
+    const readingOnly = (await send(learner1, 'get', '/learning/lessons?kind=READING').expect(200)).body.data;
+    assert.ok(readingOnly.items.every((item) => item.kind === 'READING'));
+    const alphaIdx = readingOnly.items.findIndex((item) => item.id === alpha.id);
+    const betaIdx = readingOnly.items.findIndex((item) => item.id === beta.id);
+    assert.ok(alphaIdx >= 0 && betaIdx === alphaIdx + 1);
+
+    const listeningOnly = (await send(learner1, 'get', '/learning/lessons?kind=LISTENING').expect(200)).body.data;
+    assert.ok(listeningOnly.items.length > 0);
+    assert.ok(listeningOnly.items.every((item) => item.kind === 'LISTENING'));
+    const legacyListening = listeningOnly.items.find((item) => item.code === 'listening-greetings-introductions');
+    const cafeListening = listeningOnly.items.find((item) => item.code === 'listening-campus-cafe');
+    const cafeDb = await prisma.learningLesson.findUniqueOrThrow({ where: { code: 'listening-campus-cafe' } });
+    assert.equal(Object.prototype.hasOwnProperty.call(legacyListening, 'audioDurationMs'), false);
+    assert.equal(cafeListening.audioDurationMs, cafeDb.content.audioDurationMs);
+    assert.ok(cafeListening.audioDurationMs > 0);
+
+    // Learner 2 must not see Learner 1's completion or latestResult.
+    const learner2Res = (await send(learner2, 'get', '/learning/lessons?kind=READING').expect(200)).body.data;
+    const learner2Alpha = learner2Res.items.find((item) => item.id === alpha.id);
+    assert.equal(learner2Alpha.state, 'NOT_STARTED');
+    assert.equal(learner2Alpha.latestResult, null);
+  });
 });

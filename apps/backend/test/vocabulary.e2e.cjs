@@ -410,4 +410,96 @@ describe('Personal vocabulary and persisted review', () => {
     }).expect(200)).body.data;
     assert.equal(resaved.alreadyExisted, false);
   });
+
+  it('keeps /vocabulary/summary exact across empty accounts, soft deletes, active reviews and isolated users', async () => {
+    const emptyUser = await account();
+    const emptyRes = await summary(emptyUser);
+    assert.deepEqual(emptyRes, {
+      totals: {
+        totalWords: 0,
+        rememberedWords: 0,
+        needsReviewWords: 0,
+        reviewedWords: 0,
+        completedReviewCount: 0,
+      },
+      decks: [],
+      hasMoreDecks: false,
+    });
+
+    const owner = await account();
+    const other = await account();
+
+    const deck1 = await createDeck(owner, 'Deck One');
+    await createWord(owner, deck1, 'alpha');
+    await createWord(owner, deck1, 'bravo');
+    await finish(owner, (await start(owner, deck1)).attempt, 'EASY');
+
+    const deck2 = await createDeck(owner, 'Deck Two');
+    await createWord(owner, deck2, 'charlie');
+    const deletedWordInDeck2 = await createWord(owner, deck2, 'delta');
+    await finish(owner, (await start(owner, deck2)).attempt, 'HARD');
+
+    const deck3 = await createDeck(owner, 'Deck Three');
+    await createWord(owner, deck3, 'echo');
+
+    const withThreeDecks = await summary(owner);
+    assert.equal(withThreeDecks.hasMoreDecks, true);
+    assert.deepEqual(withThreeDecks.decks.map(d => d.id), [deck1.id, deck2.id]);
+    assert.equal(withThreeDecks.totals.totalWords, 5);
+    assert.equal(withThreeDecks.totals.rememberedWords, 2);
+    assert.equal(withThreeDecks.totals.needsReviewWords, 3);
+    assert.equal(withThreeDecks.totals.reviewedWords, 4);
+    assert.equal(withThreeDecks.totals.completedReviewCount, 2);
+
+    // Soft-delete one word in deck2 and soft-delete deck1 completely.
+    await api(owner, 'delete', `/vocabulary/words/${deletedWordInDeck2.id}`, {
+      commandId: randomUUID(), expectedVersion: deletedWordInDeck2.version,
+    }).expect(200);
+    await api(owner, 'delete', `/vocabulary/decks/${deck1.id}`, {
+      commandId: randomUUID(), expectedVersion: deck1.version,
+    }).expect(200);
+
+    // Leave an IN_PROGRESS review on deck2 and an ABANDONED review on deck3.
+    const activeOnDeck2 = (await start(owner, deck2, 'ALL')).attempt;
+    const abandonedOnDeck3 = (await start(owner, deck3, 'ALL')).attempt;
+    await act(owner, abandonedOnDeck3, 'ABANDON');
+
+    // Populate a second account with distinct counts to prove per-user isolation.
+    const otherDeck = await createDeck(other, 'Other Deck');
+    await createWord(other, otherDeck, 'zebra');
+    await finish(other, (await start(other, otherDeck)).attempt, 'EASY');
+
+    const ownerSummary = await summary(owner);
+    assert.deepEqual(ownerSummary.totals, {
+      totalWords: 2,
+      rememberedWords: 0,
+      needsReviewWords: 2,
+      reviewedWords: 1,
+      completedReviewCount: 2,
+    });
+    assert.equal(ownerSummary.hasMoreDecks, false);
+    assert.deepEqual(ownerSummary.decks.map(d => d.id), [deck2.id, deck3.id]);
+    assert.equal(ownerSummary.decks[0].createdAt, deck2.createdAt);
+    assert.equal(ownerSummary.decks[0].deletedAt, null);
+    assert.equal(ownerSummary.decks[0].totalWords, 1);
+    assert.equal(ownerSummary.decks[0].rememberedWords, 0);
+    assert.equal(ownerSummary.decks[0].needsReviewWords, 1);
+    assert.equal(ownerSummary.decks[0].reviewedWords, 1);
+    assert.equal(ownerSummary.decks[0].activeAttemptId, activeOnDeck2.id);
+    assert.equal(ownerSummary.decks[1].totalWords, 1);
+    assert.equal(ownerSummary.decks[1].activeAttemptId, null);
+
+    const otherSummary = await summary(other);
+    assert.deepEqual(otherSummary.totals, {
+      totalWords: 1,
+      rememberedWords: 1,
+      needsReviewWords: 0,
+      reviewedWords: 1,
+      completedReviewCount: 1,
+    });
+    assert.equal(otherSummary.hasMoreDecks, false);
+    assert.equal(otherSummary.decks.length, 1);
+    assert.equal(otherSummary.decks[0].id, otherDeck.id);
+    assert.equal(otherSummary.decks[0].activeAttemptId, null);
+  });
 });

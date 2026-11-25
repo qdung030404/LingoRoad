@@ -125,32 +125,50 @@ describe('VocabularyService batched queries', () => {
     });
   });
 
-  it('aggregates summary totals in PostgreSQL without loading vocabularyWord rows', async () => {
-    const decks = [
-      deckRow('00000000-0000-4000-8000-000000000001', 'Deck 1'),
-      deckRow('00000000-0000-4000-8000-000000000002', 'Deck 2'),
-      deckRow('00000000-0000-4000-8000-000000000003', 'Deck 3'),
-    ];
-    const queryRaw = jest
-      .fn()
-      .mockResolvedValueOnce([{ totalWords: 25, rememberedWords: 11, reviewedWords: 18 }])
-      .mockResolvedValueOnce([
-        { deckId: decks[0].id, totalWords: 10, rememberedWords: 4, reviewedWords: 7 },
-        { deckId: decks[1].id, totalWords: 8, rememberedWords: 5, reviewedWords: 6 },
-      ]);
-    const { db, service } = makeService({
-      vocabularyDeck: { findMany: jest.fn(async () => decks) },
-      vocabularyReviewAttempt: {
-        count: jest.fn(async () => 6),
-        findMany: jest.fn(async () => [{ id: 'att-2', deckId: decks[1].id }]),
+  it('aggregates summary in a single parameterized CTE query without opening a transaction or loading word rows', async () => {
+    const queryRaw = jest.fn().mockResolvedValueOnce([
+      {
+        totalWords: 25,
+        rememberedWords: 11,
+        reviewedWords: 18,
+        completedReviewCount: 6,
+        hasMoreDecks: true,
+        decks: [
+          {
+            id: '00000000-0000-4000-8000-000000000001',
+            name: 'Deck 1',
+            version: 1,
+            deletedAt: null,
+            createdAt: '2026-11-24T00:00:00.000Z',
+            totalWords: 10,
+            rememberedWords: 4,
+            reviewedWords: 7,
+            activeAttemptId: null,
+          },
+          {
+            id: '00000000-0000-4000-8000-000000000002',
+            name: 'Deck 2',
+            version: 2,
+            deletedAt: null,
+            createdAt: '2026-11-24T00:01:00.000Z',
+            totalWords: 8,
+            rememberedWords: 5,
+            reviewedWords: 6,
+            activeAttemptId: 'att-2',
+          },
+        ],
       },
-      $queryRaw: queryRaw,
-    });
+    ]);
+    const { db, service } = makeService({ $queryRaw: queryRaw });
 
     const result = await service.summary('11111111-1111-4111-8111-111111111111');
 
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(db.vocabularyDeck.findMany).not.toHaveBeenCalled();
     expect(db.vocabularyWord.findMany).not.toHaveBeenCalled();
-    expect(queryRaw).toHaveBeenCalledTimes(2);
+    expect(db.vocabularyReviewAttempt.count).not.toHaveBeenCalled();
+    expect(db.vocabularyReviewAttempt.findMany).not.toHaveBeenCalled();
+    expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(result.totals).toEqual({
       totalWords: 25,
       rememberedWords: 11,
@@ -160,7 +178,54 @@ describe('VocabularyService batched queries', () => {
     });
     expect(result.hasMoreDecks).toBe(true);
     expect(result.decks).toHaveLength(2);
-    expect(result.decks[0]).toMatchObject({ id: decks[0].id, totalWords: 10, needsReviewWords: 6, activeAttemptId: null });
-    expect(result.decks[1]).toMatchObject({ id: decks[1].id, totalWords: 8, needsReviewWords: 3, activeAttemptId: 'att-2' });
+    expect(result.decks[0].createdAt).toBeInstanceOf(Date);
+    expect(result.decks[0].createdAt.toISOString()).toBe('2026-11-24T00:00:00.000Z');
+    expect(result.decks[0]).toMatchObject({
+      id: '00000000-0000-4000-8000-000000000001',
+      totalWords: 10,
+      needsReviewWords: 6,
+      reviewedWords: 7,
+      deletedAt: null,
+      activeAttemptId: null,
+    });
+    expect(result.decks[1]).toMatchObject({
+      id: '00000000-0000-4000-8000-000000000002',
+      version: 2,
+      totalWords: 8,
+      rememberedWords: 5,
+      needsReviewWords: 3,
+      reviewedWords: 6,
+      activeAttemptId: 'att-2',
+    });
+  });
+
+  it('returns zero totals and empty deck preview for an empty account in a single query', async () => {
+    const queryRaw = jest.fn().mockResolvedValueOnce([
+      {
+        totalWords: 0,
+        rememberedWords: 0,
+        reviewedWords: 0,
+        completedReviewCount: 0,
+        hasMoreDecks: false,
+        decks: [],
+      },
+    ]);
+    const { db, service } = makeService({ $queryRaw: queryRaw });
+
+    const result = await service.summary('11111111-1111-4111-8111-111111111111');
+
+    expect(db.$transaction).not.toHaveBeenCalled();
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      totals: {
+        totalWords: 0,
+        rememberedWords: 0,
+        needsReviewWords: 0,
+        reviewedWords: 0,
+        completedReviewCount: 0,
+      },
+      decks: [],
+      hasMoreDecks: false,
+    });
   });
 });
