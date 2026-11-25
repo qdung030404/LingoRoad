@@ -7,6 +7,7 @@ import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/session_controller.dart';
 import 'features/demo_shell.dart';
+import 'features/profile/reminder_coordinator.dart';
 import 'core/auth/firebase_identity.dart';
 import 'features/speaking/speaking_recorder.dart';
 
@@ -39,6 +40,8 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
+    session.onAccountCleared ??=
+        SharedPrefsReminderPlatform().cancelForAccount;
     session.initialize();
   }
 

@@ -30,6 +30,7 @@ class SessionController extends ChangeNotifier {
   Json? cachedHome;
   Future<void>? _bootstrapping;
   Future<void> _cacheOperations = Future.value();
+  Future<void> Function(String accountId)? onAccountCleared;
 
   String? get placementCefr =>
       (placement['estimatedCefr'] ?? placementResult?['estimatedCefr'])
@@ -67,6 +68,12 @@ class SessionController extends ChangeNotifier {
   }
 
   void _resetAccount(String? uid) {
+    final previousAccountId = (user?['id'] as String?) ?? _currentUid;
+    if (previousAccountId != null && onAccountCleared != null) {
+      unawaited(
+        onAccountCleared!(previousAccountId).catchError((Object _) {}),
+      );
+    }
     clearHome();
     _homeCache = null;
     _currentUid = uid;
@@ -348,6 +355,54 @@ class SessionController extends ChangeNotifier {
     stage = profile['onboardingCompletedAt'] == null
         ? SessionStage.onboarding
         : SessionStage.ready;
+    notifyListeners();
+  }
+
+  Future<Json> saveLearningGoals({
+    required int expectedVersion,
+    required String learningPurpose,
+    required String targetCefr,
+    required int dailyGoalMinutes,
+    required List<String> preferredKinds,
+  }) async {
+    final epoch = _epoch;
+    final saved = await api.request(
+      'PATCH',
+      '/learning/preferences',
+      data: {
+        'expectedVersion': expectedVersion,
+        'learningPurpose': learningPurpose,
+        'targetCefr': targetCefr,
+        'dailyGoalMinutes': dailyGoalMinutes,
+        'preferredKinds': preferredKinds,
+      },
+    );
+    if (!_disposed && epoch == _epoch) {
+      applyGoalSnapshot(saved);
+    }
+    return saved;
+  }
+
+  void applyGoalSnapshot(Json snapshot) {
+    if (_disposed) return;
+    final currentUser = user;
+    if (currentUser != null) {
+      final updatedProfile = {
+        ...profile,
+        if (snapshot.containsKey('learningPurpose'))
+          'learningPurpose': snapshot['learningPurpose'],
+        if (snapshot.containsKey('targetCefr'))
+          'targetCefr': snapshot['targetCefr'],
+        if (snapshot.containsKey('dailyGoalMinutes'))
+          'dailyGoalMinutes': snapshot['dailyGoalMinutes'],
+        if (snapshot.containsKey('preferredKinds'))
+          'preferredKinds': snapshot['preferredKinds'],
+        if (snapshot['version'] is int)
+          'preferencesVersion': snapshot['version'],
+      };
+      user = {...currentUser, 'profile': updatedProfile};
+    }
+    clearHome();
     notifyListeners();
   }
 
