@@ -23,7 +23,7 @@ describe('RefreshSessionCleanupService', () => {
     const service = new RefreshSessionCleanupService(repo, new ConfigService({}));
     const logSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
 
-    const cutoff = new Date('2026-11-18T00:00:00.000Z');
+    const cutoff = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
     const result = await service.runSweep({ cutoff, batchSize: 3, maxBatches: 10 });
 
     expect(result).toEqual({ deletedCount: 7, batches: 3, cutoff });
@@ -41,7 +41,7 @@ describe('RefreshSessionCleanupService', () => {
     jest.spyOn(Logger.prototype, 'log').mockImplementation();
 
     const result = await service.runSweep({
-      cutoff: new Date('2026-11-18T00:00:00.000Z'),
+      cutoff: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
       batchSize: 5,
       maxBatches: 2,
     });
@@ -184,5 +184,58 @@ describe('RefreshSessionCleanupService', () => {
     expect(destroyResolved).toBe(true);
     expect(deleteExpiredSessions).toHaveBeenCalledTimes(1);
     expect(result.deletedCount).toBe(2);
+  });
+
+  it('enforces the 7-day minimum retention floor when REFRESH_SESSION_RETENTION_DAYS=1 so a 2-day-expired session remains', async () => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const sessions = [
+      { id: 'expired-2d', expiresAt: new Date(nowMs - 2 * dayMs) },
+      { id: 'expired-8d', expiresAt: new Date(nowMs - 8 * dayMs) },
+    ];
+    const deleteExpiredSessions = jest.fn(async (cutoff: Date) => {
+      const beforeCount = sessions.length;
+      for (let i = sessions.length - 1; i >= 0; i -= 1) {
+        if (sessions[i].expiresAt.getTime() < cutoff.getTime()) {
+          sessions.splice(i, 1);
+        }
+      }
+      return { count: beforeCount - sessions.length };
+    });
+    const repo = { deleteExpiredSessions } as unknown as RefreshSessionRepository;
+    const clampedService = new RefreshSessionCleanupService(
+      repo,
+      new ConfigService({ REFRESH_SESSION_RETENTION_DAYS: '1' }),
+    );
+    jest.spyOn(Logger.prototype, 'log').mockImplementation();
+
+    const beforeSweepMs = Date.now();
+    const clampedResult = await clampedService.runSweep();
+    const afterSweepMs = Date.now();
+
+    expect(clampedResult.deletedCount).toBe(1);
+    expect(clampedResult.cutoff.getTime()).toBeGreaterThanOrEqual(
+      beforeSweepMs - 7 * dayMs - 50,
+    );
+    expect(clampedResult.cutoff.getTime()).toBeLessThanOrEqual(
+      afterSweepMs - 7 * dayMs + 50,
+    );
+    expect(sessions.map((s) => s.id)).toEqual(['expired-2d']);
+
+    const fourteenDayService = new RefreshSessionCleanupService(
+      repo,
+      new ConfigService({ REFRESH_SESSION_RETENTION_DAYS: '14' }),
+    );
+    const beforeFourteenMs = Date.now();
+    const fourteenResult = await fourteenDayService.runSweep();
+    const afterFourteenMs = Date.now();
+
+    expect(fourteenResult.deletedCount).toBe(0);
+    expect(fourteenResult.cutoff.getTime()).toBeGreaterThanOrEqual(
+      beforeFourteenMs - 14 * dayMs - 50,
+    );
+    expect(fourteenResult.cutoff.getTime()).toBeLessThanOrEqual(
+      afterFourteenMs - 14 * dayMs + 50,
+    );
   });
 });

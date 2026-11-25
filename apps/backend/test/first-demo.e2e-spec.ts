@@ -1,15 +1,35 @@
+import { execFileSync } from 'child_process';
 import { randomUUID } from 'crypto';
+import * as path from 'path';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { Test } from '@nestjs/testing';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { PrismaClient } from '@prisma/client';
 import request = require('supertest');
 import { AppModule } from '../src/app.module';
+import { PrismaModule } from '../src/modules/prisma/prisma.module';
 import { PrismaService } from '../src/modules/prisma/prisma.service';
+import { SecurityModule } from '../src/modules/security/security.module';
+import { AuthModule } from '../src/modules/auth/auth.module';
 import { RefreshSessionCleanupService } from '../src/modules/auth/services/refresh-session-cleanup.service';
 import { HttpExceptionFilter } from '../src/common/filters/http-exception.filter';
 import { placementMediaRoot } from '../src/modules/placement/services/demo-placement.service';
 import { seedDemoContent } from '../prisma/seed-placement';
+
+function resolvePrismaCliPath(): string {
+  const pkgPath = require.resolve('prisma/package.json', {
+    paths: [path.resolve(__dirname, '..')],
+  });
+  const pkg = require(pkgPath) as { bin?: string | Record<string, string> };
+  const binRel = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin?.prisma;
+  if (!binRel) {
+    throw new Error('Unable to resolve Prisma CLI binary from prisma/package.json.');
+  }
+  return path.resolve(path.dirname(pkgPath), binRel);
+}
 
 describe('First demo: real HTTP + PostgreSQL', () => {
   let app: NestExpressApplication;
@@ -40,12 +60,15 @@ describe('First demo: real HTTP + PostgreSQL', () => {
     if (app) await app.close();
   });
 
-  async function register() {
+  async function register(
+    targetApp: NestExpressApplication = app,
+    trackedUsers: string[] = createdUsers,
+  ) {
     const email = `demo-e2e-${randomUUID()}@example.com`;
-    const response = await request(app.getHttpServer()).post('/auth/register')
+    const response = await request(targetApp.getHttpServer()).post('/auth/register')
       .send({ name: 'Học viên Demo', email, password }).expect(201);
     const data = response.body.data;
-    createdUsers.push(data.user.id);
+    trackedUsers.push(data.user.id);
     return { ...data, email, authorization: `Bearer ${data.accessToken}` };
   }
 
@@ -178,180 +201,288 @@ describe('First demo: real HTTP + PostgreSQL', () => {
   });
 
   it('purges only refresh_sessions expired past 7-day retention in SKIP LOCKED batches while preserving revoked-token replay detection', async () => {
-    const indexes = await prisma.$queryRaw<Array<{ indexname: string }>>`
-      SELECT indexname
-      FROM pg_indexes
-      WHERE schemaname = 'public'
-        AND tablename = 'refresh_sessions'
-        AND indexname = 'refresh_sessions_expires_at_idx'
-    `;
-    expect(indexes).toHaveLength(1);
+    const mainCleanupService = app.get(RefreshSessionCleanupService);
+    expect(mainCleanupService.isEnabled()).toBe(false);
 
-    const cleanupService = app.get(RefreshSessionCleanupService);
-    expect(cleanupService.isEnabled()).toBe(false);
-
-    const email = `retention-${randomUUID()}@example.com`;
-    const registerRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({ email, password: 'Password123!', name: 'Retention User' })
-      .expect(201);
-    const userId = registerRes.body.data.user.id as string;
-    const refreshToken1 = registerRes.body.data.refreshToken as string;
-
-    const rotateRes = await request(app.getHttpServer())
-      .post('/auth/refresh')
-      .send({ refreshToken: refreshToken1 })
-      .expect(200);
-    const refreshToken2 = rotateRes.body.data.refreshToken as string;
-    expect(refreshToken2).not.toBe(refreshToken1);
-
-    const nowMs = Date.now();
     const dayMs = 24 * 60 * 60 * 1000;
-    const sessions = await prisma.refreshSession.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'asc' },
-    });
-    const revokedUnexpired = sessions.find((s) => s.isRevoked)!;
-    const activeSession = sessions.find((s) => !s.isRevoked)!;
+    const nowMs = Date.now();
 
-    await prisma.refreshSession.update({
-      where: { id: revokedUnexpired.id },
+    const bystander = await register();
+    const bystanderExpiredId = randomUUID();
+    await prisma.refreshSession.create({
       data: {
-        createdAt: new Date(nowMs - 15 * dayMs),
-        expiresAt: new Date(nowMs + 15 * dayMs),
+        id: bystanderExpiredId,
+        userId: bystander.user.id,
+        tokenHash: `bystander-${randomUUID()}`,
+        expiresAt: new Date(nowMs - 20 * dayMs),
+        isRevoked: false,
+        createdAt: new Date(nowMs - 50 * dayMs),
       },
     });
 
-    const lockedExpiredId = randomUUID();
-    const keptRecentExpiredId = randomUUID();
-    const keptRevokedCreatedOldId = randomUUID();
-    const purgedIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const schemaName = `retention_e2e_${randomUUID().replace(/-/g, '').slice(0, 12)}`;
+    if (!/^retention_e2e_[0-9a-f]{12}$/.test(schemaName)) {
+      throw new Error(`Unexpected isolated schema name: ${schemaName}`);
+    }
 
-    await prisma.refreshSession.createMany({
-      data: [
-        {
-          id: keptRecentExpiredId,
-          userId,
-          tokenHash: `hash-${randomUUID()}`,
-          expiresAt: new Date(nowMs - 2 * dayMs),
-          isRevoked: false,
-          createdAt: new Date(nowMs - 32 * dayMs),
-        },
-        {
-          id: keptRevokedCreatedOldId,
-          userId,
-          tokenHash: `hash-${randomUUID()}`,
-          expiresAt: new Date(nowMs - 6 * dayMs),
-          isRevoked: true,
-          createdAt: new Date(nowMs - 35 * dayMs),
-        },
-        {
-          id: lockedExpiredId,
-          userId,
-          tokenHash: `hash-${randomUUID()}`,
-          expiresAt: new Date(nowMs - 12 * dayMs),
-          isRevoked: false,
-          createdAt: new Date(nowMs - 42 * dayMs),
-        },
-        {
-          id: purgedIds[0],
-          userId,
-          tokenHash: `hash-${randomUUID()}`,
-          expiresAt: new Date(nowMs - 11 * dayMs),
-          isRevoked: true,
-          createdAt: new Date(nowMs - 41 * dayMs),
-        },
-        {
-          id: purgedIds[1],
-          userId,
-          tokenHash: `hash-${randomUUID()}`,
-          expiresAt: new Date(nowMs - 10 * dayMs),
-          isRevoked: false,
-          createdAt: new Date(nowMs - 40 * dayMs),
-        },
-        {
-          id: purgedIds[2],
-          userId,
-          tokenHash: `hash-${randomUUID()}`,
-          expiresAt: new Date(nowMs - 9 * dayMs),
-          isRevoked: true,
-          createdAt: new Date(nowMs - 39 * dayMs),
-        },
-        {
-          id: purgedIds[3],
-          userId,
-          tokenHash: `hash-${randomUUID()}`,
-          expiresAt: new Date(nowMs - 8 * dayMs),
-          isRevoked: false,
-          createdAt: new Date(nowMs - 38 * dayMs),
-        },
-      ],
-    });
+    const isolatedUrl = new URL(process.env.DATABASE_URL!);
+    isolatedUrl.searchParams.set('schema', schemaName);
+    const isolatedDatabaseUrl = isolatedUrl.toString();
 
-    const lockClient = new PrismaClient();
-    let releaseLock!: () => void;
-    let markLocked!: () => void;
-    const lockedReady = new Promise<void>((resolve) => {
-      markLocked = resolve;
-    });
-    const lockHold = new Promise<void>((resolve) => {
-      releaseLock = resolve;
-    });
+    const isolatedUsers: string[] = [];
+    let isolatedPrisma: PrismaService | null = null;
+    let isolatedApp: NestExpressApplication | null = null;
 
-    const txPromise = lockClient.$transaction(
-      async (tx) => {
-        await tx.$queryRaw`
-          SELECT id FROM "refresh_sessions" WHERE id = ${lockedExpiredId}::uuid FOR UPDATE
-        `;
-        markLocked();
-        await lockHold;
-      },
-      { timeout: 15_000, maxWait: 5_000 },
-    );
+    await prisma.$executeRawUnsafe(`CREATE SCHEMA "${schemaName}"`);
 
     try {
-      await lockedReady;
+      execFileSync(process.execPath, [resolvePrismaCliPath(), 'migrate', 'deploy'], {
+        cwd: path.resolve(__dirname, '..'),
+        env: { ...process.env, DATABASE_URL: isolatedDatabaseUrl },
+        stdio: 'pipe',
+      });
 
-      const firstSweep = await cleanupService.runSweep({ batchSize: 2, maxBatches: 10 });
-      expect(firstSweep.deletedCount).toBe(4);
-      expect(firstSweep.batches).toBe(3);
+      const indexes = await prisma.$queryRaw<Array<{ schemaname: string; indexname: string }>>`
+        SELECT schemaname, indexname
+        FROM pg_indexes
+        WHERE schemaname IN ('public', ${schemaName})
+          AND tablename = 'refresh_sessions'
+          AND indexname = 'refresh_sessions_expires_at_idx'
+      `;
+      expect(indexes.map((row) => row.schemaname).sort()).toEqual(['public', schemaName].sort());
 
-      const midRemaining = await prisma.refreshSession.findMany({
+      isolatedPrisma = new PrismaService({
+        datasources: { db: { url: isolatedDatabaseUrl } },
+      });
+      await isolatedPrisma.$connect();
+
+      const isolatedModule = await Test.createTestingModule({
+        imports: [
+          ConfigModule.forRoot({
+            isGlobal: true,
+            ignoreEnvFile: true,
+            load: [
+              () => ({
+                AUTH_PROVIDER: 'legacy',
+                NODE_ENV: 'test',
+                JWT_SECRET:
+                  process.env.JWT_SECRET ||
+                  'e2e-isolated-jwt-secret-must-be-at-least-32-chars',
+                JWT_REFRESH_SECRET:
+                  process.env.JWT_REFRESH_SECRET ||
+                  'e2e-isolated-refresh-secret-at-least-32-chars',
+                REFRESH_SESSION_RETENTION_DAYS: '1',
+              }),
+            ],
+          }),
+          EventEmitterModule.forRoot({
+            wildcard: false,
+            delimiter: '.',
+            maxListeners: 20,
+          }),
+          ThrottlerModule.forRoot([{ ttl: 60000, limit: 30 }]),
+          PrismaModule,
+          SecurityModule,
+          AuthModule,
+        ],
+      })
+        .overrideProvider(PrismaService)
+        .useValue(isolatedPrisma)
+        .compile();
+
+      isolatedApp = isolatedModule.createNestApplication<NestExpressApplication>();
+      isolatedApp.useGlobalPipes(
+        new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
+      );
+      isolatedApp.useGlobalFilters(new HttpExceptionFilter());
+      await isolatedApp.init();
+
+      const isolatedCleanup = isolatedApp.get(RefreshSessionCleanupService);
+      expect(isolatedCleanup.isEnabled()).toBe(false);
+
+      const account = await register(isolatedApp, isolatedUsers);
+      const userId = account.user.id as string;
+      const refreshToken1 = account.refreshToken as string;
+
+      const rotateRes = await request(isolatedApp.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: refreshToken1 })
+        .expect(200);
+      const refreshToken2 = rotateRes.body.data.refreshToken as string;
+      expect(refreshToken2).not.toBe(refreshToken1);
+
+      const sessions = await isolatedPrisma.refreshSession.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'asc' },
+      });
+      const revokedUnexpired = sessions.find((s) => s.isRevoked)!;
+      const activeSession = sessions.find((s) => !s.isRevoked)!;
+
+      await isolatedPrisma.refreshSession.update({
+        where: { id: revokedUnexpired.id },
+        data: {
+          createdAt: new Date(nowMs - 15 * dayMs),
+          expiresAt: new Date(nowMs + 15 * dayMs),
+        },
+      });
+
+      const lockedExpiredId = randomUUID();
+      const keptRecentExpiredId = randomUUID();
+      const keptRevokedCreatedOldId = randomUUID();
+      const purgedIds = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+
+      await isolatedPrisma.refreshSession.createMany({
+        data: [
+          {
+            id: keptRecentExpiredId,
+            userId,
+            tokenHash: `hash-${randomUUID()}`,
+            expiresAt: new Date(nowMs - 2 * dayMs),
+            isRevoked: false,
+            createdAt: new Date(nowMs - 32 * dayMs),
+          },
+          {
+            id: keptRevokedCreatedOldId,
+            userId,
+            tokenHash: `hash-${randomUUID()}`,
+            expiresAt: new Date(nowMs - 6 * dayMs),
+            isRevoked: true,
+            createdAt: new Date(nowMs - 35 * dayMs),
+          },
+          {
+            id: lockedExpiredId,
+            userId,
+            tokenHash: `hash-${randomUUID()}`,
+            expiresAt: new Date(nowMs - 12 * dayMs),
+            isRevoked: false,
+            createdAt: new Date(nowMs - 42 * dayMs),
+          },
+          {
+            id: purgedIds[0],
+            userId,
+            tokenHash: `hash-${randomUUID()}`,
+            expiresAt: new Date(nowMs - 11 * dayMs),
+            isRevoked: true,
+            createdAt: new Date(nowMs - 41 * dayMs),
+          },
+          {
+            id: purgedIds[1],
+            userId,
+            tokenHash: `hash-${randomUUID()}`,
+            expiresAt: new Date(nowMs - 10 * dayMs),
+            isRevoked: false,
+            createdAt: new Date(nowMs - 40 * dayMs),
+          },
+          {
+            id: purgedIds[2],
+            userId,
+            tokenHash: `hash-${randomUUID()}`,
+            expiresAt: new Date(nowMs - 9 * dayMs),
+            isRevoked: true,
+            createdAt: new Date(nowMs - 39 * dayMs),
+          },
+          {
+            id: purgedIds[3],
+            userId,
+            tokenHash: `hash-${randomUUID()}`,
+            expiresAt: new Date(nowMs - 8 * dayMs),
+            isRevoked: false,
+            createdAt: new Date(nowMs - 38 * dayMs),
+          },
+        ],
+      });
+
+      const lockClient = new PrismaClient({
+        datasources: { db: { url: isolatedDatabaseUrl } },
+      });
+      let releaseLock!: () => void;
+      let markLocked!: () => void;
+      const lockedReady = new Promise<void>((resolve) => {
+        markLocked = resolve;
+      });
+      const lockHold = new Promise<void>((resolve) => {
+        releaseLock = resolve;
+      });
+
+      const txPromise = lockClient.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`
+            SELECT id FROM "refresh_sessions" WHERE id = ${lockedExpiredId}::uuid FOR UPDATE
+          `;
+          markLocked();
+          await lockHold;
+        },
+        { timeout: 15_000, maxWait: 5_000 },
+      );
+
+      try {
+        await lockedReady;
+
+        const firstSweep = await isolatedCleanup.runSweep({ batchSize: 2, maxBatches: 10 });
+        expect(firstSweep.deletedCount).toBe(4);
+        expect(firstSweep.batches).toBe(3);
+
+        const midRemaining = await isolatedPrisma.refreshSession.findMany({
+          where: { userId },
+          select: { id: true },
+        });
+        expect(midRemaining.map((r) => r.id).sort()).toEqual(
+          [revokedUnexpired.id, activeSession.id, keptRecentExpiredId, keptRevokedCreatedOldId, lockedExpiredId].sort(),
+        );
+      } finally {
+        releaseLock();
+        await txPromise.catch(() => undefined);
+        await lockClient.$disconnect();
+      }
+
+      const secondSweep = await isolatedCleanup.runSweep({ batchSize: 2, maxBatches: 10 });
+      expect(secondSweep.deletedCount).toBe(1);
+      expect(secondSweep.batches).toBe(1);
+
+      const finalRemaining = await isolatedPrisma.refreshSession.findMany({
         where: { userId },
         select: { id: true },
       });
-      expect(midRemaining.map((r) => r.id).sort()).toEqual(
-        [revokedUnexpired.id, activeSession.id, keptRecentExpiredId, keptRevokedCreatedOldId, lockedExpiredId].sort(),
+      expect(finalRemaining.map((r) => r.id).sort()).toEqual(
+        [revokedUnexpired.id, activeSession.id, keptRecentExpiredId, keptRevokedCreatedOldId].sort(),
       );
+
+      const replayRes = await request(isolatedApp.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: refreshToken1 })
+        .expect(401);
+      expect(replayRes.body?.error?.code).toBe('AUTH_TOKEN_COMPROMISED');
+
+      const postReplaySessions = await isolatedPrisma.refreshSession.findMany({
+        where: { userId },
+        select: { id: true, isRevoked: true },
+      });
+      expect(postReplaySessions).toHaveLength(4);
+      expect(postReplaySessions.every((s) => s.isRevoked)).toBe(true);
+
+      const untouchedBystanderSession = await prisma.refreshSession.findUnique({
+        where: { id: bystanderExpiredId },
+        select: { id: true },
+      });
+      expect(untouchedBystanderSession?.id).toBe(bystanderExpiredId);
     } finally {
-      releaseLock();
-      await txPromise.catch(() => undefined);
-      await lockClient.$disconnect();
+      if (isolatedPrisma && isolatedUsers.length > 0) {
+        await isolatedPrisma.user.deleteMany({ where: { id: { in: isolatedUsers } } }).catch(() => undefined);
+      }
+      if (isolatedApp) {
+        await isolatedApp.close();
+      }
+      if (isolatedPrisma) {
+        await isolatedPrisma.$disconnect();
+      }
+      await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
     }
 
-    const secondSweep = await cleanupService.runSweep({ batchSize: 2, maxBatches: 10 });
-    expect(secondSweep.deletedCount).toBe(1);
-    expect(secondSweep.batches).toBe(1);
-
-    const finalRemaining = await prisma.refreshSession.findMany({
-      where: { userId },
-      select: { id: true },
-    });
-    expect(finalRemaining.map((r) => r.id).sort()).toEqual(
-      [revokedUnexpired.id, activeSession.id, keptRecentExpiredId, keptRevokedCreatedOldId].sort(),
-    );
-
-    const replayRes = await request(app.getHttpServer())
-      .post('/auth/refresh')
-      .send({ refreshToken: refreshToken1 })
-      .expect(401);
-    expect(replayRes.body?.error?.code).toBe('AUTH_TOKEN_COMPROMISED');
-
-    const postReplaySessions = await prisma.refreshSession.findMany({
-      where: { userId },
-      select: { id: true, isRevoked: true },
-    });
-    expect(postReplaySessions).toHaveLength(4);
-    expect(postReplaySessions.every((s) => s.isRevoked)).toBe(true);
+    const remainingSchemas = await prisma.$queryRaw<Array<{ schema_name: string }>>`
+      SELECT schema_name
+      FROM information_schema.schemata
+      WHERE schema_name = ${schemaName}
+    `;
+    expect(remainingSchemas).toHaveLength(0);
   });
 });

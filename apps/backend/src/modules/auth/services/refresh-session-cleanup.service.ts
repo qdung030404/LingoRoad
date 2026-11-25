@@ -13,6 +13,7 @@ import {
   REFRESH_SESSION_RETENTION_DAYS,
 } from '../repositories/refresh-session.repository';
 
+export const REFRESH_SESSION_MIN_RETENTION_DAYS = REFRESH_SESSION_RETENTION_DAYS;
 export const REFRESH_SESSION_CLEANUP_STARTUP_DELAY_MS = 15_000;
 export const REFRESH_SESSION_CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 export const REFRESH_SESSION_CLEANUP_MAX_BATCHES = 10;
@@ -125,10 +126,17 @@ export class RefreshSessionCleanupService
     const retentionDays = this.getIntConfig(
       'REFRESH_SESSION_RETENTION_DAYS',
       REFRESH_SESSION_RETENTION_DAYS,
-      1,
+      REFRESH_SESSION_MIN_RETENTION_DAYS,
+    );
+    const latestAllowedCutoff = new Date(
+      Date.now() - retentionDays * MS_PER_DAY,
     );
     const cutoff =
-      options.cutoff ?? new Date(Date.now() - retentionDays * MS_PER_DAY);
+      options.cutoff &&
+      Number.isFinite(options.cutoff.getTime()) &&
+      options.cutoff.getTime() <= latestAllowedCutoff.getTime()
+        ? options.cutoff
+        : latestAllowedCutoff;
 
     if (this.stopped) {
       return { deletedCount: 0, batches: 0, cutoff };
