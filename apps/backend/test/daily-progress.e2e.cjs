@@ -18,6 +18,15 @@ describe('Daily plans and observed learning time', () => {
   const kinds = ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'];
   const dayMs = 86400000;
   const localDate = value => new Date(new Date(value).getTime() + 7 * 3600000).toISOString().slice(0, 10);
+  function safeDayWindow(minOffsetMs) {
+    const nowMs = Date.now();
+    const today = localDate(nowMs);
+    const todayStartMs = new Date(`${today}T00:00:00+07:00`).getTime();
+    if (nowMs - todayStartMs >= minOffsetMs) {
+      return { date: today, endMs: nowMs, isYesterday: false };
+    }
+    return { date: localDate(todayStartMs - 1), endMs: todayStartMs - 5000, isYesterday: true };
+  }
 
   before(async () => {
     assert.match(emulator || '', /^(127\.0\.0\.1|localhost):\d+$/);
@@ -211,9 +220,16 @@ describe('Daily plans and observed learning time', () => {
   });
 
   it('unions device overlap, ACKs exact out-of-order receipts, and keeps activity writes separate from answer versions', async () => {
+    const window = safeDayWindow(610000);
     const owner = await account(); await preferences(owner, 5); await plan(owner);
+    if (window.isYesterday) {
+      await prisma.learningDayPlan.create({
+        data: { userId: owner.userId, date: window.date, preferencesVersion: 0, dailyGoalMinutes: 5, items: [] },
+      });
+    }
+    const measuredDay = data => data.days.find(day => day.date === window.date);
     const attempt = await start(owner, lessons.READING);
-    const anchorAt = new Date(Date.now() - 60000);
+    const anchorAt = new Date(window.endMs - 60000);
     const one = await anchored(owner, attempt, anchorAt), two = await anchored(owner, attempt, anchorAt);
     const payload = [{ seq: 2, startOffsetMs: 20000, endOffsetMs: 30000 }, { seq: 0, startOffsetMs: 0, endOffsetMs: 10000 }];
     const original = (await send(owner, one, payload).expect(200)).body.data;
@@ -225,13 +241,13 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(await prisma.learningActivitySegment.count({ where: { sessionId: { in: [one, two] } } }), 3);
     assert.equal((await api(owner, 'get', `/learning/attempts/${attempt.id}`).expect(200)).body.data.version, attempt.version);
     let stats = await progress(owner);
-    assert.equal(stats.today.activeSeconds, 30);
-    assert.equal(stats.today.goalMet, false);
-    const three = await anchored(owner, attempt, new Date(Date.now() - 600000));
+    assert.equal(measuredDay(stats).activeSeconds, 30);
+    assert.equal(measuredDay(stats).goalMet, false);
+    const three = await anchored(owner, attempt, new Date(window.endMs - 600000));
     await send(owner, three, Array.from({ length: 21 }, (_, seq) => ({ seq, startOffsetMs: seq * 15000, endOffsetMs: (seq + 1) * 15000 }))).expect(200);
     stats = await progress(owner);
-    assert.equal(stats.today.activeSeconds, 345);
-    assert.equal(stats.today.goalMet, true);
+    assert.equal(measuredDay(stats).activeSeconds, 345);
+    assert.equal(measuredDay(stats).goalMet, true);
     const home = (await api(owner, 'get', '/learning/home').expect(200)).body.data;
     assert.deepEqual(home.days, stats.days);
     assert.equal(home.totals.activeSeconds, stats.totals.activeSeconds);
@@ -240,11 +256,11 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(summary.completedAttemptCount, stats.totals.completedAttemptCount);
     // Cancelling an unfinished attempt removes all of its recorded activity time as well.
     const cancelledAttempt = await start(owner, lessons.GRAMMAR);
-    const cancelledSession = await anchored(owner, cancelledAttempt, new Date(Date.now() - 30000));
+    const cancelledSession = await anchored(owner, cancelledAttempt, new Date(window.endMs - 30000));
     await send(owner, cancelledSession, [{ seq: 0, startOffsetMs: 0, endOffsetMs: 10000 }]).expect(200);
-    assert.equal((await progress(owner)).today.activeSeconds, 355);
+    assert.equal(measuredDay(await progress(owner)).activeSeconds, 355);
     await api(owner, 'delete', `/learning/attempts/${cancelledAttempt.id}`).expect(200);
-    assert.equal((await progress(owner)).today.activeSeconds, 345);
+    assert.equal(measuredDay(await progress(owner)).activeSeconds, 345);
   });
 
   it('splits uploaded offline intervals at Vietnam midnight and preserves old data as unmeasured', async () => {
@@ -270,8 +286,9 @@ describe('Daily plans and observed learning time', () => {
   });
 
   it('accepts valid late intervals before submission, clips later intervals, and never opens a new completed timer', async () => {
+    const window = safeDayWindow(70000);
     const owner = await account(), attempt = await start(owner, lessons.READING);
-    const anchor = new Date(Date.now() - 60000), sessionId = await anchored(owner, attempt, anchor);
+    const anchor = new Date(window.endMs - 60000), sessionId = await anchored(owner, attempt, anchor);
     const done = await finish(owner, lessons.READING, 5, attempt);
     // Set an exact earlier submission boundary on our own test row.
     const submittedAt = new Date(anchor.getTime() + 20000);
@@ -284,7 +301,8 @@ describe('Daily plans and observed learning time', () => {
     assert.equal(response.acks[1].startAt, null);
     assert.equal(response.acks[1].endAt, null);
     await api(owner, 'post', `/learning/attempts/${done.id}/activity-sessions`, { clientRunId: randomUUID() }).expect(400);
-    assert.equal((await progress(owner)).today.activeSeconds, 10);
+    const measured = (await progress(owner)).days.find(day => day.date === window.date);
+    assert.equal(measured.activeSeconds, 10);
   });
 
   it('enforces timer ownership, input limits, canonical future clipping, expiry and preference conflicts', async () => {

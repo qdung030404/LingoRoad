@@ -66,6 +66,14 @@ jobs:
           cd apps/backend
           npm run test
 
+      - name: Verify Prisma Schema Drift and SQL Constraints
+        env:
+          SHADOW_DATABASE_SERVER_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
+        run: |
+          cd apps/backend
+          npx prisma migrate deploy
+          npm run prisma:verify-schema
+
       - name: Validate Demo Content and HTTP E2E
         env:
           AUTH_PROVIDER: legacy

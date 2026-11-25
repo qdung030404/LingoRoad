@@ -72,8 +72,9 @@ model User {
   vocabularyDecks     VocabularyDeck[]
   vocabularyReviews   VocabularyReviewAttempt[]
   vocabularyReceipts  VocabularyCommandReceipt[]
-  speakingSubmissions SpeakingSubmission[]
-  voiceConversations  VoiceConversation[]
+  speakingSubmissions  SpeakingSubmission[]
+  speakingGameProgress SpeakingGameProgress[]
+  voiceConversations   VoiceConversation[]
 
   @@map("users")
 }
@@ -107,6 +108,7 @@ model VoiceConversation {
   @@unique([userId, clientRequestId])
   @@index([userId, createdAt, id])
   @@index([historyStatus, endedAt])
+  @@index([status, createdAt])
   @@map("voice_conversations")
 }
 
@@ -154,7 +156,8 @@ model SpeakingPrompt {
   sortOrder Int @map("sort_order")
   published Boolean @default(true)
   @@index([mode, sortOrder])
-  submissions SpeakingSubmission[]
+  submissions  SpeakingSubmission[]
+  gameProgress SpeakingGameProgress[]
   @@map("speaking_prompts")
 }
 
@@ -417,6 +420,7 @@ model LearningAttempt {
 
   @@index([userId, status, updatedAt])
   @@index([userId, lessonId])
+  @@index([userId, submittedAt, id])
   @@map("learning_attempts")
 }
 
@@ -520,6 +524,7 @@ model LearningActivitySegment {
   session LearningActivitySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   @@unique([sessionId, seq])
   @@index([startAt, endAt])
+  @@index([sessionId, startAt, endAt])
   @@map("learning_activity_segments")
 }
 
@@ -565,6 +570,7 @@ model VocabularyWord {
   deck VocabularyDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
   reviewItems VocabularyReviewItem[]
   @@index([deckId, deletedAt, createdAt, id])
+  @@index([deckId, deletedAt, learningState, lastReviewedAt])
   @@map("vocabulary_words")
 }
 
@@ -586,6 +592,7 @@ model VocabularyReviewAttempt {
   deck VocabularyDeck @relation(fields: [deckId], references: [id], onDelete: Restrict)
   items VocabularyReviewItem[]
   @@index([userId, startedAt, id])
+  @@index([userId, status])
   @@map("vocabulary_review_attempts")
 }
 
@@ -634,7 +641,9 @@ model SpeakingGameProgress {
   stars Int @default(0)
   bestScore Float @default(0) @map("best_score")
   cleared Boolean @default(false)
-  updatedAt DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt SpeakingPrompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
   @@id([userId, promptId, contentVersion])
   @@map("speaking_game_progress")
 }

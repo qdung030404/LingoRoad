@@ -140,11 +140,14 @@ export function buildProgressUnits(
 }
 
 /** Computes 0-100 practice attempt average and 7-day Vietnam-timezone trend; never alters CEFR. */
-export function computeScoreStats(attempts: LearningAttempt[], now: Date): ProgressScoreStats {
+export function computeScoreStats(
+  attempts: Pick<LearningAttempt, 'status' | 'submittedAt' | 'correctCount' | 'totalQuestions'>[],
+  now: Date,
+): ProgressScoreStats {
   const valid = attempts.filter(
     (a) => a.status === 'COMPLETED' && a.submittedAt != null && a.correctCount != null && a.totalQuestions > 0,
   );
-  const average = (rows: LearningAttempt[]): number | null => {
+  const average = (rows: Pick<LearningAttempt, 'correctCount' | 'totalQuestions'>[]): number | null => {
     if (!rows.length) return null;
     const total = rows.reduce((sum, a) => sum + (a.correctCount! / a.totalQuestions) * 100, 0);
     return Math.round(total / rows.length);

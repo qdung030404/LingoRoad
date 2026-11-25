@@ -450,6 +450,7 @@ export class PlanningService {
   }
 
   private async homeActiveSeconds(userId: string, windows: { from: Date; to: Date }[]) {
+    if (!windows.length) return new Map<number, number>();
     const values = windows.map(({ from, to }, index) => Prisma.sql`(${index}::int, ${from}::timestamptz, ${to}::timestamptz)`);
     const rows = await this.prisma.$queryRaw<{ idx: number; seconds: number }[]>`
       WITH windows(idx, starts, ends) AS (VALUES ${Prisma.join(values)}),
@@ -457,25 +458,28 @@ export class PlanningService {
         SELECT w.idx, range_agg(tstzrange(GREATEST(s.start_at AT TIME ZONE 'UTC', w.starts),
           LEAST(s.end_at AT TIME ZONE 'UTC', w.ends), '[)')) AS spans
         FROM learning_activity_segments s JOIN learning_activity_sessions a ON a.id = s.session_id
-        JOIN windows w ON (s.end_at AT TIME ZONE 'UTC') > w.starts AND (s.start_at AT TIME ZONE 'UTC') < w.ends
+        JOIN windows w ON w.starts < w.ends
+          AND s.end_at > (w.starts AT TIME ZONE 'UTC')
+          AND s.start_at < (w.ends AT TIME ZONE 'UTC')
         WHERE a.user_id = ${userId}::uuid AND s.start_at IS NOT NULL
         GROUP BY w.idx
       )
       SELECT idx, FLOOR(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span)))))::double precision AS seconds
       FROM merged CROSS JOIN LATERAL unnest(spans) AS pieces(span) GROUP BY idx`;
-    return new Map(rows.map(row => [row.idx, row.seconds]));
+    return new Map(rows.map(row => [row.idx, Number(row.seconds ?? 0)]));
   }
 
   /** UTC ranges are unioned across devices before summing. Time is never inferred from attempts. */
   async activeSeconds(userId: string, from: Date, to: Date): Promise<number> {
+    if (from >= to) return 0;
     const rows = await this.prisma.$queryRaw<{ milliseconds: number }[]>`
       WITH merged AS (
         SELECT range_agg(tstzrange(GREATEST(s.start_at AT TIME ZONE 'UTC', ${from}::timestamptz),
           LEAST(s.end_at AT TIME ZONE 'UTC', ${to}::timestamptz), '[)')) AS ranges
         FROM learning_activity_segments s JOIN learning_activity_sessions a ON a.id = s.session_id
         WHERE a.user_id = ${userId}::uuid AND s.start_at IS NOT NULL
-          AND (s.end_at AT TIME ZONE 'UTC') > ${from}::timestamptz
-          AND (s.start_at AT TIME ZONE 'UTC') < ${to}::timestamptz
+          AND s.end_at > (${from}::timestamptz AT TIME ZONE 'UTC')
+          AND s.start_at < (${to}::timestamptz AT TIME ZONE 'UTC')
       ), pieces AS (SELECT unnest(ranges) AS span FROM merged)
       SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span))) * 1000), 0)::double precision AS milliseconds FROM pieces`;
     return Math.floor((rows[0]?.milliseconds ?? 0) / 1000);
@@ -483,24 +487,46 @@ export class PlanningService {
 
   async progress(userId: string) {
     const now = new Date(), today = learningDate(now), start = learningDayStart(today);
-    const [profile, plans, attempts, totalLessons, units, first, placement, skillLevel] = await Promise.all([
-      this.profile(this.prisma, userId), this.prisma.learningDayPlan.findMany({ where: { userId } }),
-      this.prisma.learningAttempt.findMany({ where: { userId }, orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }] }),
+    const week = Array.from({ length: 7 }, (_, i) => {
+      const from = new Date(start.getTime() - (6 - i) * DAY_MS);
+      return { date: learningDate(from), from, to: new Date(Math.min(from.getTime() + DAY_MS, now.getTime())) };
+    });
+    const [profile, plans, attempts, totalLessons, units, first, placement, skillLevel, seconds] = await Promise.all([
+      this.profile(this.prisma, userId),
+      this.prisma.learningDayPlan.findMany({
+        where: { userId, date: { gte: week[0].date, lte: today } },
+        select: { date: true, dailyGoalMinutes: true },
+      }),
+      this.prisma.learningAttempt.findMany({
+        where: { userId },
+        select: {
+          id: true,
+          lessonId: true,
+          status: true,
+          lessonSnapshot: true,
+          correctCount: true,
+          totalQuestions: true,
+          submittedAt: true,
+          historyHiddenAt: true,
+        },
+        orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
+      }),
       this.prisma.learningLesson.findMany({ where: { published: true }, select: { id: true, unitId: true } }),
       this.prisma.learningUnit.findMany({ orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }] }),
       this.prisma.learningActivitySession.findFirst({ where: { userId }, orderBy: { anchorAt: 'asc' }, select: { anchorAt: true } }),
       this.prisma.placementSession.findFirst({ where: { userId, status: 'COMPLETED' }, orderBy: { completedAt: 'desc' }, select: { skillResults: true, completedAt: true } }),
       this.prisma.learningSkillLevel?.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }) ?? Promise.resolve(null),
+      this.homeActiveSeconds(userId, [...week, { from: new Date(0), to: now }]),
     ]);
-    const days = await Promise.all(Array.from({ length: 7 }, async (_, i) => {
-      const dayStart = new Date(start.getTime() - (6 - i) * DAY_MS), date = learningDate(dayStart);
-      const completed = attempts.filter(a => finishedOn(a, date));
-      const activeSeconds = await this.activeSeconds(userId, dayStart, new Date(Math.min(dayStart.getTime() + DAY_MS, now.getTime())));
-      const target = plans.find(p => p.date === date)?.dailyGoalMinutes ?? (date === today ? profile.dailyGoalMinutes : null);
-      return { date, dailyGoalMinutes: target, activeSeconds, goalMet: target != null && activeSeconds >= target * 60,
+    const goalByDate = new Map(plans.map(p => [p.date, p.dailyGoalMinutes]));
+    const days = week.map((day, index) => {
+      const completed = attempts.filter(a => finishedOn(a, day.date));
+      const activeSeconds = seconds.get(index) ?? 0;
+      const target = goalByDate.get(day.date) ?? (day.date === today ? profile.dailyGoalMinutes : null);
+      return { date: day.date, dailyGoalMinutes: target, activeSeconds, goalMet: target != null && activeSeconds >= target * 60,
         completedLessonCount: new Set(completed.map(a => a.lessonId)).size, completedAttemptCount: completed.length,
-        hasActivity: activeSeconds > 0 || completed.length > 0, timeMeasured: first != null && learningDate(first.anchorAt) <= date };
-    }));
+        hasActivity: activeSeconds > 0 || completed.length > 0, timeMeasured: first != null && learningDate(first.anchorAt) <= day.date };
+    });
     const completed = attempts.filter(a => a.status === 'COMPLETED');
     const publishedIds = new Set(totalLessons.map(l => l.id));
     const completedPublishedIds = new Set(completed.filter(a => publishedIds.has(a.lessonId)).map(a => a.lessonId));
@@ -533,7 +559,7 @@ export class PlanningService {
     return { today: days[6], days, totals: { totalLessons: totalLessons.length,
       completedLessonCount: completedPublishedIds.size,
       completedAttemptCount: completed.length, activeAttemptCount: attempts.filter(a => a.status === 'IN_PROGRESS').length,
-      activeSeconds: await this.activeSeconds(userId, new Date(0), now),
+      activeSeconds: seconds.get(week.length) ?? 0,
       averageActiveSeconds, averageStudyMinutes: Math.floor(averageActiveSeconds / 60) },
       units: buildProgressUnits(units, totalLessons, completedPublishedIds),
       scoreStats: computeScoreStats(completed, now),

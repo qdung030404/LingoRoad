@@ -32,13 +32,45 @@ export class VocabularyService {
     if (!word) vocabMissing();
     return word;
   }
+  private async deckViews(db: Db, userId: string, decks: VocabularyDeck[]) {
+    if (!decks.length) return [];
+    const deckIds = decks.map(d => d.id);
+    const activeDeckIds = decks.filter(d => !d.deletedAt).map(d => d.id);
+    const [wordStats, activeAttempts] = await Promise.all([
+      activeDeckIds.length
+        ? db.$queryRaw<{ deckId: string; totalWords: number; rememberedWords: number; reviewedWords: number }[]>`
+            SELECT
+              deck_id AS "deckId",
+              COUNT(*)::int AS "totalWords",
+              COUNT(*) FILTER (WHERE learning_state = 'REMEMBERED')::int AS "rememberedWords",
+              COUNT(*) FILTER (WHERE last_reviewed_at IS NOT NULL)::int AS "reviewedWords"
+            FROM vocabulary_words
+            WHERE deck_id IN (${Prisma.join(activeDeckIds.map(id => Prisma.sql`${id}::uuid`))})
+              AND deleted_at IS NULL
+            GROUP BY deck_id
+          `
+        : Promise.resolve([]),
+      db.vocabularyReviewAttempt.findMany({
+        where: { userId, deckId: { in: deckIds }, status: 'IN_PROGRESS' },
+        select: { id: true, deckId: true },
+      }),
+    ]);
+    const statsByDeck = new Map(wordStats.map(row => [row.deckId, row]));
+    const activeByDeck = new Map(activeAttempts.map(row => [row.deckId, row.id]));
+    return decks.map(deck => {
+      const stats = statsByDeck.get(deck.id);
+      const totalWords = Number(stats?.totalWords ?? 0);
+      const rememberedWords = Number(stats?.rememberedWords ?? 0);
+      const reviewedWords = Number(stats?.reviewedWords ?? 0);
+      return {
+        id: deck.id, name: deck.name, version: deck.version, deletedAt: deck.deletedAt, createdAt: deck.createdAt,
+        totalWords, rememberedWords, needsReviewWords: totalWords - rememberedWords,
+        reviewedWords, activeAttemptId: activeByDeck.get(deck.id) ?? null,
+      };
+    });
+  }
   private async deckView(db: Db, deck: VocabularyDeck) {
-    const words = deck.deletedAt ? [] : await db.vocabularyWord.findMany({ where: { deckId: deck.id, deletedAt: null }, select: { learningState: true, lastReviewedAt: true } });
-    const active = await db.vocabularyReviewAttempt.findFirst({ where: { deckId: deck.id, userId: deck.userId, status: 'IN_PROGRESS' }, select: { id: true } });
-    const rememberedWords = words.filter(w => w.learningState === 'REMEMBERED').length;
-    return { id: deck.id, name: deck.name, version: deck.version, deletedAt: deck.deletedAt, createdAt: deck.createdAt,
-      totalWords: words.length, rememberedWords, needsReviewWords: words.length - rememberedWords,
-      reviewedWords: words.filter(w => w.lastReviewedAt != null).length, activeAttemptId: active?.id ?? null };
+    return (await this.deckViews(db, deck.userId, [deck]))[0];
   }
   async deck(userId: string, id: string, includeDeleted = false) {
     return { deck: await this.prisma.$transaction(async db => this.deckView(db, await this.ownedDeck(db, userId, id, includeDeleted)), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }) };
@@ -49,7 +81,7 @@ export class VocabularyService {
       if (query.cursor) await this.ownedDeck(db, userId, query.cursor);
       const rows = await db.vocabularyDeck.findMany({ where: { userId, deletedAt: null, ...(query.query?.trim() ? { name: { contains: query.query.trim(), mode: 'insensitive' as const } } : {}) },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: query.limit + 1, ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}) });
-      return { items: await Promise.all(rows.slice(0, query.limit).map(d => this.deckView(db, d))), nextCursor: rows.length > query.limit ? rows[query.limit - 1].id : null };
+      return { items: await this.deckViews(db, userId, rows.slice(0, query.limit)), nextCursor: rows.length > query.limit ? rows[query.limit - 1].id : null };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
   async words(userId: string, deckId: string, query: VocabularyListQuery) {
@@ -197,13 +229,32 @@ export class VocabularyService {
   }
   async summary(userId: string) {
     return this.prisma.$transaction(async db => {
-      const words = await db.vocabularyWord.findMany({ where: { deletedAt: null, deck: { userId, deletedAt: null } }, select: { learningState: true, lastReviewedAt: true } });
-      const rememberedWords = words.filter(w => w.learningState === 'REMEMBERED').length;
-      const decks = await db.vocabularyDeck.findMany({ where: { userId, deletedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 3 });
-      const completedReviewCount = await db.vocabularyReviewAttempt.count({ where: { userId, status: 'COMPLETED' } });
-      return { totals: { totalWords: words.length, rememberedWords, needsReviewWords: words.length - rememberedWords,
-        reviewedWords: words.filter(w => w.lastReviewedAt != null).length, completedReviewCount },
-        decks: await Promise.all(decks.slice(0, 2).map(d => this.deckView(db, d))), hasMoreDecks: decks.length > 2 };
+      const [totalsRows, decks, completedReviewCount] = await Promise.all([
+        db.$queryRaw<{ totalWords: number; rememberedWords: number; reviewedWords: number }[]>`
+          SELECT
+            COUNT(*)::int AS "totalWords",
+            COUNT(*) FILTER (WHERE w.learning_state = 'REMEMBERED')::int AS "rememberedWords",
+            COUNT(*) FILTER (WHERE w.last_reviewed_at IS NOT NULL)::int AS "reviewedWords"
+          FROM vocabulary_words w
+          JOIN vocabulary_decks d ON d.id = w.deck_id
+          WHERE d.user_id = ${userId}::uuid
+            AND d.deleted_at IS NULL
+            AND w.deleted_at IS NULL
+        `,
+        db.vocabularyDeck.findMany({ where: { userId, deletedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: 3 }),
+        db.vocabularyReviewAttempt.count({ where: { userId, status: 'COMPLETED' } }),
+      ]);
+      const totalsRow = totalsRows[0];
+      const totalWords = Number(totalsRow?.totalWords ?? 0);
+      const rememberedWords = Number(totalsRow?.rememberedWords ?? 0);
+      const reviewedWords = Number(totalsRow?.reviewedWords ?? 0);
+      return {
+        totals: {
+          totalWords, rememberedWords, needsReviewWords: totalWords - rememberedWords,
+          reviewedWords, completedReviewCount,
+        },
+        decks: await this.deckViews(db, userId, decks.slice(0, 2)), hasMoreDecks: decks.length > 2,
+      };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 
