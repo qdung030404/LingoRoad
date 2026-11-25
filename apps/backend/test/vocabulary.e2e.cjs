@@ -503,7 +503,7 @@ describe('Personal vocabulary and persisted review', () => {
     assert.equal(otherSummary.decks[0].activeAttemptId, null);
   });
 
-  it('keeps /vocabulary/decks exact across empty accounts, tie-break pagination, wildcard search, invalid cursors, active reviews and isolated users', async () => {
+  it('keeps /vocabulary/decks exact across empty accounts, tie-break pagination, native ILIKE %, _, \\ semantics, non-matching cursors, invalid cursors, active reviews and isolated users', async () => {
     await request(app.getHttpServer()).get('/vocabulary/decks').expect(401);
 
     const emptyUser = await account();
@@ -513,7 +513,7 @@ describe('Personal vocabulary and persisted review', () => {
     const owner = await account();
     const other = await account();
 
-    const otherDeck = await createDeck(other, '100%_Private #1');
+    const otherDeck = await createDeck(other, 'A_B Secret');
     await createWord(other, otherDeck, 'secret');
 
     const tieA = await createDeck(owner, 'Tie Deck A');
@@ -532,20 +532,39 @@ describe('Personal vocabulary and persisted review', () => {
     const abandonedOnTieB = (await start(owner, tieB, 'ALL')).attempt;
     await act(owner, abandonedOnTieB, 'ABANDON');
 
-    const special1 = await createDeck(owner, '100%_Score #1');
-    await createWord(owner, special1, 'metric');
-    const softDeletedWord = await createWord(owner, special1, 'obsolete');
+    const deckAB = await createDeck(owner, 'AB');
+    const deckAUnderB = await createDeck(owner, 'A_B');
+    const deckAPctB = await createDeck(owner, 'A%B');
+    const deckAHashB = await createDeck(owner, 'A#B');
+    const deckASlashB = await createDeck(owner, 'A\\B');
+
+    await createWord(owner, deckAPctB, 'metric');
+    const softDeletedWord = await createWord(owner, deckAPctB, 'obsolete');
     await api(owner, 'delete', `/vocabulary/words/${softDeletedWord.id}`, {
       commandId: randomUUID(),
       expectedVersion: softDeletedWord.version,
     }).expect(200);
-    const activeOnSpecial1 = (await start(owner, special1, 'ALL')).attempt;
+    const activeOnPctB = (await start(owner, deckAPctB, 'ALL')).attempt;
 
-    const plainMatch = await createDeck(owner, '1000XScore 1');
-    const special2 = await createDeck(owner, '100%_score #1 extra');
-    await prisma.vocabularyDeck.update({ where: { id: special1.id }, data: { createdAt: new Date('2026-11-24T00:01:00.000Z') } });
-    await prisma.vocabularyDeck.update({ where: { id: plainMatch.id }, data: { createdAt: new Date('2026-11-24T00:02:00.000Z') } });
-    await prisma.vocabularyDeck.update({ where: { id: special2.id }, data: { createdAt: new Date('2026-11-24T00:03:00.000Z') } });
+    const nonMatchMid = await createDeck(owner, 'Mid NonMatch');
+    const beta1 = await createDeck(owner, 'Beta 1');
+    const beta2 = await createDeck(owner, 'Beta 2');
+    const beta3 = await createDeck(owner, 'Beta 3');
+
+    const orderedDecks = [
+      [deckAB, '2026-11-24T00:01:00.000Z'],
+      [deckAUnderB, '2026-11-24T00:02:00.000Z'],
+      [deckAPctB, '2026-11-24T00:03:00.000Z'],
+      [deckAHashB, '2026-11-24T00:04:00.000Z'],
+      [deckASlashB, '2026-11-24T00:05:00.000Z'],
+      [nonMatchMid, '2026-11-24T00:06:00.000Z'],
+      [beta1, '2026-11-24T00:07:00.000Z'],
+      [beta2, '2026-11-24T00:08:00.000Z'],
+      [beta3, '2026-11-24T00:09:00.000Z'],
+    ];
+    for (const [deck, iso] of orderedDecks) {
+      await prisma.vocabularyDeck.update({ where: { id: deck.id }, data: { createdAt: new Date(iso) } });
+    }
 
     const softDeletedDeck = await createDeck(owner, 'Removed Deck');
     await api(owner, 'delete', `/vocabulary/decks/${softDeletedDeck.id}`, {
@@ -554,7 +573,7 @@ describe('Personal vocabulary and persisted review', () => {
     }).expect(200);
 
     const expectedTieOrder = [tieA.id, tieB.id].sort();
-    const expectedAllOrder = [...expectedTieOrder, special1.id, plainMatch.id, special2.id];
+    const expectedAllOrder = [...expectedTieOrder, ...orderedDecks.map(([deck]) => deck.id)];
 
     const pagedItems = [];
     let cursor = null;
@@ -588,37 +607,65 @@ describe('Personal vocabulary and persisted review', () => {
     assert.equal(byId.get(tieB.id).reviewedWords, 1);
     assert.equal(byId.get(tieB.id).activeAttemptId, null);
 
-    assert.equal(byId.get(special1.id).totalWords, 1);
-    assert.equal(byId.get(special1.id).rememberedWords, 0);
-    assert.equal(byId.get(special1.id).needsReviewWords, 1);
-    assert.equal(byId.get(special1.id).reviewedWords, 0);
-    assert.equal(byId.get(special1.id).activeAttemptId, activeOnSpecial1.id);
+    assert.equal(byId.get(deckAPctB.id).totalWords, 1);
+    assert.equal(byId.get(deckAPctB.id).rememberedWords, 0);
+    assert.equal(byId.get(deckAPctB.id).needsReviewWords, 1);
+    assert.equal(byId.get(deckAPctB.id).reviewedWords, 0);
+    assert.equal(byId.get(deckAPctB.id).activeAttemptId, activeOnPctB.id);
 
-    const searchPage1 = (
-      await api(owner, 'get', `/vocabulary/decks?query=${encodeURIComponent('100%_Score #1')}&limit=1`).expect(200)
+    // Preserves PostgreSQL native ILIKE semantics (wildcards %, _ and backslash escape \).
+    const searchCases = [
+      ['A_B', [deckAUnderB.id, deckAPctB.id, deckAHashB.id, deckASlashB.id]],
+      ['A%B', [deckAB.id, deckAUnderB.id, deckAPctB.id, deckAHashB.id, deckASlashB.id]],
+      ['A\\B', [deckAB.id]],
+      ['A\\\\B', [deckASlashB.id]],
+      ['A\\%B', [deckAPctB.id]],
+      ['A\\_B', [deckAUnderB.id]],
+      ['\\', []],
+    ];
+    for (const [term, expectedIds] of searchCases) {
+      const res = (
+        await api(owner, 'get', `/vocabulary/decks?query=${encodeURIComponent(term)}`).expect(200)
+      ).body.data;
+      assert.deepEqual(res.items.map(i => i.id), expectedIds, `query=${term}`);
+      assert.equal(res.nextCursor, null);
+    }
+
+    // Standard pagination over matching cursor rows.
+    const betaPage1 = (
+      await api(owner, 'get', '/vocabulary/decks?query=Beta&limit=1').expect(200)
     ).body.data;
-    assert.deepEqual(searchPage1.items.map(i => i.id), [special1.id]);
-    assert.equal(searchPage1.nextCursor, special1.id);
+    assert.deepEqual(betaPage1.items.map(i => i.id), [beta1.id]);
+    assert.equal(betaPage1.nextCursor, beta1.id);
 
-    const searchPage2 = (
-      await api(
-        owner,
-        'get',
-        `/vocabulary/decks?query=${encodeURIComponent('100%_Score #1')}&limit=1&cursor=${searchPage1.nextCursor}`,
-      ).expect(200)
+    const betaPage2 = (
+      await api(owner, 'get', `/vocabulary/decks?query=Beta&limit=1&cursor=${betaPage1.nextCursor}`).expect(200)
     ).body.data;
-    assert.deepEqual(searchPage2.items.map(i => i.id), [special2.id]);
-    assert.equal(searchPage2.nextCursor, null);
+    assert.deepEqual(betaPage2.items.map(i => i.id), [beta2.id]);
+    assert.equal(betaPage2.nextCursor, beta2.id);
 
-    // Literal hash query must also be escaped cleanly against ESCAPE '#'.
-    const hashSearch = (
-      await api(owner, 'get', `/vocabulary/decks?query=${encodeURIComponent('#1')}`).expect(200)
+    // Valid owned cursor whose deck name does NOT match query before matching rows (>= cursor + OFFSET 1 parity).
+    const nonMatchingBeforePage1 = (
+      await api(owner, 'get', `/vocabulary/decks?query=Beta&limit=1&cursor=${nonMatchMid.id}`).expect(200)
     ).body.data;
-    assert.deepEqual(hashSearch.items.map(i => i.id), [special1.id, special2.id]);
+    assert.deepEqual(nonMatchingBeforePage1.items.map(i => i.id), [beta2.id]);
+    assert.equal(nonMatchingBeforePage1.nextCursor, beta2.id);
 
-    // Valid cursor at the very end returns an empty page (not 404).
+    const nonMatchingBeforePage2 = (
+      await api(owner, 'get', `/vocabulary/decks?query=Beta&limit=1&cursor=${nonMatchingBeforePage1.nextCursor}`).expect(200)
+    ).body.data;
+    assert.deepEqual(nonMatchingBeforePage2.items.map(i => i.id), [beta3.id]);
+    assert.equal(nonMatchingBeforePage2.nextCursor, null);
+
+    // Valid owned non-matching cursor positioned after all matching rows returns an empty page (not 404).
+    const nonMatchingAfter = (
+      await api(owner, 'get', `/vocabulary/decks?query=Tie&cursor=${beta3.id}`).expect(200)
+    ).body.data;
+    assert.deepEqual(nonMatchingAfter, { items: [], nextCursor: null });
+
+    // Valid cursor at the very end without query returns an empty page (not 404).
     const tailPage = (
-      await api(owner, 'get', `/vocabulary/decks?cursor=${special2.id}`).expect(200)
+      await api(owner, 'get', `/vocabulary/decks?cursor=${beta3.id}`).expect(200)
     ).body.data;
     assert.deepEqual(tailPage, { items: [], nextCursor: null });
 

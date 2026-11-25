@@ -112,7 +112,7 @@ export class VocabularyService {
     const take = limit + 1;
     const cursor = query.cursor;
     const search = query.query?.trim();
-    const likePattern = search ? `%${search.replace(/[#%_]/g, '#$&')}%` : null;
+    const likePattern = search ? `%${search}%` : null;
     const [row] = await this.prisma.$queryRaw<{
       cursorValid: boolean;
       hasMore: boolean;
@@ -134,20 +134,27 @@ export class VocabularyService {
           d.name,
           d.version,
           d.deleted_at,
-          d.created_at,
-          ROW_NUMBER() OVER (ORDER BY d.created_at ASC, d.id ASC) AS rn
+          d.created_at
         FROM vocabulary_decks d
-        ${cursor ? Prisma.sql`JOIN cursor_anchor ca ON (d.created_at, d.id) > (ca.created_at, ca.id)` : Prisma.empty}
+        ${cursor ? Prisma.sql`JOIN cursor_anchor ca ON (d.created_at, d.id) >= (ca.created_at, ca.id)` : Prisma.empty}
         WHERE d.user_id = ${userId}::uuid
           AND d.deleted_at IS NULL
-          ${likePattern ? Prisma.sql`AND d.name ILIKE ${likePattern} ESCAPE '#'` : Prisma.empty}
+          ${likePattern ? Prisma.sql`AND d.name ILIKE ${likePattern}` : Prisma.empty}
         ORDER BY d.created_at ASC, d.id ASC
         LIMIT ${take}
+        ${cursor ? Prisma.sql`OFFSET 1` : Prisma.empty}
       ),
       deck_rows AS (
-        SELECT id, name, version, deleted_at, created_at, rn
+        SELECT
+          id,
+          name,
+          version,
+          deleted_at,
+          created_at,
+          ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC) AS rn
         FROM fetched
-        WHERE rn <= ${limit}
+        ORDER BY created_at ASC, id ASC
+        LIMIT ${limit}
       ),
       deck_word_stats AS (
         SELECT

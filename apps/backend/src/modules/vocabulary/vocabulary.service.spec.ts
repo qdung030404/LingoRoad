@@ -147,16 +147,18 @@ describe('VocabularyService batched queries', () => {
     expect(db.$transaction).not.toHaveBeenCalled();
   });
 
-  it('escapes LIKE wildcards and escape character when searching decks', async () => {
+  it('passes trimmed parameterized ILIKE pattern preserving native wildcards and backslash semantics', async () => {
     const queryRaw = jest.fn((strings: TemplateStringsArray, ...values: unknown[]) => {
       expect(Array.isArray(strings)).toBe(true);
-      const allValues = collectSqlValues(Prisma.sql(strings, ...values));
-      expect(allValues).toContain('%100#%#_##test%');
+      const sql = Prisma.sql(strings, ...values);
+      const allValues = collectSqlValues(sql);
+      expect(allValues).toContain('%A_B%\\test%');
+      expect(strings.join(' ').toUpperCase()).not.toContain('ESCAPE');
       return Promise.resolve([{ cursorValid: true, hasMore: false, decks: [] }]);
     });
     const { service } = makeService({ $queryRaw: queryRaw });
 
-    const result = await service.decks(userId, { limit: 20, query: '  100%_#test  ' });
+    const result = await service.decks(userId, { limit: 20, query: '  A_B%\\test  ' });
     expect(result).toEqual({ items: [], nextCursor: null });
     expect(queryRaw).toHaveBeenCalledTimes(1);
   });
