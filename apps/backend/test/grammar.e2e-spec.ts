@@ -12,6 +12,7 @@ describe('GrammarModule (E2E Tree, CEFR Levels & Admin DAG Cycle Gate)', () => {
   let prisma: PrismaService;
   let learnerToken: string;
   let adminToken: string;
+  let hadSeededGrammar = false;
   const createdEmails: string[] = [];
   const createdTopicIds: string[] = [];
 
@@ -42,6 +43,7 @@ describe('GrammarModule (E2E Tree, CEFR Levels & Admin DAG Cycle Gate)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    hadSeededGrammar = (await prisma.grammarTopic.count()) > 0;
     await seedGrammarCatalog(prisma);
 
     const learnerEmail = `grammar-learner-${Date.now()}@example.com`;
@@ -69,6 +71,12 @@ describe('GrammarModule (E2E Tree, CEFR Levels & Admin DAG Cycle Gate)', () => {
   afterAll(async () => {
     if (prisma && createdTopicIds.length > 0) {
       await prisma.grammarTopic.deleteMany({ where: { id: { in: createdTopicIds } } });
+    }
+    if (prisma && !hadSeededGrammar) {
+      await prisma.learningLesson.deleteMany({ where: { grammarTopicId: { not: null } } });
+      await prisma.learningUnit.deleteMany({ where: { code: { startsWith: 'grammar-unit-' } } });
+      await prisma.grammarPrerequisite.deleteMany({});
+      await prisma.grammarTopic.deleteMany({});
     }
     if (prisma && createdEmails.length > 0) {
       await prisma.user.deleteMany({ where: { email: { in: createdEmails } } });
