@@ -15,6 +15,10 @@ export class CheckLearningAnswerDto extends VersionDto {
 export class LearningCatalogueQuery {
   @IsOptional() @IsIn(['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING']) kind?: 'GRAMMAR' | 'VOCABULARY' | 'READING' | 'LISTENING';
 }
+export class LearningLessonsCatalogueQuery extends LearningCatalogueQuery {
+  @IsOptional() @IsIn(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']) cefrLevel?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+  @IsOptional() @IsString() @MaxLength(100) grammarTopicCode?: string;
+}
 export class LearningHistoryQuery extends LearningCatalogueQuery {
   @IsOptional() @IsUUID() cursor?: string;
   @IsOptional() @IsInt() @Min(1) @Max(50) limit: number = 20;

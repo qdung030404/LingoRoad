@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { CheckLearningAnswerDto, HideLearningHistoryDto, LearningCatalogueQuery, LearningHistoryQuery, LearningProgressDto, VersionDto } from './learning.dto';
+import { CheckLearningAnswerDto, HideLearningHistoryDto, LearningHistoryQuery, LearningLessonsCatalogueQuery, LearningProgressDto, VersionDto } from './learning.dto';
 import { LearningService } from './learning.service';
 
 @Controller('learning')
@@ -10,8 +10,8 @@ export class LearningController {
   constructor(private readonly learning: LearningService) {}
 
   @Get('lessons')
-  async catalogue(@CurrentUser('sub') userId: string, @Query() query: LearningCatalogueQuery) {
-    return { success: true, data: await this.learning.catalogue(userId, query.kind) };
+  async catalogue(@CurrentUser('sub') userId: string, @Query() query: LearningLessonsCatalogueQuery) {
+    return { success: true, data: await this.learning.catalogue(userId, query.kind, query.cefrLevel, query.grammarTopicCode) };
   }
 
   @Get('lessons/:lessonId')
