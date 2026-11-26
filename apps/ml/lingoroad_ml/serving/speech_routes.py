@@ -186,11 +186,19 @@ class TopicContentRequest(BaseModel):
     hints: list[str] = Field(default_factory=list, max_length=3)
     transcript: str = Field(min_length=1, max_length=12000)
     durationSeconds: float = Field(gt=0, le=60, allow_inf_nan=False)
+    visualContext: str | None = Field(default=None, max_length=2000)
 
 @router.post("/speech/topic/content")
 async def topic_content(req: TopicContentRequest):
     from lingoroad_ml.speech.content import evaluate
-    return await asyncio.to_thread(evaluate, req.topic, req.hints, req.transcript, req.durationSeconds)
+    return await asyncio.to_thread(
+        evaluate,
+        req.topic,
+        req.hints,
+        req.transcript,
+        req.durationSeconds,
+        visual_context=req.visualContext,
+    )
 
 
 class ConversationTranslationRequest(BaseModel):

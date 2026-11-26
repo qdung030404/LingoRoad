@@ -49,3 +49,20 @@ def test_invalid_quote_is_omitted_without_discarding_valid_scores(monkeypatch):
     assert result["status"] == "succeeded"
     assert result["overall"] == 80
     assert result["improvements"] == []
+
+
+def test_picture_description_uses_picture_content_rubric(monkeypatch):
+    calls = fake_client(monkeypatch, valid())
+    result = content.evaluate(
+        "At the campus café",
+        ["Who is at the counter?"],
+        TEXT,
+        24,
+        visual_context="A barista behind a warm counter serving a student a cup of coffee and sandwich.",
+    )
+    assert result["status"] == "succeeded"
+    assert result["rubricVersion"] == "picture-content-v1"
+    system_prompt = calls[0]["messages"][0]["content"]
+    user_payload = json.loads(calls[0]["messages"][1]["content"])
+    assert "picture-content-v1" in system_prompt
+    assert user_payload["visualContext"].startswith("A barista")
