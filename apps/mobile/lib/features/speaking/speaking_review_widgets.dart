@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 
 const speakingReviewSpeechDecoration = BoxDecoration(
   color: AppColors.grey25,
@@ -17,6 +18,7 @@ class SpeakingReviewHeader extends StatelessWidget {
     required this.statusLabel,
     required this.dateLabel,
     this.completed = false,
+    this.imageUrl,
   });
 
   final String title;
@@ -24,9 +26,11 @@ class SpeakingReviewHeader extends StatelessWidget {
   final String statusLabel;
   final String dateLabel;
   final bool completed;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -37,15 +41,32 @@ class SpeakingReviewHeader extends StatelessWidget {
       child: Row(
         spacing: 12,
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: AppColors.grey0,
+          if (hasImage)
+            InkWell(
               borderRadius: AppRadius.cardSm,
+              onTap: () => showZoomableIllustrationDialog(
+                context,
+                imageUrl: imageUrl!,
+                title: title,
+              ),
+              child: LearningMediaImage(
+                imageUrl: imageUrl,
+                width: 52,
+                height: 52,
+                borderRadius: AppRadius.cardSm,
+                semanticLabel: title,
+              ),
+            )
+          else
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: AppColors.grey0,
+                borderRadius: AppRadius.cardSm,
+              ),
+              child: Icon(icon, color: AppColors.primary700, size: 22),
             ),
-            child: Icon(icon, color: AppColors.primary700, size: 22),
-          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

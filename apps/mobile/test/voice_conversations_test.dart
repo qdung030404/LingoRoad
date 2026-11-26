@@ -4,8 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/core/theme/app_theme.dart';
+import 'package:mobile/features/speaking/conversation_live_view.dart';
+import 'package:mobile/features/speaking/conversation_message.dart';
+import 'package:mobile/features/speaking/conversation_settings_dialog.dart';
 import 'package:mobile/features/speaking/speaking_controller.dart';
 import 'package:mobile/features/speaking/voice_conversations_page.dart';
+import 'package:mobile/shared/figma_dropdown.dart';
+import 'package:mobile/shared/learning_media_image.dart';
 import 'speaking_workflow_test.dart' show FakeSpeakingRepository, FakeRecorder;
 
 class ConversationRepository extends FakeSpeakingRepository {
@@ -235,7 +240,88 @@ void main() {
       await tester.tap(find.byTooltip('Lịch sử hội thoại'));
       await tester.pumpAndSettle();
       expect(find.text('Chưa tải được hội thoại.'), findsOneWidget);
-      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(const SizedBox());
+      controller.dispose();
+    },
+  );
+
+  testWidgets(
+    'conversation preparation shows hero illustration and settings swaps persona avatar',
+    (tester) async {
+      final repository = ConversationRepository();
+      final controller = await open(tester, repository);
+      await tester.tap(find.text('Topic 0'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('conversation-prep-hero-image')),
+        findsOneWidget,
+      );
+      expect(find.text('hometown'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showDialog<ConversationSettings>(
+                  context: context,
+                  builder: (_) => const ConversationSettingsDialog(
+                    initial: ConversationSettings(),
+                  ),
+                ),
+                child: const Text('Mở cài đặt nhân vật'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mở cài đặt nhân vật'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('persona-preview-standard')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byType(FigmaDropdown).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Ava (nữ)').last);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('persona-preview-ava')), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: Column(
+              children: const [
+                ConversationCallHeader(
+                  topic: 'My family',
+                  topicImageUrl: '/media/learning/v1/images/topic-my-family.jpg',
+                  voiceName: 'brian',
+                  status: 'Sẵn sàng',
+                  seconds: 12,
+                  active: true,
+                ),
+                Expanded(child: ConversationWelcome(voiceName: 'brian')),
+                ConversationMessage(
+                  isUser: false,
+                  voiceName: 'brian',
+                  text: 'Tell me about your hobby.',
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(LearningMediaImage), findsNWidgets(4));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
       controller.dispose();
     },
   );

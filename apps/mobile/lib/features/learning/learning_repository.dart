@@ -11,6 +11,7 @@ class LearningLesson {
   String get title => json['title'] as String;
   String get kind => json['kind'] as String;
   String? get cefrLevel => json['cefrLevel'] as String?;
+  String? get coverImageUrl => json['coverImageUrl'] as String?;
   String get description => json['description'] as String? ?? '';
   int get minutes => json['estimatedMinutes'] as int? ?? 0;
   int get questionCount => json['questionCount'] as int? ?? 5;

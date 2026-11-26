@@ -168,7 +168,7 @@ void main() {
   });
 
   testWidgets(
-    'Completed startup opens Home and account menu retains the placement result',
+    'Completed startup opens Home and tapping avatar opens ProfilePage with placement result',
     (tester) async {
       await tester.pumpWidget(
         MyApp(
@@ -179,7 +179,11 @@ void main() {
       expect(find.byKey(const Key('previewAvatar')), findsOneWidget);
       await tester.tap(find.byKey(const Key('previewAvatar')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('accountPlacementResult')));
+      expect(find.text('Hồ sơ của tôi'), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(const Key('viewPlacementResultButton')),
+      );
+      await tester.tap(find.byKey(const Key('viewPlacementResultButton')));
       await tester.pumpAndSettle();
       final resultScroll = find
           .descendant(

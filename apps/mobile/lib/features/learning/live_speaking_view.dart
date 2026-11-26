@@ -6,6 +6,7 @@ import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_shadows.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import '../speaking/recording_waveform.dart';
 import '../speaking/speaking_controller.dart';
 import '../speaking/speaking_pages.dart'
@@ -254,19 +255,82 @@ class _LiveSpeakingViewState extends State<LiveSpeakingView>
                               index: index,
                               total: total,
                               label:
-                                  '${c.isTopic ? 'Chủ đề' : 'Câu'} ${index + 1}/$total',
+                                  '${c.isPictureDescription ? 'Tranh' : c.isTopic ? 'Chủ đề' : 'Câu'} ${index + 1}/$total',
                             ),
+                            if (c.promptImageUrl case final String pictureUrl) ...[
+                              FigmaCard(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    InkWell(
+                                      key: const ValueKey(
+                                        'speaking-picture-preview',
+                                      ),
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () => showZoomableIllustrationDialog(
+                                        context,
+                                        imageUrl: pictureUrl,
+                                        title: c.prompt?['title']?.toString() ??
+                                            'Quan sát tranh',
+                                        caption: c.sentence,
+                                      ),
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: AspectRatio(
+                                          aspectRatio: 4 / 3,
+                                          child: LearningMediaImage(
+                                            imageUrl: pictureUrl,
+                                            width: double.infinity,
+                                            fit: BoxFit.cover,
+                                            semanticLabel:
+                                                c.prompt?['title']?.toString() ??
+                                                'Bức tranh luyện nói',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.zoom_in_rounded,
+                                          size: 16,
+                                          color: AppColors.primary700,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Chạm vào tranh để phóng to',
+                                          style: designText(
+                                            13,
+                                            weight: FontWeight.w500,
+                                            color: AppColors.primary700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                             FigmaCard(
                               child: Text(
                                 c.sentence,
                                 textAlign: TextAlign.center,
                                 style: designHeading(
-                                  c.isTopic ? 28 : 32,
+                                  c.isPictureDescription
+                                      ? 20
+                                      : c.isFreeSpeech
+                                      ? 28
+                                      : 32,
                                   height: 1.2,
                                 ),
                               ),
                             ),
-                            if (c.isTopic && c.prompt?['hints'] is List) ...[
+                            if (c.isFreeSpeech && c.prompt?['hints'] is List) ...[
                               const SizedBox(height: 12),
                               FigmaCard(
                                 padding: const EdgeInsets.all(16),

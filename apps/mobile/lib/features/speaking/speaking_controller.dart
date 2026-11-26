@@ -30,8 +30,19 @@ class SpeakingController extends ChangeNotifier {
   String mode = 'READ_ALOUD';
   String? _topicId;
   List<Json> gameProgress = [];
-  int get maxSeconds => mode == 'TOPIC' ? 60 : 30;
+  int get maxSeconds => isFreeSpeech ? 60 : 30;
   bool get isTopic => mode == 'TOPIC';
+  bool get isPictureDescription => mode == 'PICTURE_DESCRIPTION';
+  bool get isFreeSpeech => mode == 'TOPIC' || mode == 'PICTURE_DESCRIPTION';
+  String? get promptImageUrl {
+    final snapshot = submission?['promptSnapshot'];
+    if (snapshot is Map) {
+      final url = snapshot['imageUrl']?.toString().trim();
+      if (url != null && url.isNotEmpty) return url;
+    }
+    final url = prompt?['imageUrl']?.toString().trim();
+    return url != null && url.isNotEmpty ? url : null;
+  }
   Future<void> chooseMode(String value) async {
     if (!active || busy || recording || processing) return;
     await discard();

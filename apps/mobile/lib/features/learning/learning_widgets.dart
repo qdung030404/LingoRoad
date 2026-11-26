@@ -533,15 +533,25 @@ class LearningResultQuestionCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          for (final (optIndex, option) in options.indexed) ...[
-            if (optIndex > 0) const SizedBox(height: 8),
-            _ReviewOptionRow(
-              letter: String.fromCharCode(65 + optIndex),
-              text: option['text'] as String,
-              chosen: option['id'] == answer?['optionId'],
-              correct: checked && option['id'] == answer?['correctOptionId'],
-            ),
-          ],
+          if (hasVisualImageOptions(options))
+            PracticeImageAnswerGrid(
+              options: options,
+              checked: checked,
+              selectedOptionId: answer?['optionId'] as String?,
+              correctOptionId: answer?['correctOptionId'] as String?,
+              keyPrefix: 'result-q$index-option-',
+              showReviewLabels: true,
+            )
+          else
+            for (final (optIndex, option) in options.indexed) ...[
+              if (optIndex > 0) const SizedBox(height: 8),
+              _ReviewOptionRow(
+                letter: String.fromCharCode(65 + optIndex),
+                text: option['text'] as String,
+                chosen: option['id'] == answer?['optionId'],
+                correct: checked && option['id'] == answer?['correctOptionId'],
+              ),
+            ],
           if (explanation.isNotEmpty) ...[
             const SizedBox(height: 12),
             ReadingFormattedText(

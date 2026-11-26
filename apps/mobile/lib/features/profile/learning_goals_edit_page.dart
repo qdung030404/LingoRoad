@@ -1,15 +1,14 @@
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
-import '../../shared/figma_dropdown.dart';
 import '../../shared/figma_widgets.dart';
 import '../auth/session_controller.dart';
 import '../common.dart';
 import 'profile_constants.dart';
+import 'profile_edit_dialog.dart';
 
 class _GoalDiffEntry {
   const _GoalDiffEntry({
@@ -44,8 +43,8 @@ class _GoalConflictSnapshot {
 
 enum _LeaveDecision { stay, saveAndLeave, discard }
 
-class LearningGoalsEditPage extends StatefulWidget {
-  const LearningGoalsEditPage({
+class LearningGoalsEditDialog extends StatefulWidget {
+  const LearningGoalsEditDialog({
     super.key,
     required this.session,
     this.initialVersion,
@@ -63,10 +62,11 @@ class LearningGoalsEditPage extends StatefulWidget {
   final List<String>? initialKinds;
 
   @override
-  State<LearningGoalsEditPage> createState() => _LearningGoalsEditPageState();
+  State<LearningGoalsEditDialog> createState() =>
+      _LearningGoalsEditDialogState();
 }
 
-class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
+class _LearningGoalsEditDialogState extends State<LearningGoalsEditDialog> {
   late int _expectedVersion;
   late String _savedPurpose;
   late String _savedCefr;
@@ -78,7 +78,9 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
   late int _draftMinutes;
   late Set<String> _draftKinds;
 
+  final _scrollController = ScrollController();
   bool _saving = false;
+  bool _confirmingLeave = false;
   String? _saveError;
   _GoalConflictSnapshot? _conflict;
 
@@ -91,9 +93,7 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
         (prof['preferencesVersion'] as num?)?.toInt() ??
         0;
     _savedPurpose =
-        widget.initialPurpose ??
-        (prof['learningPurpose'] as String?) ??
-        'WORK';
+        widget.initialPurpose ?? (prof['learningPurpose'] as String?) ?? 'WORK';
     _savedCefr =
         widget.initialTargetCefr ?? (prof['targetCefr'] as String?) ?? 'B1';
     _savedMinutes =
@@ -111,6 +111,16 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
     _draftCefr = _savedCefr;
     _draftMinutes = _savedMinutes;
     _draftKinds = Set<String>.from(_savedKinds);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _revealFeedback() {
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
   }
 
   bool get _isDirty =>
@@ -159,6 +169,7 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
         _saving = false;
         _saveError = e.message;
       });
+      _revealFeedback();
       return false;
     } catch (e) {
       if (!mounted) return false;
@@ -166,6 +177,7 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
         _saving = false;
         _saveError = errorMessage(e);
       });
+      _revealFeedback();
       return false;
     }
   }
@@ -243,6 +255,7 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
           rawSnapshot: srv,
         );
       });
+      _revealFeedback();
       return false;
     } catch (e) {
       if (!mounted) return false;
@@ -251,6 +264,7 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
         _saveError =
             'Thiết lập vừa thay đổi trên thiết bị khác nhưng chưa tải được bản mới: ${errorMessage(e)}';
       });
+      _revealFeedback();
       return false;
     }
   }
@@ -275,42 +289,69 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
   }
 
   Future<void> _handleBackPressed() async {
-    if (_saving) return;
+    if (_saving || _confirmingLeave) return;
     if (!_isDirty) {
       Navigator.of(context).pop(false);
       return;
     }
+    _confirmingLeave = true;
     final decision = await showDialog<_LeaveDecision>(
       context: context,
       barrierColor: AppColors.overlayPopup,
       builder: (dialogContext) => Dialog(
-        backgroundColor: AppColors.grey0,
+        backgroundColor: ProfilePalette.paper,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16),
-        shape: const RoundedRectangleBorder(borderRadius: AppRadius.dialogRadius),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(22),
+          side: const BorderSide(color: ProfilePalette.goalsBorder),
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Chưa lưu thay đổi', style: designHeading(20)),
+              Text(
+                'Chưa lưu thay đổi',
+                style: designHeading(20, color: ProfilePalette.ink),
+              ),
               const SizedBox(height: 10),
               Text(
-                'Bạn có thay đổi mục tiêu học tập chưa lưu. Bạn muốn tiếp tục chỉnh sửa hay rời trang?',
-                style: designText(14, color: AppColors.grey800, height: 1.5),
+                'Bạn có thay đổi mục tiêu học tập chưa lưu.',
+                style: designText(14, color: ProfilePalette.muted, height: 1.5),
               ),
               const SizedBox(height: 20),
-              CustomAppButton(
-                key: const Key('leaveDialogContinueButton'),
-                text: 'Tiếp tục chỉnh sửa',
-                onPressed: () =>
-                    Navigator.of(dialogContext).pop(_LeaveDecision.stay),
+              SizedBox(
+                height: 48,
+                width: double.infinity,
+                child: ElevatedButton(
+                  key: const Key('leaveDialogContinueButton'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ProfilePalette.ink,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                  ),
+                  onPressed: () =>
+                      Navigator.of(dialogContext).pop(_LeaveDecision.stay),
+                  child: Text(
+                    'Tiếp tục chỉnh sửa',
+                    style: designText(
+                      15,
+                      weight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 10),
               CustomAppButton(
                 key: const Key('leaveDialogSaveAndLeaveButton'),
-                text: 'Lưu và rời trang',
+                text: 'Lưu và đóng',
                 isSecondary: true,
+                borderRadius: BorderRadius.circular(9),
                 onPressed: () => Navigator.of(
                   dialogContext,
                 ).pop(_LeaveDecision.saveAndLeave),
@@ -323,10 +364,10 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
                   key: const Key('leaveDialogDiscardButton'),
                   style: OutlinedButton.styleFrom(
                     backgroundColor: AppColors.error0,
-                    foregroundColor: AppColors.error200,
+                    foregroundColor: ProfilePalette.danger,
                     side: const BorderSide(color: AppColors.error25),
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.buttonRadius,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9),
                     ),
                   ),
                   onPressed: () =>
@@ -334,9 +375,9 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
                   child: Text(
                     'Bỏ thay đổi',
                     style: designText(
-                      16,
+                      15,
                       weight: FontWeight.w600,
-                      color: AppColors.error200,
+                      color: ProfilePalette.danger,
                     ),
                   ),
                 ),
@@ -346,6 +387,7 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
         ),
       ),
     );
+    _confirmingLeave = false;
     if (!mounted || decision == null || decision == _LeaveDecision.stay) {
       return;
     }
@@ -358,8 +400,7 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
     }
   }
 
-  Widget _buildBottomBar(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
+  Widget _buildSaveAction() {
     final buttonLabel = _conflict != null
         ? 'Lưu lựa chọn đang sửa'
         : _saveError != null
@@ -367,318 +408,232 @@ class _LearningGoalsEditPageState extends State<LearningGoalsEditPage> {
         : _isDirty
         ? 'Lưu thay đổi'
         : 'Chưa có thay đổi';
-    final canSubmit = !_saving && _draftKinds.isNotEmpty && (_isDirty || _conflict != null || _saveError != null);
+    final canSubmit =
+        !_saving &&
+        _draftKinds.isNotEmpty &&
+        (_isDirty || _conflict != null || _saveError != null);
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.grey0,
-        border: Border(top: BorderSide(color: AppColors.grey200)),
-      ),
-      padding: EdgeInsets.fromLTRB(16, 12, 16, math.max(16, bottomInset + 8)),
-      child: _saving
-          ? SizedBox(
-              key: const Key('goalsLoadingButton'),
-              height: 48,
-              width: double.infinity,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.primary500.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.2,
-                        color: Colors.white,
-                      ),
+    return _saving
+        ? SizedBox(
+            key: const Key('goalsLoadingButton'),
+            height: 48,
+            width: double.infinity,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: ProfilePalette.ink.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white,
                     ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Đang lưu...',
-                      style: designText(
-                        16,
-                        weight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Đang lưu...',
+                    style: designText(
+                      15,
+                      weight: FontWeight.w700,
+                      color: Colors.white,
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+          )
+        : SizedBox(
+            height: 48,
+            width: double.infinity,
+            child: ElevatedButton(
+              key: const Key('goalsSaveButton'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ProfilePalette.ink,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: AppColors.grey200,
+                disabledForegroundColor: AppColors.grey500,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(9),
                 ),
               ),
-            )
-          : CustomAppButton(
-              key: const Key('goalsSaveButton'),
-              text: buttonLabel,
               onPressed: canSubmit ? _save : null,
+              child: Text(
+                buttonLabel,
+                style: designText(
+                  15,
+                  weight: FontWeight.w700,
+                  color: canSubmit ? Colors.white : AppColors.grey500,
+                ),
+              ),
             ),
-    );
+          );
   }
 
   @override
-  Widget build(BuildContext context) => PopScope(
+  Widget build(BuildContext context) => PopScope<bool>(
     canPop: !_isDirty && !_saving,
     onPopInvokedWithResult: (didPop, _) {
       if (!didPop) _handleBackPressed();
     },
-    child: Scaffold(
-      backgroundColor: AppColors.grey25,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            SizedBox(
-              height: math.max(0, 56 - MediaQuery.paddingOf(context).top),
-            ),
-            SizedBox(
-              height: 52,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 56,
-                    child: IconButton(
-                      key: const Key('goalsBackButton'),
-                      tooltip: 'Quay lại',
-                      onPressed: _saving ? null : _handleBackPressed,
-                      icon: const FigmaAsset('intro/imgVuesaxLinearArrowLeft'),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Mục tiêu học tập',
-                      textAlign: TextAlign.center,
-                      style: designText(18, weight: FontWeight.w600),
-                    ),
-                  ),
-                  const SizedBox(width: 56),
-                ],
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                  IgnorePointer(
-                    ignoring: _saving,
-                    child: AnimatedOpacity(
-                      opacity: _saving ? 0.6 : 1,
-                      duration: const Duration(milliseconds: 160),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          FigmaCard(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                FigmaDropdown(
-                                  key: const Key('goalsPurposeDropdown'),
-                                  label: 'Bạn học tiếng Anh để làm gì?',
-                                  value: _draftPurpose,
-                                  items: learningPurposes,
-                                  onChanged: (val) => setState(() {
-                                    _draftPurpose = val;
-                                    _saveError = null;
-                                  }),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Mục tiêu trình độ CEFR',
-                                  style: designHeading(16),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Chọn 1 mức trình độ bạn hướng tới',
-                                  style: designText(
-                                    14,
-                                    color: AppColors.grey800,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    for (final lvl in _cefrOptions)
-                                      _SingleChoicePill(
-                                        key: ValueKey('cefr-pill-$lvl'),
-                                        label: lvl,
-                                        selected: _draftCefr == lvl,
-                                        onTap: () => setState(() {
-                                          _draftCefr = lvl;
-                                          _saveError = null;
-                                        }),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          FigmaCard(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Thời gian học mỗi ngày',
-                                  style: designHeading(16),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Chọn 1 mức thời lượng phù hợp lịch sinh hoạt',
-                                  style: designText(
-                                    14,
-                                    color: AppColors.grey800,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    for (final mins in _minuteOptions)
-                                      _SingleChoicePill(
-                                        key: ValueKey('minutes-pill-$mins'),
-                                        label: '$mins phút',
-                                        selected: _draftMinutes == mins,
-                                        onTap: () => setState(() {
-                                          _draftMinutes = mins;
-                                          _saveError = null;
-                                        }),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          FigmaCard(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Nhóm bài ưu tiên',
-                                  style: designHeading(16),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Có thể chọn nhiều nhóm bài để hệ thống phân bổ mỗi ngày.',
-                                  style: designText(
-                                    14,
-                                    color: AppColors.grey800,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    for (final kind in allPreferredLearningKinds)
-                                      _MultiSelectChip(
-                                        key: ValueKey('kind-chip-$kind'),
-                                        label: learningKindLabelVi(kind),
-                                        selected: _draftKinds.contains(kind),
-                                        onTap: () => setState(() {
-                                          if (_draftKinds.contains(kind)) {
-                                            if (_draftKinds.length > 1) {
-                                              _draftKinds.remove(kind);
-                                            }
-                                          } else {
-                                            _draftKinds.add(kind);
-                                          }
-                                          _saveError = null;
-                                        }),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Thay đổi áp dụng ngay cho kế hoạch hôm nay; kết quả đánh giá trình độ của bạn được giữ nguyên.',
-                    style: designText(14, color: AppColors.grey800, height: 1.45),
-                  ),
-                  if (_saveError != null) ...[
-                    const SizedBox(height: 14),
-                    _GoalsErrorBanner(message: _saveError!),
-                  ],
-                  if (_conflict != null) ...[
-                    const SizedBox(height: 14),
-                    _ConflictResolutionCard(
-                      conflict: _conflict!,
-                      onUseServer: _saving
-                          ? null
-                          : () => _applyServerVersion(_conflict!),
-                    ),
-                  ],
-                ],
-                ),
-              ),
-            ),
-            _buildBottomBar(context),
+    child: ProfileEditDialog(
+      key: const Key('learningGoalsEditDialog'),
+      title: 'Mục tiêu học tập',
+      closeKey: const Key('goalsBackButton'),
+      onClose: _saving ? null : _handleBackPressed,
+      scrollController: _scrollController,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_saveError != null) ...[
+            _GoalsErrorBanner(message: _saveError!),
+            const SizedBox(height: 12),
           ],
-        ),
+          if (_conflict != null) ...[
+            _ConflictResolutionCard(
+              conflict: _conflict!,
+              onUseServer: _saving
+                  ? null
+                  : () => _applyServerVersion(_conflict!),
+            ),
+            const SizedBox(height: 12),
+          ],
+          _GoalSelect(
+            key: const Key('goalsPurposeDropdown'),
+            label: 'Mục đích',
+            value: _draftPurpose,
+            items: {
+              ...learningPurposes,
+              if (!learningPurposes.containsKey(_draftPurpose))
+                _draftPurpose: learningPurposeLabelVi(_draftPurpose),
+            },
+            onChanged: _saving
+                ? null
+                : (value) => setState(() {
+                    _draftPurpose = value;
+                    _saveError = null;
+                  }),
+          ),
+          const SizedBox(height: 12),
+          _GoalSelect(
+            key: const Key('goalsCefrDropdown'),
+            label: 'Trình độ mục tiêu',
+            value: _draftCefr,
+            items: {for (final level in _cefrOptions) level: level},
+            onChanged: _saving
+                ? null
+                : (value) => setState(() {
+                    _draftCefr = value;
+                    _saveError = null;
+                  }),
+          ),
+          const SizedBox(height: 12),
+          _GoalSelect(
+            key: const Key('goalsMinutesDropdown'),
+            label: 'Phút mỗi ngày',
+            value: _draftMinutes.toString(),
+            items: {
+              for (final minutes in _minuteOptions) '$minutes': '$minutes phút',
+            },
+            onChanged: _saving
+                ? null
+                : (value) => setState(() {
+                    _draftMinutes = int.parse(value);
+                    _saveError = null;
+                  }),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Nhóm bài ưu tiên',
+            style: designText(14, weight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final kind in allPreferredLearningKinds)
+                _MultiSelectChip(
+                  key: ValueKey('kind-chip-$kind'),
+                  label: learningKindLabelVi(kind),
+                  selected: _draftKinds.contains(kind),
+                  onTap: _saving
+                      ? null
+                      : () => setState(() {
+                          if (_draftKinds.contains(kind)) {
+                            if (_draftKinds.length > 1) {
+                              _draftKinds.remove(kind);
+                            }
+                          } else {
+                            _draftKinds.add(kind);
+                          }
+                          _saveError = null;
+                        }),
+                ),
+            ],
+          ),
+        ],
       ),
+      action: _buildSaveAction(),
     ),
   );
 }
 
-class _SingleChoicePill extends StatelessWidget {
-  const _SingleChoicePill({
+class _GoalSelect extends StatelessWidget {
+  const _GoalSelect({
     super.key,
     required this.label,
-    required this.selected,
-    required this.onTap,
+    required this.value,
+    required this.items,
+    required this.onChanged,
   });
+
   final String label;
-  final bool selected;
-  final VoidCallback onTap;
+  final String value;
+  final Map<String, String> items;
+  final ValueChanged<String>? onChanged;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    selected: selected,
-    child: Material(
-      color: selected ? AppColors.grey900 : AppColors.grey0,
-      shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.pill,
-        side: BorderSide(
-          color: selected ? AppColors.grey900 : AppColors.grey200,
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(label, style: designText(14, weight: FontWeight.w600)),
+      const SizedBox(height: 6),
+      DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.grey50,
+          border: Border.all(color: AppColors.borderLight),
+          borderRadius: BorderRadius.circular(9),
         ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.pill,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48, minWidth: 56),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-            child: Center(
-              widthFactor: 1,
-              child: Text(
-                label,
-                style: designText(
-                  14,
-                  weight: FontWeight.w500,
-                  color: selected ? AppColors.grey0 : AppColors.grey900,
-                ),
-              ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              itemHeight: 48,
+              dropdownColor: ProfilePalette.paper,
+              borderRadius: BorderRadius.circular(9),
+              style: designText(14, color: ProfilePalette.ink),
+              items: [
+                for (final entry in items.entries)
+                  DropdownMenuItem(value: entry.key, child: Text(entry.value)),
+              ],
+              onChanged: onChanged == null
+                  ? null
+                  : (selected) {
+                      if (selected != null) onChanged!(selected);
+                    },
             ),
           ),
         ),
       ),
-    ),
+    ],
   );
 }
 
@@ -691,23 +646,23 @@ class _MultiSelectChip extends StatelessWidget {
   });
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) => Semantics(
     button: true,
     selected: selected,
     child: Material(
-      color: selected ? AppColors.primary25 : AppColors.grey0,
+      color: selected ? ProfilePalette.tagSurface : ProfilePalette.paper,
       shape: RoundedRectangleBorder(
-        borderRadius: AppRadius.cardSm,
+        borderRadius: BorderRadius.circular(9),
         side: BorderSide(
-          color: selected ? AppColors.primary500 : AppColors.grey200,
+          color: selected ? ProfilePalette.accent : ProfilePalette.inputBorder,
         ),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: AppRadius.cardSm,
+        borderRadius: BorderRadius.circular(9),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 48),
           child: Padding(
@@ -720,7 +675,7 @@ class _MultiSelectChip extends StatelessWidget {
                       ? Icons.check_box_rounded
                       : Icons.check_box_outline_blank_rounded,
                   size: 20,
-                  color: selected ? AppColors.primary600 : AppColors.grey400,
+                  color: selected ? ProfilePalette.ink : AppColors.grey400,
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -728,7 +683,9 @@ class _MultiSelectChip extends StatelessWidget {
                   style: designText(
                     14,
                     weight: FontWeight.w500,
-                    color: AppColors.grey900,
+                    color: selected
+                        ? ProfilePalette.tagText
+                        : ProfilePalette.ink,
                   ),
                 ),
               ],
@@ -760,13 +717,13 @@ class _GoalsErrorBanner extends StatelessWidget {
           const Icon(
             Icons.info_outline_rounded,
             size: 20,
-            color: AppColors.error200,
+            color: ProfilePalette.danger,
           ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               message,
-              style: designText(14, color: AppColors.error200, height: 1.45),
+              style: designText(14, color: ProfilePalette.danger, height: 1.45),
             ),
           ),
         ],
@@ -790,9 +747,9 @@ class _ConflictResolutionCard extends StatelessWidget {
       key: const Key('goalsConflictBox'),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.grey50,
-        borderRadius: AppRadius.cardSm,
-        border: Border.all(color: AppColors.grey300),
+        color: ProfilePalette.permissionBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ProfilePalette.goalsBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -802,13 +759,13 @@ class _ConflictResolutionCard extends StatelessWidget {
             style: designText(
               14,
               weight: FontWeight.w600,
-              color: AppColors.grey900,
+              color: ProfilePalette.ink,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             'Lựa chọn đang sửa của bạn (trái) khác với bản mới trên máy chủ (phải):',
-            style: designText(14, color: AppColors.grey800, height: 1.4),
+            style: designText(14, color: ProfilePalette.muted, height: 1.4),
           ),
           const SizedBox(height: 6),
           for (final diff in conflict.diffs)
@@ -816,7 +773,7 @@ class _ConflictResolutionCard extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 4),
               child: Text(
                 '• ${diff.label}: ${diff.draftValue} ↔ ${diff.serverValue}',
-                style: designText(14, color: AppColors.grey900, height: 1.4),
+                style: designText(14, color: ProfilePalette.ink, height: 1.4),
               ),
             ),
           const SizedBox(height: 10),

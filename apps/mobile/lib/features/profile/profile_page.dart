@@ -1,4 +1,6 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
@@ -9,8 +11,10 @@ import '../../shared/figma_widgets.dart';
 import '../auth/session_controller.dart';
 import '../common.dart';
 import '../placement/placement_pages.dart';
+import 'cefr_road_chart.dart';
 import 'learning_goals_edit_page.dart';
 import 'profile_constants.dart';
+import 'profile_edit_dialog.dart';
 import 'reminder_coordinator.dart';
 
 export 'profile_constants.dart' show learningPurposes;
@@ -21,19 +25,20 @@ class ProfilePage extends StatefulWidget {
     required this.session,
     this.onboarding = false,
     this.reminderPlatform,
+    this.onPickAvatarImage,
   });
 
   final SessionController session;
   final bool onboarding;
   final ReminderNotificationPlatform? reminderPlatform;
+  final Future<String?> Function()? onPickAvatarImage;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   final _onboardingForm = GlobalKey<FormState>();
-  final _nameEditForm = GlobalKey<FormState>();
   late final TextEditingController _nameController = TextEditingController(
     text: widget.session.user?['name'] as String? ?? '',
   );
@@ -52,16 +57,14 @@ class _ProfilePageState extends State<ProfilePage> {
   // Profile overview state
   ReminderCoordinator? _reminderCoordinator;
   Json? _preferencesSnapshot;
-  bool _editingName = false;
-  bool _savingName = false;
-  String? _nameError;
-  String? _toastMessage;
+  bool _savingAvatar = false;
   bool _busyAction = false;
 
   @override
   void initState() {
     super.initState();
     if (!widget.onboarding) {
+      WidgetsBinding.instance.addObserver(this);
       _reminderCoordinator = ReminderCoordinator(
         session: widget.session,
         platform: widget.reminderPlatform,
@@ -73,16 +76,20 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void didUpdateWidget(covariant ProfilePage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.onboarding != widget.onboarding) {
+      if (widget.onboarding) {
+        WidgetsBinding.instance.removeObserver(this);
+      } else {
+        WidgetsBinding.instance.addObserver(this);
+      }
+    }
     if (oldWidget.session != widget.session ||
         oldWidget.reminderPlatform != widget.reminderPlatform ||
         oldWidget.onboarding != widget.onboarding) {
       _reminderCoordinator?.dispose();
       _reminderCoordinator = null;
       _preferencesSnapshot = null;
-      _editingName = false;
-      _savingName = false;
-      _nameError = null;
-      _toastMessage = null;
+      _savingAvatar = false;
       _busyAction = false;
       _nameController.text = widget.session.user?['name'] as String? ?? '';
       if (!widget.onboarding) {
@@ -96,7 +103,17 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!widget.onboarding && state == AppLifecycleState.resumed) {
+      _reminderCoordinator?.recheckPermission();
+    }
+  }
+
+  @override
   void dispose() {
+    if (!widget.onboarding) {
+      WidgetsBinding.instance.removeObserver(this);
+    }
     _reminderCoordinator?.dispose();
     _nameController.dispose();
     super.dispose();
@@ -139,58 +156,85 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  Future<void> _saveDisplayName() async {
-    if (!_nameEditForm.currentState!.validate()) return;
-    setState(() {
-      _savingName = true;
-      _nameError = null;
-      _toastMessage = null;
-    });
+  Future<void> _openNameEditor(String displayName) => showDialog<void>(
+    context: context,
+    barrierColor: AppColors.overlayPopup,
+    barrierDismissible: false,
+    builder: (_) => ProfileNameEditDialog(
+      initialName: displayName,
+      onSave: (name) => widget.session.saveProfile({'name': name}),
+    ),
+  );
+
+  Future<void> _changeAvatar() async {
+    if (_savingAvatar || _busyAction) return;
+    setState(() => _savingAvatar = true);
     try {
-      await widget.session.saveProfile({'name': _nameController.text.trim()});
+      final url = await _pickAndUploadAvatar();
       if (!mounted) return;
-      setState(() {
-        _savingName = false;
-        _editingName = false;
-        _toastMessage = 'Đã lưu họ và tên';
-      });
+      if (url == null || url.trim().isEmpty) {
+        setState(() => _savingAvatar = false);
+        return;
+      }
+      await widget.session.saveProfile({'avatarUrl': url.trim()});
+      if (!mounted) return;
+      setState(() => _savingAvatar = false);
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _savingName = false;
-        _nameError = errorMessage(e);
-      });
+      setState(() => _savingAvatar = false);
+      _showFloatingFeedback(errorMessage(e), isError: true);
     }
+  }
+
+  Future<String?> _pickAndUploadAvatar() async {
+    if (widget.onPickAvatarImage != null) {
+      return widget.onPickAvatarImage!();
+    }
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 512,
+      maxHeight: 512,
+      imageQuality: 85,
+    );
+    if (picked == null) return null;
+    final uploaded = await widget.session.api.multipartRequest(
+      'POST',
+      '/vocabulary/upload-image',
+      factory: () async => FormData.fromMap({
+        'file': await MultipartFile.fromFile(picked.path),
+      }),
+    );
+    return uploaded['url'] as String?;
   }
 
   Future<void> _openGoalsEditor() async {
     final p = widget.session.profile;
     final snap = _preferencesSnapshot;
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => LearningGoalsEditPage(
-          session: widget.session,
-          initialVersion:
-              (snap?['version'] as num?)?.toInt() ??
-              (p['preferencesVersion'] as num?)?.toInt(),
-          initialPurpose:
-              (snap?['learningPurpose'] as String?) ??
-              (p['learningPurpose'] as String?),
-          initialTargetCefr:
-              (snap?['targetCefr'] as String?) ?? (p['targetCefr'] as String?),
-          initialMinutes:
-              (snap?['dailyGoalMinutes'] as num?)?.toInt() ??
-              (p['dailyGoalMinutes'] as num?)?.toInt(),
-          initialKinds:
-              ((snap?['preferredKinds'] as List?) ??
-                      (p['preferredKinds'] as List?))
-                  ?.cast<String>(),
-        ),
+    final saved = await showDialog<bool>(
+      context: context,
+      barrierColor: AppColors.overlayPopup,
+      barrierDismissible: false,
+      builder: (_) => LearningGoalsEditDialog(
+        session: widget.session,
+        initialVersion:
+            (snap?['version'] as num?)?.toInt() ??
+            (p['preferencesVersion'] as num?)?.toInt(),
+        initialPurpose:
+            (snap?['learningPurpose'] as String?) ??
+            (p['learningPurpose'] as String?),
+        initialTargetCefr:
+            (snap?['targetCefr'] as String?) ?? (p['targetCefr'] as String?),
+        initialMinutes:
+            (snap?['dailyGoalMinutes'] as num?)?.toInt() ??
+            (p['dailyGoalMinutes'] as num?)?.toInt(),
+        initialKinds:
+            ((snap?['preferredKinds'] as List?) ??
+                    (p['preferredKinds'] as List?))
+                ?.cast<String>(),
       ),
     );
     if (!mounted) return;
     if (saved == true) {
-      setState(() => _toastMessage = 'Đã lưu mục tiêu học tập');
       await _loadPreferences();
     }
   }
@@ -223,22 +267,45 @@ class _ProfilePageState extends State<ProfilePage> {
     await coordinator.setTime('$hh:$mm');
   }
 
+  void _showFloatingFeedback(String message, {bool isError = false}) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: designText(
+              14,
+              weight: FontWeight.w500,
+              color: AppColors.grey0,
+            ),
+          ),
+          backgroundColor: isError ? ProfilePalette.danger : ProfilePalette.ink,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(milliseconds: 2500),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          shape: const RoundedRectangleBorder(
+            borderRadius: AppRadius.cardRadius,
+          ),
+        ),
+      );
+  }
+
   Future<void> _resetPasswordViaEmail() async {
-    setState(() {
-      _busyAction = true;
-      _toastMessage = null;
-    });
+    setState(() => _busyAction = true);
     try {
       await widget.session.resetPassword(
         widget.session.user!['email'] as String,
       );
       if (mounted) {
-        setState(
-          () => _toastMessage = 'Kiểm tra email để đặt lại mật khẩu.',
-        );
+        _showFloatingFeedback('Kiểm tra email để đặt lại mật khẩu.');
       }
     } catch (e) {
-      if (mounted) setState(() => _toastMessage = errorMessage(e));
+      if (mounted) {
+        _showFloatingFeedback(errorMessage(e), isError: true);
+      }
     } finally {
       if (mounted) setState(() => _busyAction = false);
     }
@@ -257,61 +324,168 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildOnboardingScaffold() => FigmaPage(
     title: 'Mục tiêu của bạn',
+    color: ProfilePalette.background,
+    titleStyle: designText(
+      19,
+      weight: FontWeight.w700,
+      color: ProfilePalette.ink,
+    ).copyWith(letterSpacing: -0.6),
     child: Form(
       key: _onboardingForm,
-      child: PageBody(
-        children: [
-          const BrandHeading(
-            title: 'Học theo cách của bạn',
-            description: 'Một vài thông tin để bắt đầu hành trình phù hợp.',
-          ),
-          CustomAppTextField(
-            label: 'Họ tên',
-            controller: _nameController,
-            validator: requiredName,
-            enabled: !_onboardingBusy,
-          ),
-          FigmaDropdown(
-            key: const Key('learningPurpose'),
-            label: 'Bạn học tiếng Anh để làm gì?',
-            value: _onboardingPurpose,
-            items: learningPurposes,
-            onChanged: _onboardingBusy
-                ? null
-                : (value) => setState(() => _onboardingPurpose = value),
-            validator: (value) => value == null ? 'Chọn mục đích học.' : null,
-          ),
-          const Text('Thời gian học mỗi ngày'),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              for (final value in [5, 10, 20])
-                ChoiceChip(
-                  label: Text('$value phút'),
-                  selected: _onboardingMinutes == value,
-                  onSelected: _onboardingBusy
-                      ? null
-                      : (_) => setState(() => _onboardingMinutes = value),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: ProfilePalette.paper,
+                    borderRadius: AppRadius.cardRadius,
+                    border: Border.all(color: ProfilePalette.heroBorder),
+                    boxShadow: [
+                      BoxShadow(
+                        color: ProfilePalette.heroShadow,
+                        blurRadius: 12,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: const BrandHeading(
+                    title: 'Học theo cách của bạn',
+                    description:
+                        'Một vài thông tin để bắt đầu hành trình phù hợp.',
+                  ),
                 ),
-            ],
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: ProfilePalette.paper,
+                    borderRadius: AppRadius.cardRadius,
+                    border: Border.all(color: ProfilePalette.heroBorder),
+                    boxShadow: [
+                      BoxShadow(
+                        color: ProfilePalette.heroShadow,
+                        blurRadius: 12,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      CustomAppTextField(
+                        label: 'Họ tên',
+                        controller: _nameController,
+                        validator: requiredName,
+                        enabled: !_onboardingBusy,
+                      ),
+                      const SizedBox(height: 14),
+                      FigmaDropdown(
+                        key: const Key('learningPurpose'),
+                        label: 'Bạn học tiếng Anh để làm gì?',
+                        value: _onboardingPurpose,
+                        items: learningPurposes,
+                        onChanged: _onboardingBusy
+                            ? null
+                            : (value) =>
+                                  setState(() => _onboardingPurpose = value),
+                        validator: (value) =>
+                            value == null ? 'Chọn mục đích học.' : null,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'Thời gian học mỗi ngày',
+                        style: designText(
+                          14,
+                          weight: FontWeight.w600,
+                          color: ProfilePalette.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        children: [
+                          for (final value in [5, 10, 20])
+                            ChoiceChip(
+                              label: Text('$value phút'),
+                              selected: _onboardingMinutes == value,
+                              selectedColor: ProfilePalette.skillAdaptiveBg,
+                              onSelected: _onboardingBusy
+                                  ? null
+                                  : (_) => setState(
+                                      () => _onboardingMinutes = value,
+                                    ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      FigmaDropdown(
+                        label: 'Trình độ tự đánh giá',
+                        value: _onboardingLevel,
+                        items: {
+                          for (final value in ['UNKNOWN', 'A1', 'A2', 'B1', 'B2'])
+                            value: value == 'UNKNOWN' ? 'Chưa biết' : value,
+                        },
+                        onChanged: _onboardingBusy
+                            ? null
+                            : (value) =>
+                                  setState(() => _onboardingLevel = value),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_onboardingError != null) ...[
+                  const SizedBox(height: 12),
+                  ErrorNotice(_onboardingError!),
+                ],
+                if (_onboardingNotice != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_onboardingNotice!, semanticsLabel: _onboardingNotice),
+                ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: ProfilePalette.ink,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                    ),
+                    onPressed: _onboardingBusy ? null : _saveOnboarding,
+                    child: _onboardingBusy
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            'Lưu và tiếp tục',
+                            style: designText(
+                              15,
+                              weight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          FigmaDropdown(
-            label: 'Trình độ tự đánh giá',
-            value: _onboardingLevel,
-            items: {
-              for (final value in ['UNKNOWN', 'A1', 'A2', 'B1', 'B2'])
-                value: value == 'UNKNOWN' ? 'Chưa biết' : value,
-            },
-            onChanged: _onboardingBusy
-                ? null
-                : (value) => setState(() => _onboardingLevel = value),
-          ),
-          if (_onboardingError != null) ErrorNotice(_onboardingError!),
-          if (_onboardingNotice != null)
-            Text(_onboardingNotice!, semanticsLabel: _onboardingNotice),
-          primary('Lưu và tiếp tục', _saveOnboarding, busy: _onboardingBusy),
-        ],
+        ),
       ),
     ),
   );
@@ -322,6 +496,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final snap = _preferencesSnapshot;
     final displayName = (user['name'] as String? ?? '').trim();
     final email = user['email'] as String? ?? '';
+    final avatarUrl = user['avatarUrl'] as String?;
     final isGoogle = user['provider'] == 'GOOGLE';
 
     final hasPlacement =
@@ -359,99 +534,99 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return FigmaPage(
       title: 'Hồ sơ của tôi',
-      color: AppColors.grey25,
+      color: ProfilePalette.background,
+      minimumTopInset: 0,
+      titleStyle: designText(
+        17,
+        weight: FontWeight.w700,
+        color: ProfilePalette.ink,
+      ).copyWith(letterSpacing: -0.75),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 360;
+          final isNarrow = constraints.maxWidth < 340;
           final rem = _reminderCoordinator!.state;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              if (_toastMessage != null) ...[
-                _ProfileSuccessToast(
-                  message: _toastMessage!,
-                  onDismiss: () => setState(() => _toastMessage = null),
-                ),
-                const SizedBox(height: 16),
-              ],
-              _IdentityCard(
-                displayName: displayName,
-                email: email,
-                isGoogle: isGoogle,
-                isNarrow: isNarrow,
-                editingName: _editingName,
-                savingName: _savingName,
-                nameError: _nameError,
-                nameFormKey: _nameEditForm,
-                nameController: _nameController,
-                onStartEdit: () => setState(() {
-                  _nameController.text = displayName;
-                  _editingName = true;
-                  _nameError = null;
-                  _toastMessage = null;
-                }),
-                onCancelEdit: () => setState(() {
-                  _nameController.text = displayName;
-                  _editingName = false;
-                  _nameError = null;
-                }),
-                onSaveName: _saveDisplayName,
-              ),
-              const SizedBox(height: 16),
-              _CefrOverviewCard(
-                hasPlacement: hasPlacement,
-                placementCefr: placementCefr,
-                targetCefr: targetCefr,
-                placementSkills: placementSkills,
-                readingSnap: readingSnap,
-                isNarrow: isNarrow,
-                onViewPlacement: placementSessionId == null
-                    ? null
-                    : () => Navigator.of(context).push<void>(
+          return Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _IdentityHeader(
+                      displayName: displayName,
+                      email: email,
+                      avatarUrl: avatarUrl,
+                      isGoogle: isGoogle,
+                      isNarrow: isNarrow,
+                      savingAvatar: _savingAvatar,
+                      onChangeAvatar: _changeAvatar,
+                      onStartEdit: () => _openNameEditor(displayName),
+                    ),
+                    const SizedBox(height: 22),
+                    _CefrOverviewCard(
+                      hasPlacement: hasPlacement,
+                      placementCefr: placementCefr,
+                      targetCefr: targetCefr,
+                      onViewPlacement: placementSessionId == null
+                          ? null
+                          : () => Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ResultPage(
+                                  session: widget.session,
+                                  sessionId: placementSessionId,
+                                ),
+                              ),
+                            ),
+                      onStartPlacement: _openPlacementAssessment,
+                    ),
+                    const SizedBox(height: 24),
+                    _SkillsSection(
+                      hasPlacement: hasPlacement,
+                      placementCefr: placementCefr,
+                      placementSkills: placementSkills,
+                      readingSnap: readingSnap,
+                      isNarrow: isNarrow,
+                    ),
+                    const SizedBox(height: 22),
+                    _GoalsSummaryCard(
+                      purpose: learningPurpose,
+                      dailyMinutes: dailyMinutes,
+                      preferredKinds: preferredKinds,
+                      isNarrow: isNarrow,
+                      onEditGoals: _openGoalsEditor,
+                    ),
+                    const SizedBox(height: 24),
+                    _SettingsSection(
+                      reminder: rem,
+                      isGoogle: isGoogle,
+                      hasFirebaseIdentity: widget.session.api.identity != null,
+                      busy: _busyAction,
+                      onToggleReminder: (val) =>
+                          _reminderCoordinator!.setEnabled(val),
+                      onOpenSystemSettings:
+                          _reminderCoordinator!.refreshPermissionAndSchedule,
+                      onPickTime: () =>
+                          _pickReminderTime(_reminderCoordinator!),
+                      onRetryReminder: _reminderCoordinator!.retryLastFailed,
+                      onResetPassword: _resetPasswordViaEmail,
+                      onOpenChangePassword: () => Navigator.of(context).push<void>(
                         MaterialPageRoute<void>(
-                          builder: (_) => ResultPage(
-                            session: widget.session,
-                            sessionId: placementSessionId,
-                          ),
+                          builder: (_) =>
+                              ChangePasswordPage(session: widget.session),
                         ),
                       ),
-                onStartPlacement: _openPlacementAssessment,
-              ),
-              const SizedBox(height: 16),
-              _GoalsSummaryCard(
-                purpose: learningPurpose,
-                dailyMinutes: dailyMinutes,
-                preferredKinds: preferredKinds,
-                onEditGoals: _openGoalsEditor,
-              ),
-              const SizedBox(height: 16),
-              _AccountReminderCard(
-                reminder: rem,
-                isGoogle: isGoogle,
-                hasFirebaseIdentity: widget.session.api.identity != null,
-                busy: _busyAction,
-                onToggleReminder: (val) =>
-                    _reminderCoordinator!.setEnabled(val),
-                onOpenSystemSettings:
-                    _reminderCoordinator!.refreshPermissionAndSchedule,
-                onPickTime: () => _pickReminderTime(_reminderCoordinator!),
-                onRetryReminder: _reminderCoordinator!.retryLastFailed,
-                onResetPassword: _resetPasswordViaEmail,
-                onOpenChangePassword: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) =>
-                        ChangePasswordPage(session: widget.session),
-                  ),
+                      onLogout: () async {
+                        setState(() => _busyAction = true);
+                        await widget.session.logout();
+                        if (mounted) setState(() => _busyAction = false);
+                      },
+                    ),
+                  ],
                 ),
-                onLogout: () async {
-                  setState(() => _busyAction = true);
-                  await widget.session.logout();
-                },
               ),
-            ],
             ),
           );
         },
@@ -460,247 +635,370 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-class _ProfileSuccessToast extends StatelessWidget {
-  const _ProfileSuccessToast({
-    required this.message,
-    required this.onDismiss,
-  });
-  final String message;
-  final VoidCallback onDismiss;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    liveRegion: true,
-    child: Container(
-      key: const Key('profileSuccessToast'),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: AppColors.primary25,
-        borderRadius: AppRadius.cardSm,
-        border: Border.all(color: AppColors.primary200),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.check_circle_rounded,
-            size: 20,
-            color: AppColors.primary700,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: designText(
-                14,
-                weight: FontWeight.w500,
-                color: AppColors.primary700,
-              ),
-            ),
-          ),
-          IconButton(
-            tooltip: 'Đóng thông báo',
-            onPressed: onDismiss,
-            icon: const Icon(
-              Icons.close_rounded,
-              size: 18,
-              color: AppColors.primary700,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _IdentityCard extends StatelessWidget {
-  const _IdentityCard({
+class _IdentityHeader extends StatelessWidget {
+  const _IdentityHeader({
     required this.displayName,
     required this.email,
+    required this.avatarUrl,
     required this.isGoogle,
     required this.isNarrow,
-    required this.editingName,
-    required this.savingName,
-    required this.nameError,
-    required this.nameFormKey,
-    required this.nameController,
+    required this.savingAvatar,
+    required this.onChangeAvatar,
     required this.onStartEdit,
-    required this.onCancelEdit,
-    required this.onSaveName,
   });
 
   final String displayName;
   final String email;
+  final String? avatarUrl;
   final bool isGoogle;
   final bool isNarrow;
-  final bool editingName;
-  final bool savingName;
-  final String? nameError;
-  final GlobalKey<FormState> nameFormKey;
-  final TextEditingController nameController;
+  final bool savingAvatar;
+  final VoidCallback onChangeAvatar;
   final VoidCallback onStartEdit;
-  final VoidCallback onCancelEdit;
-  final VoidCallback onSaveName;
 
-  Widget _avatar(double size) => Container(
+  Widget _initialAvatar(double size) => Container(
     width: size,
     height: size,
-    decoration: BoxDecoration(
-      color: AppColors.primary50,
+    decoration: const BoxDecoration(
+      color: ProfilePalette.avatarBg,
       shape: BoxShape.circle,
-      border: Border.all(color: AppColors.primary200),
     ),
     alignment: Alignment.center,
     child: Text(
       displayName.isNotEmpty ? displayName[0].toUpperCase() : 'L',
-      style: designHeading(size * 0.4, color: AppColors.primary700),
+      style: designHeading(isNarrow ? 21 : 24, color: ProfilePalette.accent),
     ),
   );
 
-  Widget _providerBadge() => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-    decoration: BoxDecoration(
-      color: AppColors.grey50,
-      borderRadius: AppRadius.pill,
-      border: Border.all(color: AppColors.grey200),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        isGoogle
-            ? const FigmaAsset('google/imgLogos', size: 14)
-            : const Icon(
-                Icons.mail_outline_rounded,
-                size: 14,
-                color: AppColors.grey800,
+  Widget _avatarButton() {
+    final size = isNarrow ? 56.0 : 64.0;
+    final trimmed = avatarUrl?.trim() ?? '';
+    return Semantics(
+      button: true,
+      label: 'Đổi ảnh đại diện',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: const Key('changeAvatarButton'),
+          customBorder: const CircleBorder(),
+          onTap: savingAvatar ? null : onChangeAvatar,
+          child: Tooltip(
+            message: 'Đổi ảnh đại diện',
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: size,
+                    height: size,
+                    decoration: const BoxDecoration(
+                      color: ProfilePalette.avatarBg,
+                      shape: BoxShape.circle,
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: trimmed.isNotEmpty
+                        ? Image.network(
+                            trimmed,
+                            width: size,
+                            height: size,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => _initialAvatar(size),
+                          )
+                        : _initialAvatar(size),
+                  ),
+                  if (savingAvatar)
+                    Container(
+                      width: size,
+                      height: size,
+                      decoration: const BoxDecoration(
+                        color: AppColors.overlayPopup,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  Positioned(
+                    right: -3,
+                    bottom: -2,
+                    child: Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: ProfilePalette.ink,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: ProfilePalette.background,
+                          width: 2,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: const ConceptSvgIcon(
+                        ConceptGlyph.camera,
+                        size: 13,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-        const SizedBox(width: 6),
-        Flexible(
-          child: Text(
-            isGoogle ? 'Đã liên kết Google' : 'Tài khoản Email',
-            style: designText(
-              12,
-              weight: FontWeight.w500,
-              color: AppColors.grey800,
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 
   @override
-  Widget build(BuildContext context) => FigmaCard(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            _avatar(isNarrow ? 56 : 64),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayName.isEmpty ? 'Người học LingoRoad' : displayName,
-                    key: const Key('profileDisplayName'),
-                    style: designHeading(18),
-                  ),
-                  if (!isNarrow) ...[
+  Widget build(BuildContext context) {
+    final gap = isNarrow ? 10.0 : 14.0;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _avatarButton(),
+              SizedBox(width: gap),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      displayName.isEmpty ? 'Người học LingoRoad' : displayName,
+                      key: const Key('profileDisplayName'),
+                      softWrap: true,
+                      style: designHeading(
+                        isNarrow ? 20 : 22,
+                        color: ProfilePalette.ink,
+                        height: 1.25,
+                      ).copyWith(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -(isNarrow ? 0.6 : 0.7),
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       email,
-                      style: designText(14, color: AppColors.grey800),
+                      softWrap: true,
+                      style: designText(
+                        isNarrow ? 13 : 14,
+                        color: ProfilePalette.muted,
+                        height: 1.3,
+                      ),
                     ),
                     const SizedBox(height: 6),
-                    _providerBadge(),
-                  ],
-                ],
-              ),
-            ),
-            if (!editingName) ...[
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 48,
-                height: 48,
-                child: OutlinedButton(
-                  key: const Key('editIdentityButton'),
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    side: const BorderSide(color: AppColors.grey200),
-                    shape: const CircleBorder(),
-                    backgroundColor: AppColors.grey0,
-                  ),
-                  onPressed: onStartEdit,
-                  child: const Tooltip(
-                    message: 'Chỉnh sửa họ và tên',
-                    child: Icon(
-                      Icons.edit_outlined,
-                      size: 20,
-                      color: AppColors.grey900,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        isGoogle
+                            ? const FigmaAsset('google/imgLogos', size: 15)
+                            : const ConceptSvgIcon(
+                                ConceptGlyph.mail,
+                                size: 15,
+                                color: ProfilePalette.providerText,
+                              ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isGoogle ? 'Google' : 'Email',
+                          style: designText(
+                            13,
+                            weight: FontWeight.w600,
+                            color: ProfilePalette.providerText,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                key: const Key('editIdentityButton'),
+                tooltip: 'Sửa họ và tên',
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                padding: EdgeInsets.zero,
+                onPressed: onStartEdit,
+                icon: const ConceptSvgIcon(
+                  ConceptGlyph.pen,
+                  size: 22,
+                  color: ProfilePalette.ink,
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CefrOverviewCard extends StatelessWidget {
+  const _CefrOverviewCard({
+    required this.hasPlacement,
+    required this.placementCefr,
+    required this.targetCefr,
+    required this.onViewPlacement,
+    required this.onStartPlacement,
+  });
+
+  final bool hasPlacement;
+  final String? placementCefr;
+  final String targetCefr;
+  final VoidCallback? onViewPlacement;
+  final VoidCallback onStartPlacement;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+    decoration: BoxDecoration(
+      color: ProfilePalette.paper,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: ProfilePalette.heroBorder),
+      boxShadow: [
+        BoxShadow(
+          color: ProfilePalette.heroShadow,
+          blurRadius: 12,
+          offset: Offset(0, 3),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                'Trình độ tiếng Anh',
+                style: designHeading(18, color: ProfilePalette.ink).copyWith(
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: ProfilePalette.cefrChipBg,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'CEFR',
+                style: designText(
+                  11.5,
+                  weight: FontWeight.w700,
+                  color: ProfilePalette.cefrChipFg,
+                  height: 1.15,
+                ).copyWith(letterSpacing: 0.4),
+              ),
+            ),
           ],
         ),
-        if (isNarrow) ...[
-          const SizedBox(height: 12),
-          Text(email, style: designText(14, color: AppColors.grey800)),
-          const SizedBox(height: 6),
-          _providerBadge(),
-        ],
-        if (editingName) ...[
-          const SizedBox(height: 14),
-          Form(
-            key: nameFormKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CustomAppTextField(
-                  key: const Key('inlineNameInput'),
-                  label: 'Họ và tên',
-                  controller: nameController,
-                  validator: requiredName,
-                  enabled: !savingName,
-                ),
-                if (nameError != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    nameError!,
-                    style: designText(14, color: AppColors.error200),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: CustomAppButton(
-                        key: const Key('cancelEditNameButton'),
-                        text: 'Hủy',
-                        isSecondary: true,
-                        onPressed: savingName ? null : onCancelEdit,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: CustomAppButton(
-                        key: const Key('saveEditNameButton'),
-                        text: 'Lưu tên',
-                        isLoading: savingName,
-                        onPressed: savingName ? null : onSaveName,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+        const SizedBox(height: 12),
+        CefrRoadChart(
+          hasPlacement: hasPlacement,
+          inputLevel: placementCefr,
+          targetLevel: targetCefr,
+        ),
+        if (!hasPlacement) ...[
+          const SizedBox(height: 10),
+          Text(
+            'Chưa có kết quả đầu vào',
+            key: const Key('cefrPlacementSummary'),
+            style: designText(
+              13.5,
+              weight: FontWeight.w600,
+              color: ProfilePalette.muted,
             ),
           ),
         ],
+        if (hasPlacement)
+          TextButton(
+            key: const Key('viewPlacementResultButton'),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(double.infinity, 50),
+              padding: const EdgeInsets.symmetric(horizontal: 2),
+              foregroundColor: ProfilePalette.routeGreen,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: onViewPlacement,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Xem kết quả',
+                  style: designText(
+                    15,
+                    weight: FontWeight.w700,
+                    color: ProfilePalette.routeGreen,
+                  ),
+                ),
+                const ConceptSvgIcon(
+                  ConceptGlyph.arrow,
+                  size: 19,
+                  color: ProfilePalette.routeGreen,
+                ),
+              ],
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.fromLTRB(0, 10, 0, 12),
+            child: SizedBox(
+              height: 50,
+              width: double.infinity,
+              child: ElevatedButton(
+                key: const Key('startPlacementButton'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ProfilePalette.unassessedCta,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: onStartPlacement,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Kiểm tra đầu vào',
+                        style: designText(
+                          15,
+                          weight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const ConceptSvgIcon(
+                      ConceptGlyph.arrow,
+                      size: 19,
+                      color: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
       ],
     ),
   );
@@ -709,38 +1007,34 @@ class _IdentityCard extends StatelessWidget {
 class _SkillDisplay {
   const _SkillDisplay({
     required this.kind,
+    required this.glyph,
     required this.title,
     required this.level,
     required this.sourceText,
-    required this.isMeasured,
+    required this.isAdaptive,
   });
   final String kind;
+  final ConceptGlyph glyph;
   final String title;
   final String level;
   final String sourceText;
-  final bool isMeasured;
+  final bool isAdaptive;
 }
 
-class _CefrOverviewCard extends StatelessWidget {
-  const _CefrOverviewCard({
+class _SkillsSection extends StatelessWidget {
+  const _SkillsSection({
     required this.hasPlacement,
     required this.placementCefr,
-    required this.targetCefr,
     required this.placementSkills,
     required this.readingSnap,
     required this.isNarrow,
-    required this.onViewPlacement,
-    required this.onStartPlacement,
   });
 
   final bool hasPlacement;
   final String? placementCefr;
-  final String targetCefr;
   final Json? placementSkills;
   final Json? readingSnap;
   final bool isNarrow;
-  final VoidCallback? onViewPlacement;
-  final VoidCallback onStartPlacement;
 
   List<_SkillDisplay> _buildSkills() {
     final readSrc = readingSnap?['source'] as String?;
@@ -760,43 +1054,48 @@ class _CefrOverviewCard extends StatelessWidget {
         ? 'Kết quả đầu vào'
         : 'Mức khởi đầu';
 
-    final listeningLevel = placeListen ?? (hasPlacement ? placementCefr! : 'A1');
+    final listeningLevel =
+        placeListen ?? (hasPlacement ? placementCefr! : 'A1');
     final listeningSource = hasPlacement ? 'Kết quả đầu vào' : 'Mức khởi đầu';
 
     final grammarLevel = hasPlacement ? placementCefr! : 'A1';
-    final grammarSource = hasPlacement ? 'Theo mức đầu vào' : 'Mức khởi đầu';
+    final grammarSource = hasPlacement ? 'Theo đầu vào' : 'Mức khởi đầu';
 
     final vocabLevel = hasPlacement ? placementCefr! : 'A1';
-    final vocabSource = hasPlacement ? 'Theo mức đầu vào' : 'Mức khởi đầu';
+    final vocabSource = hasPlacement ? 'Theo đầu vào' : 'Mức khởi đầu';
 
     return [
       _SkillDisplay(
         kind: 'READING',
+        glyph: ConceptGlyph.book,
         title: 'Đọc hiểu',
         level: readingLevel,
         sourceText: readingSource,
-        isMeasured: hasPlacement || readingAdaptive,
+        isAdaptive: readingAdaptive,
       ),
       _SkillDisplay(
         kind: 'LISTENING',
+        glyph: ConceptGlyph.headphones,
         title: 'Nghe hiểu',
         level: listeningLevel,
         sourceText: listeningSource,
-        isMeasured: hasPlacement,
+        isAdaptive: false,
       ),
       _SkillDisplay(
         kind: 'GRAMMAR',
+        glyph: ConceptGlyph.grammar,
         title: 'Ngữ pháp',
         level: grammarLevel,
         sourceText: grammarSource,
-        isMeasured: hasPlacement,
+        isAdaptive: false,
       ),
       _SkillDisplay(
         kind: 'VOCABULARY',
+        glyph: ConceptGlyph.cards,
         title: 'Từ vựng',
         level: vocabLevel,
         sourceText: vocabSource,
-        isMeasured: hasPlacement,
+        isAdaptive: false,
       ),
     ];
   }
@@ -804,181 +1103,117 @@ class _CefrOverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final skills = _buildSkills();
-    return FigmaCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Kỹ năng',
+          style: designHeading(17, color: ProfilePalette.ink).copyWith(
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (final skill in skills)
+          _ConceptSkillRow(skill: skill, isNarrow: isNarrow),
+      ],
+    );
+  }
+}
+
+class _ConceptSkillRow extends StatelessWidget {
+  const _ConceptSkillRow({required this.skill, required this.isNarrow});
+
+  final _SkillDisplay skill;
+  final bool isNarrow;
+
+  @override
+  Widget build(BuildContext context) {
+    final adaptive = skill.isAdaptive;
+    return Container(
+      key: ValueKey('skillTile-${skill.kind}'),
+      constraints: const BoxConstraints(minHeight: 52),
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: ProfilePalette.line)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text('Trình độ & Đánh giá', style: designHeading(18)),
-          const SizedBox(height: 14),
           Container(
-            padding: const EdgeInsets.all(14),
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-              color: AppColors.primary25,
-              borderRadius: AppRadius.cardSm,
+              color: adaptive
+                  ? ProfilePalette.skillAdaptiveBg
+                  : ProfilePalette.skillIconBg,
+              borderRadius: BorderRadius.circular(10),
             ),
+            alignment: Alignment.center,
+            child: ConceptSvgIcon(
+              skill.glyph,
+              size: 18,
+              color: adaptive
+                  ? ProfilePalette.skillAdaptiveFg
+                  : ProfilePalette.skillIconFg,
+            ),
+          ),
+          SizedBox(width: isNarrow ? 10 : 12),
+          Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary50,
-                        borderRadius: AppRadius.cardSm,
-                      ),
-                      alignment: Alignment.center,
-                      child: const FigmaAsset('home-v3/cup', size: 22),
-                    ),
-                    const SizedBox(width: 12),
-                    if (isNarrow)
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Trình độ đầu vào',
-                              style: designText(12, color: AppColors.grey800),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              hasPlacement && placementCefr != null
-                                  ? cefrLabelWithDescriptor(placementCefr!)
-                                  : 'Chưa đánh giá',
-                              key: const Key('cefrPlacementSummary'),
-                              style: designText(
-                                15,
-                                weight: FontWeight.w600,
-                                color: hasPlacement
-                                    ? AppColors.grey900
-                                    : AppColors.grey800,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Mục tiêu',
-                              style: designText(12, color: AppColors.grey800),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              cefrLabelWithDescriptor(targetCefr),
-                              key: const Key('cefrTargetSummary'),
-                              style: designText(
-                                15,
-                                weight: FontWeight.w600,
-                                color: AppColors.primary700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else ...[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Trình độ đầu vào',
-                              style: designText(12, color: AppColors.grey800),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              hasPlacement && placementCefr != null
-                                  ? cefrLabelWithDescriptor(placementCefr!)
-                                  : 'Chưa đánh giá',
-                              key: const Key('cefrPlacementSummary'),
-                              style: designText(
-                                16,
-                                weight: FontWeight.w600,
-                                color: hasPlacement
-                                    ? AppColors.grey900
-                                    : AppColors.grey800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 36,
-                        margin: const EdgeInsets.symmetric(horizontal: 10),
-                        color: AppColors.grey200,
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Mục tiêu',
-                              style: designText(12, color: AppColors.grey800),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              cefrLabelWithDescriptor(targetCefr),
-                              key: const Key('cefrTargetSummary'),
-                              style: designText(
-                                16,
-                                weight: FontWeight.w600,
-                                color: AppColors.primary700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
+                Text(
+                  skill.title,
+                  style: designText(
+                    15.5,
+                    weight: FontWeight.w600,
+                    color: ProfilePalette.ink,
+                    height: 1.25,
+                  ).copyWith(letterSpacing: -0.25),
                 ),
-                if (!hasPlacement) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    'Làm bài đánh giá 5 phút để lộ trình khớp chính xác năng lực hiện tại.',
-                    style: designText(
-                      14,
-                      color: AppColors.grey800,
-                      height: 1.4,
-                    ),
+                const SizedBox(height: 3),
+                Text(
+                  skill.sourceText,
+                  style: designText(
+                    13,
+                    color: adaptive
+                        ? ProfilePalette.accent
+                        : ProfilePalette.muted,
+                    height: 1.3,
                   ),
-                ],
-                const SizedBox(height: 12),
-                if (hasPlacement)
-                  CustomAppButton(
-                    key: const Key('viewPlacementResultButton'),
-                    text: 'Xem kết quả đầu vào',
-                    isSecondary: true,
-                    onPressed: onViewPlacement,
-                  )
-                else
-                  CustomAppButton(
-                    key: const Key('startPlacementButton'),
-                    text: 'Làm bài kiểm tra đầu vào',
-                    onPressed: onStartPlacement,
-                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: _SkillTile(skill: skills[0])),
-                const SizedBox(width: 12),
-                Expanded(child: _SkillTile(skill: skills[1])),
-              ],
+          SizedBox(width: isNarrow ? 10 : 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: adaptive
+                  ? ProfilePalette.badgeAdaptiveBg
+                  : ProfilePalette.badgeBg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: adaptive
+                    ? ProfilePalette.badgeAdaptiveBorder
+                    : ProfilePalette.badgeBorder,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: _SkillTile(skill: skills[2])),
-                const SizedBox(width: 12),
-                Expanded(child: _SkillTile(skill: skills[3])),
-              ],
+            child: Text(
+              skill.level,
+              style:
+                  designText(
+                    13.5,
+                    weight: FontWeight.w700,
+                    color: adaptive
+                        ? ProfilePalette.badgeAdaptiveFg
+                        : ProfilePalette.accent,
+                    height: 1.15,
+                  ).copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
             ),
           ),
         ],
@@ -987,205 +1222,133 @@ class _CefrOverviewCard extends StatelessWidget {
   }
 }
 
-class _SkillTile extends StatelessWidget {
-  const _SkillTile({required this.skill});
-  final _SkillDisplay skill;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    key: ValueKey('skillTile-${skill.kind}'),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: AppColors.grey25,
-      borderRadius: AppRadius.cardSm,
-      border: Border.all(color: AppColors.grey100),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Icon(
-              learningKindIcon(skill.kind),
-              size: 20,
-              color: AppColors.grey900,
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: skill.isMeasured
-                    ? AppColors.primary50
-                    : AppColors.grey100,
-                borderRadius: AppRadius.pill,
-              ),
-              child: Text(
-                skill.level,
-                style: designText(
-                  12,
-                  weight: FontWeight.w600,
-                  color: skill.isMeasured
-                      ? AppColors.primary700
-                      : AppColors.grey800,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              skill.title,
-              style: designText(14, weight: FontWeight.w600),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              skill.sourceText,
-              style: designText(
-                12,
-                color: AppColors.grey800,
-                height: 1.35,
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
 class _GoalsSummaryCard extends StatelessWidget {
   const _GoalsSummaryCard({
     required this.purpose,
     required this.dailyMinutes,
     required this.preferredKinds,
+    required this.isNarrow,
     required this.onEditGoals,
   });
 
   final String? purpose;
   final int dailyMinutes;
   final List<String> preferredKinds;
+  final bool isNarrow;
   final VoidCallback onEditGoals;
 
   @override
-  Widget build(BuildContext context) => FigmaCard(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(child: Text('Mục tiêu học tập', style: designHeading(18))),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
-              child: OutlinedButton.icon(
-                key: const Key('editLearningGoalsButton'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.grey900,
-                  backgroundColor: AppColors.grey0,
-                  side: const BorderSide(color: AppColors.grey200),
-                  shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.pill,
+  Widget build(BuildContext context) {
+    final orderedKinds = [
+      for (final kind in allPreferredLearningKinds)
+        if (preferredKinds.contains(kind)) kind,
+    ];
+    final horizontalPad = isNarrow ? 12.0 : 16.0;
+    return Material(
+      color: ProfilePalette.paper,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: ProfilePalette.goalsBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: const Key('editLearningGoalsButton'),
+        hoverColor: ProfilePalette.hoverTint,
+        onTap: onEditGoals,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(horizontalPad, 15, horizontalPad, 15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Mục tiêu học tập',
+                      style: designHeading(17, color: ProfilePalette.ink)
+                          .copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
+                          ),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Chỉnh sửa',
+                        style: designText(
+                          14,
+                          weight: FontWeight.w700,
+                          color: ProfilePalette.accent,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      const ConceptSvgIcon(
+                        ConceptGlyph.arrow,
+                        size: 18,
+                        color: ProfilePalette.accent,
+                      ),
+                    ],
                   ),
-                ),
-                onPressed: onEditGoals,
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                label: Text(
-                  'Chỉnh sửa',
-                  style: designText(14, weight: FontWeight.w500),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${learningPurposeLabelVi(purpose)} · $dailyMinutes phút/ngày',
+                key: const Key('summaryDurationValue'),
+                softWrap: true,
+                style: designText(
+                  14.5,
+                  weight: FontWeight.w500,
+                  color: ProfilePalette.ink,
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
-        _SummaryRow(
-          label: 'Mục đích học',
-          value: learningPurposeLabelVi(purpose),
-        ),
-        const SizedBox(height: 10),
-        _SummaryRow(
-          label: 'Thời lượng mỗi ngày',
-          value: '$dailyMinutes phút / ngày',
-          valueKey: const Key('summaryDurationValue'),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'Nhóm bài ưu tiên',
-          style: designText(14, color: AppColors.grey800),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final kind in preferredKinds)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
+              const SizedBox(height: 11),
+              if (orderedKinds.isEmpty)
+                Text(
+                  'Không đặt ưu tiên',
+                  style: designText(13.5, color: ProfilePalette.muted),
+                )
+              else
+                Wrap(
+                  spacing: 7,
+                  runSpacing: 7,
+                  children: [
+                    for (final kind in orderedKinds)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: ProfilePalette.tagSurface,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          learningKindLabelVi(kind),
+                          style: designText(
+                            13,
+                            weight: FontWeight.w600,
+                            color: ProfilePalette.tagText,
+                            height: 1.2,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                decoration: BoxDecoration(
-                  color: AppColors.grey50,
-                  borderRadius: AppRadius.tagRadius,
-                  border: Border.all(color: AppColors.grey200),
-                ),
-                child: Text(
-                  learningKindLabelVi(kind),
-                  style: designText(
-                    12,
-                    weight: FontWeight.w500,
-                    color: AppColors.grey900,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    ),
-  );
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.valueKey,
-  });
-  final String label;
-  final String value;
-  final Key? valueKey;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Flexible(
-        child: Text(label, style: designText(14, color: AppColors.grey800)),
-      ),
-      const SizedBox(width: 12),
-      Flexible(
-        child: Text(
-          value,
-          key: valueKey,
-          textAlign: TextAlign.end,
-          style: designText(14, weight: FontWeight.w600),
+            ],
+          ),
         ),
       ),
-    ],
-  );
+    );
+  }
 }
 
-class _AccountReminderCard extends StatelessWidget {
-  const _AccountReminderCard({
+class _SettingsSection extends StatelessWidget {
+  const _SettingsSection({
     required this.reminder,
     required this.isGoogle,
     required this.hasFirebaseIdentity,
@@ -1211,309 +1374,393 @@ class _AccountReminderCard extends StatelessWidget {
   final VoidCallback onOpenChangePassword;
   final VoidCallback onLogout;
 
-  String get _toggleSubtitle {
-    if (!reminder.enabled) {
-      return 'Đang tắt · Bật để nhận nhắc học mỗi tối';
-    }
-    if (reminder.needsPermissionBanner) {
-      return 'Chưa thể nhắc học — cần cấp quyền thông báo';
-    }
-    return 'Tự động lưu ngay khi bật hoặc tắt';
-  }
-
-  String get _timeSubtitle {
-    if (reminder.failedTime != null) {
-      return 'Đang giữ ${reminder.serverTime} · Chưa lưu được ${reminder.failedTime}';
-    }
-    return 'Chạm để đổi khung giờ nhắc mỗi ngày';
-  }
-
   @override
-  Widget build(BuildContext context) => FigmaCard(
-    padding: const EdgeInsets.all(16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text('Tài khoản & Nhắc học', style: designHeading(18)),
-        const SizedBox(height: 12),
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 56),
-          child: Row(
-            children: [
-              _iconBox(Icons.notifications_none_rounded),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Nhắc nhở học hằng ngày',
-                      style: designText(15, weight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _toggleSubtitle,
-                      key: const Key('reminderToggleSubtitle'),
-                      style: designText(13, color: AppColors.grey800),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                child: Center(
-                  child: Switch.adaptive(
-                    key: const Key('reminderToggleSwitch'),
-                    value: reminder.enabled,
-                    activeTrackColor: AppColors.primary500,
-                    onChanged: onToggleReminder,
-                  ),
-                ),
-              ),
-            ],
-          ),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(
+        'Cài đặt',
+        style: designHeading(17, color: ProfilePalette.ink).copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: -0.5,
         ),
-        if (reminder.needsPermissionBanner) ...[
-          const SizedBox(height: 12),
-          Container(
-            key: const Key('notificationPermissionBox'),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.grey50,
-              borderRadius: AppRadius.cardSm,
-              border: Border.all(color: AppColors.grey200),
+      ),
+      const SizedBox(height: 6),
+      Semantics(
+        toggled: reminder.enabled,
+        label: 'Nhắc học hằng ngày',
+        child: InkWell(
+          key: const Key('reminderToggleSwitch'),
+          onTap: () => onToggleReminder(!reminder.enabled),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: ProfilePalette.line)),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Row(
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.notifications_off_outlined,
-                      size: 20,
-                      color: AppColors.grey800,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Thiết bị đang chặn thông báo của LingoRoad. Cấp quyền để nhận nhắc học lúc ${reminder.time}.',
+                const ConceptSvgIcon(
+                  ConceptGlyph.bell,
+                  size: 21,
+                  color: ProfilePalette.accent,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Nhắc học hằng ngày',
                         style: designText(
-                          13,
-                          color: AppColors.grey800,
-                          height: 1.4,
+                          15.5,
+                          weight: FontWeight.w500,
+                          color: ProfilePalette.ink,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                CustomAppButton(
-                  key: const Key('openNotificationSettingsButton'),
-                  text: 'Mở cài đặt thiết bị',
-                  isSecondary: true,
-                  onPressed: onOpenSystemSettings,
-                ),
-              ],
-            ),
-          ),
-        ],
-        if (reminder.enabled) ...[
-          const SizedBox(height: 12),
-          InkWell(
-            key: const Key('reminderTimeRow'),
-            borderRadius: AppRadius.cardSm,
-            onTap: onPickTime,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 56),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    _iconBox(Icons.access_time_rounded),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Giờ nhắc học',
-                            style: designText(15, weight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            _timeSubtitle,
-                            style: designText(13, color: AppColors.grey800),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      reminder.time,
-                      key: const Key('reminderTimeValue'),
-                      style: designText(14, weight: FontWeight.w600),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: AppColors.grey700,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-        if (reminder.errorMessage != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            key: const Key('reminderErrorBanner'),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.error0,
-              borderRadius: AppRadius.cardSm,
-              border: Border.all(color: AppColors.error25),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(
-                      Icons.info_outline_rounded,
-                      size: 20,
-                      color: AppColors.error200,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        reminder.errorMessage!,
-                        style: designText(
-                          14,
-                          color: AppColors.error200,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                CustomAppButton(
-                  key: const Key('retryReminderSaveButton'),
-                  text: 'Thử lại lưu giờ nhắc',
-                  isSecondary: true,
-                  onPressed: reminder.saving ? null : onRetryReminder,
-                ),
-              ],
-            ),
-          ),
-        ],
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: Divider(height: 1, color: AppColors.grey100),
-        ),
-        if (isGoogle)
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: AppColors.grey50,
-                  borderRadius: AppRadius.cardSm,
-                ),
-                alignment: Alignment.center,
-                child: const FigmaAsset('google/imgLogos', size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Đăng nhập qua Google',
-                      style: designText(15, weight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Mật khẩu được quản lý trực tiếp bởi Google',
-                      style: designText(13, color: AppColors.grey800),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          )
-        else
-          InkWell(
-            key: const Key('accountPasswordActionRow'),
-            borderRadius: AppRadius.cardSm,
-            onTap: busy
-                ? null
-                : (hasFirebaseIdentity
-                      ? onResetPassword
-                      : onOpenChangePassword),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 56),
-              child: Row(
-                children: [
-                  _iconBox(Icons.lock_outline_rounded),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          hasFirebaseIdentity
-                              ? 'Đặt lại mật khẩu qua email'
-                              : 'Đổi mật khẩu',
-                          style: designText(15, weight: FontWeight.w600),
-                        ),
+                      if (!reminder.enabled) ...[
                         const SizedBox(height: 2),
                         Text(
-                          hasFirebaseIdentity
-                              ? 'Gửi liên kết đặt lại mật khẩu tới email của bạn'
-                              : 'Cập nhật mật khẩu đăng nhập hiện tại',
-                          style: designText(13, color: AppColors.grey800),
+                          'Đang tắt',
+                          key: const Key('reminderToggleSubtitle'),
+                          style: designText(
+                            13,
+                            color: ProfilePalette.muted,
+                          ),
                         ),
                       ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _ConceptSwitchPill(checked: reminder.enabled),
+              ],
+            ),
+          ),
+        ),
+      ),
+      if (reminder.needsPermissionBanner)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 10, 0, 6),
+          child: Container(
+            key: const Key('notificationPermissionBox'),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            decoration: BoxDecoration(
+              color: ProfilePalette.permissionBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: ProfilePalette.permissionIconBg,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(
+                      color: ProfilePalette.permissionIconBorder,
                     ),
                   ),
+                  alignment: Alignment.center,
+                  child: const ConceptSvgIcon(
+                    ConceptGlyph.bellOff,
+                    size: 18,
+                    color: ProfilePalette.permissionIconFg,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Chưa có quyền thông báo',
+                        key: const Key('reminderToggleSubtitle'),
+                        style: designText(
+                          14.5,
+                          weight: FontWeight.w700,
+                          color: ProfilePalette.ink,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Cấp quyền để nhận nhắc học lúc ${reminder.time}.',
+                        style: designText(
+                          13,
+                          color: ProfilePalette.muted,
+                          height: 1.4,
+                        ),
+                      ),
+                      InkWell(
+                        key: const Key('openNotificationSettingsButton'),
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: onOpenSystemSettings,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Bật quyền thông báo',
+                                style: designText(
+                                  14,
+                                  weight: FontWeight.w700,
+                                  color: ProfilePalette.accent,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const ConceptSvgIcon(
+                                ConceptGlyph.arrow,
+                                size: 16,
+                                color: ProfilePalette.accent,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      if (reminder.enabled)
+        InkWell(
+          key: const Key('reminderTimeRow'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: onPickTime,
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: ProfilePalette.line)),
+            ),
+            child: Row(
+              children: [
+                const ConceptSvgIcon(
+                  ConceptGlyph.clock,
+                  size: 21,
+                  color: ProfilePalette.accent,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Giờ nhắc',
+                        style: designText(
+                          15.5,
+                          weight: FontWeight.w500,
+                          color: ProfilePalette.ink,
+                        ),
+                      ),
+                      if (reminder.failedTime != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'Đang giữ ${reminder.serverTime} · Chưa lưu được ${reminder.failedTime}',
+                          style: designText(
+                            13,
+                            color: ProfilePalette.danger,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  reminder.time,
+                  key: const Key('reminderTimeValue'),
+                  style:
+                      designText(
+                        15,
+                        weight: FontWeight.w600,
+                        color: ProfilePalette.ink,
+                      ).copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                ),
+                const SizedBox(width: 6),
+                const ConceptSvgIcon(
+                  ConceptGlyph.arrow,
+                  size: 19,
+                  color: ProfilePalette.accent,
+                ),
+              ],
+            ),
+          ),
+        ),
+      if (reminder.errorMessage != null) ...[
+        const SizedBox(height: 10),
+        Container(
+          key: const Key('reminderErrorBanner'),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.error0,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.error25),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   const Icon(
-                    Icons.chevron_right_rounded,
+                    Icons.info_outline_rounded,
                     size: 20,
-                    color: AppColors.grey700,
+                    color: ProfilePalette.danger,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      reminder.errorMessage!,
+                      style: designText(
+                        14,
+                        color: ProfilePalette.danger,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              CustomAppButton(
+                key: const Key('retryReminderSaveButton'),
+                text: 'Thử lại lưu giờ nhắc',
+                isSecondary: true,
+                borderRadius: BorderRadius.circular(9),
+                onPressed: reminder.saving ? null : onRetryReminder,
+              ),
+            ],
+          ),
+        ),
+      ],
+      if (!isGoogle)
+        InkWell(
+          key: const Key('accountPasswordActionRow'),
+          borderRadius: BorderRadius.circular(8),
+          onTap: busy
+              ? null
+              : (hasFirebaseIdentity ? onResetPassword : onOpenChangePassword),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: ProfilePalette.line)),
+            ),
+            child: Row(
+              children: [
+                const ConceptSvgIcon(
+                  ConceptGlyph.lock,
+                  size: 21,
+                  color: ProfilePalette.accent,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    hasFirebaseIdentity ? 'Đặt lại mật khẩu' : 'Đổi mật khẩu',
+                    style: designText(
+                      15.5,
+                      weight: FontWeight.w500,
+                      color: ProfilePalette.ink,
+                    ),
+                  ),
+                ),
+                const ConceptSvgIcon(
+                  ConceptGlyph.arrow,
+                  size: 19,
+                  color: ProfilePalette.accent,
+                ),
+              ],
+            ),
+          ),
+        ),
+      Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: InkWell(
+          key: const Key('logoutButton'),
+          borderRadius: BorderRadius.circular(10),
+          onTap: busy ? null : onLogout,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  if (busy)
+                    const SizedBox(
+                      width: 21,
+                      height: 21,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: ProfilePalette.danger,
+                      ),
+                    )
+                  else
+                    const ConceptSvgIcon(
+                      ConceptGlyph.exit,
+                      size: 21,
+                      color: ProfilePalette.danger,
+                    ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Đăng xuất',
+                    style: designText(
+                      15.5,
+                      weight: FontWeight.w500,
+                      color: ProfilePalette.danger,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-        const SizedBox(height: 14),
-        CustomAppButton(
-          key: const Key('logoutButton'),
-          text: 'Đăng xuất',
-          isSecondary: true,
-          isLoading: busy,
-          onPressed: busy ? null : onLogout,
         ),
-      ],
-    ),
+      ),
+    ],
   );
+}
 
-  Widget _iconBox(IconData icon) => Container(
-    width: 40,
-    height: 40,
-    decoration: BoxDecoration(
-      color: AppColors.grey50,
-      borderRadius: AppRadius.cardSm,
-    ),
-    alignment: Alignment.center,
-    child: Icon(icon, size: 20, color: AppColors.grey800),
-  );
+class _ConceptSwitchPill extends StatelessWidget {
+  const _ConceptSwitchPill({required this.checked});
+
+  final bool checked;
+
+  @override
+  Widget build(BuildContext context) {
+    final disableAnim = MediaQuery.disableAnimationsOf(context);
+    return AnimatedContainer(
+      duration: disableAnim ? Duration.zero : const Duration(milliseconds: 180),
+      width: 44,
+      height: 26,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: checked ? ProfilePalette.toggleOn : ProfilePalette.toggleOff,
+        borderRadius: AppRadius.pill,
+      ),
+      child: AnimatedAlign(
+        duration:
+            disableAnim ? Duration.zero : const Duration(milliseconds: 180),
+        alignment: checked ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          width: 20,
+          height: 20,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class ChangePasswordPage extends StatefulWidget {
@@ -1562,30 +1809,137 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
   @override
   Widget build(BuildContext context) => FigmaPage(
     title: 'Đổi mật khẩu',
+    color: ProfilePalette.background,
+    titleStyle: designText(
+      19,
+      weight: FontWeight.w700,
+      color: ProfilePalette.ink,
+    ).copyWith(letterSpacing: -0.6),
     child: Form(
       key: form,
-      child: PageBody(
-        children: [
-          const Text(
-            'Sau khi đổi mật khẩu, hãy đăng nhập lại bằng mật khẩu mới.',
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: ProfilePalette.paper,
+                borderRadius: AppRadius.cardRadius,
+                border: Border.all(color: ProfilePalette.heroBorder),
+                boxShadow: [
+                  BoxShadow(
+                    color: ProfilePalette.heroShadow,
+                    blurRadius: 12,
+                    offset: Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: ProfilePalette.skillAdaptiveBg,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        alignment: Alignment.center,
+                        child: const ConceptSvgIcon(
+                          ConceptGlyph.lock,
+                          size: 18,
+                          color: ProfilePalette.accent,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Cập nhật mật khẩu',
+                              style: designHeading(16, color: ProfilePalette.ink),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Sau khi đổi mật khẩu, hãy đăng nhập lại bằng mật khẩu mới.',
+                              style: designText(
+                                13.5,
+                                color: ProfilePalette.muted,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  CustomAppTextField(
+                    label: 'Mật khẩu hiện tại',
+                    controller: oldPassword,
+                    isPassword: true,
+                    enabled: !busy,
+                    validator: (value) => value == null || value.isEmpty
+                        ? 'Nhập mật khẩu hiện tại.'
+                        : null,
+                  ),
+                  const SizedBox(height: 14),
+                  CustomAppTextField(
+                    label: 'Mật khẩu mới',
+                    controller: newPassword,
+                    isPassword: true,
+                    enabled: !busy,
+                    validator: validPassword,
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 12),
+                    ErrorNotice(error!),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 48,
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ProfilePalette.ink,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                      ),
+                      onPressed: busy ? null : submit,
+                      child: busy
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              'Đổi mật khẩu',
+                              style: designText(
+                                15,
+                                weight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-          CustomAppTextField(
-            label: 'Mật khẩu hiện tại',
-            controller: oldPassword,
-            isPassword: true,
-            validator: (value) => value == null || value.isEmpty
-                ? 'Nhập mật khẩu hiện tại.'
-                : null,
-          ),
-          CustomAppTextField(
-            label: 'Mật khẩu mới',
-            controller: newPassword,
-            isPassword: true,
-            validator: validPassword,
-          ),
-          if (error != null) ErrorNotice(error!),
-          primary('Đổi mật khẩu', submit, busy: busy),
-        ],
+        ),
       ),
     ),
   );

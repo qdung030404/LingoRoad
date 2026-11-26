@@ -50,7 +50,8 @@ class SpeakingAssessment extends StatefulWidget {
 
 class _SpeakingAssessmentState extends State<SpeakingAssessment> {
   Json get result => widget.result;
-  bool get isTopic => result['mode'] == 'TOPIC';
+  bool get isTopic =>
+      result['mode'] == 'TOPIC' || result['mode'] == 'PICTURE_DESCRIPTION';
   bool get compactAnnotations =>
       widget.inlineDetails || widget.useSharedScoreLayout;
   final audioKey = GlobalKey<SpeakingResultAudioState>();

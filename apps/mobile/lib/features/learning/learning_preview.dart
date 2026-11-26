@@ -7,7 +7,6 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import '../auth/session_controller.dart';
-import '../placement/placement_pages.dart' show ResultPage;
 import '../profile/profile_page.dart';
 import '../speaking/speaking_controller.dart';
 import '../speaking/speaking_recorder.dart';
@@ -282,70 +281,35 @@ class _LearningPreviewState extends State<LearningPreview>
     }
   }
 
-  void openProfile() => showModalBottomSheet<void>(
-    context: context,
-    showDragHandle: true,
-    isScrollControlled: true,
-    builder: (context) => SafeArea(
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              learningHeading(
-                widget.account?.user?['name'] as String? ??
-                    'Anna · tài khoản mẫu',
-                size: 24,
-              ),
-              const SizedBox(height: 12),
-              learningBody(
-                widget.account == null
-                    ? 'Bạn đang xem giao diện với dữ liệu mẫu trên thiết bị. Phản hồi Nói/Viết là minh họa; không thu micro hay cập nhật kết quả kiểm tra thật.'
-                    : 'Bài học, bộ từ cá nhân, lịch sử ôn và tiến độ lưu theo tài khoản. Nói/Viết hiện là bản xem trước.',
-              ),
-              const SizedBox(height: 20),
-              if (widget.account != null) ...[
-                CustomAppButton(
-                  text: 'Hồ sơ của tôi',
-                  onPressed: () {
-                    Navigator.pop(context);
-                    previewPush<void>(
-                      this.context,
-                      ProfilePage(session: widget.account!),
-                    ).then((_) => learning?.refresh());
-                  },
-                ),
+  void openProfile() {
+    final account = widget.account;
+    if (account != null) {
+      previewPush<void>(
+        context,
+        ProfilePage(session: account),
+      ).then((_) {
+        if (mounted) _refreshAfterChange();
+      });
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (context) => SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                learningHeading('Anna · tài khoản mẫu', size: 24),
                 const SizedBox(height: 12),
-                Builder(
-                  builder: (_) {
-                    final placementSessionId =
-                        (widget.account?.placement['currentSessionId'] ??
-                                widget.account?.placementResult?['sessionId'])
-                            as String?;
-                    return CustomAppButton(
-                      key: const Key('accountPlacementResult'),
-                      text: 'Kết quả đầu vào',
-                      isSecondary: true,
-                      onPressed: placementSessionId == null
-                          ? null
-                          : () {
-                              Navigator.pop(context);
-                              previewPush(
-                                this.context,
-                                ResultPage(
-                                  session: widget.account!,
-                                  sessionId: placementSessionId,
-                                ),
-                              );
-                            },
-                    );
-                  },
+                learningBody(
+                  'Bạn đang xem giao diện với dữ liệu mẫu trên thiết bị. Phản hồi Nói/Viết là minh họa; không thu micro hay cập nhật kết quả kiểm tra thật.',
                 ),
-                const SizedBox(height: 12),
-              ],
-              if (widget.account == null)
+                const SizedBox(height: 20),
                 CustomAppButton(
                   text: 'Lộ trình tuần đầu tiên',
                   onPressed: () {
@@ -353,8 +317,7 @@ class _LearningPreviewState extends State<LearningPreview>
                     previewPush(this.context, WeeklyPlanPage(model: model));
                   },
                 ),
-              const SizedBox(height: 12),
-              if (widget.account == null)
+                const SizedBox(height: 12),
                 CustomAppButton(
                   text: 'Đóng bản xem trước',
                   isSecondary: true,
@@ -363,24 +326,25 @@ class _LearningPreviewState extends State<LearningPreview>
                     Navigator.of(this.context).maybePop();
                   },
                 ),
-              const SizedBox(height: 12),
-              CustomAppButton(
-                key: const Key('previewLogout'),
-                text: 'Đăng xuất',
-                isSecondary: true,
-                onPressed: loggingOut
-                    ? null
-                    : () {
-                        Navigator.pop(context);
-                        logout();
-                      },
-              ),
-            ],
+                const SizedBox(height: 12),
+                CustomAppButton(
+                  key: const Key('previewLogout'),
+                  text: 'Đăng xuất',
+                  isSecondary: true,
+                  onPressed: loggingOut
+                      ? null
+                      : () {
+                          Navigator.pop(context);
+                          logout();
+                        },
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   void returnToTab(int index) {
     final route = ModalRoute.of(context);
@@ -516,6 +480,7 @@ class _LearningPreviewState extends State<LearningPreview>
           library: library,
           onProfile: openProfile,
           displayName: widget.account?.user?['name'] as String? ?? 'Anna',
+          avatarUrl: widget.account?.user?['avatarUrl'] as String?,
           level: widget.account == null ? 'A1' : widget.account!.placementCefr,
           learning: learning,
           vocabularyWordsCount:
@@ -565,12 +530,12 @@ class _LearningPreviewState extends State<LearningPreview>
           learning: learning,
           daily: daily,
           vocabularyController: vocabularyController,
-          onLevelTap: () => previewMessage(
-            context,
-            widget.account == null
-                ? 'A1 là mức minh họa của bản xem trước.'
-                : 'Mức tạm tính từ bài kiểm tra Đọc/Nghe; chưa đánh giá Nói/Viết.',
-          ),
+          onLevelTap: widget.account != null
+              ? openProfile
+              : () => previewMessage(
+                  context,
+                  'A1 là mức minh họa của bản xem trước.',
+                ),
           onOpenDailyPlan: learning != null && daily != null
               ? () => previewPush(context, DailyPlanPage(learning: learning!))
               : null,

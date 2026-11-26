@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import '../learning/learning_widgets.dart';
 import 'speaking_controller.dart';
 import 'speaking_history_list.dart';
@@ -35,14 +36,19 @@ class SpeakingSubmissionReviewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isTopic = _submissionMode(submission) == 'TOPIC';
+    final mode = _submissionMode(submission);
+    final isTopic = mode == 'TOPIC';
+    final isPicture = mode == 'PICTURE_DESCRIPTION';
     final prompt = submission['promptSnapshot'];
     final name = prompt is Map ? prompt['title'] : null;
+    final imageUrl = prompt is Map ? prompt['imageUrl']?.toString() : null;
     final sentence = speakingSentence(submission).trim();
     final title = name is String && name.trim().isNotEmpty
         ? name.trim()
         : sentence.isNotEmpty
         ? sentence
+        : isPicture
+        ? 'Miêu tả bức tranh'
         : isTopic
         ? 'Tự nói'
         : 'Nghe và đọc';
@@ -50,7 +56,12 @@ class SpeakingSubmissionReviewHeader extends StatelessWidget {
 
     return SpeakingReviewHeader(
       title: title,
-      icon: isTopic ? Icons.mic_none_rounded : Icons.headphones_rounded,
+      icon: isPicture
+          ? Icons.collections_outlined
+          : isTopic
+          ? Icons.mic_none_rounded
+          : Icons.headphones_rounded,
+      imageUrl: imageUrl,
       statusLabel: speakingStatus(status),
       dateLabel: formatSpeakingHistoryDate(submission['createdAt']?.toString()),
       completed: status == 'SUCCEEDED',
@@ -245,6 +256,39 @@ class _SpeakingRecordPageState extends State<SpeakingRecordPage>
               if (showReviewHeader)
                 SpeakingSubmissionReviewHeader(submission: c.submission!)
               else ...[
+                if (c.promptImageUrl case final String pictureUrl) ...[
+                  LearningCard(
+                    children: [
+                      InkWell(
+                        key: const ValueKey('speaking-record-picture-preview'),
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => showZoomableIllustrationDialog(
+                          context,
+                          imageUrl: pictureUrl,
+                          title:
+                              c.prompt?['title']?.toString() ??
+                              'Quan sát tranh',
+                          caption: c.sentence,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: AspectRatio(
+                            aspectRatio: 4 / 3,
+                            child: LearningMediaImage(
+                              imageUrl: pictureUrl,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              semanticLabel:
+                                  c.prompt?['title']?.toString() ??
+                                  'Bức tranh luyện nói',
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 LearningCard(
                   children: [Text(c.sentence, style: designHeading(26))],
                 ),
@@ -427,7 +471,8 @@ class _SpeakingResultState extends State<SpeakingResult> {
     final result = updatedResult ?? widget.result;
     final content = result['content'] as Map?;
     final canRetry =
-        result['mode'] == 'TOPIC' &&
+        (result['mode'] == 'TOPIC' ||
+            result['mode'] == 'PICTURE_DESCRIPTION') &&
         result['transcript'] is String &&
         (result['transcript'] as String).trim().isNotEmpty &&
         widget.submissionId != null &&
@@ -483,6 +528,7 @@ class _SpeakingHistoryPageState extends State<SpeakingHistoryPage> {
     final title = switch (widget.mode) {
       'READ_ALOUD' => 'Lịch sử nghe và đọc',
       'TOPIC' => 'Lịch sử tự nói',
+      'PICTURE_DESCRIPTION' => 'Lịch sử miêu tả bức tranh',
       'TONGUE_TWISTER' => 'Lịch sử thử thách phát âm',
       _ => 'Lịch sử Speaking',
     };
@@ -529,6 +575,10 @@ class _SpeakingHistoryPageState extends State<SpeakingHistoryPage> {
                 DropdownMenuItem(
                   value: 'TOPIC',
                   child: Text('Nói theo chủ đề'),
+                ),
+                DropdownMenuItem(
+                  value: 'PICTURE_DESCRIPTION',
+                  child: Text('Miêu tả bức tranh'),
                 ),
                 DropdownMenuItem(
                   value: 'TONGUE_TWISTER',

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import '../auth/session_controller.dart';
@@ -63,6 +64,87 @@ class SharedPrefsReminderPlatform implements ReminderNotificationPlatform {
   Future<void> cancelForAccount(String accountId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_scheduleKey(accountId));
+  }
+}
+
+class MethodChannelReminderPlatform implements ReminderNotificationPlatform {
+  MethodChannelReminderPlatform({SharedPrefsReminderPlatform? fallback})
+    : _fallback = fallback ?? SharedPrefsReminderPlatform();
+
+  static const MethodChannel _channel = MethodChannel('lingoroad/reminders');
+  final SharedPrefsReminderPlatform _fallback;
+
+  bool get _supportsAndroidChannel =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  @override
+  Future<NotificationPermissionState> checkPermission() async {
+    if (!_supportsAndroidChannel) return _fallback.checkPermission();
+    try {
+      final granted = await _channel.invokeMethod<bool>('checkPermission');
+      return granted == true
+          ? NotificationPermissionState.granted
+          : NotificationPermissionState.denied;
+    } on MissingPluginException {
+      return _fallback.checkPermission();
+    } on PlatformException {
+      return _fallback.checkPermission();
+    }
+  }
+
+  @override
+  Future<NotificationPermissionState> requestPermission() async {
+    if (!_supportsAndroidChannel) return _fallback.requestPermission();
+    try {
+      final granted = await _channel.invokeMethod<bool>('requestPermission');
+      return granted == true
+          ? NotificationPermissionState.granted
+          : NotificationPermissionState.denied;
+    } on MissingPluginException {
+      return _fallback.requestPermission();
+    } on PlatformException {
+      return _fallback.requestPermission();
+    }
+  }
+
+  @override
+  Future<void> syncSchedule({
+    required String accountId,
+    required bool enabled,
+    required String localTime,
+  }) async {
+    await _fallback.syncSchedule(
+      accountId: accountId,
+      enabled: enabled,
+      localTime: localTime,
+    );
+    if (!_supportsAndroidChannel) return;
+    try {
+      await _channel.invokeMethod<void>('syncSchedule', {
+        'accountId': accountId,
+        'enabled': enabled,
+        'localTime': localTime,
+      });
+    } on MissingPluginException {
+      // Running in unit tests or without the Android host plugin.
+    } on PlatformException {
+      // Ignore native scheduling errors when falling back to local prefs.
+    }
+  }
+
+  @override
+  Future<void> cancelForAccount(String accountId) async {
+    await _fallback.cancelForAccount(accountId);
+    if (!_supportsAndroidChannel) return;
+    try {
+      await _channel.invokeMethod<void>('cancelForAccount', {
+        'accountId': accountId,
+      });
+    } on MissingPluginException {
+      // Running in unit tests or without the Android host plugin.
+    } on PlatformException {
+      // Ignore native scheduling errors when falling back to local prefs.
+    }
   }
 }
 
@@ -143,7 +225,7 @@ class ReminderCoordinator extends ChangeNotifier {
   ReminderCoordinator({
     required this.session,
     ReminderNotificationPlatform? platform,
-  }) : platform = platform ?? SharedPrefsReminderPlatform() {
+  }) : platform = platform ?? MethodChannelReminderPlatform() {
     _state = _initialStateFromSession();
     session.onAccountCleared ??= this.platform.cancelForAccount;
   }
@@ -177,10 +259,16 @@ class ReminderCoordinator extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    await recheckPermission();
+  }
+
+  Future<void> recheckPermission() async {
     final perm = await platform.checkPermission();
     if (_disposed) return;
-    _state = _state.copyWith(permission: perm);
-    notifyListeners();
+    if (perm != _state.permission) {
+      _state = _state.copyWith(permission: perm);
+      notifyListeners();
+    }
     if (perm == NotificationPermissionState.granted) {
       await platform.syncSchedule(
         accountId: _accountId,

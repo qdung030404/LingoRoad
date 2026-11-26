@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import 'activity_collector.dart';
 import 'learning_attempt_result.dart';
 import 'learning_catalogue.dart';
@@ -511,6 +512,22 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                   )
                 else ...[
                   if (reading) ...[
+                    if ((attempt.content['coverImageUrl'] as String? ??
+                            attempt.lesson.coverImageUrl)
+                        case final String cover when cover.trim().isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: AppRadius.cardSm,
+                        child: LearningMediaImage(
+                          key: const ValueKey('reading-attempt-scene-strip'),
+                          imageUrl: cover,
+                          width: double.infinity,
+                          height: 112,
+                          fit: BoxFit.cover,
+                          semanticLabel: attempt.lesson.title,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     _passageCard(
                       passage,
                       highlightText: checked
@@ -519,6 +536,23 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                     ),
                     const SizedBox(height: 16),
                   ],
+                  if (listening)
+                    if ((attempt.content['coverImageUrl'] as String? ??
+                            attempt.lesson.coverImageUrl)
+                        case final String cover when cover.trim().isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: AppRadius.cardSm,
+                        child: LearningMediaImage(
+                          key: const ValueKey('listening-attempt-scene-strip'),
+                          imageUrl: cover,
+                          width: double.infinity,
+                          height: 112,
+                          fit: BoxFit.cover,
+                          semanticLabel: attempt.lesson.title,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   if (attempt.content['audioUrl'] case final String url) ...[
                     if (listening && _audio != null)
                       FigmaCard(
@@ -550,39 +584,57 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                   else
                     learningHeading(item['prompt'] as String, size: 24),
                   const SizedBox(height: 16),
-                  for (final (optionIndex, option) in options.indexed) ...[
-                    if (reading)
-                      AnswerOption(
-                        key: ValueKey('learning-option-${option['id']}'),
-                        index: optionIndex,
-                        text: option['text'] as String,
-                        selected:
-                            controller.selected(questionId!) == option['id'],
-                        showSelectionCheck: false,
-                        compact: true,
-                        chosen: answer?['optionId'] == option['id'],
-                        correct: checked
-                            ? answer!['correctOptionId'] == option['id']
-                            : null,
-                        onTap: checked || blocked
-                            ? null
-                            : () => controller.select(
-                                questionId,
-                                option['id'] as String,
+                  if ((reading || listening) &&
+                      hasVisualImageOptions(options)) ...[
+                    PracticeImageAnswerGrid(
+                      options: options,
+                      checked: checked,
+                      selectedOptionId: checked
+                          ? answer!['optionId'] as String?
+                          : controller.selected(questionId!),
+                      correctOptionId: answer?['correctOptionId'] as String?,
+                      onSelect: checked || blocked
+                          ? null
+                          : (optionId) => controller.select(
+                                questionId!,
+                                optionId,
                               ),
-                      )
-                    else if (listening)
-                      _listeningAnswerOption(
-                        option,
-                        optionIndex,
-                        questionId!,
-                        answer,
-                        blocked,
-                      )
-                    else
-                      _answerOption(option, questionId!, answer, blocked),
-                    SizedBox(height: reading || listening ? 8 : 12),
-                  ],
+                    ),
+                    const SizedBox(height: 8),
+                  ] else
+                    for (final (optionIndex, option) in options.indexed) ...[
+                      if (reading)
+                        AnswerOption(
+                          key: ValueKey('learning-option-${option['id']}'),
+                          index: optionIndex,
+                          text: option['text'] as String,
+                          selected:
+                              controller.selected(questionId!) == option['id'],
+                          showSelectionCheck: false,
+                          compact: true,
+                          chosen: answer?['optionId'] == option['id'],
+                          correct: checked
+                              ? answer!['correctOptionId'] == option['id']
+                              : null,
+                          onTap: checked || blocked
+                              ? null
+                              : () => controller.select(
+                                    questionId,
+                                    option['id'] as String,
+                                  ),
+                        )
+                      else if (listening)
+                        _listeningAnswerOption(
+                          option,
+                          optionIndex,
+                          questionId!,
+                          answer,
+                          blocked,
+                        )
+                      else
+                        _answerOption(option, questionId!, answer, blocked),
+                      SizedBox(height: reading || listening ? 8 : 12),
+                    ],
                   if (checked) ...[
                     ReadingAnswerFeedbackCard(
                       isCorrect: answer!['isCorrect'] == true,

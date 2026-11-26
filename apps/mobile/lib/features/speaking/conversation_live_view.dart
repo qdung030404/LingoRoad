@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_shadows.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import 'recording_waveform.dart';
 
 class ConversationLiveIcon extends StatelessWidget {
@@ -39,17 +40,23 @@ class ConversationCallHeader extends StatelessWidget {
     required this.status,
     required this.seconds,
     required this.active,
+    this.topicImageUrl,
+    this.voiceName = 'standard',
   });
 
   final String topic;
   final String status;
   final int seconds;
   final bool active;
+  final String? topicImageUrl;
+  final String voiceName;
 
   @override
   Widget build(BuildContext context) {
     final elapsed =
         '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+    final hasTopicImage =
+        topicImageUrl != null && topicImageUrl!.trim().isNotEmpty;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       padding: const EdgeInsets.all(11),
@@ -65,16 +72,25 @@ class ConversationCallHeader extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: AppColors.primary25,
+              if (hasTopicImage)
+                LearningMediaImage(
+                  imageUrl: topicImageUrl,
+                  width: 44,
+                  height: 44,
                   borderRadius: AppRadius.tagRadius,
+                  semanticLabel: topic,
+                )
+              else
+                Container(
+                  width: 44,
+                  height: 44,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary25,
+                    borderRadius: AppRadius.tagRadius,
+                  ),
+                  child: const ConversationLiveIcon('topic', size: 20),
                 ),
-                child: const ConversationLiveIcon('topic', size: 20),
-              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -101,6 +117,13 @@ class ConversationCallHeader extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
+              LearningMediaImage(
+                imageUrl: personaAvatarAsset(voiceName),
+                width: 22,
+                height: 22,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              const SizedBox(width: 6),
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: active ? AppColors.primary600 : AppColors.grey600,
@@ -124,7 +147,9 @@ class ConversationCallHeader extends StatelessWidget {
 }
 
 class ConversationWelcome extends StatelessWidget {
-  const ConversationWelcome({super.key});
+  const ConversationWelcome({super.key, this.voiceName = 'standard'});
+
+  final String voiceName;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -133,7 +158,20 @@ class ConversationWelcome extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const ConversationLiveIcon('bot', size: 60),
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.primary200, width: 2),
+            ),
+            child: LearningMediaImage(
+              imageUrl: personaAvatarAsset(voiceName),
+              width: 68,
+              height: 68,
+              borderRadius: BorderRadius.circular(34),
+              semanticLabel: 'Nhân vật gia sư AI',
+            ),
+          ),
           const SizedBox(height: 16),
           Text(
             'Cùng bắt đầu câu chuyện',

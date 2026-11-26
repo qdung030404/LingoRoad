@@ -26,6 +26,7 @@ class HomeDashboard extends StatefulWidget {
     required this.onReview,
     required this.onDeck,
     this.displayName = 'Anna',
+    this.avatarUrl,
     this.level = 'A1',
     this.learning,
     this.vocabularyWordsCount,
@@ -36,6 +37,7 @@ class HomeDashboard extends StatefulWidget {
   final VoidCallback onProfile, onLesson, onGrammar, onWords, onReview;
   final ValueChanged<String> onDeck;
   final String displayName;
+  final String? avatarUrl;
   final String? level;
   final LearningController? learning;
   final int? vocabularyWordsCount;
@@ -115,6 +117,51 @@ class _HomeDashboardState extends State<HomeDashboard> {
     ];
   }
 
+  Widget _initialAvatarCircle(String initial) => Container(
+    width: 44,
+    height: 44,
+    decoration: const BoxDecoration(
+      color: AppColors.primary50,
+      shape: BoxShape.circle,
+    ),
+    alignment: Alignment.center,
+    child: Text(
+      initial,
+      style: designHeading(18, color: AppColors.primary700),
+    ),
+  );
+
+  Widget _buildHeaderAvatar() {
+    final trimmed = widget.avatarUrl?.trim() ?? '';
+    if (widget.learning == null && trimmed.isEmpty) {
+      return const ClipOval(
+        child: FigmaAsset('home-v2/imgEllipse5', size: 48),
+      );
+    }
+    final name = widget.displayName.trim();
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'L';
+    return Container(
+      width: 48,
+      height: 48,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        shape: BoxShape.circle,
+      ),
+      child: ClipOval(
+        child: trimmed.isNotEmpty
+            ? Image.network(
+                trimmed,
+                width: 44,
+                height: 44,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _initialAvatarCircle(initial),
+              )
+            : _initialAvatarCircle(initial),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final days = _weeklyDays();
@@ -162,9 +209,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                         key: const Key('previewAvatar'),
                         onTap: onProfile,
                         borderRadius: AppRadius.dialogRadius,
-                        child: const ClipOval(
-                          child: FigmaAsset('home-v2/imgEllipse5', size: 48),
-                        ),
+                        child: _buildHeaderAvatar(),
                       ),
                     ),
                     IconButton(

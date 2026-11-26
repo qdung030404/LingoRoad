@@ -96,6 +96,7 @@ class FakeApi extends ApiClient {
     bool completed = false,
     this.provider = 'LOCAL',
     String displayName = 'Anna',
+    this.avatarUrl,
     String? learningPurpose,
     String targetCefr = 'B1',
     int dailyGoalMinutes = 10,
@@ -134,6 +135,7 @@ class FakeApi extends ApiClient {
 
   late Json profile;
   String name;
+  String? avatarUrl;
   String provider;
   Json? readingLevel;
   String? status;
@@ -205,8 +207,12 @@ class FakeApi extends ApiClient {
         if (data.containsKey('name')) {
           name = data['name'] as String;
         }
+        if (data.containsKey('avatarUrl')) {
+          avatarUrl = data['avatarUrl'] as String?;
+        }
         final clean = Map<String, dynamic>.from(data)
           ..remove('name')
+          ..remove('avatarUrl')
           ..remove('expectedVersion')
           ..remove('expectedReminderVersion');
         if (touchesGoals) {
@@ -223,6 +229,7 @@ class FakeApi extends ApiClient {
       return {
         'id': 'user',
         'name': name,
+        'avatarUrl': avatarUrl,
         'email': 'anna@example.com',
         'provider': provider,
         'profile': Map<String, dynamic>.from(profile),

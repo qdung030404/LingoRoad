@@ -76,6 +76,7 @@ flutter:
   assets:
     - assets/audio/preview/
     - assets/figma/
+    - assets/illustrations/
     - assets/fonts/OFL.txt
     - assets/fonts/BeVietnamPro-OFL.txt
   fonts:

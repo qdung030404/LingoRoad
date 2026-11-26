@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/features/learning/practice_pages.dart';
+import 'package:mobile/features/speaking/speaking_assessment.dart';
 import 'package:mobile/features/speaking/speaking_pages.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/core/theme/app_theme.dart';
@@ -306,4 +307,128 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'picture description mode opens from speaking extras, zooms picture and renders content rubric',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(430, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _PictureSpeakingApi();
+      await tester.pumpWidget(MyApp(session: SessionController(api)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('previewTab3')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nói').first);
+      await tester.pumpAndSettle();
+
+      final pictureRow = find.text('Miêu tả bức tranh');
+      await tester.ensureVisible(pictureRow);
+      expect(find.byTooltip('Lịch sử · Miêu tả bức tranh'), findsOneWidget);
+      await tester.tap(pictureRow);
+      await tester.pumpAndSettle();
+
+      expect(find.text('At a busy campus café'), findsOneWidget);
+      await tester.tap(find.text('Bắt đầu luyện'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tranh 1/1'), findsOneWidget);
+      expect(find.text('Describe this café scene.'), findsOneWidget);
+      expect(find.textContaining('Tối đa 60 giây.'), findsOneWidget);
+      final picturePreview = find.byKey(
+        const ValueKey('speaking-picture-preview'),
+      );
+      expect(picturePreview, findsOneWidget);
+      await tester.tap(picturePreview);
+      await tester.pumpAndSettle();
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      await tester.tap(find.byTooltip('Đóng ảnh phóng to'));
+      await tester.pumpAndSettle();
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: SpeakingAssessment(
+                useSharedScoreLayout: false,
+                result: const {
+                  'mode': 'PICTURE_DESCRIPTION',
+                  'accuracy': 82.0,
+                  'fluency': 78.0,
+                  'prosody': 80.0,
+                  'overall': 80.0,
+                  'words': [
+                    {
+                      'word': 'barista',
+                      'accuracy': 85.0,
+                      'errorType': 'None',
+                    },
+                  ],
+                  'transcript': 'A smiling barista is making coffee.',
+                  'content': {
+                    'status': 'succeeded',
+                    'rubricVersion': 'picture-content-v1',
+                    'vocabulary': 80.0,
+                    'grammar': 76.0,
+                    'topic': 84.0,
+                    'overall': 80.0,
+                    'strengths': ['Miêu tả rõ quầy pha chế và khách hàng.'],
+                    'improvements': [],
+                  },
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final strengthsTile = find.byKey(
+        const ValueKey('content-feedback-strengths'),
+      );
+      await tester.ensureVisible(strengthsTile);
+      await tester.tap(strengthsTile);
+      await tester.pumpAndSettle();
+      expect(find.text('Miêu tả rõ quầy pha chế và khách hàng.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+class _PictureSpeakingApi extends SpeakingAppApi {
+  @override
+  Future<Json> request(
+    String method,
+    String path, {
+    Json? data,
+    bool auth = true,
+    Duration? receiveTimeout,
+  }) async {
+    if (path.contains('mode=PICTURE_DESCRIPTION')) {
+      return {
+        'enabled': true,
+        'items': [
+          {
+            'id': 'pic-1',
+            'mode': 'PICTURE_DESCRIPTION',
+            'title': 'At a busy campus café',
+            'text': 'Describe this café scene.',
+            'maxDurationSeconds': 60,
+            'hints': ['Who is at the counter and what are they doing?'],
+            'imageUrl': '/media/learning/v1/images/picture-campus-cafe.jpg',
+            'contentVersion': 1,
+          },
+        ],
+      };
+    }
+    return super.request(
+      method,
+      path,
+      data: data,
+      auth: auth,
+      receiveTimeout: receiveTimeout,
+    );
+  }
 }
