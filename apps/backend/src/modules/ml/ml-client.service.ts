@@ -156,14 +156,17 @@ export class MlClientService {
     form.append('file', audio, { filename: 'recording.wav', contentType: 'audio/wav' });
     form.append('prompt_text', '');
     const response = await firstValueFrom(this.httpService.post(
-      `${this.baseUrl}/speech/topic/score`, form, { headers: this.getHeaders(form.getHeaders()),
-        timeout: 90000, maxBodyLength: 3 * 1024 * 1024, maxRedirects: 0 }));
+      `${this.baseUrl}/speech/topic/score`, form, {
+        headers: this.getHeaders(form.getHeaders()),
+      timeout: 90000, maxBodyLength: 3 * 1024 * 1024, maxRedirects: 0
+    }));
     return response.data;
   }
 
-  async scoreTopicContent(topic: string, hints: string[], transcript: string, durationSeconds: number): Promise<Record<string, any>> {
+  async scoreTopicContent(topic: string, hints: string[], transcript: string, durationSeconds: number, visualContext?: string): Promise<Record<string, any>> {
     const response = await firstValueFrom(this.httpService.post(`${this.baseUrl}/speech/topic/content`,
-      { topic, hints, transcript, durationSeconds }, { headers: this.getHeaders(), timeout: 30000, maxRedirects: 0 }));
+      { topic, hints, transcript, durationSeconds, ...(visualContext ? { visualContext } : {}) },
+      { headers: this.getHeaders(), timeout: 30000, maxRedirects: 0 }));
     return response.data;
   }
 
@@ -178,8 +181,10 @@ export class MlClientService {
   async scoreConversationAudio(audio: Buffer): Promise<Record<string, any>> {
     const response = await firstValueFrom(this.httpService.post(
       `${this.baseUrl}/speech/conversation/score`, audio,
-      { headers: this.getHeaders({ 'Content-Type': 'audio/wav' }), timeout: 210000,
-        maxBodyLength: 6 * 1024 * 1024, maxRedirects: 0 }));
+      {
+        headers: this.getHeaders({ 'Content-Type': 'audio/wav' }), timeout: 210000,
+        maxBodyLength: 6 * 1024 * 1024, maxRedirects: 0
+      }));
     return response.data;
   }
 
@@ -193,9 +198,9 @@ export class MlClientService {
   async synthesizeConversationSample(text: string): Promise<Buffer> {
     const response = await firstValueFrom(this.httpService.post(
       `${this.baseUrl}/speech/conversation/sample`, { text }, {
-        headers: this.getHeaders(), timeout: 12000, maxRedirects: 0,
-        responseType: 'arraybuffer', maxContentLength: 256 * 1024,
-      }));
+      headers: this.getHeaders(), timeout: 12000, maxRedirects: 0,
+      responseType: 'arraybuffer', maxContentLength: 256 * 1024,
+    }));
     const audio = Buffer.from(response.data);
     if (!audio.length || response.headers['content-type'] !== 'audio/mpeg') {
       throw new Error('Invalid sample audio');
@@ -208,8 +213,10 @@ export class MlClientService {
     form.append('file', audio, { filename: 'recording.wav', contentType: 'audio/wav' });
     form.append('prompt_text', promptText);
     const response = await firstValueFrom(this.httpService.post<ReadAloudResult>(
-      `${this.baseUrl}/speech/read-aloud/score`, form, { headers: this.getHeaders({ ...form.getHeaders(), 'x-speaking-profile': profile }),
-        timeout: 50000, maxBodyLength: 3 * 1024 * 1024, maxRedirects: 0 }));
+      `${this.baseUrl}/speech/read-aloud/score`, form, {
+        headers: this.getHeaders({ ...form.getHeaders(), 'x-speaking-profile': profile }),
+      timeout: 50000, maxBodyLength: 3 * 1024 * 1024, maxRedirects: 0
+    }));
     return response.data;
   }
 

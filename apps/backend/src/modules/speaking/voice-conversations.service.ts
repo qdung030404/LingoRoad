@@ -408,6 +408,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
         return tx.voiceConversation.create({ data: { userId, activeUserId: userId, topicId, clientRequestId,
           historyStatus: deferHistory ? 'PENDING' : 'SAVED',
           topicSnapshot: { title: topic.title, text: topic.text, hints: topic.hints, contentVersion: topic.contentVersion,
+            ...(topic.imageUrl ? { imageUrl: topic.imageUrl } : {}),
             model: settings.model,
              voice: conversationVoices[preferences.voice ?? 'standard'] ?? settings.voice,
              speechRate: conversationSpeechRates[preferences.speechRate ?? 'normal'],

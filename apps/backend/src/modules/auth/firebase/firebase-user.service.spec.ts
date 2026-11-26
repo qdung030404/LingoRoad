@@ -5,9 +5,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { FirebaseUserService } from './firebase-user.service';
 
 describe('Firebase account ownership', () => {
-  const row = { id: 'internal-uuid', firebaseUid: 'uid', email: 'learner@example.com', name: 'Learner', role: UserRole.LEARNER, status: UserStatus.ACTIVE, provider: AuthProvider.GOOGLE };
+  const row = { id: 'internal-uuid', firebaseUid: 'uid', email: 'learner@example.com', name: 'Learner', avatarUrl: null as string | null, role: UserRole.LEARNER, status: UserStatus.ACTIVE, provider: AuthProvider.GOOGLE };
   const token = { uid: 'uid', email: row.email, name: 'Learner', role: 'ADMIN', email_verified: true, firebase: { sign_in_provider: 'google.com' } } as unknown as DecodedIdToken;
-  const prisma = { user: { findUnique: jest.fn(), create: jest.fn() } };
+  const prisma = { user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() } };
   const service = new FirebaseUserService(prisma as unknown as PrismaService);
   beforeEach(() => jest.resetAllMocks());
   it('preserves internal UUID ownership and database roles', async () => {
@@ -151,5 +151,44 @@ describe('Firebase account ownership', () => {
   it('does not grant a deleted learner access', async () => {
     prisma.user.findUnique.mockResolvedValue({ ...row, status: UserStatus.DELETED });
     await expect(service.resolve(token)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+  it('upgrades existing LOCAL provider to GOOGLE and backfills missing avatarUrl from Google token', async () => {
+    const existingLocal = { ...row, provider: AuthProvider.LOCAL, avatarUrl: null };
+    const googlePic = 'https://lh3.googleusercontent.com/a/avatar=s96-c';
+    const googleToken = { ...token, picture: googlePic } as unknown as DecodedIdToken;
+    prisma.user.findUnique.mockResolvedValue(existingLocal);
+    prisma.user.update.mockResolvedValue({ ...existingLocal, provider: AuthProvider.GOOGLE, avatarUrl: googlePic });
+
+    await expect(service.resolve(googleToken)).resolves.toEqual({
+      sub: row.id,
+      email: row.email,
+      role: UserRole.LEARNER,
+      firebaseUid: 'uid',
+    });
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: row.id },
+      data: {
+        provider: AuthProvider.GOOGLE,
+        avatarUrl: googlePic,
+      },
+    });
+  });
+  it('preserves existing custom avatarUrl and skips update when provider is already GOOGLE', async () => {
+    const existingCustom = { ...row, provider: AuthProvider.GOOGLE, avatarUrl: 'https://cdn.example.com/custom.png' };
+    const googleToken = { ...token, picture: 'https://lh3.googleusercontent.com/a/other=s96-c' } as unknown as DecodedIdToken;
+    prisma.user.findUnique.mockResolvedValue(existingCustom);
+
+    await expect(service.resolve(googleToken)).resolves.toMatchObject({ sub: row.id });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+  it('never updates provider or avatarUrl when existing account is suspended or admin on google sign-in', async () => {
+    const googleToken = { ...token, picture: 'https://lh3.googleusercontent.com/a/avatar=s96-c' } as unknown as DecodedIdToken;
+    prisma.user.findUnique.mockResolvedValue({ ...row, provider: AuthProvider.LOCAL, avatarUrl: null, role: UserRole.ADMIN });
+    await expect(service.resolve(googleToken)).rejects.toBeInstanceOf(ForbiddenException);
+
+    prisma.user.findUnique.mockResolvedValue({ ...row, provider: AuthProvider.LOCAL, avatarUrl: null, status: UserStatus.SUSPENDED });
+    await expect(service.resolve(googleToken)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });

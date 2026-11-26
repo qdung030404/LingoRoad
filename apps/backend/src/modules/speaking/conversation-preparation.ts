@@ -1,6 +1,7 @@
 interface TopicPreparation {
   goal: string;
-  vocabulary: { word: string; meaningVi: string; example: string }[];
+  sceneImageUrl: string;
+  vocabulary: { word: string; meaningVi: string; example: string; imageUrl?: string }[];
   phrases: { text: string; meaningVi: string }[];
 }
 
@@ -8,11 +9,12 @@ interface TopicPreparation {
 export const conversationPreparations: Record<string, TopicPreparation> = {
   'topic-1': {
     goal: 'Giới thiệu tên, nơi sống và sở thích bằng những câu ngắn.',
+    sceneImageUrl: '/media/learning/v1/images/topic-introduce-yourself.jpg',
     vocabulary: [
-      { word: 'hometown', meaningVi: 'quê quán', example: 'My hometown is Hanoi.' },
-      { word: 'student', meaningVi: 'học sinh, sinh viên', example: 'I am a university student.' },
+      { word: 'hometown', meaningVi: 'quê quán', example: 'My hometown is Hanoi.', imageUrl: '/media/learning/v1/images/vocab-hometown.jpg' },
+      { word: 'student', meaningVi: 'học sinh, sinh viên', example: 'I am a university student.', imageUrl: '/media/learning/v1/images/vocab-student.jpg' },
       { word: 'live', meaningVi: 'sống, ở', example: 'I live in Ho Chi Minh City.' },
-      { word: 'hobby', meaningVi: 'sở thích', example: 'My hobby is reading.' },
+      { word: 'hobby', meaningVi: 'sở thích', example: 'My hobby is reading.', imageUrl: '/media/learning/v1/images/vocab-hobby.jpg' },
       { word: 'enjoy', meaningVi: 'yêu thích', example: 'I enjoy playing chess.' },
       { word: 'first name', meaningVi: 'tên riêng', example: 'My first name is Linh.' },
       { word: 'last name', meaningVi: 'họ', example: 'My last name is Nguyen.' },
@@ -35,10 +37,11 @@ export const conversationPreparations: Record<string, TopicPreparation> = {
   },
   'topic-2': {
     goal: 'Kể về một ngày thường của bạn và những hoạt động yêu thích.',
+    sceneImageUrl: '/media/learning/v1/images/topic-my-day.jpg',
     vocabulary: [
-      { word: 'wake up', meaningVi: 'thức dậy', example: 'I wake up at seven.' },
+      { word: 'wake up', meaningVi: 'thức dậy', example: 'I wake up at seven.', imageUrl: '/media/learning/v1/images/vocab-schedule.jpg' },
       { word: 'have breakfast', meaningVi: 'ăn sáng', example: 'I have breakfast at home.' },
-      { word: 'usually', meaningVi: 'thường xuyên', example: 'I usually walk to school.' },
+      { word: 'usually', meaningVi: 'thường xuyên', example: 'I usually walk to school.', imageUrl: '/media/learning/v1/images/vocab-timetable.jpg' },
       { word: 'take a break', meaningVi: 'nghỉ giải lao', example: 'I take a break in the afternoon.' },
       { word: 'relax', meaningVi: 'thư giãn', example: 'I relax after dinner.' },
       { word: 'get dressed', meaningVi: 'mặc quần áo', example: 'I get dressed before breakfast.' },
@@ -62,8 +65,9 @@ export const conversationPreparations: Record<string, TopicPreparation> = {
   },
   'topic-3': {
     goal: 'Giới thiệu các thành viên và những hoạt động gia đình thường làm cùng nhau.',
+    sceneImageUrl: '/media/learning/v1/images/topic-my-family.jpg',
     vocabulary: [
-      { word: 'parents', meaningVi: 'bố mẹ', example: 'I live with my parents.' },
+      { word: 'parents', meaningVi: 'bố mẹ', example: 'I live with my parents.', imageUrl: '/media/learning/v1/images/vocab-family.jpg' },
       { word: 'brother', meaningVi: 'anh, em trai', example: 'I have one younger brother.' },
       { word: 'sister', meaningVi: 'chị, em gái', example: 'My sister is a student.' },
       { word: 'together', meaningVi: 'cùng nhau', example: 'We have dinner together.' },
@@ -89,9 +93,10 @@ export const conversationPreparations: Record<string, TopicPreparation> = {
   },
   'topic-4': {
     goal: 'Nói về sở thích, tần suất và lý do bạn yêu thích hoạt động đó.',
+    sceneImageUrl: '/media/learning/v1/images/topic-my-hobbies.jpg',
     vocabulary: [
-      { word: 'free time', meaningVi: 'thời gian rảnh', example: 'I read books in my free time.' },
-      { word: 'reading', meaningVi: 'việc đọc sách', example: 'Reading is my favourite hobby.' },
+      { word: 'free time', meaningVi: 'thời gian rảnh', example: 'I read books in my free time.', imageUrl: '/media/learning/v1/images/vocab-park.jpg' },
+      { word: 'reading', meaningVi: 'việc đọc sách', example: 'Reading is my favourite hobby.', imageUrl: '/media/learning/v1/images/vocab-hobby.jpg' },
       { word: 'practice', meaningVi: 'luyện tập', example: 'I practice playing the guitar every day.' },
       { word: 'twice a week', meaningVi: 'hai lần một tuần', example: 'I play football twice a week.' },
       { word: 'relaxing', meaningVi: 'giúp thư giãn', example: 'I find painting relaxing.' },
@@ -116,8 +121,9 @@ export const conversationPreparations: Record<string, TopicPreparation> = {
   },
   'topic-5': {
     goal: 'Miêu tả món ăn yêu thích, hương vị và lúc bạn thường ăn món đó.',
+    sceneImageUrl: '/media/learning/v1/images/topic-favourite-food.jpg',
     vocabulary: [
-      { word: 'dish', meaningVi: 'món ăn', example: 'Pho is my favourite dish.' },
+      { word: 'dish', meaningVi: 'món ăn', example: 'Pho is my favourite dish.', imageUrl: '/media/learning/v1/images/vocab-dish.jpg' },
       { word: 'delicious', meaningVi: 'ngon', example: 'The soup is delicious.' },
       { word: 'spicy', meaningVi: 'cay', example: 'I like spicy food.' },
       { word: 'sweet', meaningVi: 'ngọt', example: 'This cake is sweet.' },
@@ -127,7 +133,7 @@ export const conversationPreparations: Record<string, TopicPreparation> = {
       { word: 'fresh', meaningVi: 'tươi', example: 'I make this salad with fresh vegetables.' },
       { word: 'sauce', meaningVi: 'nước xốt', example: 'I like the sweet sauce on the chicken.' },
       { word: 'home-cooked', meaningVi: 'nấu tại nhà', example: 'I prefer home-cooked meals.' },
-      { word: 'order', meaningVi: 'gọi món', example: 'I usually order noodle soup.' },
+      { word: 'order', meaningVi: 'gọi món', example: 'I usually order noodle soup.', imageUrl: '/media/learning/v1/images/vocab-order.jpg' },
       { word: 'go well with', meaningVi: 'hợp với, ăn kèm ngon với', example: 'This dish goes well with rice.' },
     ],
     phrases: [
@@ -143,9 +149,10 @@ export const conversationPreparations: Record<string, TopicPreparation> = {
   },
   'topic-6': {
     goal: 'Giới thiệu nơi bạn sống và điều bạn thích ở khu vực đó.',
+    sceneImageUrl: '/media/learning/v1/images/topic-where-i-live.jpg',
     vocabulary: [
-      { word: 'neighbourhood', meaningVi: 'khu phố', example: 'My neighbourhood is quiet.' },
-      { word: 'nearby', meaningVi: 'gần đây', example: 'There is a park nearby.' },
+      { word: 'neighbourhood', meaningVi: 'khu phố', example: 'My neighbourhood is quiet.', imageUrl: '/media/learning/v1/images/vocab-neighbourhood.jpg' },
+      { word: 'nearby', meaningVi: 'gần đây', example: 'There is a park nearby.', imageUrl: '/media/learning/v1/images/vocab-park.jpg' },
       { word: 'peaceful', meaningVi: 'yên bình', example: 'My town is peaceful.' },
       { word: 'busy', meaningVi: 'nhộn nhịp', example: 'The city centre is busy.' },
       { word: 'convenient', meaningVi: 'thuận tiện', example: 'Living here is convenient.' },

@@ -1,0 +1,23 @@
+{
+    "schemaVersion":  1,
+    "lessonCode":  "listening-first-class",
+    "contentVersion":  1,
+    "source":  "Original LingoRoad editorial script: docs/content/listening-a1-a2/lessons.json",
+    "provider":  "Windows System.Speech; installed local voices; no network or billed provider calls",
+    "synthetic":  true,
+    "humanRecorded":  false,
+    "locale":  "en-US",
+    "voices":  {
+                   "Noah":  "Microsoft David Desktop",
+                   "Lily":  "Microsoft Zira Desktop"
+               },
+    "rate":  -2,
+    "sampleRate":  22050,
+    "channels":  1,
+    "bitsPerSample":  16,
+    "audioSha256":  "c6aa7040afa0a971f41f4035094092ea32f7b517e5b2305de091f6280d1cdfd9",
+    "generatedAtUtc":  "2026-11-26T05:26:30.4622985Z",
+    "durationMs":  54139,
+    "alignment":  "Exact PCM concatenation boundaries for each independently synthesized turn; 500 ms gaps",
+    "visualSupport":  "Scene cover, key vocabulary thumbnails, speaker avatars, and 2x2 visual MCQ options on q02 \u0026 q05"
+}

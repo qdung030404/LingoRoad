@@ -1,0 +1,301 @@
+{
+    "listeningVersion":  1,
+    "steps":  [
+
+              ],
+    "audioUrl":  "/media/learning/v1/listening-first-class-v1.wav",
+    "coverImageUrl":  "/media/learning/v1/images/scene-first-class.jpg",
+    "audioDurationMs":  54139,
+    "preparation":  {
+                        "situation":  "Bạn nghe hai người trao đổi trước một buổi học.",
+                        "objective":  "Xác định việc họ đang trao đổi và ghi nhớ môn học, giờ, phòng cùng đồ cần mang."
+                    },
+    "keyVocabulary":  [
+                          {
+                              "id":  "v01",
+                              "word":  "timetable",
+                              "meaning":  "thời khóa biểu",
+                              "example":  "Our timetable is on the wall.",
+                              "translation":  "Thời khóa biểu của chúng tôi ở trên tường.",
+                              "imageUrl":  "/media/learning/v1/images/vocab-timetable.jpg"
+                          },
+                          {
+                              "id":  "v02",
+                              "word":  "lesson",
+                              "meaning":  "buổi học",
+                              "example":  "The lesson is interesting.",
+                              "translation":  "Buổi học thú vị.",
+                              "imageUrl":  "/media/learning/v1/images/vocab-lesson.jpg"
+                          },
+                          {
+                              "id":  "v03",
+                              "word":  "bring",
+                              "meaning":  "mang theo",
+                              "example":  "Please bring an umbrella.",
+                              "translation":  "Hãy mang theo ô.",
+                              "imageUrl":  "/media/learning/v1/images/vocab-bring.jpg"
+                          },
+                          {
+                              "id":  "v04",
+                              "word":  "check",
+                              "meaning":  "kiểm tra",
+                              "example":  "Please check your email.",
+                              "translation":  "Hãy kiểm tra email của bạn.",
+                              "imageUrl":  "/media/learning/v1/images/vocab-check.jpg"
+                          }
+                      ],
+    "transcript":  "Hi, Lily. Can you help me? I do not have the new timetable. Of course. What do you want to know? What is our first lesson tomorrow? Is it English? No. Our first lesson is science. We have English after lunch. Does science start at half past nine? It starts at nine. Please come a little early. All right. Which room do we need? Room twelve. It is next to the office. Do I need to bring anything? Bring a notebook. There are books in the classroom.",
+    "transcriptSegments":  [
+                               {
+                                   "id":  "s01",
+                                   "speaker":  "Noah",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-noah.jpg",
+                                   "text":  "Hi, Lily. Can you help me? I do not have the new timetable.",
+                                   "translationVi":  "Chào Lily. Bạn giúp mình được không? Mình chưa có thời khóa biểu mới.",
+                                   "startMs":  0,
+                                   "endMs":  7609
+                               },
+                               {
+                                   "id":  "s02",
+                                   "speaker":  "Lily",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-lily.jpg",
+                                   "text":  "Of course. What do you want to know?",
+                                   "translationVi":  "Tất nhiên rồi. Bạn muốn biết điều gì?",
+                                   "startMs":  8109,
+                                   "endMs":  12388
+                               },
+                               {
+                                   "id":  "s03",
+                                   "speaker":  "Noah",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-noah.jpg",
+                                   "text":  "What is our first lesson tomorrow? Is it English?",
+                                   "translationVi":  "Buổi học đầu tiên ngày mai là môn gì? Có phải tiếng Anh không?",
+                                   "startMs":  12888,
+                                   "endMs":  18107
+                               },
+                               {
+                                   "id":  "s04",
+                                   "speaker":  "Lily",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-lily.jpg",
+                                   "text":  "No. Our first lesson is science. We have English after lunch.",
+                                   "translationVi":  "Không. Buổi đầu là khoa học. Bọn mình học tiếng Anh sau bữa trưa.",
+                                   "startMs":  18607,
+                                   "endMs":  25865
+                               },
+                               {
+                                   "id":  "s05",
+                                   "speaker":  "Noah",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-noah.jpg",
+                                   "text":  "Does science start at half past nine?",
+                                   "translationVi":  "Môn khoa học bắt đầu lúc chín giờ rưỡi phải không?",
+                                   "startMs":  26365,
+                                   "endMs":  30064
+                               },
+                               {
+                                   "id":  "s06",
+                                   "speaker":  "Lily",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-lily.jpg",
+                                   "text":  "It starts at nine. Please come a little early.",
+                                   "translationVi":  "Bắt đầu lúc chín giờ. Bạn nhớ đến sớm một chút nhé.",
+                                   "startMs":  30564,
+                                   "endMs":  35448
+                               },
+                               {
+                                   "id":  "s07",
+                                   "speaker":  "Noah",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-noah.jpg",
+                                   "text":  "All right. Which room do we need?",
+                                   "translationVi":  "Được rồi. Bọn mình học ở phòng nào?",
+                                   "startMs":  35948,
+                                   "endMs":  40157
+                               },
+                               {
+                                   "id":  "s08",
+                                   "speaker":  "Lily",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-lily.jpg",
+                                   "text":  "Room twelve. It is next to the office.",
+                                   "translationVi":  "Phòng mười hai. Phòng đó ở cạnh văn phòng.",
+                                   "startMs":  40657,
+                                   "endMs":  45286
+                               },
+                               {
+                                   "id":  "s09",
+                                   "speaker":  "Noah",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-noah.jpg",
+                                   "text":  "Do I need to bring anything?",
+                                   "translationVi":  "Mình có cần mang gì không?",
+                                   "startMs":  45786,
+                                   "endMs":  48630
+                               },
+                               {
+                                   "id":  "s10",
+                                   "speaker":  "Lily",
+                                   "speakerAvatar":  "/media/learning/v1/images/avatar-lily.jpg",
+                                   "text":  "Bring a notebook. There are books in the classroom.",
+                                   "translationVi":  "Mang theo một quyển vở. Trong lớp đã có sách rồi.",
+                                   "startMs":  49130,
+                                   "endMs":  54139
+                               }
+                           ],
+    "questions":  [
+                      {
+                          "id":  "q01",
+                          "type":  "MULTIPLE_CHOICE",
+                          "prompt":  "Why does Noah talk to Lily?",
+                          "options":  [
+                                          {
+                                              "id":  "A",
+                                              "text":  "To cancel a lesson"
+                                          },
+                                          {
+                                              "id":  "B",
+                                              "text":  "To borrow some money"
+                                          },
+                                          {
+                                              "id":  "C",
+                                              "text":  "To check information about a class"
+                                          },
+                                          {
+                                              "id":  "D",
+                                              "text":  "To join a sports club"
+                                          }
+                                      ],
+                          "correctOptionId":  "C",
+                          "skillCode":  "listening.gist",
+                          "evidenceSegmentIds":  [
+                                                     "s01",
+                                                     "s02",
+                                                     "s03"
+                                                 ],
+                          "explanation":  "Noah cần xác nhận thông tin học tập vì chưa có thời khóa biểu mới."
+                      },
+                      {
+                          "id":  "q02",
+                          "type":  "MULTIPLE_CHOICE",
+                          "prompt":  "What is the first lesson tomorrow?",
+                          "options":  [
+                                          {
+                                              "id":  "A",
+                                              "text":  "Science",
+                                              "imageUrl":  "/media/learning/v1/images/opt-lesson-science.jpg"
+                                          },
+                                          {
+                                              "id":  "B",
+                                              "text":  "English",
+                                              "imageUrl":  "/media/learning/v1/images/opt-lesson-english.jpg"
+                                          },
+                                          {
+                                              "id":  "C",
+                                              "text":  "Art",
+                                              "imageUrl":  "/media/learning/v1/images/opt-lesson-art.jpg"
+                                          },
+                                          {
+                                              "id":  "D",
+                                              "text":  "Music",
+                                              "imageUrl":  "/media/learning/v1/images/opt-lesson-music.jpg"
+                                          }
+                                      ],
+                          "correctOptionId":  "A",
+                          "skillCode":  "listening.specific_information",
+                          "evidenceSegmentIds":  [
+                                                     "s03",
+                                                     "s04"
+                                                 ],
+                          "explanation":  "Môn học đầu tiên được Lily xác nhận là khoa học."
+                      },
+                      {
+                          "id":  "q03",
+                          "type":  "MULTIPLE_CHOICE",
+                          "prompt":  "What time does the first lesson start?",
+                          "options":  [
+                                          {
+                                              "id":  "A",
+                                              "text":  "8:30"
+                                          },
+                                          {
+                                              "id":  "B",
+                                              "text":  "9:30"
+                                          },
+                                          {
+                                              "id":  "C",
+                                              "text":  "10:00"
+                                          },
+                                          {
+                                              "id":  "D",
+                                              "text":  "9:00"
+                                          }
+                                      ],
+                          "correctOptionId":  "D",
+                          "skillCode":  "listening.numbers_dates_times",
+                          "evidenceSegmentIds":  [
+                                                     "s05",
+                                                     "s06"
+                                                 ],
+                          "explanation":  "Giờ bắt đầu đã được Lily xác nhận là chín giờ."
+                      },
+                      {
+                          "id":  "q04",
+                          "type":  "MULTIPLE_CHOICE",
+                          "prompt":  "Which room is the lesson in?",
+                          "options":  [
+                                          {
+                                              "id":  "A",
+                                              "text":  "Room 10"
+                                          },
+                                          {
+                                              "id":  "B",
+                                              "text":  "Room 12"
+                                          },
+                                          {
+                                              "id":  "C",
+                                              "text":  "Room 20"
+                                          },
+                                          {
+                                              "id":  "D",
+                                              "text":  "Room 2"
+                                          }
+                                      ],
+                          "correctOptionId":  "B",
+                          "skillCode":  "listening.numbers_dates_times",
+                          "evidenceSegmentIds":  [
+                                                     "s07",
+                                                     "s08"
+                                                 ],
+                          "explanation":  "Phòng học được xác nhận là phòng mười hai."
+                      },
+                      {
+                          "id":  "q05",
+                          "type":  "MULTIPLE_CHOICE",
+                          "prompt":  "What should Noah bring?",
+                          "options":  [
+                                          {
+                                              "id":  "A",
+                                              "text":  "A dictionary",
+                                              "imageUrl":  "/media/learning/v1/images/opt-item-dictionary.jpg"
+                                          },
+                                          {
+                                              "id":  "B",
+                                              "text":  "A lunch box",
+                                              "imageUrl":  "/media/learning/v1/images/opt-item-lunchbox.jpg"
+                                          },
+                                          {
+                                              "id":  "C",
+                                              "text":  "A notebook",
+                                              "imageUrl":  "/media/learning/v1/images/opt-item-notebook.jpg"
+                                          },
+                                          {
+                                              "id":  "D",
+                                              "text":  "A textbook",
+                                              "imageUrl":  "/media/learning/v1/images/opt-item-textbook.jpg"
+                                          }
+                                      ],
+                          "correctOptionId":  "C",
+                          "skillCode":  "listening.specific_information",
+                          "evidenceSegmentIds":  [
+                                                     "s09",
+                                                     "s10"
+                                                 ],
+                          "explanation":  "Lily dặn Noah mang theo một quyển vở."
+                      }
+                  ]
+}

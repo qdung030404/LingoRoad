@@ -45,6 +45,7 @@ interface CatalogueLessonRow {
   questionCount: number;
   audioDurationMs: number | null;
   cefrLevel: CefrLevel | null;
+  coverImageUrl: string | null;
 }
 const includeAnswers = { answers: true } as const;
 const includeUnitLevel = { unit: { select: { cefrLevel: true } } } as const;
@@ -63,7 +64,7 @@ export class LearningService {
     private readonly prisma: PrismaService,
     @Optional() private readonly planning?: PlanningService,
     @Optional() private readonly ml?: MlClientService,
-  ) {}
+  ) { }
 
   private conflict(): never {
     throw new ConflictException({ code: 'LEARNING_STATE_CONFLICT', message: 'Bài học đã thay đổi trên thiết bị khác. Vui lòng tải lại.' });
@@ -91,6 +92,7 @@ export class LearningService {
     questionCount: number,
     audioDurationMs?: number | null,
     cefrLevel?: CefrLevel | null,
+    coverImageUrl?: string | null,
   ): LessonSnapshot {
     return {
       id: lesson.id,
@@ -103,6 +105,7 @@ export class LearningService {
       questionCount: Number(questionCount),
       ...(audioDurationMs ? { audioDurationMs: Number(audioDurationMs) } : {}),
       ...(cefrLevel ? { cefrLevel } : {}),
+      ...(coverImageUrl ? { coverImageUrl } : {}),
     };
   }
 
@@ -113,43 +116,64 @@ export class LearningService {
       Array.isArray(content?.questions) ? content.questions.length : 5,
       content?.audioDurationMs,
       lesson.unit?.cefrLevel,
+      content?.coverImageUrl,
     );
   }
 
   private publicContent(content: LearningContent, completed: boolean) {
     return {
-      steps: content.steps.map((step) => ({ id: step.id, title: step.title, body: step.body,
+      steps: content.steps.map((step) => ({
+        id: step.id, title: step.title, body: step.body,
         ...(step.word ? { word: step.word } : {}), ...(step.phonetic ? { phonetic: step.phonetic } : {}),
         ...(step.meaning ? { meaning: step.meaning } : {}), ...(step.example ? { example: step.example } : {}),
-        ...(step.audioUrl ? { audioUrl: step.audioUrl } : {}) })),
+        ...(step.audioUrl ? { audioUrl: step.audioUrl } : {})
+      })),
+      ...(content.coverImageUrl ? { coverImageUrl: content.coverImageUrl } : {}),
       ...(content.listeningVersion !== 1 && content.passage ? { passage: content.passage } : {}),
-      ...(content.keyVocabulary?.length ? { keyVocabulary: content.keyVocabulary.map((item) => ({
-        id: item.id, word: item.word, meaning: item.meaning,
-        ...(item.phonetic ? { phonetic: item.phonetic } : {}),
-        ...(item.example ? { example: item.example } : {}),
-        ...(item.translation ? { translation: item.translation } : {}),
-      })) } : {}),
+      ...(content.keyVocabulary?.length ? {
+        keyVocabulary: content.keyVocabulary.map((item) => ({
+          id: item.id, word: item.word, meaning: item.meaning,
+          ...(item.phonetic ? { phonetic: item.phonetic } : {}),
+          ...(item.example ? { example: item.example } : {}),
+          ...(item.translation ? { translation: item.translation } : {}),
+          ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
+        }))
+      } : {}),
       ...(content.audioUrl ? { audioUrl: content.audioUrl } : {}),
-      ...(content.listeningVersion === 1 ? { listeningVersion: 1,
+      ...(content.listeningVersion === 1 ? {
+        listeningVersion: 1,
         audioDurationMs: content.audioDurationMs,
-        preparation: { situation: content.preparation?.situation, objective: content.preparation?.objective } } : {}),
+        preparation: { situation: content.preparation?.situation, objective: content.preparation?.objective }
+      } : {}),
       ...(completed && content.transcript ? { transcript: content.transcript } : {}),
-      ...(completed && content.transcriptSegments ? { transcriptSegments: content.transcriptSegments.map((segment) => ({
-        id: segment.id, speaker: segment.speaker, startMs: segment.startMs, endMs: segment.endMs,
-        text: segment.text, translationVi: segment.translationVi,
-      })) } : {}),
+      ...(completed && content.transcriptSegments ? {
+        transcriptSegments: content.transcriptSegments.map((segment) => ({
+          id: segment.id, speaker: segment.speaker,
+          ...(segment.speakerAvatar ? { speakerAvatar: segment.speakerAvatar } : {}),
+          startMs: segment.startMs, endMs: segment.endMs,
+          text: segment.text, translationVi: segment.translationVi,
+        }))
+      } : {}),
     };
   }
 
   private publicQuestions(content: LearningContent) {
-    return content.questions.map((question) => ({ id: question.id, type: question.type ?? 'MULTIPLE_CHOICE', prompt: question.prompt,
+    return content.questions.map((question) => ({
+      id: question.id, type: question.type ?? 'MULTIPLE_CHOICE', prompt: question.prompt,
       ...(question.skillCode ? { skillCode: question.skillCode } : {}),
-      options: question.options.map((option) => ({ id: option.id, text: option.text })) }));
+      options: question.options.map((option) => ({
+        id: option.id,
+        text: option.text,
+        ...(option.imageUrl ? { imageUrl: option.imageUrl } : {}),
+      }))
+    }));
   }
 
   private result(attempt: Pick<LearningAttempt, 'status' | 'correctCount' | 'totalQuestions'>) {
-    return attempt.status === 'COMPLETED' ? { correctCount: attempt.correctCount!, totalQuestions: attempt.totalQuestions,
-      scoreRatio: attempt.correctCount! / attempt.totalQuestions } : null;
+    return attempt.status === 'COMPLETED' ? {
+      correctCount: attempt.correctCount!, totalQuestions: attempt.totalQuestions,
+      scoreRatio: attempt.correctCount! / attempt.totalQuestions
+    } : null;
   }
 
   private summaryItem(attempt: LearningAttempt) {
@@ -158,22 +182,29 @@ export class LearningService {
       ...rawLesson,
       questionCount: rawLesson.questionCount ?? attempt.totalQuestions,
     };
-    return { id: attempt.id, lesson, status: attempt.status,
+    return {
+      id: attempt.id, lesson, status: attempt.status,
       position: { phase: attempt.phase, index: attempt.positionIndex }, result: this.result(attempt),
-      startedAt: attempt.startedAt, updatedAt: attempt.updatedAt, submittedAt: attempt.submittedAt };
+      startedAt: attempt.startedAt, updatedAt: attempt.updatedAt, submittedAt: attempt.submittedAt
+    };
   }
 
   private publicAttempt(attempt: Attempt) {
     const content = this.content(attempt);
     const answers = new Map(attempt.answers.map((answer) => [answer.questionId, answer]));
-    return { ...this.summaryItem(attempt), version: attempt.version,
+    return {
+      ...this.summaryItem(attempt), version: attempt.version,
       content: this.publicContent(content, attempt.status === 'COMPLETED'), questions: this.publicQuestions(content),
       answers: content.questions.map((question) => {
         const answer = answers.get(question.id);
-        return { questionId: question.id, optionId: answer?.optionId ?? null, checked: answer?.checked ?? false,
-          ...(answer?.checked ? { isCorrect: answer.isCorrect, correctOptionId: question.correctOptionId, explanation: question.explanation,
+        return {
+          questionId: question.id, optionId: answer?.optionId ?? null, checked: answer?.checked ?? false,
+          ...(answer?.checked ? {
+            isCorrect: answer.isCorrect, correctOptionId: question.correctOptionId, explanation: question.explanation,
             ...(content.listeningVersion !== 1 && question.evidence ? { evidence: question.evidence } : {}),
-            ...(attempt.status === 'COMPLETED' && question.evidenceSegmentIds ? { evidenceSegmentIds: [...question.evidenceSegmentIds] } : {}) } : {}) };
+            ...(attempt.status === 'COMPLETED' && question.evidenceSegmentIds ? { evidenceSegmentIds: [...question.evidenceSegmentIds] } : {})
+          } : {})
+        };
       }),
     };
   }
@@ -200,7 +231,8 @@ export class LearningService {
               THEN (l.content ->> 'audioDurationMs')::double precision
             ELSE NULL
           END AS "audioDurationMs",
-          u.cefr_level::text AS "cefrLevel"
+          u.cefr_level::text AS "cefrLevel",
+          l.content ->> 'coverImageUrl' AS "coverImageUrl"
         FROM learning_lessons l
         LEFT JOIN learning_units u ON u.id = l.unit_id
         WHERE l.published = true
@@ -213,17 +245,19 @@ export class LearningService {
         orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
       }),
     ]);
-    return { items: lessons.map((lesson) => {
-      const records = attempts.filter((attempt) => attempt.lessonId === lesson.id);
-      const completed = records.filter((attempt) => attempt.status === 'COMPLETED');
-      const latest = completed.find((attempt) => attempt.historyHiddenAt == null);
-      return {
-        ...this.buildLessonSnapshot(lesson, lesson.questionCount, lesson.audioDurationMs, lesson.cefrLevel),
-        state: completed.length ? 'COMPLETED' : 'NOT_STARTED',
-        activeAttemptId: null,
-        latestResult: latest ? this.result(latest) : null,
-      };
-    }) };
+    return {
+      items: lessons.map((lesson) => {
+        const records = attempts.filter((attempt) => attempt.lessonId === lesson.id);
+        const completed = records.filter((attempt) => attempt.status === 'COMPLETED');
+        const latest = completed.find((attempt) => attempt.historyHiddenAt == null);
+        return {
+          ...this.buildLessonSnapshot(lesson, lesson.questionCount, lesson.audioDurationMs, lesson.cefrLevel, lesson.coverImageUrl),
+          state: completed.length ? 'COMPLETED' : 'NOT_STARTED',
+          activeAttemptId: null,
+          latestResult: latest ? this.result(latest) : null,
+        };
+      })
+    };
   }
 
   async lesson(userId: string, lessonId: string) {
@@ -258,11 +292,15 @@ export class LearningService {
           select: { id: true },
         }),
       ]);
-      return tx.learningAttempt.create({ data: { userId, lessonId, phase: content.steps.length ? 'STUDY' : 'QUIZ',
-        contentVersion: lesson.contentVersion,
-        eligibleForLevelEval: !priorExposure && !priorCompleted,
-        totalQuestions: content.questions.length, contentSnapshot: lesson.content as Prisma.InputJsonValue,
-        lessonSnapshot: this.lessonInfo(lesson) as unknown as Prisma.InputJsonValue }, include: includeAnswers });
+      return tx.learningAttempt.create({
+        data: {
+          userId, lessonId, phase: content.steps.length ? 'STUDY' : 'QUIZ',
+          contentVersion: lesson.contentVersion,
+          eligibleForLevelEval: !priorExposure && !priorCompleted,
+          totalQuestions: content.questions.length, contentSnapshot: lesson.content as Prisma.InputJsonValue,
+          lessonSnapshot: this.lessonInfo(lesson) as unknown as Prisma.InputJsonValue
+        }, include: includeAnswers
+      });
     });
     return this.publicAttempt(attempt);
   }
@@ -285,8 +323,10 @@ export class LearningService {
 
   private async reserve(tx: Database, attempt: Attempt, expectedVersion: number, data: Prisma.LearningAttemptUpdateManyMutationInput = {}) {
     if (attempt.status !== 'IN_PROGRESS' || attempt.version !== expectedVersion) this.conflict();
-    const updated = await tx.learningAttempt.updateMany({ where: { id: attempt.id, userId: attempt.userId, status: 'IN_PROGRESS', version: expectedVersion },
-      data: { ...data, version: { increment: 1 } } });
+    const updated = await tx.learningAttempt.updateMany({
+      where: { id: attempt.id, userId: attempt.userId, status: 'IN_PROGRESS', version: expectedVersion },
+      data: { ...data, version: { increment: 1 } }
+    });
     if (updated.count !== 1) this.conflict();
   }
 
@@ -304,8 +344,10 @@ export class LearningService {
       }
       await this.reserve(tx, attempt, dto.expectedVersion, { phase: dto.phase, positionIndex: dto.index });
       if (dto.questionId !== undefined) {
-        await tx.learningAttemptAnswer.upsert({ where: { attemptId_questionId: { attemptId, questionId: dto.questionId } },
-          create: { attemptId, questionId: dto.questionId, optionId: dto.optionId }, update: { optionId: dto.optionId } });
+        await tx.learningAttemptAnswer.upsert({
+          where: { attemptId_questionId: { attemptId, questionId: dto.questionId } },
+          create: { attemptId, questionId: dto.questionId, optionId: dto.optionId }, update: { optionId: dto.optionId }
+        });
       }
       return this.publicAttempt(await this.owned(tx, userId, attemptId));
     });
@@ -323,42 +365,44 @@ export class LearningService {
   }
 
   async check(userId: string, attemptId: string, questionId: string, dto: CheckLearningAnswerDto) {
-    try { return await this.prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
-      const attempt = await this.owned(tx, userId, attemptId);
-      const content = this.content(attempt);
-      const index = content.questions.findIndex((question) => question.id === questionId);
-      const question = content.questions[index];
-      if (!question || !question.options.some((option) => option.id === dto.optionId)) this.invalid('Câu hỏi hoặc lựa chọn không hợp lệ.');
-      const saved = attempt.answers.find((answer) => answer.questionId === questionId);
-      if (saved?.checked) {
-        if (saved.optionId !== dto.optionId) this.conflict();
-        return this.publicAttempt(attempt); // Safe retry even when the original response was lost.
-      }
-      let extraUpdate: Prisma.LearningAttemptUpdateManyMutationInput = {};
-      if (tx.learningAnswerExposure) {
-        const existingExposure = await tx.learningAnswerExposure.findUnique({
-          where: { userId_lessonId: { userId, lessonId: attempt.lessonId } },
-          select: { firstAttemptId: true },
-        });
-        if (!existingExposure) {
-          await tx.learningAnswerExposure.create({
-            data: {
-              userId,
-              lessonId: attempt.lessonId,
-              contentVersion: attempt.contentVersion,
-              firstAttemptId: attempt.id,
-            },
-          });
-        } else if (existingExposure.firstAttemptId !== attempt.id && attempt.eligibleForLevelEval) {
-          extraUpdate = { eligibleForLevelEval: false };
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+        const attempt = await this.owned(tx, userId, attemptId);
+        const content = this.content(attempt);
+        const index = content.questions.findIndex((question) => question.id === questionId);
+        const question = content.questions[index];
+        if (!question || !question.options.some((option) => option.id === dto.optionId)) this.invalid('Câu hỏi hoặc lựa chọn không hợp lệ.');
+        const saved = attempt.answers.find((answer) => answer.questionId === questionId);
+        if (saved?.checked) {
+          if (saved.optionId !== dto.optionId) this.conflict();
+          return this.publicAttempt(attempt); // Safe retry even when the original response was lost.
         }
-      }
-      await this.reserve(tx, attempt, dto.expectedVersion, { phase: 'QUIZ', positionIndex: index, ...extraUpdate });
-      const data = { optionId: dto.optionId, checked: true, isCorrect: dto.optionId === question.correctOptionId, checkedAt: new Date() };
-      await tx.learningAttemptAnswer.upsert({ where: { attemptId_questionId: { attemptId, questionId } }, create: { attemptId, questionId, ...data }, update: data });
-      return this.publicAttempt(await this.owned(tx, userId, attemptId));
-    }); } catch (error) {
+        let extraUpdate: Prisma.LearningAttemptUpdateManyMutationInput = {};
+        if (tx.learningAnswerExposure) {
+          const existingExposure = await tx.learningAnswerExposure.findUnique({
+            where: { userId_lessonId: { userId, lessonId: attempt.lessonId } },
+            select: { firstAttemptId: true },
+          });
+          if (!existingExposure) {
+            await tx.learningAnswerExposure.create({
+              data: {
+                userId,
+                lessonId: attempt.lessonId,
+                contentVersion: attempt.contentVersion,
+                firstAttemptId: attempt.id,
+              },
+            });
+          } else if (existingExposure.firstAttemptId !== attempt.id && attempt.eligibleForLevelEval) {
+            extraUpdate = { eligibleForLevelEval: false };
+          }
+        }
+        await this.reserve(tx, attempt, dto.expectedVersion, { phase: 'QUIZ', positionIndex: index, ...extraUpdate });
+        const data = { optionId: dto.optionId, checked: true, isCorrect: dto.optionId === question.correctOptionId, checkedAt: new Date() };
+        await tx.learningAttemptAnswer.upsert({ where: { attemptId_questionId: { attemptId, questionId } }, create: { attemptId, questionId, ...data }, update: data });
+        return this.publicAttempt(await this.owned(tx, userId, attemptId));
+      });
+    } catch (error) {
       // Concurrent identical checks can race before the first lock is visible.
       if (error instanceof ConflictException) {
         const current = await this.owned(this.prisma, userId, attemptId);
@@ -370,34 +414,36 @@ export class LearningService {
   }
 
   async submit(userId: string, attemptId: string, expectedVersion: number) {
-    try { return await this.prisma.$transaction(async (tx) => {
-      // Consistent lock order: users -> attempt -> skill level -> day plan.
-      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
-      const attempt = await this.owned(tx, userId, attemptId);
-      if (attempt.status === 'COMPLETED') {
-        return { ...this.publicAttempt(attempt), levelChange: await this.loadSavedLevelChange(tx, attempt.id) };
-      }
-      const content = this.content(attempt);
-      if (!content.questions.every((question) => attempt.answers.some((answer) => answer.questionId === question.id && answer.checked))) {
-        this.invalid('Hãy kiểm tra đầy đủ các câu hỏi trước khi nộp bài.');
-      }
-      const correctCount = attempt.answers.filter((answer) => answer.checked && answer.isCorrect).length;
-      let submittedAt = new Date();
-      const kind = (attempt.lessonSnapshot as unknown as LessonSnapshot).kind;
-      if (this.planning && kind === 'READING' && tx.learningSkillLevel) {
-        const existingSkill = await tx.learningSkillLevel.findUnique({
-          where: { userId_kind: { userId, kind: 'READING' } },
-          select: { changedAt: true },
-        });
-        if (existingSkill?.changedAt && submittedAt <= existingSkill.changedAt) {
-          submittedAt = new Date(existingSkill.changedAt.getTime() + 1);
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        // Consistent lock order: users -> attempt -> skill level -> day plan.
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+        const attempt = await this.owned(tx, userId, attemptId);
+        if (attempt.status === 'COMPLETED') {
+          return { ...this.publicAttempt(attempt), levelChange: await this.loadSavedLevelChange(tx, attempt.id) };
         }
-      }
-      await this.reserve(tx, attempt, expectedVersion, { status: 'COMPLETED', correctCount, submittedAt });
-      const savedAttempt = await this.owned(tx, userId, attemptId);
-      const levelChange = this.planning ? await this.planning.evaluateReadingLevel(tx, userId, savedAttempt) : null;
-      return { ...this.publicAttempt(savedAttempt), levelChange };
-    }); } catch (error) {
+        const content = this.content(attempt);
+        if (!content.questions.every((question) => attempt.answers.some((answer) => answer.questionId === question.id && answer.checked))) {
+          this.invalid('Hãy kiểm tra đầy đủ các câu hỏi trước khi nộp bài.');
+        }
+        const correctCount = attempt.answers.filter((answer) => answer.checked && answer.isCorrect).length;
+        let submittedAt = new Date();
+        const kind = (attempt.lessonSnapshot as unknown as LessonSnapshot).kind;
+        if (this.planning && kind === 'READING' && tx.learningSkillLevel) {
+          const existingSkill = await tx.learningSkillLevel.findUnique({
+            where: { userId_kind: { userId, kind: 'READING' } },
+            select: { changedAt: true },
+          });
+          if (existingSkill?.changedAt && submittedAt <= existingSkill.changedAt) {
+            submittedAt = new Date(existingSkill.changedAt.getTime() + 1);
+          }
+        }
+        await this.reserve(tx, attempt, expectedVersion, { status: 'COMPLETED', correctCount, submittedAt });
+        const savedAttempt = await this.owned(tx, userId, attemptId);
+        const levelChange = this.planning ? await this.planning.evaluateReadingLevel(tx, userId, savedAttempt) : null;
+        return { ...this.publicAttempt(savedAttempt), levelChange };
+      });
+    } catch (error) {
       if (error instanceof ConflictException) {
         const current = await this.owned(this.prisma, userId, attemptId);
         if (current.status === 'COMPLETED') {
@@ -421,10 +467,14 @@ export class LearningService {
       throw new NotFoundException({ code: 'LEARNING_ATTEMPT_NOT_FOUND', message: 'Không tìm thấy lượt học.' });
     }
     const attempts = await this.prisma.learningAttempt.findMany({
-      where: { ...where, historyHiddenAt: null, ...(anchor ? { OR: [
-        { updatedAt: { lt: anchor.updatedAt } },
-        { updatedAt: anchor.updatedAt, id: { lt: anchor.id } },
-      ] } : {}) },
+      where: {
+        ...where, historyHiddenAt: null, ...(anchor ? {
+          OR: [
+            { updatedAt: { lt: anchor.updatedAt } },
+            { updatedAt: anchor.updatedAt, id: { lt: anchor.id } },
+          ]
+        } : {})
+      },
       orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }], take: limit + 1,
     });
     return { items: attempts.slice(0, limit).map((attempt) => this.summaryItem(attempt)), nextCursor: attempts.length > limit ? attempts[limit - 1].id : null };
@@ -461,9 +511,11 @@ export class LearningService {
     const [catalogue, attempts] = await Promise.all([this.catalogue(userId), this.prisma.learningAttempt.findMany({ where: { userId }, orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }] })]);
     const completed = attempts.filter((attempt) => attempt.status === 'COMPLETED');
     const next = catalogue.items.find((lesson) => lesson.state === 'NOT_STARTED');
-    return { totalLessons: catalogue.items.length, completedLessonCount: new Set(completed.map((attempt) => attempt.lessonId)).size,
+    return {
+      totalLessons: catalogue.items.length, completedLessonCount: new Set(completed.map((attempt) => attempt.lessonId)).size,
       completedAttemptCount: completed.length, activeAttemptCount: 0,
-      continueLessonId: next?.id ?? null, continueAttemptId: null };
+      continueLessonId: next?.id ?? null, continueAttemptId: null
+    };
   }
 
   /** Ground explanations in the attempt snapshot and enforce the review visibility rules. */

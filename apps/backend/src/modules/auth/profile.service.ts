@@ -61,6 +61,7 @@ export class ProfileService {
     const account = await this.get(userId);
     const {
       name,
+      avatarUrl,
       expectedVersion,
       expectedReminderVersion,
       preferredKinds: rawPreferredKinds,
@@ -130,6 +131,7 @@ export class ProfileService {
         where: { id: userId },
         data: {
           ...(name === undefined ? {} : { name }),
+          ...(avatarUrl === undefined ? {} : { avatarUrl }),
           profile: {
             upsert: {
               create: {

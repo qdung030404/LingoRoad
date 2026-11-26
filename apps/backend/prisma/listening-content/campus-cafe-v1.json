@@ -2,6 +2,7 @@
   "listeningVersion": 1,
   "steps": [],
   "audioUrl": "/media/learning/v1/listening-campus-cafe-v1.wav",
+  "coverImageUrl": "/media/learning/v1/images/scene-campus-cafe.jpg",
   "audioDurationMs": 54305,
   "preparation": {
     "situation": "Bạn nghe một cuộc trao đổi tại quán trong trường.",
@@ -13,6 +14,7 @@
       "meaning": "thực đơn",
       "example": "The menu is on the table.",
       "translation": "Thực đơn ở trên bàn.",
+      "imageUrl": "/media/learning/v1/images/vocab-menu.jpg",
       "id": "v01"
     },
     {
@@ -20,6 +22,7 @@
       "meaning": "gọi món",
       "example": "Can I order now?",
       "translation": "Bây giờ tôi gọi món được không?",
+      "imageUrl": "/media/learning/v1/images/vocab-order.jpg",
       "id": "v02"
     },
     {
@@ -27,6 +30,7 @@
       "meaning": "sẵn sàng, xong",
       "example": "Your room is ready.",
       "translation": "Phòng của bạn đã sẵn sàng.",
+      "imageUrl": "/media/learning/v1/images/vocab-ready.jpg",
       "id": "v03"
     },
     {
@@ -34,6 +38,7 @@
       "meaning": "thanh toán",
       "example": "Can I pay by card?",
       "translation": "Tôi thanh toán bằng thẻ được không?",
+      "imageUrl": "/media/learning/v1/images/vocab-pay.jpg",
       "id": "v04"
     }
   ],
@@ -42,6 +47,7 @@
     {
       "id": "s01",
       "speaker": "Staff",
+      "speakerAvatar": "/media/learning/v1/images/avatar-staff.jpg",
       "text": "Hello. What would you like for lunch today?",
       "translationVi": "Chào bạn. Hôm nay bạn muốn dùng gì cho bữa trưa?",
       "startMs": 0,
@@ -50,6 +56,7 @@
     {
       "id": "s02",
       "speaker": "Ben",
+      "speakerAvatar": "/media/learning/v1/images/avatar-ben.jpg",
       "text": "A cheese sandwich, please. I have a short break before my next class.",
       "translationVi": "Cho tôi một bánh mì kẹp phô mai. Tôi có một khoảng nghỉ ngắn trước buổi học tiếp theo.",
       "startMs": 4749,
@@ -58,6 +65,7 @@
     {
       "id": "s03",
       "speaker": "Staff",
+      "speakerAvatar": "/media/learning/v1/images/avatar-staff.jpg",
       "text": "Certainly. Would you like a drink with that?",
       "translationVi": "Được chứ. Bạn có muốn dùng thêm đồ uống không?",
       "startMs": 12353,
@@ -66,6 +74,7 @@
     {
       "id": "s04",
       "speaker": "Ben",
+      "speakerAvatar": "/media/learning/v1/images/avatar-ben.jpg",
       "text": "Yes, an apple juice, please. A small one is fine.",
       "translationVi": "Có, cho tôi một ly nước táo. Ly nhỏ là được.",
       "startMs": 17237,
@@ -74,6 +83,7 @@
     {
       "id": "s05",
       "speaker": "Staff",
+      "speakerAvatar": "/media/learning/v1/images/avatar-staff.jpg",
       "text": "All right. That is six pounds altogether.",
       "translationVi": "Được rồi. Tổng cộng là sáu bảng.",
       "startMs": 24431,
@@ -82,6 +92,7 @@
     {
       "id": "s06",
       "speaker": "Ben",
+      "speakerAvatar": "/media/learning/v1/images/avatar-ben.jpg",
       "text": "Here you are. Where do I get my food when it is ready?",
       "translationVi": "Tiền đây ạ. Tôi nhận đồ ở đâu khi đồ đã làm xong?",
       "startMs": 29630,
@@ -90,6 +101,7 @@
     {
       "id": "s07",
       "speaker": "Staff",
+      "speakerAvatar": "/media/learning/v1/images/avatar-staff.jpg",
       "text": "At the counter by the window. Please wait here for a minute.",
       "translationVi": "Ở quầy cạnh cửa sổ. Bạn vui lòng đợi ở đây một phút.",
       "startMs": 35368,
@@ -98,6 +110,7 @@
     {
       "id": "s08",
       "speaker": "Ben",
+      "speakerAvatar": "/media/learning/v1/images/avatar-ben.jpg",
       "text": "Thank you. Can I have a bag, too?",
       "translationVi": "Cảm ơn. Cho tôi xin thêm một túi nhé?",
       "startMs": 41092,
@@ -106,6 +119,7 @@
     {
       "id": "s09",
       "speaker": "Staff",
+      "speakerAvatar": "/media/learning/v1/images/avatar-staff.jpg",
       "text": "Of course. Are you eating here?",
       "translationVi": "Tất nhiên rồi. Bạn dùng tại đây phải không?",
       "startMs": 46156,
@@ -114,6 +128,7 @@
     {
       "id": "s10",
       "speaker": "Ben",
+      "speakerAvatar": "/media/learning/v1/images/avatar-ben.jpg",
       "text": "No. I am taking my lunch back to my room.",
       "translationVi": "Không. Tôi sẽ mang bữa trưa về phòng mình.",
       "startMs": 50401,

@@ -135,41 +135,67 @@ export function loadLearningContent(): LearningSeed[] {
     ['son', '/sʌn/', 'con trai', 'Their son is a student.', 'Con trai của họ là sinh viên.'],
   ];
   return [
-    { code: 'grammar-pronouns-to-be', kind: 'GRAMMAR', title: 'Subject pronouns and “to be”', description: 'Đại từ nhân xưng, câu khẳng định, phủ định và câu hỏi với to be.', estimatedMinutes: 10, sortOrder: 1, contentVersion: 1, unitCode: 'a1-unit-1',
-      content: { steps: [{ id: 'grammar-theory', title: 'Đại từ nhân xưng và động từ to be',
-        body: 'I → am; He / She / It → is; You / We / They → are.\n\nKhẳng định: Chủ ngữ + am / is / are.\nI am a student. She is a teacher. They are friends.\n\nPhủ định: Chủ ngữ + am / is / are + not.\nWe are not tired. He is not a doctor.\n\nCâu hỏi: Am / Is / Are + chủ ngữ …?\nIs she a teacher? Are you from Hanoi?\n\nTên một người như Lan dùng “is”.' }], questions: [
-        question('grammar-1', 'I … a student.', ['am', 'is', 'are', 'be'], 0, 'Chủ ngữ “I” đi với “am”: I am a student.'),
-        question('grammar-2', 'Lan … from Hanoi.', ['am', 'is', 'are', 'be'], 1, 'Lan là tên một người, tương đương “she”, nên dùng “is”.'),
-        question('grammar-3', 'They … my friends.', ['am', 'is', 'are', 'be'], 2, 'Chủ ngữ số nhiều “They” đi với “are”.'),
-        question('grammar-4', '… she a teacher?', ['Am', 'Are', 'Be', 'Is'], 3, 'Đảo “Is” lên trước “she” để tạo câu hỏi: Is she a teacher?'),
-        question('grammar-5', 'We … not tired.', ['are', 'is', 'am', 'be'], 0, '“We” đi với “are”; câu phủ định là “We are not tired”.'),
-      ] } },
-    { code: 'vocabulary-family', kind: 'VOCABULARY', title: 'Family and relationships', description: 'Học 10 từ về gia đình qua phát âm và ví dụ, sau đó luyện tập.', estimatedMinutes: 10, sortOrder: 2, contentVersion: 1, unitCode: 'a1-unit-2',
-      content: { steps: words.map(([word, phonetic, meaning, example, body]) => ({ id: `word-${word}`, title: word, word, phonetic, meaning, example, body, audioUrl: `/media/learning/v1/${word}.wav` })), questions: [
-        question('vocabulary-1', 'My father and mother are my …', ['parents', 'sisters', 'brothers', 'sons'], 0, '“Parents” nghĩa là bố mẹ, gồm father và mother.'),
-        question('vocabulary-2', 'My mother’s mother is my …', ['sister', 'grandmother', 'daughter', 'brother'], 1, 'Mẹ của mẹ là bà ngoại: “grandmother”.'),
-        question('vocabulary-3', 'A daughter is a …', ['boy', 'father', 'girl', 'grandfather'], 2, '“Daughter” là con gái, vì vậy đáp án là “girl”.'),
-        question('vocabulary-4', 'My parents have two children: me and a boy. The boy is my …', ['mother', 'sister', 'grandmother', 'brother'], 3, 'Cậu bé là người con trai còn lại của bố mẹ, tức anh/em trai: “brother”.'),
-        question('vocabulary-5', 'A son is a …', ['boy', 'girl', 'mother', 'grandmother'], 0, '“Son” nghĩa là con trai, nên chọn “boy”.'),
-      ] } },
-    { code: 'reading-everyday-introductions', kind: 'READING', title: 'Everyday Introductions', description: 'Đọc đoạn tự giới thiệu và xác định thông tin tên, tuổi, quê quán và sở thích.', estimatedMinutes: 5, sortOrder: 3, contentVersion: 2, unitCode: 'a1-unit-1',
-      content: { steps: [], passage: transcript, questions: comprehension('reading') } },
-    { code: 'listening-greetings-introductions', kind: 'LISTENING', title: 'Greetings and Introductions', description: 'Nghe Anna tự giới thiệu. Được nghe lại và tua không giới hạn.', estimatedMinutes: 5, sortOrder: 4, contentVersion: 1, unitCode: 'a1-unit-1',
-      content: { steps: [], audioUrl: '/media/learning/v1/listening.wav', transcript, questions: comprehension('listening') } },
-    { code: 'listening-campus-cafe', kind: 'LISTENING', title: 'At the campus café',
+    {
+      code: 'grammar-pronouns-to-be', kind: 'GRAMMAR', title: 'Subject pronouns and “to be”', description: 'Đại từ nhân xưng, câu khẳng định, phủ định và câu hỏi với to be.', estimatedMinutes: 10, sortOrder: 1, contentVersion: 1, unitCode: 'a1-unit-1',
+      content: {
+        steps: [{
+          id: 'grammar-theory', title: 'Đại từ nhân xưng và động từ to be',
+          body: 'I → am; He / She / It → is; You / We / They → are.\n\nKhẳng định: Chủ ngữ + am / is / are.\nI am a student. She is a teacher. They are friends.\n\nPhủ định: Chủ ngữ + am / is / are + not.\nWe are not tired. He is not a doctor.\n\nCâu hỏi: Am / Is / Are + chủ ngữ …?\nIs she a teacher? Are you from Hanoi?\n\nTên một người như Lan dùng “is”.'
+        }], questions: [
+          question('grammar-1', 'I … a student.', ['am', 'is', 'are', 'be'], 0, 'Chủ ngữ “I” đi với “am”: I am a student.'),
+          question('grammar-2', 'Lan … from Hanoi.', ['am', 'is', 'are', 'be'], 1, 'Lan là tên một người, tương đương “she”, nên dùng “is”.'),
+          question('grammar-3', 'They … my friends.', ['am', 'is', 'are', 'be'], 2, 'Chủ ngữ số nhiều “They” đi với “are”.'),
+          question('grammar-4', '… she a teacher?', ['Am', 'Are', 'Be', 'Is'], 3, 'Đảo “Is” lên trước “she” để tạo câu hỏi: Is she a teacher?'),
+          question('grammar-5', 'We … not tired.', ['are', 'is', 'am', 'be'], 0, '“We” đi với “are”; câu phủ định là “We are not tired”.'),
+        ]
+      }
+    },
+    {
+      code: 'vocabulary-family', kind: 'VOCABULARY', title: 'Family and relationships', description: 'Học 10 từ về gia đình qua phát âm và ví dụ, sau đó luyện tập.', estimatedMinutes: 10, sortOrder: 2, contentVersion: 1, unitCode: 'a1-unit-2',
+      content: {
+        steps: words.map(([word, phonetic, meaning, example, body]) => ({ id: `word-${word}`, title: word, word, phonetic, meaning, example, body, audioUrl: `/media/learning/v1/${word}.wav` })), questions: [
+          question('vocabulary-1', 'My father and mother are my …', ['parents', 'sisters', 'brothers', 'sons'], 0, '“Parents” nghĩa là bố mẹ, gồm father và mother.'),
+          question('vocabulary-2', 'My mother’s mother is my …', ['sister', 'grandmother', 'daughter', 'brother'], 1, 'Mẹ của mẹ là bà ngoại: “grandmother”.'),
+          question('vocabulary-3', 'A daughter is a …', ['boy', 'father', 'girl', 'grandfather'], 2, '“Daughter” là con gái, vì vậy đáp án là “girl”.'),
+          question('vocabulary-4', 'My parents have two children: me and a boy. The boy is my …', ['mother', 'sister', 'grandmother', 'brother'], 3, 'Cậu bé là người con trai còn lại của bố mẹ, tức anh/em trai: “brother”.'),
+          question('vocabulary-5', 'A son is a …', ['boy', 'girl', 'mother', 'grandmother'], 0, '“Son” nghĩa là con trai, nên chọn “boy”.'),
+        ]
+      }
+    },
+    {
+      code: 'reading-everyday-introductions', kind: 'READING', title: 'Everyday Introductions', description: 'Đọc đoạn tự giới thiệu và xác định thông tin tên, tuổi, quê quán và sở thích.', estimatedMinutes: 5, sortOrder: 3, contentVersion: 3, unitCode: 'a1-unit-1',
+      content: { steps: [], coverImageUrl: '/media/learning/v1/images/scene-reading-introductions.jpg', passage: transcript, questions: comprehension('reading') }
+    },
+    {
+      code: 'listening-greetings-introductions', kind: 'LISTENING', title: 'Greetings and Introductions', description: 'Nghe Anna tự giới thiệu. Được nghe lại và tua không giới hạn.', estimatedMinutes: 5, sortOrder: 4, contentVersion: 3, unitCode: 'a1-unit-1',
+      content: { steps: [], audioUrl: '/media/learning/v1/listening.wav', coverImageUrl: '/media/learning/v1/images/scene-greetings.jpg', transcript, questions: comprehension('listening') }
+    },
+    {
+      code: 'listening-first-class', kind: 'LISTENING', title: 'Checking Tomorrow’s Timetable',
+      description: 'Nghe Noah và Lily hỏi về thời khóa biểu ngày mai với câu hỏi chọn tranh trực quan.',
+      estimatedMinutes: 5, sortOrder: 49, contentVersion: 2, unitCode: 'a1-unit-1', content: loadListeningLesson('first-class')
+    },
+    {
+      code: 'listening-campus-cafe', kind: 'LISTENING', title: 'At the campus café',
       description: 'Nghe hội thoại gọi món, kiểm tra từng câu rồi nghe lại lời thoại để chữa bài.',
-      estimatedMinutes: 6, sortOrder: 50, contentVersion: 1, unitCode: 'a1-unit-2', content: loadListeningLesson('campus-cafe') },
-    { code: 'listening-valkyrie', kind: 'LISTENING', title: 'Aboard the Valkyrie',
+      estimatedMinutes: 6, sortOrder: 50, contentVersion: 3, unitCode: 'a1-unit-2', content: loadListeningLesson('campus-cafe')
+    },
+    {
+      code: 'listening-valkyrie', kind: 'LISTENING', title: 'Aboard the Valkyrie',
       description: 'Nghe hành trình đến Iceland qua giọng đọc của badey (LibriVox, Mini LibriSpeech, CC BY 4.0).',
-      estimatedMinutes: 5, sortOrder: 51, contentVersion: 1, unitCode: 'b2-unit-2', content: loadListeningLesson('valkyrie') },
-    { code: 'listening-underground', kind: 'LISTENING', title: 'A Walk Underground',
+      estimatedMinutes: 5, sortOrder: 51, contentVersion: 3, unitCode: 'b2-unit-2', content: loadListeningLesson('valkyrie')
+    },
+    {
+      code: 'listening-underground', kind: 'LISTENING', title: 'A Walk Underground',
       description: 'Theo lối xuống hầm mỏ qua giọng đọc của aquielisunari (LibriVox, Mini LibriSpeech, CC BY 4.0).',
-      estimatedMinutes: 6, sortOrder: 52, contentVersion: 1, unitCode: 'b2-unit-2', content: loadListeningLesson('underground') },
+      estimatedMinutes: 6, sortOrder: 52, contentVersion: 3, unitCode: 'b2-unit-2', content: loadListeningLesson('underground')
+    },
     {
       code: 'reading-a2-club-meeting', kind: 'READING', title: 'A New Time for the Club Meeting',
       description: 'Đọc email đổi lịch câu lạc bộ và xác định thời gian, địa điểm cùng việc cần làm.',
-      estimatedMinutes: 5, sortOrder: 5, contentVersion: 4, unitCode: 'a2-unit-1',
+      estimatedMinutes: 5, sortOrder: 5, contentVersion: 5, unitCode: 'a2-unit-1',
       content: {
+        coverImageUrl: '/media/learning/v1/images/scene-reading-book-club.jpg',
         steps: [],
         passage: [
           'Subject: A new time for our book club meeting',
@@ -212,8 +238,9 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-a2-weekend-market', kind: 'READING', title: 'Thông báo chợ cuối tuần ở công viên',
       description: 'Đọc thông báo địa điểm, giờ mở cửa và lưu ý khi tham gia phiên chợ địa phương.',
-      estimatedMinutes: 5, sortOrder: 6, contentVersion: 1, unitCode: 'a2-unit-1',
+      estimatedMinutes: 5, sortOrder: 6, contentVersion: 2, unitCode: 'a2-unit-1',
       content: {
+        coverImageUrl: '/media/learning/v1/images/scene-reading-weekend-market.jpg',
         steps: [],
         passage: [
           'Notice: Riverside Weekend Market',
@@ -254,8 +281,9 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-a2-library-pickup', kind: 'READING', title: 'Picking Up a Library Book',
       description: 'Đọc thông báo của thư viện để tìm giờ nhận sách và hiểu cần làm gì nếu đến muộn.',
-      estimatedMinutes: 5, sortOrder: 7, contentVersion: 1, unitCode: 'a2-unit-1',
+      estimatedMinutes: 5, sortOrder: 7, contentVersion: 2, unitCode: 'a2-unit-1',
       content: {
+        coverImageUrl: '/media/learning/v1/images/scene-reading-library-desk.jpg',
         steps: [],
         passage: [
           'Notice: Collecting Your Library Books',
@@ -294,8 +322,9 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-b1-hybrid-workday', kind: 'READING', title: 'Lịch làm việc kết hợp của nhóm thiết kế',
       description: 'Đọc thông báo nội bộ về quy tắc làm việc từ xa và phối hợp tại văn phòng.',
-      estimatedMinutes: 8, sortOrder: 8, contentVersion: 2, unitCode: 'b1-unit-1',
+      estimatedMinutes: 8, sortOrder: 8, contentVersion: 3, unitCode: 'b1-unit-1',
       content: {
+        coverImageUrl: '/media/learning/v1/images/scene-reading-hybrid-office.jpg',
         steps: [
           {
             id: 'b1-pre-hybrid',
@@ -370,8 +399,9 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-b2-urban-pocket-parks', kind: 'READING', title: 'Công viên bỏ túi giữa lòng đô thị',
       description: 'Đọc bài phân tích về cách các khoảng xanh nhỏ cải thiện vi khí hậu và gắn kết cư dân.',
-      estimatedMinutes: 10, sortOrder: 9, contentVersion: 3, unitCode: 'b2-unit-1',
+      estimatedMinutes: 10, sortOrder: 9, contentVersion: 4, unitCode: 'b2-unit-1',
       content: {
+        coverImageUrl: '/media/learning/v1/images/scene-reading-pocket-park.jpg',
         steps: [
           {
             id: 'b2-pre-municipal',
@@ -443,8 +473,9 @@ export function loadLearningContent(): LearningSeed[] {
     {
       code: 'reading-c1-deep-reading-attention', kind: 'READING', title: 'Đọc sâu trong kỷ nguyên phân mảnh chú ý',
       description: 'Đọc bài luận học thuật về tác động của thói quen đọc lướt đối với tư duy phản biện.',
-      estimatedMinutes: 12, sortOrder: 10, contentVersion: 2, unitCode: 'c1-unit-1',
+      estimatedMinutes: 12, sortOrder: 10, contentVersion: 3, unitCode: 'c1-unit-1',
       content: {
+        coverImageUrl: '/media/learning/v1/images/scene-reading-deep-reading.jpg',
         steps: [
           {
             id: 'c1-pre-paraphrase',

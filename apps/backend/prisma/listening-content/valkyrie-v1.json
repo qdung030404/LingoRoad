@@ -2,6 +2,7 @@
   "listeningVersion": 1,
   "steps": [],
   "audioUrl": "/media/learning/v1/listening-valkyrie-v1.wav",
+  "coverImageUrl": "/media/learning/v1/images/scene-valkyrie.jpg",
   "audioDurationMs": 34445,
   "preparation": {
     "situation": "Bạn nghe người kể chuyện thuật lại hành trình của con tàu Valkyrie, từ lúc xếp hành lý đến khi cập bờ.",
@@ -13,21 +14,24 @@
       "word": "cargo",
       "meaning": "hàng chuyên chở",
       "example": "The crew checked the cargo.",
-      "translation": "Thủy thủ đoàn kiểm tra hàng hóa."
+      "translation": "Thủy thủ đoàn kiểm tra hàng hóa.",
+      "imageUrl": "/media/learning/v1/images/vocab-cargo.jpg"
     },
     {
       "id": "v02",
       "word": "sight",
       "meaning": "trông thấy từ xa",
       "example": "We sighted an island at noon.",
-      "translation": "Chúng tôi trông thấy một hòn đảo vào buổi trưa."
+      "translation": "Chúng tôi trông thấy một hòn đảo vào buổi trưa.",
+      "imageUrl": "/media/learning/v1/images/vocab-sight.jpg"
     },
     {
       "id": "v03",
       "word": "vessel",
       "meaning": "tàu, thuyền",
       "example": "A small vessel entered the harbour.",
-      "translation": "Một con tàu nhỏ tiến vào cảng."
+      "translation": "Một con tàu nhỏ tiến vào cảng.",
+      "imageUrl": "/media/learning/v1/images/vocab-vessel.jpg"
     }
   ],
   "transcript": "On the second of the month, at two in the morning, our precious cargo of luggage was taken on board the good ship Valkyrie. On the eleventh day we sighted Cape Portland, over which towered Mount Myrdals Yokul, which, the weather being clear, we made out very readily. The Valkyrie kept off the coast, steering to the westward. On all sides were to be seen whole schools of whales and sharks. Nearly the whole population of the town was on foot to see us land. The fact was that scarcely any one of them but expected some goods by the periodical vessel.",
@@ -35,6 +39,7 @@
     {
       "id": "s01",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "On the second of the month, at two in the morning, our precious cargo of luggage was taken on board the good ship Valkyrie.",
       "translationVi": "Ngày mùng hai, lúc hai giờ sáng, số hành lý quý giá của chúng tôi được đưa lên con tàu Valkyrie.",
       "startMs": 0,
@@ -43,6 +48,7 @@
     {
       "id": "s02",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "On the eleventh day we sighted Cape Portland, over which towered Mount Myrdals Yokul, which, the weather being clear, we made out very readily.",
       "translationVi": "Vào ngày thứ mười một, chúng tôi nhìn thấy mũi Portland. Núi Myrdals Yokul sừng sững phía trên và hiện ra rất rõ nhờ trời quang.",
       "startMs": 7200,
@@ -51,6 +57,7 @@
     {
       "id": "s03",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "The Valkyrie kept off the coast, steering to the westward.",
       "translationVi": "Tàu Valkyrie giữ khoảng cách với bờ và lái về phía tây.",
       "startMs": 15560,
@@ -59,6 +66,7 @@
     {
       "id": "s04",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "On all sides were to be seen whole schools of whales and sharks.",
       "translationVi": "Nhìn về phía nào cũng thấy từng đàn cá voi và cá mập.",
       "startMs": 19655,
@@ -67,6 +75,7 @@
     {
       "id": "s05",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "Nearly the whole population of the town was on foot to see us land.",
       "translationVi": "Gần như cả thị trấn đổ ra xem chúng tôi lên bờ.",
       "startMs": 24435,
@@ -75,6 +84,7 @@
     {
       "id": "s06",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "The fact was that scarcely any one of them but expected some goods by the periodical vessel.",
       "translationVi": "Thực ra, hầu như ai trong số họ cũng đang chờ hàng từ chuyến tàu định kỳ này.",
       "startMs": 28585,

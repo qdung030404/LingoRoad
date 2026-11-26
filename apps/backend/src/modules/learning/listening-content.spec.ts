@@ -88,4 +88,28 @@ describe('Listening v1 content and media', () => {
     rate.writeUInt32LE(1, fmt + 16);
     expect(() => listeningWaveDurationMs(rate)).toThrow();
   });
+
+  it('accepts visual listening lesson with 2x2 image options and rejects partial, duplicate or unsafe image URLs', () => {
+    const firstClass = JSON.parse(readFileSync(join(__dirname, '../../../prisma/listening-content/first-class-v1.json'), 'utf8')) as LearningContent;
+    expect(() => validateLearningContent(firstClass, 'LISTENING')).not.toThrow();
+    expect(() => validateListeningAudio(firstClass, mediaRoot)).not.toThrow();
+    expect(firstClass.coverImageUrl).toBe('/media/learning/v1/images/scene-first-class.jpg');
+    expect(firstClass.questions.find((q) => q.id === 'q02')?.options.every((opt) => Boolean(opt.imageUrl))).toBe(true);
+
+    const badCover = structuredClone(firstClass);
+    badCover.coverImageUrl = 'http://insecure.example.com/scene.svg';
+    expect(() => validateLearningContent(badCover, 'LISTENING')).toThrow();
+
+    const partialImages = structuredClone(firstClass);
+    delete partialImages.questions[1].options[2].imageUrl;
+    expect(() => validateLearningContent(partialImages, 'LISTENING')).toThrow();
+
+    const duplicateImages = structuredClone(firstClass);
+    duplicateImages.questions[1].options[1].imageUrl = duplicateImages.questions[1].options[0].imageUrl;
+    expect(() => validateLearningContent(duplicateImages, 'LISTENING')).toThrow();
+
+    const badAvatar = structuredClone(firstClass);
+    badAvatar.transcriptSegments![0].speakerAvatar = '/media/learning/v1/../avatar.svg';
+    expect(() => validateLearningContent(badAvatar, 'LISTENING')).toThrow();
+  });
 });

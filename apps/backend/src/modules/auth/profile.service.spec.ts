@@ -50,6 +50,17 @@ describe('ProfileService', () => {
     expect(args.data.profile.upsert.update).not.toHaveProperty('preferencesVersion');
   });
 
+  it('updates user avatarUrl directly without requiring expectedVersion or touching goals', async () => {
+    user.findUnique.mockResolvedValue({
+      ...account,
+      profile: { ...account.profile, onboardingCompletedAt: new Date('2026-10-19'), preferencesVersion: 2 },
+    });
+    await service.update('owner', { avatarUrl: 'https://cdn.example.com/avatar.jpg' });
+    const args = user.update.mock.calls[0][0];
+    expect(args.data.avatarUrl).toBe('https://cdn.example.com/avatar.jpg');
+    expect(args.data.profile.upsert.update).not.toHaveProperty('preferencesVersion');
+  });
+
   it('preserves the first onboarding completion date when expectedVersion matches', async () => {
     user.findUnique.mockResolvedValue({
       ...account,
@@ -122,7 +133,12 @@ describe('ProfileService', () => {
   });
 
   it.each([
-    { name: null }, { name: ' ' }, { learningPurpose: null }, { learningPurpose: 'OTHER' },
+    { name: null }, { name: ' ' }, { avatarUrl: 'not-a-url' }, { avatarUrl: 'javascript:alert(1)' },
+    { avatarUrl: 'http://cdn.example.com/a.png' },
+    { avatarUrl: 'http://localhost:3000/a.png' }, { avatarUrl: 'http://127.0.0.1/a.png' },
+    { avatarUrl: 'http://169.254.169.254/latest/meta-data/' },
+    { avatarUrl: 'https://user:pass@cdn.example.com/a.png' }, { avatarUrl: 'http://[::1]/a.png' },
+    { learningPurpose: null }, { learningPurpose: 'OTHER' },
     { dailyGoalMinutes: null }, { dailyGoalMinutes: 4 }, { dailyGoalMinutes: 121 },
     { dailyGoalMinutes: 10.5 }, { selfAssessedCefr: 'C2' },
     { targetCefr: 'C2' }, { reminderTime: '25:00' }, { reminderTime: '9:30' },
@@ -130,9 +146,10 @@ describe('ProfileService', () => {
     expect(await validate(plainToInstance(UpdateProfileDto, input))).not.toHaveLength(0);
   });
 
-  it('accepts unknown self-assessment, valid reminderTime and trims the name', async () => {
+  it('accepts unknown self-assessment, valid reminderTime, public/null avatarUrl and trims the name', async () => {
     const dto = plainToInstance(UpdateProfileDto, {
       name: '  Learner  ',
+      avatarUrl: 'https://cdn.example.com/avatar.png',
       learningPurpose: 'EXAM',
       targetCefr: 'B2',
       dailyGoalMinutes: 5,
@@ -141,5 +158,6 @@ describe('ProfileService', () => {
     });
     expect(await validate(dto)).toHaveLength(0);
     expect(dto.name).toBe('Learner');
+    expect(await validate(plainToInstance(UpdateProfileDto, { avatarUrl: null }))).toHaveLength(0);
   });
 });

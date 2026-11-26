@@ -120,6 +120,7 @@ function fixture(
             questionCount: Array.isArray(lessonContent?.questions) ? lessonContent.questions.length : 5,
             audioDurationMs: typeof lessonContent?.audioDurationMs === 'number' ? lessonContent.audioDurationMs : null,
             cefrLevel: row.unit?.cefrLevel ?? null,
+            coverImageUrl: typeof lessonContent?.coverImageUrl === 'string' ? lessonContent.coverImageUrl : null,
           };
         });
     }),
@@ -799,6 +800,92 @@ describe('LearningService', () => {
       const retried = await svc.submit('owner', 'attempt', 5);
       expect(evaluateReadingLevel).toHaveBeenCalledTimes(1);
       expect(retried.levelChange).toEqual({ kind: 'READING', from: 'A2', to: 'B1', direction: 'UP' });
+    });
+
+    it('exposes visual covers and option images before completion while gating speakerAvatar until submit', async () => {
+      const firstClass = JSON.parse(readFileSync(join(__dirname, '../../../prisma/listening-content/first-class-v1.json'), 'utf8')) as LearningContent;
+      const now = new Date('2026-11-01T00:00:00Z');
+      const lesson: LearningLesson & { unit?: { cefrLevel: string } | null } = {
+        id: 'fc-lesson',
+        code: 'listening-first-class',
+        kind: 'LISTENING',
+        title: 'Checking Tomorrow’s Timetable',
+        description: 'Visual listening',
+        estimatedMinutes: 5,
+        sortOrder: 49,
+        published: true,
+        contentVersion: 1,
+        unitId: 'a1-u1',
+        content: structuredClone(firstClass) as unknown as Prisma.JsonValue,
+        createdAt: now,
+        updatedAt: now,
+        unit: { cefrLevel: 'A1' },
+      };
+      const { service, db, attempt } = fixture(undefined, [lesson]);
+      db.learningLesson.findFirst.mockResolvedValue(lesson);
+
+      const catalogue = await service.catalogue('owner', 'LISTENING');
+      expect(catalogue.items.find((i) => i.id === 'fc-lesson')).toMatchObject({
+        coverImageUrl: firstClass.coverImageUrl,
+      });
+
+      const detail = await service.lesson('owner', 'fc-lesson');
+      expect(detail.content.coverImageUrl).toBe(firstClass.coverImageUrl);
+      expect(detail.content.keyVocabulary?.every((v) => Boolean(v.imageUrl))).toBe(true);
+      expect(detail.content).not.toHaveProperty('transcriptSegments');
+      expect(detail.questions.find((q) => q.id === 'q02')?.options.every((o) => Boolean(o.imageUrl))).toBe(true);
+
+      const started = await service.start('owner', 'fc-lesson');
+      expect(started.content).not.toHaveProperty('transcriptSegments');
+      expect((started.lesson as { coverImageUrl?: string }).coverImageUrl).toBe(firstClass.coverImageUrl);
+
+      attempt.lessonId = 'fc-lesson';
+      attempt.lessonSnapshot = { id: 'fc-lesson', code: 'listening-first-class', kind: 'LISTENING', title: lesson.title, description: lesson.description, estimatedMinutes: 5, contentVersion: 1, questionCount: firstClass.questions.length, audioDurationMs: firstClass.audioDurationMs, coverImageUrl: firstClass.coverImageUrl };
+      attempt.contentSnapshot = structuredClone(firstClass) as unknown as Prisma.JsonValue;
+      attempt.totalQuestions = firstClass.questions.length;
+      for (let i = 0; i < firstClass.questions.length; i++) {
+        await service.check('owner', attempt.id, firstClass.questions[i].id, { expectedVersion: i, optionId: 'A' });
+      }
+      const submitted = await service.submit('owner', attempt.id, firstClass.questions.length);
+      expect(submitted.content.transcriptSegments?.[0]).toMatchObject({
+        speaker: 'Noah',
+        speakerAvatar: '/media/learning/v1/images/avatar-noah.jpg',
+      });
+    });
+
+    it('exposes coverImageUrl for READING lessons in catalogue and lesson detail', async () => {
+      const now = new Date('2026-11-01T00:00:00Z');
+      const readingLesson: LearningLesson & { unit?: { cefrLevel: string } | null } = {
+        id: 'rd-cover',
+        code: 'reading-a2-club-meeting',
+        kind: 'READING',
+        title: 'A New Time for the Club Meeting',
+        description: 'Reading cover',
+        estimatedMinutes: 5,
+        sortOrder: 5,
+        published: true,
+        contentVersion: 5,
+        unitId: 'a2-u1',
+        content: {
+          steps: [],
+          coverImageUrl: '/media/learning/v1/images/scene-reading-book-club.jpg',
+          passage: ['Paragraph 1'],
+          questions: [],
+        } as unknown as Prisma.JsonValue,
+        createdAt: now,
+        updatedAt: now,
+        unit: { cefrLevel: 'A2' },
+      };
+      const { service, db } = fixture(undefined, [readingLesson]);
+      db.learningLesson.findFirst.mockResolvedValue(readingLesson);
+
+      const catalogue = await service.catalogue('owner', 'READING');
+      expect(catalogue.items.find((i) => i.id === 'rd-cover')).toMatchObject({
+        coverImageUrl: '/media/learning/v1/images/scene-reading-book-club.jpg',
+      });
+
+      const detail = await service.lesson('owner', 'rd-cover');
+      expect(detail.content.coverImageUrl).toBe('/media/learning/v1/images/scene-reading-book-club.jpg');
     });
   });
 });

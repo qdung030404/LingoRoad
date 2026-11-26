@@ -47,14 +47,14 @@ class ConversationSampleDto {
 @UseGuards(JwtAuthGuard)
 export class VoiceConversationsController {
   constructor(private readonly prisma: PrismaService, private readonly voice: VoiceLiveConfig,
-    private readonly conversations: VoiceConversationsService, private readonly speaking: SpeakingService) {}
+    private readonly conversations: VoiceConversationsService, private readonly speaking: SpeakingService) { }
 
   @Get('topics')
   async topics() {
     const items = await this.prisma.speakingPrompt.findMany({
       where: { published: true, mode: 'TOPIC' },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true, title: true, text: true, hints: true, contentVersion: true },
+      select: { id: true, code: true, title: true, text: true, hints: true, imageUrl: true, contentVersion: true },
     });
     return { success: true, data: { ...this.voice.readiness(), items } };
   }
@@ -65,24 +65,28 @@ export class VoiceConversationsController {
       where: { id, published: true, mode: 'TOPIC' },
     });
     if (!topic) throw new HttpException({ code: 'conversation_topic_not_found', message: 'Chủ đề chưa khả dụng.' }, 404);
-    const { id: topicId, code, title, text, hints, contentVersion } = topic;
+    const { id: topicId, code, title, text, hints, imageUrl, contentVersion } = topic;
     const readAloud = await this.speaking.prompts('READ_ALOUD', readingByTopic[code] ?? []);
-    return { success: true, data: {
-      ...this.voice.readiness(), id: topicId, title, text, hints, contentVersion, maxDurationSeconds: 180,
-      practice: {
-        readAloud: { enabled: readAloud.enabled, items: readAloud.items },
-        topic: { enabled: this.speaking.modeEnabled('TOPIC'), prompt: topic },
-      },
-      preparation: conversationPreparation(code),
-    } };
+    return {
+      success: true, data: {
+        ...this.voice.readiness(), id: topicId, code, title, text, hints, imageUrl, contentVersion, maxDurationSeconds: 180,
+        practice: {
+          readAloud: { enabled: readAloud.enabled, items: readAloud.items },
+          topic: { enabled: this.speaking.modeEnabled('TOPIC'), prompt: topic },
+        },
+        preparation: conversationPreparation(code),
+      }
+    };
   }
 
   @Post()
   async create(@CurrentUser('sub') userId: string, @Body() body: CreateConversationDto) {
     const { topicId, clientRequestId, deferHistory, voice, speechRate, turnPause } = body;
-    return { success: true, data: await this.conversations.create(
-      userId, topicId, clientRequestId, deferHistory, { voice, speechRate, turnPause },
-    ) };
+    return {
+      success: true, data: await this.conversations.create(
+        userId, topicId, clientRequestId, deferHistory, { voice, speechRate, turnPause },
+      )
+    };
   }
 
   @Get()

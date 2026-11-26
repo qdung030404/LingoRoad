@@ -33,6 +33,70 @@ export const twisters = [
   'The thirty-three thieves thought that they thrilled the throne throughout Thursday.',
 ];
 
+export const topicImages = [
+  '/media/learning/v1/images/topic-introduce-yourself.jpg',
+  '/media/learning/v1/images/topic-my-day.jpg',
+  '/media/learning/v1/images/topic-my-family.jpg',
+  '/media/learning/v1/images/topic-my-hobbies.jpg',
+  '/media/learning/v1/images/topic-favourite-food.jpg',
+  '/media/learning/v1/images/topic-where-i-live.jpg',
+];
+
+export const pictureDescriptions = [
+  {
+    code: 'picture-1',
+    title: 'At a busy campus café',
+    text: 'Describe the people, food and atmosphere in this campus café picture.',
+    difficulty: 1,
+    hints: [
+      'What is the barista doing with the coffee machine?',
+      'What clothes and equipment can you see?',
+      'What kind of drink is being prepared?',
+    ],
+    imageUrl: '/media/learning/v1/images/picture-campus-cafe.jpg',
+    visualContext: 'A close-up café counter scene: a barista wearing a light blue shirt and black apron uses a tamper to press coffee grounds into a portafilter next to a stainless-steel espresso machine with glowing orange switches.',
+  },
+  {
+    code: 'picture-2',
+    title: 'Sunny weekend in the park',
+    text: 'Describe the activities and surroundings in this weekend park picture.',
+    difficulty: 1,
+    hints: [
+      'Who is sitting on the blanket and how do they look?',
+      'What fruit are the children sharing?',
+      'How does the weather and grass look in the background?',
+    ],
+    imageUrl: '/media/learning/v1/images/picture-weekend-park.jpg',
+    visualContext: 'A bright sunny park picnic: a boy and two young girls sit closely together on a white blanket over green grass, smiling happily and sharing fresh red strawberries.',
+  },
+  {
+    code: 'picture-3',
+    title: 'Cooking dinner at home',
+    text: 'Describe the family members and what they are preparing in the kitchen.',
+    difficulty: 2,
+    hints: [
+      'Who is in the kitchen and what are they doing together?',
+      'What vegetables, drinks or kitchen items can you see on the counter?',
+      'How do the mother and children feel?',
+    ],
+    imageUrl: '/media/learning/v1/images/picture-family-kitchen.jpg',
+    visualContext: 'A bright modern family kitchen: a smiling mother stands at the counter with bell peppers, an eggplant on a cutting board, a glass bowl, and a pitcher of orange juice while handing a slice of green pepper to her young son sitting on the counter beside another child.',
+  },
+  {
+    code: 'picture-4',
+    title: 'Group study at the library',
+    text: 'Describe the students, objects on the table and setting in this library.',
+    difficulty: 2,
+    hints: [
+      'Who are the two main students and what are they looking at?',
+      'What can you see on the shelves and in the background?',
+      'Why does this library look good for studying?',
+    ],
+    imageUrl: '/media/learning/v1/images/picture-study-library.jpg',
+    visualContext: 'A bright spacious university library: a bearded young man in a light shirt and a young woman wearing glasses stand together browsing a row of colourful hardcover books, with more bookshelves and students studying in the background.',
+  },
+];
+
 export async function seedSpeakingContent(prisma: PrismaClient) {
   const groups = [
     { mode: SpeakingMode.READ_ALOUD, prefix: 'read-aloud', texts: readingTexts },
@@ -46,10 +110,32 @@ export async function seedSpeakingContent(prisma: PrismaClient) {
         maxDurationSeconds: group.mode === SpeakingMode.TOPIC ? 60 : 30,
         hints: group.mode === SpeakingMode.TOPIC ? topicContent[index].slice(1) : [],
         sampleAsset: group.mode === SpeakingMode.TOPIC ? null : `${group.prefix}-${index + 1}`,
+        imageUrl: group.mode === SpeakingMode.TOPIC ? topicImages[index] ?? null : null,
+        visualContext: null,
+        ...(group.mode === SpeakingMode.TOPIC ? { contentVersion: 2 } : {}),
         sortOrder: index + 1 };
       await prisma.speakingPrompt.upsert({ where: { code: `${group.prefix}-${index + 1}` },
         update: metadata, create: { code: `${group.prefix}-${index + 1}`, text, ...metadata } });
     }
+  }
+  for (const [index, item] of pictureDescriptions.entries()) {
+    const metadata = {
+      mode: SpeakingMode.PICTURE_DESCRIPTION,
+      title: item.title,
+      difficulty: item.difficulty,
+      maxDurationSeconds: 60,
+      hints: item.hints,
+      sampleAsset: null,
+      imageUrl: item.imageUrl,
+      visualContext: item.visualContext,
+      contentVersion: 2,
+      sortOrder: index + 1,
+    };
+    await prisma.speakingPrompt.upsert({
+      where: { code: item.code },
+      update: metadata,
+      create: { code: item.code, text: item.text, ...metadata },
+    });
   }
 }
 if (require.main === module) {

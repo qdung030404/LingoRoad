@@ -1,3 +1,4 @@
+import { isIP } from 'node:net';
 import { Transform } from 'class-transformer';
 import { LearningKind, LearningPurpose } from '@prisma/client';
 import {
@@ -16,8 +17,49 @@ import {
   MaxLength,
   Min,
   MinLength,
+  registerDecorator,
   ValidateIf,
+  ValidationOptions,
 } from 'class-validator';
+
+function isSafeAvatarUrlString(value: unknown): boolean {
+  if (typeof value !== 'string' || !value) return false;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'https:') return false;
+    if (parsed.username !== '' || parsed.password !== '') return false;
+    const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (
+      !host ||
+      host === 'localhost' ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal') ||
+      !host.includes('.')
+    ) {
+      return false;
+    }
+    return isIP(host) === 0;
+  } catch {
+    return false;
+  }
+}
+
+function IsSafeAvatarUrl(validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'isSafeAvatarUrl',
+      target: object.constructor,
+      propertyName,
+      options: {
+        message: 'URL ảnh đại diện phải dùng https với tên miền công khai hợp lệ.',
+        ...validationOptions,
+      },
+      validator: {
+        validate: (value: unknown) => isSafeAvatarUrlString(value),
+      },
+    });
+  };
+}
 
 export class UpdateProfileDto {
   @ValidateIf((_object, value: unknown) => value !== undefined)
@@ -26,6 +68,13 @@ export class UpdateProfileDto {
   @MinLength(2)
   @MaxLength(100)
   name?: string;
+
+  @ValidateIf((_object, value: unknown) => value !== undefined && value !== null)
+  @IsString()
+  @Transform(({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value)
+  @IsSafeAvatarUrl()
+  @MaxLength(500)
+  avatarUrl?: string | null;
 
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsEnum(LearningPurpose)
