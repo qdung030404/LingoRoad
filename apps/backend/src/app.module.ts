@@ -12,6 +12,7 @@ import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
 import { HealthController } from './health.controller';
 import { SpeakingModule } from './modules/speaking/speaking.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   controllers: [HealthController],
@@ -41,6 +42,7 @@ import { SpeakingModule } from './modules/speaking/speaking.module';
     VocabularyModule,
     SpeakingModule,
     AssessmentModule,
+    AdminModule,
   ],
 })
 export class AppModule {}
