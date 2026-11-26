@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "next lint",
-    "test": "tsx --test test/landing.test.ts"
+    "test": "tsx --test test/landing.test.ts test/admin.test.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",
