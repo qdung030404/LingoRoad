@@ -2,7 +2,6 @@ import { Test, TestingModule } from "@nestjs/testing";
 import {
   AssessmentSkill,
   CefrLevel,
-  ItemType,
   ItemUsageScope,
 } from "@prisma/client";
 import { AssessmentItemGroupRepository } from "./assessment-item-group.repository";

@@ -7,6 +7,7 @@ import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import '../auth/session_controller.dart';
 import '../common.dart';
+import 'cefr_road_chart.dart';
 import 'profile_constants.dart';
 import 'profile_edit_dialog.dart';
 
@@ -141,6 +142,12 @@ class _LearningGoalsEditDialogState extends State<LearningGoalsEditDialog> {
 
   List<int> get _minuteOptions =>
       {...dailyGoalMinuteOptions, _savedMinutes}.toList()..sort();
+
+  Map<String, String> get _purposeOptions => {
+    ...learningPurposes,
+    if (!learningPurposes.containsKey(_draftPurpose))
+      _draftPurpose: learningPurposeLabelVi(_draftPurpose),
+  };
 
   Future<bool> _save() async {
     if (_saving || _draftKinds.isEmpty) return false;
@@ -331,7 +338,7 @@ class _LearningGoalsEditDialogState extends State<LearningGoalsEditDialog> {
                     foregroundColor: Colors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   onPressed: () =>
@@ -351,7 +358,7 @@ class _LearningGoalsEditDialogState extends State<LearningGoalsEditDialog> {
                 key: const Key('leaveDialogSaveAndLeaveButton'),
                 text: 'Lưu và đóng',
                 isSecondary: true,
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(10),
                 onPressed: () => Navigator.of(
                   dialogContext,
                 ).pop(_LeaveDecision.saveAndLeave),
@@ -367,7 +374,7 @@ class _LearningGoalsEditDialogState extends State<LearningGoalsEditDialog> {
                     foregroundColor: ProfilePalette.danger,
                     side: const BorderSide(color: AppColors.error25),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   onPressed: () =>
@@ -421,7 +428,7 @@ class _LearningGoalsEditDialogState extends State<LearningGoalsEditDialog> {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: ProfilePalette.ink.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -455,11 +462,11 @@ class _LearningGoalsEditDialogState extends State<LearningGoalsEditDialog> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: ProfilePalette.ink,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: AppColors.grey200,
+                disabledBackgroundColor: AppColors.grey100,
                 disabledForegroundColor: AppColors.grey500,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
               onPressed: canSubmit ? _save : null,
@@ -475,6 +482,173 @@ class _LearningGoalsEditDialogState extends State<LearningGoalsEditDialog> {
           );
   }
 
+  Widget _buildPurposeGrid(BoxConstraints constraints) {
+    final entries = _purposeOptions.entries.toList();
+    final twoCols = constraints.maxWidth >= 260;
+    if (!twoCols) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < entries.length; i++) ...[
+            if (i > 0) const SizedBox(height: 8),
+            _PurposeOptionCard(
+              key: ValueKey('purpose-chip-${entries[i].key}'),
+              label: entries[i].value,
+              selected: _draftPurpose == entries[i].key,
+              onTap: _saving
+                  ? null
+                  : () => setState(() {
+                      _draftPurpose = entries[i].key;
+                      _saveError = null;
+                    }),
+            ),
+          ],
+        ],
+      );
+    }
+
+    final rows = <Widget>[];
+    for (var i = 0; i < entries.length; i += 2) {
+      final left = entries[i];
+      final right = i + 1 < entries.length ? entries[i + 1] : null;
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 8));
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _PurposeOptionCard(
+                  key: ValueKey('purpose-chip-${left.key}'),
+                  label: left.value,
+                  selected: _draftPurpose == left.key,
+                  onTap: _saving
+                      ? null
+                      : () => setState(() {
+                          _draftPurpose = left.key;
+                          _saveError = null;
+                        }),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: right == null
+                    ? const SizedBox.shrink()
+                    : _PurposeOptionCard(
+                        key: ValueKey('purpose-chip-${right.key}'),
+                        label: right.value,
+                        selected: _draftPurpose == right.key,
+                        onTap: _saving
+                            ? null
+                            : () => setState(() {
+                                _draftPurpose = right.key;
+                                _saveError = null;
+                              }),
+                      ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+  }
+
+  Widget _buildCefrSelector() {
+    final levels = _cefrOptions;
+    if (levels.length <= 4) {
+      return Row(
+        children: [
+          for (var i = 0; i < levels.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _CefrOptionTile(
+                key: ValueKey('cefr-chip-${levels[i]}'),
+                level: levels[i],
+                selected: _draftCefr == levels[i],
+                onTap: _saving
+                    ? null
+                    : () => setState(() {
+                        _draftCefr = levels[i];
+                        _saveError = null;
+                      }),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final level in levels)
+          SizedBox(
+            width: 64,
+            child: _CefrOptionTile(
+              key: ValueKey('cefr-chip-$level'),
+              level: level,
+              selected: _draftCefr == level,
+              onTap: _saving
+                  ? null
+                  : () => setState(() {
+                      _draftCefr = level;
+                      _saveError = null;
+                    }),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMinutesSelector(BoxConstraints constraints) {
+    final options = _minuteOptions;
+    final fitSingleRow = options.length <= 5 && constraints.maxWidth >= 280;
+    if (fitSingleRow) {
+      return Row(
+        children: [
+          for (var i = 0; i < options.length; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            Expanded(
+              child: _MinuteOptionTile(
+                key: ValueKey('minutes-chip-${options[i]}'),
+                minutes: options[i],
+                selected: _draftMinutes == options[i],
+                onTap: _saving
+                    ? null
+                    : () => setState(() {
+                        _draftMinutes = options[i];
+                        _saveError = null;
+                      }),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final minutes in options)
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 56),
+            child: _MinuteOptionTile(
+              key: ValueKey('minutes-chip-$minutes'),
+              minutes: minutes,
+              selected: _draftMinutes == minutes,
+              onTap: _saving
+                  ? null
+                  : () => setState(() {
+                      _draftMinutes = minutes;
+                      _saveError = null;
+                    }),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) => PopScope<bool>(
     canPop: !_isDirty && !_saving,
@@ -487,163 +661,122 @@ class _LearningGoalsEditDialogState extends State<LearningGoalsEditDialog> {
       closeKey: const Key('goalsBackButton'),
       onClose: _saving ? null : _handleBackPressed,
       scrollController: _scrollController,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_saveError != null) ...[
-            _GoalsErrorBanner(message: _saveError!),
-            const SizedBox(height: 12),
-          ],
-          if (_conflict != null) ...[
-            _ConflictResolutionCard(
-              conflict: _conflict!,
-              onUseServer: _saving
-                  ? null
-                  : () => _applyServerVersion(_conflict!),
-            ),
-            const SizedBox(height: 12),
-          ],
-          _GoalSelect(
-            key: const Key('goalsPurposeDropdown'),
-            label: 'Mục đích',
-            value: _draftPurpose,
-            items: {
-              ...learningPurposes,
-              if (!learningPurposes.containsKey(_draftPurpose))
-                _draftPurpose: learningPurposeLabelVi(_draftPurpose),
-            },
-            onChanged: _saving
-                ? null
-                : (value) => setState(() {
-                    _draftPurpose = value;
-                    _saveError = null;
-                  }),
-          ),
-          const SizedBox(height: 12),
-          _GoalSelect(
-            key: const Key('goalsCefrDropdown'),
-            label: 'Trình độ mục tiêu',
-            value: _draftCefr,
-            items: {for (final level in _cefrOptions) level: level},
-            onChanged: _saving
-                ? null
-                : (value) => setState(() {
-                    _draftCefr = value;
-                    _saveError = null;
-                  }),
-          ),
-          const SizedBox(height: 12),
-          _GoalSelect(
-            key: const Key('goalsMinutesDropdown'),
-            label: 'Phút mỗi ngày',
-            value: _draftMinutes.toString(),
-            items: {
-              for (final minutes in _minuteOptions) '$minutes': '$minutes phút',
-            },
-            onChanged: _saving
-                ? null
-                : (value) => setState(() {
-                    _draftMinutes = int.parse(value);
-                    _saveError = null;
-                  }),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Nhóm bài ưu tiên',
-            style: designText(14, weight: FontWeight.w600),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            children: [
-              for (final kind in allPreferredLearningKinds)
-                _MultiSelectChip(
-                  key: ValueKey('kind-chip-$kind'),
-                  label: learningKindLabelVi(kind),
-                  selected: _draftKinds.contains(kind),
-                  onTap: _saving
-                      ? null
-                      : () => setState(() {
-                          if (_draftKinds.contains(kind)) {
-                            if (_draftKinds.length > 1) {
-                              _draftKinds.remove(kind);
-                            }
-                          } else {
-                            _draftKinds.add(kind);
-                          }
-                          _saveError = null;
-                        }),
-                ),
+      body: LayoutBuilder(
+        builder: (context, constraints) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_saveError != null) ...[
+              _GoalsErrorBanner(message: _saveError!),
+              const SizedBox(height: 14),
             ],
-          ),
-        ],
+            if (_conflict != null) ...[
+              _ConflictResolutionCard(
+                conflict: _conflict!,
+                onUseServer: _saving
+                    ? null
+                    : () => _applyServerVersion(_conflict!),
+              ),
+              const SizedBox(height: 14),
+            ],
+            Text(
+              'Mục đích học',
+              style: designText(
+                13.5,
+                weight: FontWeight.w700,
+                color: ProfilePalette.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildPurposeGrid(constraints),
+            const SizedBox(height: 16),
+            Text(
+              'Trình độ mục tiêu (CEFR)',
+              style: designText(
+                13.5,
+                weight: FontWeight.w700,
+                color: ProfilePalette.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildCefrSelector(),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Thời lượng mỗi ngày',
+                    style: designText(
+                      13.5,
+                      weight: FontWeight.w700,
+                      color: ProfilePalette.ink,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$_draftMinutes phút',
+                  style: designText(
+                    13,
+                    weight: FontWeight.w700,
+                    color: ProfilePalette.accent,
+                  ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildMinutesSelector(constraints),
+            const SizedBox(height: 16),
+            Text(
+              'Nhóm bài ưu tiên',
+              style: designText(
+                13.5,
+                weight: FontWeight.w700,
+                color: ProfilePalette.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final kind in allPreferredLearningKinds)
+                  _MultiSelectChip(
+                    key: ValueKey('kind-chip-$kind'),
+                    glyph: learningKindGlyph(kind),
+                    label: learningKindLabelVi(kind),
+                    selected: _draftKinds.contains(kind),
+                    onTap: _saving
+                        ? null
+                        : () => setState(() {
+                            if (_draftKinds.contains(kind)) {
+                              if (_draftKinds.length > 1) {
+                                _draftKinds.remove(kind);
+                              }
+                            } else {
+                              _draftKinds.add(kind);
+                            }
+                            _saveError = null;
+                          }),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
       action: _buildSaveAction(),
     ),
   );
 }
 
-class _GoalSelect extends StatelessWidget {
-  const _GoalSelect({
-    super.key,
-    required this.label,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String value;
-  final Map<String, String> items;
-  final ValueChanged<String>? onChanged;
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(label, style: designText(14, weight: FontWeight.w600)),
-      const SizedBox(height: 6),
-      DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.grey50,
-          border: Border.all(color: AppColors.borderLight),
-          borderRadius: BorderRadius.circular(9),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: value,
-              isExpanded: true,
-              itemHeight: 48,
-              dropdownColor: ProfilePalette.paper,
-              borderRadius: BorderRadius.circular(9),
-              style: designText(14, color: ProfilePalette.ink),
-              items: [
-                for (final entry in items.entries)
-                  DropdownMenuItem(value: entry.key, child: Text(entry.value)),
-              ],
-              onChanged: onChanged == null
-                  ? null
-                  : (selected) {
-                      if (selected != null) onChanged!(selected);
-                    },
-            ),
-          ),
-        ),
-      ),
-    ],
-  );
-}
-
-class _MultiSelectChip extends StatelessWidget {
-  const _MultiSelectChip({
+class _PurposeOptionCard extends StatelessWidget {
+  const _PurposeOptionCard({
     super.key,
     required this.label,
     required this.selected,
     required this.onTap,
   });
+
   final String label;
   final bool selected;
   final VoidCallback? onTap;
@@ -653,39 +786,194 @@ class _MultiSelectChip extends StatelessWidget {
     button: true,
     selected: selected,
     child: Material(
-      color: selected ? ProfilePalette.tagSurface : ProfilePalette.paper,
+      color: selected ? AppColors.primary25 : AppColors.grey5,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: AppRadius.cardSm,
         side: BorderSide(
-          color: selected ? ProfilePalette.accent : ProfilePalette.inputBorder,
+          color: selected ? AppColors.primary : ProfilePalette.line,
+          width: selected ? 1.5 : 1,
         ),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: AppRadius.cardSm,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 48),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                label,
+                softWrap: true,
+                style: designText(
+                  13.5,
+                  weight: FontWeight.w600,
+                  color: selected ? ProfilePalette.accent : ProfilePalette.ink,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _CefrOptionTile extends StatelessWidget {
+  const _CefrOptionTile({
+    super.key,
+    required this.level,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String level;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    child: Material(
+      color: selected ? ProfilePalette.ink : AppColors.grey5,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.cardSm,
+        side: BorderSide(
+          color: selected ? ProfilePalette.ink : ProfilePalette.line,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.cardSm,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Center(
+            child: Text(
+              level,
+              style:
+                  designText(
+                    14.5,
+                    weight: FontWeight.w800,
+                    color: selected ? Colors.white : ProfilePalette.ink,
+                  ).copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _MinuteOptionTile extends StatelessWidget {
+  const _MinuteOptionTile({
+    super.key,
+    required this.minutes,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final int minutes;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    label: '$minutes phút mỗi ngày',
+    child: Material(
+      color: selected ? AppColors.primary : AppColors.grey5,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.cardSm,
+        side: BorderSide(
+          color: selected ? AppColors.primary : ProfilePalette.line,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.cardSm,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '${minutes}p',
+                  style:
+                      designText(
+                        13.5,
+                        weight: FontWeight.w700,
+                        color: selected ? Colors.white : ProfilePalette.ink,
+                      ).copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _MultiSelectChip extends StatelessWidget {
+  const _MultiSelectChip({
+    super.key,
+    required this.glyph,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final ConceptGlyph glyph;
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    child: Material(
+      color: selected ? AppColors.primary25 : ProfilePalette.paper,
+      shape: RoundedRectangleBorder(
+        borderRadius: AppRadius.cardSm,
+        side: BorderSide(
+          color: selected ? AppColors.primary : ProfilePalette.inputBorder,
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.cardSm,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  selected
-                      ? Icons.check_box_rounded
-                      : Icons.check_box_outline_blank_rounded,
-                  size: 20,
-                  color: selected ? ProfilePalette.ink : AppColors.grey400,
+                ConceptSvgIcon(
+                  selected ? ConceptGlyph.check : glyph,
+                  size: 16,
+                  color: selected ? ProfilePalette.accent : AppColors.grey500,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 7),
                 Text(
                   label,
                   style: designText(
-                    14,
-                    weight: FontWeight.w500,
+                    13.5,
+                    weight: FontWeight.w600,
                     color: selected
-                        ? ProfilePalette.tagText
-                        : ProfilePalette.ink,
+                        ? ProfilePalette.accent
+                        : ProfilePalette.muted,
                   ),
                 ),
               ],
@@ -748,8 +1036,8 @@ class _ConflictResolutionCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: ProfilePalette.permissionBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ProfilePalette.goalsBorder),
+        borderRadius: AppRadius.cardSm,
+        border: Border.all(color: ProfilePalette.permissionBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

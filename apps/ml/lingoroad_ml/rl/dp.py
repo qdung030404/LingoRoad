@@ -113,7 +113,7 @@ class DpPolicy:
 
 def solve(n_skills: int = 5, k: int = 11, gamma: float = 0.98,
           tol: float = 1e-6, max_iter: int = 5000) -> DpPolicy:
-    grid, corner_idx, corner_w, reward, terminal = build_model(n_skills, k)
+    _, corner_idx, corner_w, reward, terminal = build_model(n_skills, k)
     v = np.zeros(k ** n_skills)
     v[terminal] = 1.0                    # goal bonus, collected on arrival
     non_terminal = ~terminal

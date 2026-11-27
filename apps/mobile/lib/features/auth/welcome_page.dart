@@ -64,7 +64,6 @@ class _WelcomePageState extends State<WelcomePage> {
     super.dispose();
   }
 
-  static const sources = ['welcome', 'welcome-audio', 'welcome-path'];
   static const titles = [
     'Ứng dụng học\ntiếng Anh',
     'Học tiếng anh\nmọi nơi',
@@ -121,7 +120,6 @@ class _WelcomePageState extends State<WelcomePage> {
                                 setState(() => page = value),
                             itemBuilder: (context, index) => RepaintBoundary(
                               child: _WelcomeArt(
-                                source: sources[index],
                                 index: index,
                                 scale: scale,
                                 phoneCacheWidth: phoneCacheWidth,
@@ -404,12 +402,10 @@ class _SocialButton extends StatelessWidget {
 
 class _WelcomeArt extends StatelessWidget {
   const _WelcomeArt({
-    required this.source,
     required this.index,
     required this.scale,
     required this.phoneCacheWidth,
   });
-  final String source;
   final int index;
   final double scale;
   final int phoneCacheWidth;

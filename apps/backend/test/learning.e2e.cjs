@@ -39,8 +39,10 @@ describe('Persisted learning workflow', () => {
       .useValue(mlMock)
       .compile();
     app = module.createNestApplication({ logger: false });
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true,
-      transformOptions: { enableImplicitConversion: true } }));
+    app.useGlobalPipes(new ValidationPipe({
+      whitelist: true, transform: true, forbidNonWhitelisted: true,
+      transformOptions: { enableImplicitConversion: true }
+    }));
     app.useGlobalFilters(new HttpExceptionFilter());
     app.useStaticAssets(path.join(__dirname, '../media/learning'), {
       prefix: '/media/learning/', index: false, dotfiles: 'deny',
@@ -326,11 +328,13 @@ describe('Persisted learning workflow', () => {
 
   it('freezes published content per attempt across edits and reseeding', async () => {
     const owner = await account(), source = seeds[2];
-    const fixture = await prisma.learningLesson.create({ data: {
-      code: `snapshot-test-${randomUUID()}`, kind: source.kind, title: 'Snapshot original',
-      description: source.description, estimatedMinutes: source.estimatedMinutes,
-      contentVersion: 1, sortOrder: 999, published: true, content: source.content,
-    } });
+    const fixture = await prisma.learningLesson.create({
+      data: {
+        code: `snapshot-test-${randomUUID()}`, kind: source.kind, title: 'Snapshot original',
+        description: source.description, estimatedMinutes: source.estimatedMinutes,
+        contentVersion: 1, sortOrder: 999, published: true, content: source.content,
+      }
+    });
     fixtures.push(fixture.id);
     let attempt = await start(owner, fixture);
     const updated = structuredClone(fixture.content);
@@ -846,9 +850,11 @@ describe('Persisted learning workflow', () => {
       expectedVersion: legacyClub.version,
     }).expect(200)).body.data;
     assert.equal(legacyClubSubmitted.levelChange, null);
-    await prisma.learningAttempt.update({ where: { id: legacyClubSubmitted.id }, data: {
-      contentVersion: 3, lessonSnapshot: { ...legacyClubSubmitted.lesson, contentVersion: 3 },
-    } });
+    await prisma.learningAttempt.update({
+      where: { id: legacyClubSubmitted.id }, data: {
+        contentVersion: 3, lessonSnapshot: { ...legacyClubSubmitted.lesson, contentVersion: 3 },
+      }
+    });
     await prisma.learningAnswerExposure.update({
       where: { userId_lessonId: { userId: legacyUser.userId, lessonId: clubSeed.id } },
       data: { contentVersion: 3 },

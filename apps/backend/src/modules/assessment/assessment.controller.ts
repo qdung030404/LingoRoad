@@ -12,7 +12,6 @@ import {
 } from "@nestjs/common";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
-import { ApiResponse } from "../../common/interfaces/api-response.interface";
 import { AssessmentMatrixService } from "./services/assessment-matrix.service";
 import { AssessmentPracticeService } from "./services/assessment-practice.service";
 import { EvaluateCefrWritingUseCase } from "./services/evaluate-cefr-writing.use-case";
@@ -27,7 +26,6 @@ import { ParseSkillCodePipe } from "./pipes/parse-skill-code.pipe";
 import { CefrMatrixOverviewResponse } from "./dto/cefr-matrix-response.dto";
 import { AssessmentSafeGroupDto } from "./dto/assessment-safe-group.dto";
 import { AssessmentSafeItemDto } from "./dto/assessment-safe-item.dto";
-import { CefrLevel } from "@prisma/client";
 
 export interface AssessmentResponse<T> {
   success: boolean;

@@ -82,14 +82,39 @@ async function main() {
   assert.equal(backendHealth?.data?.schema, 'ready');
   report.checks.push({ name: 'backend_health', status: 'passed' });
 
-  // 2. Frontend /health
-  const frontendHealthRes = await fetchWithRetry(`${frontendUrl}/health`);
+  // 2. Frontend /health (chờ container mới hoàn tất swap nếu có --expected-version)
+  let frontendHealth = null;
+  let frontendStatus = 0;
+  for (let attempt = 1; attempt <= 36; attempt += 1) {
+    try {
+      const res = await fetch(`${frontendUrl}/health`);
+      frontendStatus = res.status;
+      if (res.status === 200) {
+        const body = await res.json();
+        frontendHealth = body;
+        const versionMatches =
+          !expectedVersion || body?.data?.version === expectedVersion;
+        if (
+          body?.success === true &&
+          body?.data?.status === 'ok' &&
+          body?.data?.service === 'web-frontend' &&
+          versionMatches
+        ) {
+          break;
+        }
+      }
+    } catch {
+      // Thử lại trong thời gian container khởi động
+    }
+    if (attempt < 36) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
   assert.equal(
-    frontendHealthRes.status,
+    frontendStatus,
     200,
-    `Frontend /health phải trả 200, nhận được ${frontendHealthRes.status}`,
+    `Frontend /health phải trả 200, nhận được ${frontendStatus}`,
   );
-  const frontendHealth = await frontendHealthRes.json();
   assert.equal(frontendHealth?.success, true);
   assert.equal(frontendHealth?.data?.status, 'ok');
   assert.equal(frontendHealth?.data?.service, 'web-frontend');

@@ -14,12 +14,27 @@ class ProfilePalette {
   static const Color routeGreen = AppColors.primaryDark;
   static const Color line = AppColors.grey100;
 
+  // Emerald Hero đồng bộ LearningGradientBackdrop (Home & Tiến độ)
+  static const Color heroGradientStart = Color(0xFF1F452A);
+  static const Color heroGradientMid = Color(0xFF2B6A3F);
+  static const Color heroGradientEnd = Color(0xFF4FA767);
+  static const Color heroGlow = Color(0x479DE8B8);
+  static const Color heroTextPrimary = AppColors.grey0;
+  static const Color heroTextMuted = Color(0xD9FFFFFF);
+  static const Color heroGlassBg = Color(0x2EFFFFFF);
+  static const Color heroGlassBorder = Color(0x3DFFFFFF);
+  static const Color heroWarningDot = AppColors.warning50;
+
   static const Color heroBorder = AppColors.grey100;
-  static final Color heroShadow = AppColors.grey900.withValues(alpha: 0.04);
+  static final Color heroShadow = AppColors.grey900.withValues(alpha: 0.06);
+  static final Color cardShadow = AppColors.grey900.withValues(alpha: 0.04);
   static const Color cefrChipBg = AppColors.grey50;
   static const Color cefrChipFg = AppColors.grey800;
+  static const Color cefrGapBg = AppColors.primary25;
+  static const Color cefrGapBorder = AppColors.primary100;
 
   static const Color goalsBorder = AppColors.grey200;
+  static const Color bentoSurface = AppColors.grey25;
   static const Color tagSurface = AppColors.grey50;
   static const Color tagText = AppColors.grey800;
 
@@ -27,42 +42,58 @@ class ProfilePalette {
   static const Color avatarBg = AppColors.primary50;
   static const Color hoverTint = AppColors.primary25;
   static const Color danger = AppColors.error200;
+  static const Color dangerBg = AppColors.error0;
+  static const Color dangerBorder = AppColors.error25;
   static const Color toggleOn = AppColors.primary;
   static const Color toggleOff = AppColors.grey300;
 
-  static const Color cefrChartStart = AppColors.primary25;
-  static const Color cefrChartMid = AppColors.primary25;
+  // CEFR Road Chart 3 chặng
+  static const Color cefrChartStart = Color(0xFFECF8F0);
+  static const Color cefrChartMid = Color(0xFFF7FCF9);
   static const Color cefrChartEnd = AppColors.grey5;
-  static const Color cefrChartBorder = AppColors.grey100;
-  static const Color routeGuide = AppColors.grey300;
-  static const Color routeUnderlay = AppColors.primary50;
+  static const Color cefrChartBorder = AppColors.primary50;
+  static const Color routeGuide = AppColors.grey200;
+  static const Color routeGuideActive = AppColors.primary200;
+  static const Color routeUnderlay = AppColors.primary100;
   static const Color routeLine = AppColors.primary;
-  static const Color dotStroke = AppColors.grey700;
+  static const Color routeJourneyStart = AppColors.primaryDark;
+  static const Color routeJourneyEnd = AppColors.primary;
+  static const Color routePassed = AppColors.primary200;
+  static const Color routeFuture = AppColors.grey300;
+  static const Color routeAreaTop = Color(0x3859B070);
+  static const Color routeAreaBottom = Color(0x0359B070);
+  static const Color dotStroke = AppColors.grey500;
   static const Color dotFill = AppColors.grey0;
-  static const Color dotHalo = AppColors.primary25;
-  static const Color inputDotFill = AppColors.primary;
+  static const Color dotHalo = Color(0xB3FFFFFF);
+  static const Color inputDotFill = AppColors.primaryDark;
   static const Color inputDotBorder = AppColors.grey0;
-  static const Color inputDotHalo = AppColors.primary200;
+  static const Color inputDotHalo = Color(0x8C9DE8B8);
   static const Color goalDotStroke = AppColors.primaryDark;
+  static const Color goalDotCore = AppColors.primary;
   static const Color goalDotHalo = AppColors.primary50;
   static const Color activeCefrLabel = AppColors.primaryDark;
-  static const Color inactiveCefrLabel = AppColors.grey800;
+  static const Color inactiveCefrLabel = AppColors.grey700;
   static const Color roleText = AppColors.primaryDark;
 
+  // Skill cards
   static const Color skillIconBg = AppColors.grey50;
   static const Color skillIconFg = AppColors.grey800;
-  static const Color skillAdaptiveBg = AppColors.primary25;
+  static const Color skillAdaptiveBg = AppColors.primary50;
   static const Color skillAdaptiveFg = AppColors.primaryDark;
+  static const Color skillAdaptiveSurface = Color(0xFFF2FBF5);
+  static const Color skillAdaptiveCardBorder = Color(0xFFB9E8C8);
   static const Color badgeBg = AppColors.grey5;
   static const Color badgeBorder = AppColors.grey200;
   static const Color badgeAdaptiveBg = AppColors.primary25;
-  static const Color badgeAdaptiveBorder = AppColors.primary50;
+  static const Color badgeAdaptiveBorder = AppColors.primary200;
   static const Color badgeAdaptiveFg = AppColors.primaryDark;
 
-  static const Color permissionBg = AppColors.grey50;
+  // Warning / permission banner
+  static const Color permissionBg = AppColors.warning0;
+  static const Color permissionBorder = AppColors.warning25;
   static const Color permissionIconBg = AppColors.grey0;
-  static const Color permissionIconBorder = AppColors.grey200;
-  static const Color permissionIconFg = AppColors.grey800;
+  static const Color permissionIconBorder = AppColors.warning25;
+  static const Color permissionIconFg = AppColors.warning300;
 
   static const Color unassessedCta = AppColors.grey900;
   static const Color inputBorder = AppColors.borderLight;

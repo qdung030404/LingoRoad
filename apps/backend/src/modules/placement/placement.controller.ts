@@ -11,7 +11,6 @@ import {
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { ApiResponse } from '../../common/interfaces/api-response.interface';
 import { SubmitAnswerDto } from './interfaces/placement.interface';
 import { DemoPlacementService } from './services/demo-placement.service';
 

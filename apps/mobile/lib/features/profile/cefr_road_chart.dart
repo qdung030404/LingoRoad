@@ -1,10 +1,14 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../shared/figma_widgets.dart';
 import 'profile_constants.dart';
 
 enum ConceptGlyph {
+  back,
   arrow,
+  chevron,
   pen,
   camera,
   book,
@@ -17,7 +21,18 @@ enum ConceptGlyph {
   lock,
   exit,
   mail,
+  settings,
+  briefcase,
+  check,
 }
+
+ConceptGlyph learningKindGlyph(String kind) => switch (kind) {
+  'READING' => ConceptGlyph.book,
+  'LISTENING' => ConceptGlyph.headphones,
+  'GRAMMAR' => ConceptGlyph.grammar,
+  'VOCABULARY' => ConceptGlyph.cards,
+  _ => ConceptGlyph.book,
+};
 
 /// Icon SVG nét mảnh đồng bộ 100% với bản thiết kế Hồ sơ (strokeWidth 1.75).
 class ConceptSvgIcon extends StatelessWidget {
@@ -35,7 +50,9 @@ class ConceptSvgIcon extends StatelessWidget {
   final double strokeWidth;
 
   String _pathMarkup() => switch (glyph) {
+    ConceptGlyph.back => '<path d="M15 18l-6-6 6-6"/>',
     ConceptGlyph.arrow => '<path d="M5 12h14m-6-6 6 6-6 6"/>',
+    ConceptGlyph.chevron => '<path d="M9 6l6 6-6 6"/>',
     ConceptGlyph.pen =>
       '<path d="m14 6 4 4M4 20l1-5L16 4a2.8 2.8 0 0 1 4 4L9 19l-5 1Z"/>',
     ConceptGlyph.camera =>
@@ -60,6 +77,11 @@ class ConceptSvgIcon extends StatelessWidget {
       '<path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4m3-13 5 5-5 5m-5-5h12"/>',
     ConceptGlyph.mail =>
       '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/>',
+    ConceptGlyph.settings =>
+      '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>',
+    ConceptGlyph.briefcase =>
+      '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    ConceptGlyph.check => '<path d="M5 13l4 4L19 7"/>',
   };
 
   @override
@@ -81,7 +103,8 @@ class ConceptSvgIcon extends StatelessWidget {
   }
 }
 
-/// Biểu đồ lộ trình 6 bậc CEFR (A1 -> C2) đánh dấu Đầu vào & Mục tiêu.
+/// Biểu đồ lộ trình 6 bậc CEFR (A1 -> C2) với 3 trạng thái chặng đường:
+/// đã qua, chặng đang chinh phục (Đầu vào -> Mục tiêu) và chặng tiếp theo.
 class CefrRoadChart extends StatelessWidget {
   const CefrRoadChart({
     super.key,
@@ -95,7 +118,7 @@ class CefrRoadChart extends StatelessWidget {
   final String targetLevel;
 
   static const List<double> _stopYs = [72, 64, 52, 36, 23, 13];
-  static const double _chartHeight = 104;
+  static const double _chartHeight = 100;
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +134,7 @@ class CefrRoadChart extends StatelessWidget {
     return Semantics(
       label: semanticLabel,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(6, 14, 6, 10),
+        padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment(-0.7, -0.8),
@@ -121,7 +144,7 @@ class CefrRoadChart extends StatelessWidget {
               ProfilePalette.cefrChartMid,
               ProfilePalette.cefrChartEnd,
             ],
-            stops: [0.0, 0.53, 1.0],
+            stops: [0.0, 0.52, 1.0],
           ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: ProfilePalette.cefrChartBorder),
@@ -180,7 +203,7 @@ class _CefrStopFooter extends StatelessWidget {
       textAlign: TextAlign.center,
       style:
           designText(
-            active ? 15.5 : 13,
+            active ? 15 : 12.5,
             weight: active ? FontWeight.w800 : FontWeight.w600,
             color: active
                 ? ProfilePalette.activeCefrLabel
@@ -207,7 +230,7 @@ class _CefrStopFooter extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: 26,
+          height: 24,
           child: Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -241,7 +264,7 @@ class _CefrStopFooter extends StatelessWidget {
                         'Đầu vào',
                         maxLines: 1,
                         style: designText(
-                          11,
+                          10.5,
                           weight: FontWeight.w700,
                           color: ProfilePalette.roleText,
                           height: 1.25,
@@ -258,7 +281,7 @@ class _CefrStopFooter extends StatelessWidget {
                     'Mục tiêu',
                     maxLines: 1,
                     style: designText(
-                      11,
+                      10.5,
                       weight: FontWeight.w700,
                       color: ProfilePalette.roleText,
                       height: 1.25,
@@ -284,6 +307,37 @@ class _CefrRoadPainter extends CustomPainter {
   final String? inputLevel;
   final String targetLevel;
 
+  Path _segmentPath(Offset curr, Offset next, double stepX) {
+    final handle = 0.4 * stepX;
+    return Path()
+      ..moveTo(curr.dx, curr.dy)
+      ..cubicTo(
+        curr.dx + handle,
+        curr.dy,
+        next.dx - handle,
+        next.dy,
+        next.dx,
+        next.dy,
+      );
+  }
+
+  void _drawDashedPath(
+    Canvas canvas,
+    Path path,
+    Paint paint, {
+    double dashLength = 4.0,
+    double gapLength = 4.5,
+  }) {
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        final end = (distance + dashLength).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance += dashLength + gapLength;
+      }
+    }
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final stepX = size.width / allCefrLevels.length;
@@ -292,78 +346,159 @@ class _CefrRoadPainter extends CustomPainter {
         Offset((i + 0.5) * stepX, (stopYs[i] / 90.0) * size.height),
     ];
 
-    // 1. Đường gióng dọc nét đứt từ mỗi điểm xuống chân biểu đồ
+    final inputIdx = inputLevel == null ? -1 : allCefrLevels.indexOf(inputLevel!);
+    final targetIdx = allCefrLevels.indexOf(targetLevel);
     final guideBottomY = (89.0 / 90.0) * size.height;
-    final guidePaint = Paint()
-      ..color = ProfilePalette.routeGuide
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-    for (final pt in points) {
+
+    // 1. Nền gradient dịu dưới chặng đang chinh phục (Đầu vào -> Mục tiêu)
+    if (inputIdx >= 0 && targetIdx > inputIdx) {
+      final areaPath = Path()..moveTo(points[inputIdx].dx, points[inputIdx].dy);
+      for (var i = inputIdx; i < targetIdx; i++) {
+        final curr = points[i];
+        final next = points[i + 1];
+        final handle = 0.4 * stepX;
+        areaPath.cubicTo(
+          curr.dx + handle,
+          curr.dy,
+          next.dx - handle,
+          next.dy,
+          next.dx,
+          next.dy,
+        );
+      }
+      areaPath
+        ..lineTo(points[targetIdx].dx, size.height)
+        ..lineTo(points[inputIdx].dx, size.height)
+        ..close();
+      final areaPaint = Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(0, points[targetIdx].dy),
+          Offset(0, size.height),
+          const [ProfilePalette.routeAreaTop, ProfilePalette.routeAreaBottom],
+        );
+      canvas.drawPath(areaPath, areaPaint);
+    }
+
+    // 2. Đường gióng dọc nét đứt từ mỗi điểm xuống chân biểu đồ
+    for (var i = 0; i < points.length; i++) {
+      final pt = points[i];
+      final isKeyStop = i == inputIdx || i == targetIdx;
+      final guidePaint = Paint()
+        ..color = isKeyStop
+            ? ProfilePalette.routeGuideActive
+            : ProfilePalette.routeGuide
+        ..strokeWidth = isKeyStop ? 1.25 : 1.0
+        ..style = PaintingStyle.stroke;
       var y = pt.dy;
       while (y < guideBottomY) {
-        final nextY = (y + 2.0).clamp(y, guideBottomY);
+        final nextY = (y + 2.2).clamp(y, guideBottomY);
         canvas.drawLine(Offset(pt.dx, y), Offset(pt.dx, nextY), guidePaint);
         y += 6.0;
       }
     }
 
-    // 2. Đường cong S-curve nối các bậc CEFR
-    final routePath = Path()..moveTo(points.first.dx, points.first.dy);
+    // 3. Đường cong S-curve phân 3 trạng thái: đã qua / đang đi / tương lai
+    final journeyShader = (inputIdx >= 0 && targetIdx > inputIdx)
+        ? ui.Gradient.linear(
+            points[inputIdx],
+            points[targetIdx],
+            const [
+              ProfilePalette.routeJourneyStart,
+              ProfilePalette.routeJourneyEnd,
+            ],
+          )
+        : null;
+
     for (var i = 0; i < points.length - 1; i++) {
-      final curr = points[i];
-      final next = points[i + 1];
-      final handle = 0.4 * stepX;
-      routePath.cubicTo(
-        curr.dx + handle,
-        curr.dy,
-        next.dx - handle,
-        next.dy,
-        next.dx,
-        next.dy,
-      );
+      final seg = _segmentPath(points[i], points[i + 1], stepX);
+      final isPassed = inputIdx >= 0 && i < inputIdx;
+      final isJourney = inputIdx >= 0 && i >= inputIdx && i < targetIdx;
+      final isUnassessedLead = inputIdx < 0 && targetIdx > 0 && i < targetIdx;
+
+      if (isJourney) {
+        canvas.drawPath(
+          seg,
+          Paint()
+            ..color = ProfilePalette.routeUnderlay
+            ..strokeWidth = 9.5
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round
+            ..style = PaintingStyle.stroke,
+        );
+        final strokePaint = Paint()
+          ..color = ProfilePalette.routeLine
+          ..shader = journeyShader
+          ..strokeWidth = 3.4
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..style = PaintingStyle.stroke;
+        canvas.drawPath(seg, strokePaint);
+      } else if (isPassed) {
+        canvas.drawPath(
+          seg,
+          Paint()
+            ..color = ProfilePalette.routePassed
+            ..strokeWidth = 2.8
+            ..strokeCap = StrokeCap.round
+            ..style = PaintingStyle.stroke,
+        );
+      } else if (isUnassessedLead) {
+        _drawDashedPath(
+          canvas,
+          seg,
+          Paint()
+            ..color = ProfilePalette.routePassed
+            ..strokeWidth = 2.4
+            ..strokeCap = StrokeCap.round
+            ..style = PaintingStyle.stroke,
+          dashLength: 5.0,
+          gapLength: 4.5,
+        );
+      } else {
+        _drawDashedPath(
+          canvas,
+          seg,
+          Paint()
+            ..color = ProfilePalette.routeFuture
+            ..strokeWidth = 2.0
+            ..strokeCap = StrokeCap.round
+            ..style = PaintingStyle.stroke,
+          dashLength: 3.2,
+          gapLength: 4.8,
+        );
+      }
     }
 
-    final underlayPaint = Paint()
-      ..color = ProfilePalette.routeUnderlay
-      ..strokeWidth = 9.0
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-    canvas.drawPath(routePath, underlayPaint);
-
-    final linePaint = Paint()
-      ..color = ProfilePalette.routeLine
-      ..strokeWidth = 2.8
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-    canvas.drawPath(routePath, linePaint);
-
-    // 3. Các mốc tròn (tâm không bị méo theo aspect ratio)
+    // 4. Các mốc tròn (tâm không bị méo theo aspect ratio)
     for (var i = 0; i < allCefrLevels.length; i++) {
-      final level = allCefrLevels[i];
       final center = points[i];
-      final isInput = inputLevel == level;
-      final isGoal = targetLevel == level;
+      final isInput = i == inputIdx;
+      final isGoal = i == targetIdx;
+      final isPassed = inputIdx >= 0 && i < inputIdx;
 
       if (isInput && isGoal) {
         canvas.drawCircle(
           center,
-          12.5,
-          Paint()..color = ProfilePalette.goalDotStroke,
+          13.0,
+          Paint()..color = ProfilePalette.routeUnderlay,
         );
         canvas.drawCircle(
           center,
-          9.5,
+          9.0,
           Paint()..color = ProfilePalette.inputDotFill,
         );
         canvas.drawCircle(
           center,
-          9.5,
+          9.0,
           Paint()
             ..color = ProfilePalette.dotFill
             ..strokeWidth = 2.2
             ..style = PaintingStyle.stroke,
+        );
+        canvas.drawCircle(
+          center,
+          2.6,
+          Paint()..color = ProfilePalette.dotFill,
         );
       } else if (isInput) {
         canvas.drawCircle(
@@ -373,16 +508,21 @@ class _CefrRoadPainter extends CustomPainter {
         );
         canvas.drawCircle(
           center,
-          9.5,
+          9.0,
           Paint()..color = ProfilePalette.inputDotFill,
         );
         canvas.drawCircle(
           center,
-          9.5,
+          9.0,
           Paint()
             ..color = ProfilePalette.inputDotBorder
             ..strokeWidth = 2.2
             ..style = PaintingStyle.stroke,
+        );
+        canvas.drawCircle(
+          center,
+          2.6,
+          Paint()..color = ProfilePalette.dotFill,
         );
       } else if (isGoal) {
         canvas.drawCircle(
@@ -392,34 +532,53 @@ class _CefrRoadPainter extends CustomPainter {
         );
         canvas.drawCircle(
           center,
-          9.5,
+          9.0,
           Paint()..color = ProfilePalette.dotFill,
         );
         canvas.drawCircle(
           center,
-          9.5,
+          9.0,
           Paint()
             ..color = ProfilePalette.goalDotStroke
             ..strokeWidth = 2.8
             ..style = PaintingStyle.stroke,
         );
+        canvas.drawCircle(
+          center,
+          3.0,
+          Paint()..color = ProfilePalette.goalDotCore,
+        );
+      } else if (isPassed) {
+        canvas.drawCircle(
+          center,
+          5.8,
+          Paint()..color = ProfilePalette.goalDotHalo,
+        );
+        canvas.drawCircle(
+          center,
+          5.8,
+          Paint()
+            ..color = ProfilePalette.routeLine
+            ..strokeWidth = 1.8
+            ..style = PaintingStyle.stroke,
+        );
       } else {
         canvas.drawCircle(
           center,
-          7.5,
+          6.8,
           Paint()..color = ProfilePalette.dotHalo,
         );
         canvas.drawCircle(
           center,
-          5.5,
+          4.8,
           Paint()..color = ProfilePalette.dotFill,
         );
         canvas.drawCircle(
           center,
-          5.5,
+          4.8,
           Paint()
             ..color = ProfilePalette.dotStroke
-            ..strokeWidth = 1.6
+            ..strokeWidth = 1.5
             ..style = PaintingStyle.stroke,
         );
       }

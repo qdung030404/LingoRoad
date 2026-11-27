@@ -102,24 +102,19 @@ void main() {
     return session;
   }
 
-  Future<void> selectGoalValue(
-    WidgetTester tester,
-    String dropdownKey,
-    String option,
-  ) async {
-    final dropdown = find.byKey(Key(dropdownKey));
-    await tester.ensureVisible(dropdown);
-    await tester.tap(dropdown);
-    await tester.pumpAndSettle();
-    final menuItem = find.widgetWithText(DropdownMenuItem<String>, option).last;
-    await tester.tap(
-      find.ancestor(of: menuItem, matching: find.byType(InkWell)).last,
+  Future<void> tapGoalChip(WidgetTester tester, Key key) async {
+    final chip = find.byKey(key);
+    await tester.scrollUntilVisible(
+      chip,
+      120,
+      scrollable: find.byType(Scrollable).last,
     );
+    await tester.tap(chip);
     await tester.pumpAndSettle();
   }
 
   testWidgets(
-    'Unassessed profile shows Chưa có kết quả đầu vào, dark primary assessment CTA, Mức khởi đầu sources, compact header provider without duplicate Google card, and allows avatar updates',
+    'Unassessed profile hides empty KPI strip, shows dark assessment CTA, allows avatar updates, and renders inline Settings & Account card without extra page',
     (tester) async {
       final api = _InterceptingApi(
         completed: false,
@@ -141,6 +136,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+
+      // KPI strip hidden when stats are null, and no separate settings icon/page
+      expect(find.byKey(const Key('profileStatsStrip')), findsNothing);
+      expect(find.byKey(const Key('openProfileSettingsButton')), findsNothing);
+      expect(find.byKey(const Key('openProfileSettingsCard')), findsNothing);
 
       expect(find.text('Chưa có kết quả đầu vào'), findsOneWidget);
       expect(find.text('Kiểm tra đầu vào'), findsOneWidget);
@@ -165,13 +165,14 @@ void main() {
       );
       expect(find.text('Mức khởi đầu'), findsNWidgets(4));
       expect(find.text('anna@example.com'), findsOneWidget);
-      expect(find.text('Google'), findsOneWidget);
+      expect(find.byKey(const Key('profileProviderIcon')), findsOneWidget);
+      expect(find.text('Google'), findsNothing);
       expect(find.text('Đăng nhập qua Google'), findsNothing);
       expect(find.text('Đổi mật khẩu'), findsNothing);
       expect(find.text('Đặt lại mật khẩu'), findsNothing);
       expect(find.text('Đặt lại mật khẩu qua email'), findsNothing);
 
-      // Intentional Reminder OFF must NOT show OS permission prompt
+      // Intentional Reminder OFF inline on Profile must NOT show OS permission prompt
       expect(find.byKey(const Key('notificationPermissionBox')), findsNothing);
       expect(find.byKey(const Key('reminderTimeRow')), findsNothing);
       expect(find.text('Đang tắt'), findsOneWidget);
@@ -185,13 +186,14 @@ void main() {
       expect(find.byKey(const Key('profileSuccessToast')), findsNothing);
       expect(find.text('Đã cập nhật ảnh đại diện'), findsNothing);
 
-      // Enabling reminder while OS permission is denied shows explicit permission box and allows granting
+      // Enabling reminder while OS permission is denied shows explicit permission box inline and allows granting
       final grantedPlatform = _ScriptedPlatform(
         permission: NotificationPermissionState.denied,
         afterRequest: NotificationPermissionState.granted,
       );
       await tester.pumpWidget(
         MaterialApp(
+          key: const ValueKey('granted-profile-app'),
           home: ProfilePage(
             session: session,
             reminderPlatform: grantedPlatform,
@@ -199,6 +201,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+
       await tester.scrollUntilVisible(
         find.byKey(const Key('reminderToggleSwitch')),
         160,
@@ -249,7 +252,7 @@ void main() {
   );
 
   testWidgets(
-    'Narrow 320px viewport keeps full name/email unwrapped, renders CEFR road chart & skill rows cleanly, and keeps >= 48px touch targets',
+    'Narrow 320px viewport keeps inline Google icon beside email, renders KPI strip when provided, stacks skills cleanly, and keeps >= 48px touch targets including inline settings',
     (tester) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
@@ -264,13 +267,30 @@ void main() {
       );
       final session = await bootSession(api);
 
-      await tester.pumpWidget(MaterialApp(home: ProfilePage(session: session)));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ProfilePage(
+            session: session,
+            rememberedWords: 42,
+            completedLessonCount: 9,
+          ),
+        ),
+      );
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const Key('profileStatsStrip')), findsOneWidget);
+      expect(find.text('42'), findsOneWidget);
+      expect(find.text('9'), findsOneWidget);
+      expect(find.text('15p'), findsOneWidget);
       expect(find.text('Anna Nguyễn Minh'), findsOneWidget);
       expect(find.byType(Dialog), findsNothing);
       expect(find.text('anna@example.com'), findsOneWidget);
-      expect(find.text('Google'), findsOneWidget);
+      expect(find.byKey(const Key('profileProviderIcon')), findsOneWidget);
+      final iconRect = tester.getRect(
+        find.byKey(const Key('profileProviderIcon')),
+      );
+      final emailRect = tester.getRect(find.text('anna@example.com'));
+      expect(iconRect.right, lessThanOrEqualTo(emailRect.left));
       expect(find.text('Đầu vào'), findsOneWidget);
       expect(find.text('Mục tiêu'), findsOneWidget);
       expect(find.text('Xem kết quả'), findsOneWidget);
@@ -278,7 +298,8 @@ void main() {
       expect(find.text('Kết quả đầu vào'), findsOneWidget);
       expect(find.text('Theo đầu vào'), findsNWidgets(2));
       expect(find.text('Chỉnh sửa'), findsOneWidget);
-      expect(find.text('Công việc · 15 phút/ngày'), findsOneWidget);
+      expect(find.text('Công việc'), findsOneWidget);
+      expect(find.text('15 phút/ngày'), findsOneWidget);
       expect(find.text('Đọc hiểu'), findsNWidgets(2));
       expect(find.text('Ngữ pháp'), findsNWidgets(2));
       expect(find.text('Từ vựng'), findsNWidgets(2));
@@ -321,6 +342,40 @@ void main() {
           greaterThanOrEqualTo(48),
         );
       }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Standard width (>= 340px) renders skills as a balanced 2x2 grid',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final api = _InterceptingApi(completed: true);
+      final session = await bootSession(api);
+
+      await tester.pumpWidget(MaterialApp(home: ProfilePage(session: session)));
+      await tester.pumpAndSettle();
+
+      final readRect = tester.getRect(
+        find.byKey(const ValueKey('skillTile-READING')),
+      );
+      final listenRect = tester.getRect(
+        find.byKey(const ValueKey('skillTile-LISTENING')),
+      );
+      final gramRect = tester.getRect(
+        find.byKey(const ValueKey('skillTile-GRAMMAR')),
+      );
+      final vocabRect = tester.getRect(
+        find.byKey(const ValueKey('skillTile-VOCABULARY')),
+      );
+      expect(readRect.top, equals(listenRect.top));
+      expect(readRect.left, lessThan(listenRect.left));
+      expect(gramRect.top, equals(vocabRect.top));
+      expect(gramRect.top, greaterThan(readRect.top));
       expect(tester.takeException(), isNull);
     },
   );
@@ -408,7 +463,7 @@ void main() {
   );
 
   testWidgets(
-    'Goals dialog enforces 3-option close confirmation, updates overview without top toast, and dismisses stale errors while saving',
+    'Goals dialog uses tactile chips, enforces 3-option close confirmation, updates overview without top toast, and dismisses stale errors while saving',
     (tester) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
@@ -434,8 +489,10 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: ProfilePage(session: session)));
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(
+      await tester.scrollUntilVisible(
         find.byKey(const Key('editLearningGoalsButton')),
+        160,
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(find.byKey(const Key('editLearningGoalsButton')));
       await tester.pumpAndSettle();
@@ -443,13 +500,10 @@ void main() {
       expect(find.byKey(const Key('learningGoalsEditDialog')), findsOneWidget);
       expect(find.byType(Dialog), findsOneWidget);
 
-      // Initially clean: Chưa có thay đổi
       expect(find.text('Chưa có thay đổi'), findsOneWidget);
 
-      await selectGoalValue(tester, 'goalsMinutesDropdown', '20 phút');
-      await tester.pumpAndSettle();
+      await tapGoalChip(tester, const ValueKey('minutes-chip-20'));
 
-      // Back triggers 3-option popup; choose Continue Editing
       await tester.tap(find.byKey(const Key('goalsBackButton')));
       await tester.pumpAndSettle();
       expect(find.text('Tiếp tục chỉnh sửa'), findsOneWidget);
@@ -458,7 +512,6 @@ void main() {
       await tester.tap(find.byKey(const Key('leaveDialogContinueButton')));
       await tester.pumpAndSettle();
 
-      // First save fails -> banner visible & draft preserved
       await tester.tap(find.byKey(const Key('goalsSaveButton')));
       await tester.pumpAndSettle();
       expect(
@@ -467,39 +520,26 @@ void main() {
       );
       expect(find.text('Lưu lại thay đổi'), findsOneWidget);
 
-      // Retry succeeds -> overview updated cleanly
       failSave = false;
       await tester.tap(find.byKey(const Key('goalsSaveButton')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('profileSuccessToast')), findsNothing);
       expect(find.text('Đã lưu mục tiêu học tập'), findsNothing);
-      expect(find.text('Công việc · 20 phút/ngày'), findsOneWidget);
+      expect(find.text('20 phút/ngày'), findsOneWidget);
     },
   );
 
   testWidgets(
     '409 conflict auto-confirms when server snapshot matches draft, and displays all differing fields before manual overwrite',
     (tester) async {
-      // Scenario A: timeout/409 where server already holds exact draft changes -> confirms smoothly
       final apiMatch = _InterceptingApi(
         learningPurpose: 'WORK',
         targetCefr: 'B2',
         dailyGoalMinutes: 20,
         preferredKinds: const ['GRAMMAR', 'VOCABULARY'],
         preferencesVersion: 4,
-        onRequest: (method, path, data, fallback) async {
-          if (method == 'PATCH' && path == '/learning/preferences') {
-            throw const ApiFailure(
-              'Thiết lập đã thay đổi.',
-              code: 'LEARNING_PREFERENCES_CONFLICT',
-              status: 409,
-            );
-          }
-          return fallback();
-        },
       );
-      // Client starts stale with 15 min / STUDY / B1 while server already updated to draft values
       final sessionA = await bootSession(apiMatch);
       sessionA.user = {
         ...sessionA.user!,
@@ -513,7 +553,6 @@ void main() {
         },
       };
 
-      // Open Overview with stale cached profile (override GET on initial fetch once)
       var initialFetched = false;
       apiMatch.onRequest = (method, path, data, fallback) async {
         if (method == 'GET' &&
@@ -544,30 +583,26 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(
+      await tester.scrollUntilVisible(
         find.byKey(const Key('editLearningGoalsButton')),
+        160,
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(find.byKey(const Key('editLearningGoalsButton')));
       await tester.pumpAndSettle();
 
-      await selectGoalValue(tester, 'goalsPurposeDropdown', 'Công việc');
-      await selectGoalValue(tester, 'goalsCefrDropdown', 'B2');
-      await selectGoalValue(tester, 'goalsMinutesDropdown', '20 phút');
-      await tester.scrollUntilVisible(
-        find.byKey(const ValueKey('kind-chip-VOCABULARY')),
-        120,
-        scrollable: find.byType(Scrollable).last,
-      );
-      await tester.tap(find.byKey(const ValueKey('kind-chip-VOCABULARY')));
-      await tester.pumpAndSettle();
+      await tapGoalChip(tester, const ValueKey('purpose-chip-WORK'));
+      await tapGoalChip(tester, const ValueKey('cefr-chip-B2'));
+      await tapGoalChip(tester, const ValueKey('minutes-chip-20'));
+      await tapGoalChip(tester, const ValueKey('kind-chip-VOCABULARY'));
 
       await tester.tap(find.byKey(const Key('goalsSaveButton')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('profileSuccessToast')), findsNothing);
       expect(find.text('Đã lưu mục tiêu học tập'), findsNothing);
-      expect(find.text('Công việc · 20 phút/ngày'), findsOneWidget);
+      expect(find.text('Công việc'), findsOneWidget);
+      expect(find.text('20 phút/ngày'), findsOneWidget);
 
-      // Scenario B: true 409 conflict across ALL 4 fields displays every difference before user overwrites
       final apiDiff = _InterceptingApi(
         learningPurpose: 'DAILY_COMMUNICATION',
         targetCefr: 'C1',
@@ -615,15 +650,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
+      await tester.scrollUntilVisible(
         find.byKey(const Key('editLearningGoalsButton')),
+        160,
+        scrollable: find.byType(Scrollable).first,
       );
       await tester.tap(find.byKey(const Key('editLearningGoalsButton')));
       await tester.pumpAndSettle();
 
-      await selectGoalValue(tester, 'goalsCefrDropdown', 'B2');
-      await selectGoalValue(tester, 'goalsMinutesDropdown', '20 phút');
-      await tester.pumpAndSettle();
+      await tapGoalChip(tester, const ValueKey('cefr-chip-B2'));
+      await tapGoalChip(tester, const ValueKey('minutes-chip-20'));
 
       await tester.tap(find.byKey(const Key('goalsSaveButton')));
       await tester.pumpAndSettle();
@@ -635,7 +671,6 @@ void main() {
       expect(find.textContaining('Nhóm bài ưu tiên:'), findsOneWidget);
       expect(find.text('Lưu lựa chọn đang sửa'), findsOneWidget);
 
-      // Now explicitly confirm overwriting server with draft
       await tester.tap(find.byKey(const Key('goalsSaveButton')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('profileSuccessToast')), findsNothing);
@@ -674,7 +709,6 @@ void main() {
       );
       await coordinator.initialize();
 
-      // Fire 3 rapid mutations while request #1 is in flight -> coalesces to single final sync ('21:00')
       final f1 = coordinator.setTime('20:00');
       final f2 = coordinator.setTime('20:30');
       final f3 = coordinator.setTime('21:00');
@@ -683,19 +717,17 @@ void main() {
       firstPatch.complete(await firstPatchCommit());
       await Future.wait([f1, f2, f3]);
 
-      expect(patchCount, 2); // Only 20:00 (first) + 21:00 (coalesced latest)!
+      expect(patchCount, 2);
       expect(coordinator.state.serverTime, '21:00');
       expect(coordinator.state.version, 2);
       expect(platform.synced.last.time, '21:00');
 
-      // Simulate external 409 change from another device -> does NOT silently overwrite
       api.profile['reminderTime'] = '22:00';
       api.profile['reminderVersion'] = 3;
       await coordinator.setTime('18:00');
       expect(coordinator.state.serverTime, '22:00');
       expect(coordinator.state.errorMessage, contains('22:00'));
 
-      // Logout clears local account notification schedule
       await session.logout();
       expect(platform.cancelledAccounts, contains('user'));
       coordinator.dispose();
@@ -737,7 +769,7 @@ void main() {
   );
 
   testWidgets(
-    'Returning from OS settings (AppLifecycleState.resumed) clears blocked notification banner once granted',
+    'Returning from OS settings (AppLifecycleState.resumed) clears blocked notification banner inline on ProfilePage once granted',
     (tester) async {
       final api = _InterceptingApi(
         completed: true,
@@ -756,6 +788,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+
       await tester.scrollUntilVisible(
         find.byKey(const Key('notificationPermissionBox')),
         140,

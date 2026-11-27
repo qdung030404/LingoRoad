@@ -760,7 +760,7 @@ describe('LearningService', () => {
     });
 
     it('locks users before submit, calls evaluateReadingLevel once, and returns saved levelChange on retry', async () => {
-      const { db, lesson, service, setSavedLevelEvent } = fixture();
+      const { db, lesson, setSavedLevelEvent } = fixture();
       lesson.kind = 'READING';
       const evaluateReadingLevel = jest.fn(async () => {
         const evt = { kind: 'READING' as const, from: 'A2' as const, to: 'B1' as const, direction: 'UP' as const };
@@ -770,8 +770,6 @@ describe('LearningService', () => {
       const planningMock = { evaluateReadingLevel } as unknown as any;
       const svc = new LearningService(db as unknown as PrismaService, planningMock);
       const readingContent = { ...content, passage: 'Sample passage' };
-      const attempt = db.learningAttempt.findFirst.mock;
-      void attempt;
       // Check all 5 questions first.
       for (let i = 0; i < 5; i++) {
         await svc.check('owner', 'attempt', `q${i}`, { expectedVersion: i, optionId: 'A' });
