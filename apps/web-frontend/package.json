@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start -p 3001",
     "lint": "eslint src --ext .ts,.tsx",
-    "test": "tsx --test test/landing.test.ts test/admin.test.ts test/admin-regressions.test.ts test/admin-security.test.ts test/admin-ux-primitives.test.ts test/public-web.test.ts"
+    "test": "tsx --test test/landing.test.ts test/admin.test.ts test/admin-regressions.test.ts test/admin-regressions-pages.test.ts test/admin-security.test.ts test/admin-ux-primitives.test.ts test/public-web.test.ts"
   },
   "dependencies": {
     "clsx": "^2.1.1",

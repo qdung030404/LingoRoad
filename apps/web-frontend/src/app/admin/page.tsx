@@ -27,6 +27,7 @@ import type {
 function formatDateTime(iso: string): string {
   try {
     return new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
       hour: '2-digit',
       minute: '2-digit',
       day: '2-digit',
@@ -140,15 +141,15 @@ function TrendSvgChart({
             {(idx === 0 ||
               idx === attemptPoints.length - 1 ||
               idx % Math.max(1, Math.floor(attemptPoints.length / 5)) === 0) && (
-              <text
-                x={p.x}
-                y={height - 4}
-                textAnchor="middle"
-                className="fill-slate-500 text-[9px]"
-              >
-                {p.bucket.slice(5)}
-              </text>
-            )}
+                <text
+                  x={p.x}
+                  y={height - 4}
+                  textAnchor="middle"
+                  className="fill-slate-500 text-[9px]"
+                >
+                  {p.bucket.slice(5)}
+                </text>
+              )}
           </g>
         ))}
       </svg>

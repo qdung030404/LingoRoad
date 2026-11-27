@@ -21,6 +21,7 @@ import type { AdminAuditLog, PaginationMeta } from '@/types/admin';
 function formatDateTime(iso: string): string {
   try {
     return new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',

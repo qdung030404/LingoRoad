@@ -5,14 +5,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import {
-  AssessmentSkill,
-  CefrLevel,
-  ItemType,
-  ItemUsageScope,
-  LearningKind,
-  Prisma,
-} from '@prisma/client';
+import { LearningKind, Prisma } from '@prisma/client';
 import {
   CEFR_CAN_DO_DESCRIPTORS,
   CanDoDescriptor,
@@ -39,271 +32,37 @@ import {
 } from '../dto/admin-content.dto';
 import { PaginatedResult } from './admin-users.service';
 import {
-  assertReferencedItemUnchanged,
-  lockAssessmentItem,
-  resolveAdminPlacementBankVersion,
-} from './assessment-item-integrity';
+  createAssessmentGroupHelper,
+  createAssessmentItemHelper,
+  deleteAssessmentGroupHelper,
+  deleteAssessmentItemHelper,
+  listAssessmentGroupsHelper,
+  listAssessmentItemsHelper,
+  updateAssessmentGroupHelper,
+  updateAssessmentItemHelper,
+} from './admin-content-assessment.helper';
+import {
+  AdminAssessmentGroupView,
+  AdminAssessmentItemView,
+  AdminLessonDetail,
+  AdminLessonSummary,
+  AdminUnitItem,
+  AssessmentItemsSummary,
+  LESSON_INCLUDE,
+  LessonsListSummary,
+  extractPrimarySkillCode,
+  extractQuestionsCount,
+} from './admin-content.types';
 
-export interface AdminUnitItem {
-  id: string;
-  code: string;
-  cefrLevel: CefrLevel;
-  orderIndex: number;
-  title: string;
-  description: string;
-  lessonsCount: number;
-}
-
-export interface AdminLessonSummary {
-  id: string;
-  code: string;
-  kind: LearningKind;
-  primarySkillCode: string;
-  title: string;
-  description: string;
-  estimatedMinutes: number;
-  sortOrder: number;
-  published: boolean;
-  contentVersion: number;
-  questionsCount: number;
-  attemptsCount: number;
-  unit: {
-    id: string;
-    code: string;
-    title: string;
-    cefrLevel: CefrLevel;
-  } | null;
-  grammarTopic: {
-    id: string;
-    code: string;
-    titleVi: string;
-    cefrLevel: CefrLevel;
-  } | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface LessonsListSummary {
-  total: number;
-  published: number;
-  drafts: number;
-  linkedQuestions: number;
-}
-
-export interface AdminLessonDetail extends AdminLessonSummary {
-  content: Prisma.JsonValue;
-}
-
-export interface AdminAssessmentItemView {
-  id: string;
-  externalId: string | null;
-  groupId: string | null;
-  itemOrder: number;
-  group: {
-    id: string;
-    title: string | null;
-    skill: AssessmentSkill;
-    cefrLevel: CefrLevel;
-    partNumber: number;
-  } | null;
-  skill: AssessmentSkill | null;
-  skillCode: string;
-  cefrLevel: CefrLevel;
-  type: ItemType;
-  usageScope: ItemUsageScope;
-  passage: string | null;
-  prompt: string;
-  options: Prisma.JsonValue | null;
-  correctOption: string | null;
-  explanation: string | null;
-  audioUrl: string | null;
-  rubricCriteria: Prisma.JsonValue | null;
-  irtA: number;
-  irtB: number;
-  irtC: number;
-  responsesCount: number;
-  activeSessionsCount: number;
-  createdAt: Date;
-}
-
-export interface AssessmentItemsSummary {
-  total: number;
-  mcqCount: number;
-  clozeAndOtherCount: number;
-  coveredSkillsCount: number;
-}
-
-export interface AdminAssessmentGroupView {
-  id: string;
-  skill: AssessmentSkill;
-  title: string | null;
-  cefrLevel: CefrLevel;
-  partNumber: number;
-  passage: string | null;
-  audioUrl: string | null;
-  transcript: string | null;
-  usageScope: ItemUsageScope;
-  itemsCount: number;
-  items?: Array<{
-    id: string;
-    externalId: string | null;
-    itemOrder: number;
-    skillCode: string;
-    type: ItemType;
-    prompt: string;
-  }>;
-  createdAt: Date;
-}
-
-function extractQuestionsCount(content: Prisma.JsonValue): number {
-  if (
-    content &&
-    typeof content === 'object' &&
-    !Array.isArray(content) &&
-    Array.isArray((content as { questions?: unknown }).questions)
-  ) {
-    return (content as { questions: unknown[] }).questions.length;
-  }
-  return 0;
-}
-
-function extractPrimarySkillCode(
-  kind: LearningKind,
-  content: Prisma.JsonValue,
-): string {
-  if (
-    content &&
-    typeof content === 'object' &&
-    !Array.isArray(content) &&
-    Array.isArray((content as { questions?: unknown }).questions)
-  ) {
-    const firstWithSkill = (
-      content as { questions: Array<{ skillCode?: unknown }> }
-    ).questions.find(
-      (q) => typeof q?.skillCode === 'string' && q.skillCode.trim().length > 0,
-    );
-    if (firstWithSkill && typeof firstWithSkill.skillCode === 'string') {
-      return firstWithSkill.skillCode.trim();
-    }
-  }
-  if (kind === LearningKind.GRAMMAR) return 'grammar.general';
-  if (kind === LearningKind.VOCABULARY) return 'vocabulary.general';
-  if (kind === LearningKind.READING) return 'reading.comprehension';
-  return 'listening.comprehension';
-}
-
-function extractOptionValues(options: unknown): string[] {
-  if (!Array.isArray(options)) return [];
-  const values: string[] = [];
-  for (const entry of options) {
-    if (typeof entry === 'string' && entry.trim()) {
-      values.push(entry.trim());
-    } else if (entry && typeof entry === 'object') {
-      const obj = entry as { id?: unknown; text?: unknown };
-      if (typeof obj.id === 'string' && obj.id.trim()) values.push(obj.id.trim());
-      if (typeof obj.text === 'string' && obj.text.trim()) {
-        values.push(obj.text.trim());
-      }
-    }
-  }
-  return values;
-}
-
-const LESSON_INCLUDE = {
-  unit: {
-    select: {
-      id: true,
-      code: true,
-      title: true,
-      cefrLevel: true,
-    },
-  },
-  grammarTopic: {
-    select: {
-      id: true,
-      code: true,
-      titleVi: true,
-      cefrLevel: true,
-    },
-  },
-  _count: {
-    select: { attempts: true },
-  },
-} as const;
-
-const ITEM_INCLUDE = {
-  group: {
-    select: {
-      id: true,
-      title: true,
-      skill: true,
-      cefrLevel: true,
-      partNumber: true,
-    },
-  },
-  _count: {
-    select: { responses: true, currentSessions: true },
-  },
-} as const;
-
-type ItemRowWithCount = {
-  id: string;
-  externalId: string | null;
-  groupId?: string | null;
-  itemOrder?: number;
-  group?: {
-    id: string;
-    title: string | null;
-    skill: AssessmentSkill;
-    cefrLevel: CefrLevel;
-    partNumber: number;
-  } | null;
-  skill: AssessmentSkill | null;
-  skillCode: string;
-  cefrLevel: CefrLevel;
-  type: ItemType;
-  usageScope: ItemUsageScope;
-  passage: string | null;
-  prompt: string;
-  options: Prisma.JsonValue | null;
-  correctOption: string | null;
-  explanation: string | null;
-  audioUrl: string | null;
-  rubricCriteria?: Prisma.JsonValue | null;
-  irtA: number;
-  irtB: number;
-  irtC: number;
-  createdAt: Date;
-  _count?: { responses?: number; currentSessions?: number };
-};
-
-function mapAssessmentItemView(row: ItemRowWithCount): AdminAssessmentItemView {
-  return {
-    id: row.id,
-    externalId: row.externalId ?? null,
-    groupId: row.groupId ?? null,
-    itemOrder: row.itemOrder ?? 1,
-    group: row.group ?? null,
-    skill: row.skill,
-    skillCode: row.skillCode,
-    cefrLevel: row.cefrLevel,
-    type: row.type,
-    usageScope: row.usageScope,
-    passage: row.passage,
-    prompt: row.prompt,
-    options: row.options,
-    correctOption: row.correctOption,
-    explanation: row.explanation,
-    audioUrl: row.audioUrl,
-    rubricCriteria: row.rubricCriteria ?? null,
-    irtA: row.irtA,
-    irtB: row.irtB,
-    irtC: row.irtC,
-    responsesCount: row._count?.responses ?? 0,
-    activeSessionsCount: row._count?.currentSessions ?? 0,
-    createdAt: row.createdAt,
-  };
-}
+export {
+  AdminAssessmentGroupView,
+  AdminAssessmentItemView,
+  AdminLessonDetail,
+  AdminLessonSummary,
+  AdminUnitItem,
+  AssessmentItemsSummary,
+  LessonsListSummary,
+} from './admin-content.types';
 
 @Injectable()
 export class AdminContentService {
@@ -313,14 +72,18 @@ export class AdminContentService {
     @Optional() private readonly mediaStorage?: MediaStorageService,
   ) {}
 
+  private get assessmentDeps() {
+    return {
+      prisma: this.prisma,
+      assessmentMatrixService: this.assessmentMatrixService,
+      mediaStorage: this.mediaStorage,
+    };
+  }
+
   async listUnits(): Promise<AdminUnitItem[]> {
     const rows = await this.prisma.learningUnit.findMany({
       orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }],
-      include: {
-        _count: {
-          select: { lessons: true },
-        },
-      },
+      include: { _count: { select: { lessons: true } } },
     });
     return rows.map((row) => ({
       id: row.id,
@@ -348,10 +111,7 @@ export class AdminContentService {
 
     const existingOrder = await this.prisma.learningUnit.findUnique({
       where: {
-        cefrLevel_orderIndex: {
-          cefrLevel: dto.cefrLevel,
-          orderIndex: dto.orderIndex,
-        },
+        cefrLevel_orderIndex: { cefrLevel: dto.cefrLevel, orderIndex: dto.orderIndex },
       },
       select: { id: true },
     });
@@ -370,9 +130,7 @@ export class AdminContentService {
         title: dto.title.trim(),
         description: dto.description.trim(),
       },
-      include: {
-        _count: { select: { lessons: true } },
-      },
+      include: { _count: { select: { lessons: true } } },
     });
 
     return {
@@ -413,12 +171,7 @@ export class AdminContentService {
     const nextOrder = dto.orderIndex ?? current.orderIndex;
     if (nextCefr !== current.cefrLevel || nextOrder !== current.orderIndex) {
       const dupOrder = await this.prisma.learningUnit.findUnique({
-        where: {
-          cefrLevel_orderIndex: {
-            cefrLevel: nextCefr,
-            orderIndex: nextOrder,
-          },
-        },
+        where: { cefrLevel_orderIndex: { cefrLevel: nextCefr, orderIndex: nextOrder } },
         select: { id: true },
       });
       if (dupOrder && dupOrder.id !== id) {
@@ -438,9 +191,7 @@ export class AdminContentService {
         ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
         ...(dto.description !== undefined ? { description: dto.description.trim() } : {}),
       },
-      include: {
-        _count: { select: { lessons: true } },
-      },
+      include: { _count: { select: { lessons: true } } },
     });
 
     return {
@@ -460,10 +211,7 @@ export class AdminContentService {
   ): Promise<{ id: string; action: 'DELETED'; detachedLessonsCount: number }> {
     const existing = await this.prisma.learningUnit.findUnique({
       where: { id },
-      select: {
-        id: true,
-        _count: { select: { lessons: true } },
-      },
+      select: { id: true, _count: { select: { lessons: true } } },
     });
     if (!existing) {
       throw new NotFoundException({
@@ -482,10 +230,7 @@ export class AdminContentService {
 
     await this.prisma.$transaction(async (tx) => {
       if (lessonsCount > 0) {
-        await tx.learningLesson.updateMany({
-          where: { unitId: id },
-          data: { unitId: null },
-        });
+        await tx.learningLesson.updateMany({ where: { unitId: id }, data: { unitId: null } });
       }
       await tx.learningUnit.delete({ where: { id } });
     });
@@ -521,9 +266,7 @@ export class AdminContentService {
 
     const where: Prisma.LearningLessonWhereInput = {
       ...(query.kind ? { kind: query.kind } : {}),
-      ...(query.published !== undefined
-        ? { published: query.published === 'true' }
-        : {}),
+      ...(query.published !== undefined ? { published: query.published === 'true' } : {}),
       ...(query.cefrLevel ? { unit: { cefrLevel: query.cefrLevel } } : {}),
       ...(search
         ? {
@@ -544,12 +287,7 @@ export class AdminContentService {
         take: limit,
         include: LESSON_INCLUDE,
       }),
-      this.prisma.learningLesson.findMany({
-        select: {
-          published: true,
-          content: true,
-        },
-      }),
+      this.prisma.learningLesson.findMany({ select: { published: true, content: true } }),
     ]);
 
     let publishedCount = 0;
@@ -578,12 +316,7 @@ export class AdminContentService {
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       })),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: total === 0 ? 0 : Math.ceil(total / limit),
-      },
+      pagination: { page, limit, total, totalPages: total === 0 ? 0 : Math.ceil(total / limit) },
       summary: {
         total: allLessons.length,
         published: publishedCount,
@@ -594,10 +327,7 @@ export class AdminContentService {
   }
 
   async getLesson(id: string): Promise<AdminLessonDetail> {
-    const row = await this.prisma.learningLesson.findUnique({
-      where: { id },
-      include: LESSON_INCLUDE,
-    });
+    const row = await this.prisma.learningLesson.findUnique({ where: { id }, include: LESSON_INCLUDE });
     if (!row) {
       throw new NotFoundException({
         code: 'ADMIN_LESSON_NOT_FOUND',
@@ -640,17 +370,11 @@ export class AdminContentService {
     } catch (error) {
       throw new BadRequestException({
         code: 'ADMIN_INVALID_LESSON_CONTENT',
-        message:
-          error instanceof Error
-            ? error.message
-            : 'Nội dung bài tập không hợp lệ.',
+        message: error instanceof Error ? error.message : 'Nội dung bài tập không hợp lệ.',
       });
     }
 
-    const existing = await this.prisma.learningLesson.findUnique({
-      where: { code },
-      select: { id: true },
-    });
+    const existing = await this.prisma.learningLesson.findUnique({ where: { code }, select: { id: true } });
     if (existing) {
       throw new ConflictException({
         code: 'ADMIN_LESSON_CODE_EXISTS',
@@ -659,10 +383,7 @@ export class AdminContentService {
     }
 
     if (dto.unitId) {
-      const unit = await this.prisma.learningUnit.findUnique({
-        where: { id: dto.unitId },
-        select: { id: true },
-      });
+      const unit = await this.prisma.learningUnit.findUnique({ where: { id: dto.unitId }, select: { id: true } });
       if (!unit) {
         throw new NotFoundException({
           code: 'ADMIN_UNIT_NOT_FOUND',
@@ -677,9 +398,7 @@ export class AdminContentService {
 
     let sortOrder = dto.sortOrder;
     if (sortOrder === undefined) {
-      const maxRow = await this.prisma.learningLesson.aggregate({
-        _max: { sortOrder: true },
-      });
+      const maxRow = await this.prisma.learningLesson.aggregate({ _max: { sortOrder: true } });
       sortOrder = (maxRow._max.sortOrder ?? 0) + 1;
     }
 
@@ -720,10 +439,7 @@ export class AdminContentService {
     };
   }
 
-  async updateLesson(
-    id: string,
-    dto: UpdateAdminLessonDto,
-  ): Promise<AdminLessonDetail> {
+  async updateLesson(id: string, dto: UpdateAdminLessonDto): Promise<AdminLessonDetail> {
     const current = await this.prisma.learningLesson.findUnique({
       where: { id },
       select: { id: true, code: true, kind: true, content: true, published: true },
@@ -750,20 +466,14 @@ export class AdminContentService {
       } catch (error) {
         throw new BadRequestException({
           code: 'ADMIN_INVALID_LESSON_CONTENT',
-          message:
-            error instanceof Error
-              ? error.message
-              : 'Nội dung bài tập không hợp lệ.',
+          message: error instanceof Error ? error.message : 'Nội dung bài tập không hợp lệ.',
         });
       }
     }
 
     const nextCode = dto.code?.trim().toLowerCase();
     if (nextCode && nextCode !== current.code) {
-      const duplicate = await this.prisma.learningLesson.findUnique({
-        where: { code: nextCode },
-        select: { id: true },
-      });
+      const duplicate = await this.prisma.learningLesson.findUnique({ where: { code: nextCode }, select: { id: true } });
       if (duplicate) {
         throw new ConflictException({
           code: 'ADMIN_LESSON_CODE_EXISTS',
@@ -773,10 +483,7 @@ export class AdminContentService {
     }
 
     if (dto.unitId) {
-      const unit = await this.prisma.learningUnit.findUnique({
-        where: { id: dto.unitId },
-        select: { id: true },
-      });
+      const unit = await this.prisma.learningUnit.findUnique({ where: { id: dto.unitId }, select: { id: true } });
       if (!unit) {
         throw new NotFoundException({
           code: 'ADMIN_UNIT_NOT_FOUND',
@@ -802,21 +509,13 @@ export class AdminContentService {
         ...(nextCode ? { code: nextCode } : {}),
         ...(dto.kind !== undefined ? { kind: dto.kind } : {}),
         ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
-        ...(dto.description !== undefined
-          ? { description: dto.description.trim() }
-          : {}),
-        ...(dto.estimatedMinutes !== undefined
-          ? { estimatedMinutes: dto.estimatedMinutes }
-          : {}),
+        ...(dto.description !== undefined ? { description: dto.description.trim() } : {}),
+        ...(dto.estimatedMinutes !== undefined ? { estimatedMinutes: dto.estimatedMinutes } : {}),
         ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
         ...(dto.published !== undefined ? { published: dto.published } : {}),
         ...(dto.unitId !== undefined ? { unitId: dto.unitId } : {}),
         ...nextGrammarTopicData,
-        ...(dto.content !== undefined
-          ? {
-              content: dto.content as Prisma.InputJsonValue,
-            }
-          : {}),
+        ...(dto.content !== undefined ? { content: dto.content as Prisma.InputJsonValue } : {}),
         ...(dto.content !== undefined || nextKind !== current.kind
           ? { contentVersion: { increment: 1 } }
           : {}),
@@ -848,19 +547,10 @@ export class AdminContentService {
   async deleteLesson(
     id: string,
     force = false,
-  ): Promise<{
-    id: string;
-    action: 'DELETED' | 'UNPUBLISHED';
-    attemptsCount: number;
-  }> {
+  ): Promise<{ id: string; action: 'DELETED' | 'UNPUBLISHED'; attemptsCount: number }> {
     const lesson = await this.prisma.learningLesson.findUnique({
       where: { id },
-      select: {
-        id: true,
-        _count: {
-          select: { attempts: true },
-        },
-      },
+      select: { id: true, _count: { select: { attempts: true } } },
     });
     if (!lesson) {
       throw new NotFoundException({
@@ -876,10 +566,7 @@ export class AdminContentService {
     }
 
     if (!force) {
-      await this.prisma.learningLesson.update({
-        where: { id },
-        data: { published: false },
-      });
+      await this.prisma.learningLesson.update({ where: { id }, data: { published: false } });
       return { id, action: 'UNPUBLISHED', attemptsCount };
     }
 
@@ -933,625 +620,54 @@ export class AdminContentService {
     }
 
     const updated = await this.prisma.$transaction((tx) =>
-      tx.learningLesson.updateMany({
-        where: { id: { in: uniqueIds } },
-        data: { published: dto.published },
-      }),
+      tx.learningLesson.updateMany({ where: { id: { in: uniqueIds } }, data: { published: dto.published } }),
     );
 
-    return {
-      updatedCount: updated.count,
-      published: dto.published,
-      ids: uniqueIds,
-    };
+    return { updatedCount: updated.count, published: dto.published, ids: uniqueIds };
   }
 
   listDescriptors(): readonly CanDoDescriptor[] {
     return CEFR_CAN_DO_DESCRIPTORS;
   }
 
-  async listAssessmentItems(
+  listAssessmentItems(
     query: AdminAssessmentItemsQueryDto,
   ): Promise<PaginatedResult<AdminAssessmentItemView, AssessmentItemsSummary>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const search = query.search?.trim();
-
-    const where: Prisma.AssessmentItemWhereInput = {
-      ...(query.skill ? { skill: query.skill } : {}),
-      ...(query.cefrLevel ? { cefrLevel: query.cefrLevel } : {}),
-      ...(query.usageScope ? { usageScope: query.usageScope } : {}),
-      ...(query.type ? { type: query.type } : {}),
-      ...(query.groupId ? { groupId: query.groupId } : {}),
-      ...(search
-        ? {
-            OR: [
-              { prompt: { contains: search, mode: 'insensitive' } },
-              { skillCode: { contains: search, mode: 'insensitive' } },
-              { externalId: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    };
-
-    const [total, rows, typeGroups, skillGroups] = await Promise.all([
-      this.prisma.assessmentItem.count({ where }),
-      this.prisma.assessmentItem.findMany({
-        where,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
-        include: ITEM_INCLUDE,
-      }),
-      this.prisma.assessmentItem.groupBy({
-        by: ['type'],
-        _count: { id: true },
-      }),
-      this.prisma.assessmentItem.groupBy({
-        by: ['skillCode'],
-      }),
-    ]);
-
-    let allTotal = 0;
-    let mcqCount = 0;
-    for (const row of typeGroups) {
-      allTotal += row._count.id;
-      if (row.type === ItemType.MULTIPLE_CHOICE) {
-        mcqCount += row._count.id;
-      }
-    }
-
-    return {
-      items: rows.map((row) => mapAssessmentItemView(row)),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: total === 0 ? 0 : Math.ceil(total / limit),
-      },
-      summary: {
-        total: allTotal,
-        mcqCount,
-        clozeAndOtherCount: allTotal - mcqCount,
-        coveredSkillsCount: skillGroups.length,
-      },
-    };
+    return listAssessmentItemsHelper(this.assessmentDeps, query);
   }
 
-  async createAssessmentItem(
-    dto: CreateAdminAssessmentItemDto,
-  ): Promise<AdminAssessmentItemView> {
-    const itemType = dto.type ?? ItemType.MULTIPLE_CHOICE;
-    if (itemType === ItemType.MULTIPLE_CHOICE) {
-      const optionValues = extractOptionValues(dto.options);
-      const correctOption = dto.correctOption?.trim();
-      if (
-        !Array.isArray(dto.options) ||
-        dto.options.length < 2 ||
-        !correctOption ||
-        !optionValues.includes(correctOption)
-      ) {
-        throw new BadRequestException({
-          code: 'ADMIN_INVALID_ASSESSMENT_ITEM',
-          message:
-            'Câu hỏi trắc nghiệm cần ít nhất 2 phương án và đáp án đúng phải khớp với một phương án.',
-        });
-      }
-    }
-
-    const externalId = dto.externalId?.trim() || undefined;
-    if (externalId) {
-      const dupExt = await this.prisma.assessmentItem.findUnique({
-        where: { externalId },
-        select: { id: true },
-      });
-      if (dupExt) {
-        throw new ConflictException({
-          code: 'ADMIN_ITEM_EXTERNAL_ID_EXISTS',
-          message: `Mã Stable ID "${externalId}" đã tồn tại.`,
-        });
-      }
-    }
-
-    if (dto.groupId) {
-      const group = await this.prisma.assessmentItemGroup.findUnique({
-        where: { id: dto.groupId },
-        select: { id: true },
-      });
-      if (!group) {
-        throw new NotFoundException({
-          code: 'ADMIN_GROUP_NOT_FOUND',
-          message: 'Không tìm thấy nhóm câu hỏi đã chọn.',
-        });
-      }
-    }
-
-    const bankVersion = await resolveAdminPlacementBankVersion(
-      {
-        ...dto,
-        type: itemType,
-        usageScope: dto.usageScope ?? ItemUsageScope.ALL,
-        options: (dto.options ?? null) as Prisma.JsonValue,
-        correctOption: dto.correctOption?.trim() || null,
-        passage: dto.passage?.trim() || null,
-        audioUrl: dto.audioUrl?.trim() || null,
-        irtA: dto.irtA ?? 1,
-        irtB: dto.irtB ?? 0,
-        irtC: dto.irtC ?? 0.25,
-        groupId: dto.groupId ?? null,
-      },
-      this.mediaStorage,
-    );
-
-    const created = await this.prisma.assessmentItem.create({
-      data: {
-        ...(externalId ? { externalId } : {}),
-        ...(dto.groupId !== undefined ? { groupId: dto.groupId } : {}),
-        ...(dto.itemOrder !== undefined ? { itemOrder: dto.itemOrder } : {}),
-        bankVersion,
-        skill: dto.skill,
-        skillCode: dto.skillCode.trim(),
-        cefrLevel: dto.cefrLevel,
-        type: itemType,
-        usageScope: dto.usageScope ?? ItemUsageScope.ALL,
-        passage: dto.passage?.trim() || null,
-        prompt: dto.prompt.trim(),
-        options:
-          dto.options !== undefined
-            ? (dto.options as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
-        correctOption: dto.correctOption?.trim() || null,
-        explanation: dto.explanation?.trim() || null,
-        audioUrl: dto.audioUrl?.trim() || null,
-        rubricCriteria:
-          dto.rubricCriteria !== undefined && dto.rubricCriteria !== null
-            ? (dto.rubricCriteria as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
-        irtA: dto.irtA ?? 1.0,
-        irtB: dto.irtB ?? 0.0,
-        irtC: dto.irtC ?? 0.25,
-      },
-      include: ITEM_INCLUDE,
-    });
-
-    await this.assessmentMatrixService.invalidateCache();
-    return mapAssessmentItemView(created);
+  createAssessmentItem(dto: CreateAdminAssessmentItemDto): Promise<AdminAssessmentItemView> {
+    return createAssessmentItemHelper(this.assessmentDeps, dto);
   }
 
-  async updateAssessmentItem(
-    id: string,
-    dto: UpdateAdminAssessmentItemDto,
-  ): Promise<AdminAssessmentItemView> {
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await lockAssessmentItem(tx, id);
-      const existing = await tx.assessmentItem.findUnique({
-        where: { id },
-        include: { _count: { select: { responses: true, currentSessions: true } } },
-      });
-      if (!existing) {
-        throw new NotFoundException({
-          code: 'ADMIN_ASSESSMENT_ITEM_NOT_FOUND',
-          message: 'Không tìm thấy câu hỏi đánh giá.',
-        });
-      }
-
-      const nextExternalId =
-        dto.externalId !== undefined
-          ? dto.externalId?.trim() || null
-          : undefined;
-      if (nextExternalId && nextExternalId !== existing.externalId) {
-        const dup = await tx.assessmentItem.findUnique({
-          where: { externalId: nextExternalId },
-          select: { id: true },
-        });
-        if (dup && dup.id !== id) {
-          throw new ConflictException({
-            code: 'ADMIN_ITEM_EXTERNAL_ID_EXISTS',
-            message: `Mã Stable ID "${nextExternalId}" đã tồn tại.`,
-          });
-        }
-      }
-
-      if (dto.groupId) {
-        const group = await tx.assessmentItemGroup.findUnique({
-          where: { id: dto.groupId },
-          select: { id: true },
-        });
-        if (!group) {
-          throw new NotFoundException({
-            code: 'ADMIN_GROUP_NOT_FOUND',
-            message: 'Không tìm thấy nhóm câu hỏi đã chọn.',
-          });
-        }
-      }
-
-      const nextType = dto.type ?? existing.type;
-      const nextOptions =
-        dto.options !== undefined ? dto.options : existing.options;
-      const nextCorrectOption =
-        dto.correctOption !== undefined
-          ? dto.correctOption?.trim() || null
-          : existing.correctOption?.trim() || null;
-
-      if (nextType === ItemType.MULTIPLE_CHOICE) {
-        const optionValues = extractOptionValues(nextOptions);
-        if (
-          !Array.isArray(nextOptions) ||
-          nextOptions.length < 2 ||
-          !nextCorrectOption ||
-          !optionValues.includes(nextCorrectOption)
-        ) {
-          throw new BadRequestException({
-            code: 'ADMIN_INVALID_ASSESSMENT_ITEM',
-            message:
-              'Câu hỏi trắc nghiệm cần ít nhất 2 phương án và đáp án đúng phải khớp với một phương án.',
-          });
-        }
-      }
-
-      const data = {
-        ...(nextExternalId !== undefined ? { externalId: nextExternalId } : {}),
-        ...(dto.groupId !== undefined ? { groupId: dto.groupId } : {}),
-        ...(dto.itemOrder !== undefined ? { itemOrder: dto.itemOrder } : {}),
-        ...(dto.skill !== undefined ? { skill: dto.skill } : {}),
-        ...(dto.skillCode !== undefined
-          ? { skillCode: dto.skillCode.trim() }
-          : {}),
-        ...(dto.cefrLevel !== undefined ? { cefrLevel: dto.cefrLevel } : {}),
-        ...(dto.type !== undefined ? { type: dto.type } : {}),
-        ...(dto.usageScope !== undefined ? { usageScope: dto.usageScope } : {}),
-        ...(dto.passage !== undefined
-          ? { passage: dto.passage?.trim() || null }
-          : {}),
-        ...(dto.prompt !== undefined ? { prompt: dto.prompt.trim() } : {}),
-        ...(dto.options !== undefined
-          ? {
-              options:
-                dto.options !== null
-                  ? (dto.options as Prisma.InputJsonValue)
-                  : Prisma.JsonNull,
-            }
-          : {}),
-        ...(dto.correctOption !== undefined
-          ? { correctOption: dto.correctOption?.trim() || null }
-          : {}),
-        ...(dto.explanation !== undefined
-          ? { explanation: dto.explanation?.trim() || null }
-          : {}),
-        ...(dto.audioUrl !== undefined
-          ? { audioUrl: dto.audioUrl?.trim() || null }
-          : {}),
-        ...(dto.rubricCriteria !== undefined
-          ? {
-              rubricCriteria:
-                dto.rubricCriteria !== null
-                  ? (dto.rubricCriteria as Prisma.InputJsonValue)
-                  : Prisma.JsonNull,
-            }
-          : {}),
-        ...(dto.irtA !== undefined ? { irtA: dto.irtA } : {}),
-        ...(dto.irtB !== undefined ? { irtB: dto.irtB } : {}),
-        ...(dto.irtC !== undefined ? { irtC: dto.irtC } : {}),
-      };
-      const next = {
-        ...existing,
-        ...data,
-        options: (dto.options !== undefined
-          ? dto.options
-          : existing.options) as Prisma.JsonValue,
-      };
-      const bankVersion = await resolveAdminPlacementBankVersion(
-        next,
-        this.mediaStorage,
-      );
-      assertReferencedItemUnchanged(existing, { ...data, bankVersion });
-      return tx.assessmentItem.update({
-        where: { id },
-        data: { ...data, bankVersion },
-        include: ITEM_INCLUDE,
-      });
-    });
-
-    await this.assessmentMatrixService.invalidateCache();
-    return mapAssessmentItemView(updated);
+  updateAssessmentItem(id: string, dto: UpdateAdminAssessmentItemDto): Promise<AdminAssessmentItemView> {
+    return updateAssessmentItemHelper(this.assessmentDeps, id, dto);
   }
 
-  async deleteAssessmentItem(
-    id: string,
-    force = false,
-  ): Promise<{ id: string; action: 'DELETED' }> {
-    await this.prisma.$transaction(async (tx) => {
-      await lockAssessmentItem(tx, id);
-      const item = await tx.assessmentItem.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          _count: {
-            select: {
-              responses: true,
-              currentSessions: true,
-            },
-          },
-        },
-      });
-
-      if (!item) {
-        throw new NotFoundException({
-          code: 'ADMIN_ASSESSMENT_ITEM_NOT_FOUND',
-          message: 'Không tìm thấy câu hỏi đánh giá.',
-        });
-      }
-
-      const inUse =
-        item._count.responses > 0 || item._count.currentSessions > 0;
-      if (inUse && !force) {
-        throw new ConflictException({
-          code: 'ADMIN_ITEM_IN_USE',
-          message:
-            'Câu hỏi đã có lịch sử trả lời hoặc đang trong phiên kiểm tra. Xác nhận xoá cưỡng bức nếu muốn xoá kèm dữ liệu liên quan.',
-        });
-      }
-
-      if (inUse) {
-        await tx.placementSession.updateMany({
-          where: {
-            status: 'IN_PROGRESS',
-            OR: [{ currentItemId: id }, { responses: { some: { itemId: id } } }],
-          },
-          data: {
-            currentItemId: null,
-            status: 'ABANDONED',
-            version: { increment: 1 },
-          },
-        });
-        await tx.assessmentResponse.deleteMany({ where: { itemId: id } });
-        await tx.assessmentItem.delete({ where: { id } });
-      } else {
-        await tx.assessmentItem.delete({ where: { id } });
-      }
-    });
-
-    await this.assessmentMatrixService.invalidateCache();
-    return { id, action: 'DELETED' };
+  deleteAssessmentItem(id: string, force = false): Promise<{ id: string; action: 'DELETED' }> {
+    return deleteAssessmentItemHelper(this.assessmentDeps, id, force);
   }
 
-  async listAssessmentGroups(
+  listAssessmentGroups(
     query: AdminAssessmentGroupsQueryDto,
   ): Promise<PaginatedResult<AdminAssessmentGroupView>> {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-    const search = query.search?.trim();
-
-    const where: Prisma.AssessmentItemGroupWhereInput = {
-      ...(query.skill ? { skill: query.skill } : {}),
-      ...(query.cefrLevel ? { cefrLevel: query.cefrLevel } : {}),
-      ...(query.usageScope ? { usageScope: query.usageScope } : {}),
-      ...(search
-        ? {
-            OR: [
-              { title: { contains: search, mode: 'insensitive' } },
-              { passage: { contains: search, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    };
-
-    const [total, rows] = await Promise.all([
-      this.prisma.assessmentItemGroup.count({ where }),
-      this.prisma.assessmentItemGroup.findMany({
-        where,
-        orderBy: [{ cefrLevel: 'asc' }, { partNumber: 'asc' }, { createdAt: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
-        include: {
-          items: {
-            orderBy: [{ itemOrder: 'asc' }, { createdAt: 'asc' }],
-            select: {
-              id: true,
-              externalId: true,
-              itemOrder: true,
-              skillCode: true,
-              type: true,
-              prompt: true,
-            },
-          },
-          _count: { select: { items: true } },
-        },
-      }),
-    ]);
-
-    return {
-      items: rows.map((g) => ({
-        id: g.id,
-        skill: g.skill,
-        title: g.title,
-        cefrLevel: g.cefrLevel,
-        partNumber: g.partNumber,
-        passage: g.passage,
-        audioUrl: g.audioUrl,
-        transcript: g.transcript,
-        usageScope: g.usageScope,
-        itemsCount: g._count.items,
-        items: g.items,
-        createdAt: g.createdAt,
-      })),
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: total === 0 ? 0 : Math.ceil(total / limit),
-      },
-    };
+    return listAssessmentGroupsHelper(this.assessmentDeps, query);
   }
 
-  async createAssessmentGroup(
-    dto: CreateAssessmentItemGroupDto,
-  ): Promise<AdminAssessmentGroupView> {
-    const created = await this.prisma.$transaction(async (tx) => {
-      const group = await tx.assessmentItemGroup.create({
-        data: {
-          skill: dto.skill,
-          title: dto.title?.trim() || null,
-          cefrLevel: dto.cefrLevel,
-          partNumber: dto.partNumber,
-          passage: dto.passage?.trim() || null,
-          audioUrl: dto.audioUrl?.trim() || null,
-          transcript: dto.transcript?.trim() || null,
-          usageScope: dto.usageScope ?? ItemUsageScope.ALL,
-        },
-      });
-
-      if (dto.itemIds?.length) {
-        const uniqueIds = [...new Set(dto.itemIds)];
-        for (let idx = 0; idx < uniqueIds.length; idx++) {
-          await tx.assessmentItem.updateMany({
-            where: { id: uniqueIds[idx] },
-            data: { groupId: group.id, itemOrder: idx + 1, bankVersion: null },
-          });
-        }
-      }
-
-      return tx.assessmentItemGroup.findUniqueOrThrow({
-        where: { id: group.id },
-        include: {
-          items: {
-            orderBy: [{ itemOrder: 'asc' }, { createdAt: 'asc' }],
-            select: {
-              id: true,
-              externalId: true,
-              itemOrder: true,
-              skillCode: true,
-              type: true,
-              prompt: true,
-            },
-          },
-          _count: { select: { items: true } },
-        },
-      });
-    });
-
-    await this.assessmentMatrixService.invalidateCache();
-    return {
-      id: created.id,
-      skill: created.skill,
-      title: created.title,
-      cefrLevel: created.cefrLevel,
-      partNumber: created.partNumber,
-      passage: created.passage,
-      audioUrl: created.audioUrl,
-      transcript: created.transcript,
-      usageScope: created.usageScope,
-      itemsCount: created._count.items,
-      items: created.items,
-      createdAt: created.createdAt,
-    };
+  createAssessmentGroup(dto: CreateAssessmentItemGroupDto): Promise<AdminAssessmentGroupView> {
+    return createAssessmentGroupHelper(this.assessmentDeps, dto);
   }
 
-  async updateAssessmentGroup(
+  updateAssessmentGroup(
     id: string,
     dto: UpdateAssessmentItemGroupDto,
   ): Promise<AdminAssessmentGroupView> {
-    const existing = await this.prisma.assessmentItemGroup.findUnique({
-      where: { id },
-      select: { id: true },
-    });
-    if (!existing) {
-      throw new NotFoundException({
-        code: 'ADMIN_GROUP_NOT_FOUND',
-        message: 'Không tìm thấy nhóm đề luyện tập.',
-      });
-    }
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.assessmentItemGroup.update({
-        where: { id },
-        data: {
-          ...(dto.skill !== undefined ? { skill: dto.skill } : {}),
-          ...(dto.title !== undefined ? { title: dto.title?.trim() || null } : {}),
-          ...(dto.cefrLevel !== undefined ? { cefrLevel: dto.cefrLevel } : {}),
-          ...(dto.partNumber !== undefined ? { partNumber: dto.partNumber } : {}),
-          ...(dto.passage !== undefined ? { passage: dto.passage?.trim() || null } : {}),
-          ...(dto.audioUrl !== undefined ? { audioUrl: dto.audioUrl?.trim() || null } : {}),
-          ...(dto.transcript !== undefined ? { transcript: dto.transcript?.trim() || null } : {}),
-          ...(dto.usageScope !== undefined ? { usageScope: dto.usageScope } : {}),
-        },
-      });
-
-      if (dto.itemIds !== undefined) {
-        const uniqueIds = [...new Set(dto.itemIds)];
-        await tx.assessmentItem.updateMany({
-          where: { groupId: id, id: { notIn: uniqueIds } },
-          data: { groupId: null, itemOrder: 1 },
-        });
-        for (let idx = 0; idx < uniqueIds.length; idx++) {
-          await tx.assessmentItem.updateMany({
-            where: { id: uniqueIds[idx] },
-            data: { groupId: id, itemOrder: idx + 1, bankVersion: null },
-          });
-        }
-      }
-
-      return tx.assessmentItemGroup.findUniqueOrThrow({
-        where: { id },
-        include: {
-          items: {
-            orderBy: [{ itemOrder: 'asc' }, { createdAt: 'asc' }],
-            select: {
-              id: true,
-              externalId: true,
-              itemOrder: true,
-              skillCode: true,
-              type: true,
-              prompt: true,
-            },
-          },
-          _count: { select: { items: true } },
-        },
-      });
-    });
-
-    await this.assessmentMatrixService.invalidateCache();
-    return {
-      id: updated.id,
-      skill: updated.skill,
-      title: updated.title,
-      cefrLevel: updated.cefrLevel,
-      partNumber: updated.partNumber,
-      passage: updated.passage,
-      audioUrl: updated.audioUrl,
-      transcript: updated.transcript,
-      usageScope: updated.usageScope,
-      itemsCount: updated._count.items,
-      items: updated.items,
-      createdAt: updated.createdAt,
-    };
+    return updateAssessmentGroupHelper(this.assessmentDeps, id, dto);
   }
 
-  async deleteAssessmentGroup(
+  deleteAssessmentGroup(
     id: string,
   ): Promise<{ id: string; action: 'DELETED'; detachedItemsCount: number }> {
-    const existing = await this.prisma.assessmentItemGroup.findUnique({
-      where: { id },
-      select: { id: true, _count: { select: { items: true } } },
-    });
-    if (!existing) {
-      throw new NotFoundException({
-        code: 'ADMIN_GROUP_NOT_FOUND',
-        message: 'Không tìm thấy nhóm đề luyện tập.',
-      });
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      if (existing._count.items > 0) {
-        await tx.assessmentItem.updateMany({
-          where: { groupId: id },
-          data: { groupId: null, itemOrder: 1 },
-        });
-      }
-      await tx.assessmentItemGroup.delete({ where: { id } });
-    });
-
-    await this.assessmentMatrixService.invalidateCache();
-    return { id, action: 'DELETED', detachedItemsCount: existing._count.items };
+    return deleteAssessmentGroupHelper(this.assessmentDeps, id);
   }
 }
