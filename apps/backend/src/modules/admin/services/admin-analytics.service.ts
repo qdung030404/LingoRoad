@@ -136,8 +136,10 @@ export class AdminAnalyticsService {
 
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const sinceDate = getTimeframeStartDate(timeframe);
-    const bucketUnit =
-      timeframe === '7_DAYS' || timeframe === '30_DAYS' ? 'day' : 'week';
+    const bucketTruncSql =
+      timeframe === '7_DAYS' || timeframe === '30_DAYS'
+        ? Prisma.sql`DATE_TRUNC('day', la.started_at)`
+        : Prisma.sql`DATE_TRUNC('week', la.started_at)`;
 
     const attemptDateWhere = sinceDate ? { startedAt: { gte: sinceDate } } : {};
     const placementDateWhere = sinceDate ? { startedAt: { gte: sinceDate } } : {};
@@ -263,8 +265,8 @@ export class AdminAnalyticsService {
           ? Prisma.sql`
               SELECT AVG(
                        CASE
-                         WHEN (ss.result->>'overallScore') ~ '^[0-9]+(\.[0-9]+)?$' THEN (ss.result->>'overallScore')::numeric
-                         WHEN (ss.result->>'score') ~ '^[0-9]+(\.[0-9]+)?$' THEN (ss.result->>'score')::numeric
+                         WHEN (ss.result->>'overallScore') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'overallScore')::numeric
+                         WHEN (ss.result->>'score') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'score')::numeric
                          ELSE NULL
                        END
                      )::double precision AS avg_score,
@@ -276,8 +278,8 @@ export class AdminAnalyticsService {
           : Prisma.sql`
               SELECT AVG(
                        CASE
-                         WHEN (ss.result->>'overallScore') ~ '^[0-9]+(\.[0-9]+)?$' THEN (ss.result->>'overallScore')::numeric
-                         WHEN (ss.result->>'score') ~ '^[0-9]+(\.[0-9]+)?$' THEN (ss.result->>'score')::numeric
+                         WHEN (ss.result->>'overallScore') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'overallScore')::numeric
+                         WHEN (ss.result->>'score') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'score')::numeric
                          ELSE NULL
                        END
                      )::double precision AS avg_score,
@@ -295,8 +297,8 @@ export class AdminAnalyticsService {
               INNER JOIN learning_lessons ll ON ll.id = la.lesson_id
               LEFT JOIN learning_units lu ON lu.id = ll.unit_id
               WHERE la.started_at >= ${sinceDate}
-              GROUP BY COALESCE(lu.cefr_level::text, 'UNASSIGNED')
-              ORDER BY cefr_level ASC
+              GROUP BY 1
+              ORDER BY 1 ASC
             `
           : Prisma.sql`
               SELECT COALESCE(lu.cefr_level::text, 'UNASSIGNED') AS cefr_level,
@@ -304,8 +306,8 @@ export class AdminAnalyticsService {
               FROM learning_attempts la
               INNER JOIN learning_lessons ll ON ll.id = la.lesson_id
               LEFT JOIN learning_units lu ON lu.id = ll.unit_id
-              GROUP BY COALESCE(lu.cefr_level::text, 'UNASSIGNED')
-              ORDER BY cefr_level ASC
+              GROUP BY 1
+              ORDER BY 1 ASC
             `,
       ),
       this.prisma.$queryRaw<
@@ -313,21 +315,21 @@ export class AdminAnalyticsService {
       >(
         sinceDate
           ? Prisma.sql`
-              SELECT DATE_TRUNC(${bucketUnit}, la.started_at) AS bucket,
+              SELECT ${bucketTruncSql} AS bucket,
                      COUNT(*) AS attempts,
                      COUNT(DISTINCT la.user_id) AS active_users
               FROM learning_attempts la
               WHERE la.started_at >= ${sinceDate}
-              GROUP BY DATE_TRUNC(${bucketUnit}, la.started_at)
-              ORDER BY bucket ASC
+              GROUP BY 1
+              ORDER BY 1 ASC
             `
           : Prisma.sql`
-              SELECT DATE_TRUNC(${bucketUnit}, la.started_at) AS bucket,
+              SELECT ${bucketTruncSql} AS bucket,
                      COUNT(*) AS attempts,
                      COUNT(DISTINCT la.user_id) AS active_users
               FROM learning_attempts la
-              GROUP BY DATE_TRUNC(${bucketUnit}, la.started_at)
-              ORDER BY bucket ASC
+              GROUP BY 1
+              ORDER BY 1 ASC
             `,
       ),
       this.prisma.$queryRaw<
