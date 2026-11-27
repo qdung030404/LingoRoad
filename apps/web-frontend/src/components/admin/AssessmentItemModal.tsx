@@ -5,6 +5,7 @@ import { Plus, Trash2, X } from 'lucide-react';
 import {
   assessmentChoiceDraft,
   buildAssessmentChoices,
+  mergeAssessmentRubricCriteria,
   validateAssessmentItemDraft,
 } from '@/lib/admin-validation';
 import {
@@ -26,13 +27,23 @@ interface AssessmentItemModalProps {
   descriptors: CefrDescriptorItem[];
   groups?: AdminAssessmentGroup[];
   editingItem?: AdminAssessmentItem | null;
+  cloneFrom?: AdminAssessmentItem | null;
   onClose: () => void;
   onSaved: () => void;
 }
 
 const LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
-function extractMatchingPairs(raw: unknown): Array<{ left: string; right: string }> {
+function buildCloneExternalId(raw: string | null | undefined): string {
+  const trimmed = raw?.trim() ?? '';
+  if (!trimmed) return '';
+  const suffix = '-copy';
+  return `${trimmed.slice(0, Math.max(1, 100 - suffix.length))}${suffix}`;
+}
+
+function extractMatchingPairs(
+  raw: unknown,
+): Array<{ left: string; right: string }> {
   if (Array.isArray(raw)) {
     const pairs = raw
       .filter((entry): entry is { left?: unknown; right?: unknown } =>
@@ -62,24 +73,33 @@ export function AssessmentItemModal({
   descriptors,
   groups = [],
   editingItem = null,
+  cloneFrom = null,
   onClose,
   onSaved,
 }: AssessmentItemModalProps): React.ReactElement {
   const isEditing = Boolean(editingItem);
-  const initialSkill: AssessmentSkill = editingItem?.skill ?? 'READING';
-  const initialLevel: CefrLevel = editingItem?.cefrLevel ?? 'B1';
+  const isCloning = !editingItem && Boolean(cloneFrom);
+  const sourceItem = editingItem ?? cloneFrom ?? null;
+  const initialSkill: AssessmentSkill = sourceItem?.skill ?? 'READING';
+  const initialLevel: CefrLevel = sourceItem?.cefrLevel ?? 'B1';
 
-  const [externalId, setExternalId] = useState(editingItem?.externalId ?? '');
+  const [externalId, setExternalId] = useState(
+    editingItem
+      ? editingItem.externalId ?? ''
+      : cloneFrom
+        ? buildCloneExternalId(cloneFrom.externalId)
+        : '',
+  );
   const [skill, setSkill] = useState<AssessmentSkill>(initialSkill);
   const [cefrLevel, setCefrLevel] = useState<CefrLevel>(initialLevel);
   const [usageScope, setUsageScope] = useState<ItemUsageScope>(
-    editingItem?.usageScope ?? 'ALL',
+    sourceItem?.usageScope ?? 'ALL',
   );
   const [type, setType] = useState<ItemType>(
-    editingItem?.type ?? 'MULTIPLE_CHOICE',
+    sourceItem?.type ?? 'MULTIPLE_CHOICE',
   );
-  const [groupId, setGroupId] = useState(editingItem?.groupId ?? '');
-  const [itemOrder, setItemOrder] = useState(editingItem?.itemOrder ?? 1);
+  const [groupId, setGroupId] = useState(sourceItem?.groupId ?? '');
+  const [itemOrder, setItemOrder] = useState(sourceItem?.itemOrder ?? 1);
 
   const matchingDescriptors = useMemo(
     () =>
@@ -90,22 +110,22 @@ export function AssessmentItemModal({
   );
 
   const [skillCode, setSkillCode] = useState<string>(
-    editingItem?.skillCode ??
+    sourceItem?.skillCode ??
       matchingDescriptors[0]?.skillCode ??
       'reading.skimming',
   );
-  const [irtA, setIrtA] = useState<number>(editingItem?.irtA ?? 1.0);
+  const [irtA, setIrtA] = useState<number>(sourceItem?.irtA ?? 1.0);
   const [irtB, setIrtB] = useState<number>(
-    editingItem?.irtB ?? matchingDescriptors[0]?.defaultIrtB ?? 0,
+    sourceItem?.irtB ?? matchingDescriptors[0]?.defaultIrtB ?? 0,
   );
-  const [irtC, setIrtC] = useState<number>(editingItem?.irtC ?? 0.25);
-  const [passage, setPassage] = useState(editingItem?.passage ?? '');
-  const [audioUrl, setAudioUrl] = useState(editingItem?.audioUrl ?? '');
-  const [prompt, setPrompt] = useState(editingItem?.prompt ?? '');
+  const [irtC, setIrtC] = useState<number>(sourceItem?.irtC ?? 0.25);
+  const [passage, setPassage] = useState(sourceItem?.passage ?? '');
+  const [audioUrl, setAudioUrl] = useState(sourceItem?.audioUrl ?? '');
+  const [prompt, setPrompt] = useState(sourceItem?.prompt ?? '');
 
   const initialChoices = assessmentChoiceDraft(
-    editingItem?.options,
-    editingItem?.correctOption,
+    sourceItem?.options,
+    sourceItem?.correctOption,
   );
 
   const [options, setOptions] = useState<string[]>(initialChoices.options);
@@ -113,15 +133,15 @@ export function AssessmentItemModal({
     initialChoices.correctIndex,
   );
   const [reorderTokensText, setReorderTokensText] = useState<string>(
-    editingItem?.type === 'SENTENCE_REORDER'
-      ? extractReorderTokens(editingItem.options)
+    sourceItem?.type === 'SENTENCE_REORDER'
+      ? extractReorderTokens(sourceItem.options)
       : '',
   );
   const [matchingPairs, setMatchingPairs] = useState<
     Array<{ left: string; right: string }>
   >(
-    editingItem?.type === 'MATCHING'
-      ? extractMatchingPairs(editingItem.options)
+    sourceItem?.type === 'MATCHING'
+      ? extractMatchingPairs(sourceItem.options)
       : [
           { left: '', right: '' },
           { left: '', right: '' },
@@ -130,12 +150,16 @@ export function AssessmentItemModal({
   );
 
   // Rubric fields for ESSAY / SPEAKING_PROMPT
-  const existingRubric = (editingItem?.rubricCriteria ?? {}) as {
+  const existingRubric = (sourceItem?.rubricCriteria ?? {}) as {
     targetGrammars?: string[];
     wordCount?: { min?: number; max?: number };
     timeLimitSeconds?: number;
     minSpeakingSeconds?: number;
     maxSpeakingSeconds?: number;
+    taskAchievement?: string;
+    coherenceCohesion?: string;
+    lexicalResource?: string;
+    grammarAccuracy?: string;
   };
   const [targetGrammarsText, setTargetGrammarsText] = useState(
     Array.isArray(existingRubric.targetGrammars)
@@ -167,9 +191,29 @@ export function AssessmentItemModal({
       ? String(existingRubric.maxSpeakingSeconds)
       : '',
   );
+  const [taskAchievement, setTaskAchievement] = useState<string>(
+    typeof existingRubric.taskAchievement === 'string'
+      ? existingRubric.taskAchievement
+      : '',
+  );
+  const [coherenceCohesion, setCoherenceCohesion] = useState<string>(
+    typeof existingRubric.coherenceCohesion === 'string'
+      ? existingRubric.coherenceCohesion
+      : '',
+  );
+  const [lexicalResource, setLexicalResource] = useState<string>(
+    typeof existingRubric.lexicalResource === 'string'
+      ? existingRubric.lexicalResource
+      : '',
+  );
+  const [grammarAccuracy, setGrammarAccuracy] = useState<string>(
+    typeof existingRubric.grammarAccuracy === 'string'
+      ? existingRubric.grammarAccuracy
+      : '',
+  );
 
   const [explanation, setExplanation] = useState(
-    editingItem?.explanation ?? '',
+    sourceItem?.explanation ?? '',
   );
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -190,6 +234,17 @@ export function AssessmentItemModal({
   const usesChoiceOptions =
     type === 'MULTIPLE_CHOICE' || type === 'CLOZE' || type === 'GAP_FILL';
   const usesRubric = type === 'ESSAY' || type === 'SPEAKING_PROMPT';
+  const maxChoiceOptions = usageScope === 'PLACEMENT' ? 4 : 8;
+  const minChoiceOptions = usageScope === 'PLACEMENT' ? 4 : 2;
+
+  const handleRemoveOption = (idx: number): void => {
+    setOptions((prev) => prev.filter((_, i) => i !== idx));
+    setCorrectIndex((prev) => {
+      if (prev === idx) return -1;
+      if (prev > idx) return prev - 1;
+      return prev;
+    });
+  };
 
   const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -222,7 +277,7 @@ export function AssessmentItemModal({
       const built = buildAssessmentChoices(
         cleanOptions,
         correctIndex,
-        editingItem?.options,
+        sourceItem?.options,
       );
       structuredOptions = built.options;
       structuredCorrectOption = built.correctOption;
@@ -232,7 +287,9 @@ export function AssessmentItemModal({
         .map((t) => t.trim())
         .filter(Boolean);
       if (tokens.length < 2) {
-        setErrorMessage('SENTENCE_REORDER cần tối thiểu 2 mảnh câu cách nhau bởi dấu |.');
+        setErrorMessage(
+          'SENTENCE_REORDER cần tối thiểu 2 mảnh câu cách nhau bởi dấu |.',
+        );
         return;
       }
       structuredOptions = tokens;
@@ -242,7 +299,9 @@ export function AssessmentItemModal({
         (p) => p.left.trim() && p.right.trim(),
       );
       if (cleanPairs.length < 2) {
-        setErrorMessage('MATCHING cần tối thiểu 2 cặp ghép đầy đủ trái – phải.');
+        setErrorMessage(
+          'MATCHING cần tối thiểu 2 cặp ghép đầy đủ trái – phải.',
+        );
         return;
       }
       structuredOptions = cleanPairs.map((p) => ({
@@ -252,62 +311,72 @@ export function AssessmentItemModal({
       structuredCorrectOption = JSON.stringify(structuredOptions);
     }
 
-    let rubricCriteria: Record<string, unknown> | undefined;
-    if (usesRubric) {
-      const grammars = targetGrammarsText
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const nextRubric: Record<string, unknown> = {};
-      if (grammars.length > 0) nextRubric.targetGrammars = grammars;
-      if (wordCountMin.trim() || wordCountMax.trim()) {
-        nextRubric.wordCount = {
-          ...(wordCountMin.trim() ? { min: Number(wordCountMin) } : {}),
-          ...(wordCountMax.trim() ? { max: Number(wordCountMax) } : {}),
-        };
-      }
-      if (timeLimitSeconds.trim()) {
-        nextRubric.timeLimitSeconds = Number(timeLimitSeconds);
-      }
-      if (minSpeakingSeconds.trim()) {
-        nextRubric.minSpeakingSeconds = Number(minSpeakingSeconds);
-      }
-      if (maxSpeakingSeconds.trim()) {
-        nextRubric.maxSpeakingSeconds = Number(maxSpeakingSeconds);
-      }
-      if (Object.keys(nextRubric).length > 0) {
-        rubricCriteria = nextRubric;
-      }
-    }
+    const mergedRubric = mergeAssessmentRubricCriteria(
+      sourceItem?.rubricCriteria,
+      {
+        targetGrammarsText,
+        wordCountMin,
+        wordCountMax,
+        timeLimitSeconds,
+        minSpeakingSeconds,
+        maxSpeakingSeconds,
+        taskAchievement,
+        coherenceCohesion,
+        lexicalResource,
+        grammarAccuracy,
+      },
+      type,
+    );
 
     setSubmitting(true);
     try {
-      const payload = {
-        ...(externalId.trim() ? { externalId: externalId.trim() } : {}),
-        ...(groupId ? { groupId, itemOrder } : isEditing ? { groupId: null } : {}),
-        skill,
-        skillCode: skillCode.trim(),
-        cefrLevel,
-        type,
-        usageScope,
-        passage: passage.trim() || undefined,
-        audioUrl: audioUrl.trim() || undefined,
-        prompt: prompt.trim(),
-        ...(structuredOptions !== undefined ? { options: structuredOptions } : {}),
-        ...(structuredCorrectOption !== undefined
-          ? { correctOption: structuredCorrectOption }
-          : {}),
-        ...(rubricCriteria !== undefined ? { rubricCriteria } : {}),
-        explanation: explanation.trim() || undefined,
-        irtA,
-        irtB,
-        irtC,
-      };
-
       if (editingItem) {
-        await updateAdminAssessmentItem(editingItem.id, payload);
+        await updateAdminAssessmentItem(editingItem.id, {
+          externalId: externalId.trim() || null,
+          ...(groupId ? { groupId, itemOrder } : { groupId: null }),
+          skill,
+          skillCode: skillCode.trim(),
+          cefrLevel,
+          type,
+          usageScope,
+          passage: passage.trim() || null,
+          audioUrl: skill === 'LISTENING' ? audioUrl.trim() || null : null,
+          prompt: prompt.trim(),
+          ...(structuredOptions !== undefined
+            ? { options: structuredOptions }
+            : {}),
+          correctOption: structuredCorrectOption ?? null,
+          rubricCriteria: mergedRubric,
+          explanation: explanation.trim() || null,
+          irtA,
+          irtB,
+          irtC,
+        });
       } else {
-        await createAdminAssessmentItem(payload);
+        await createAdminAssessmentItem({
+          ...(externalId.trim() ? { externalId: externalId.trim() } : {}),
+          ...(groupId ? { groupId, itemOrder } : {}),
+          skill,
+          skillCode: skillCode.trim(),
+          cefrLevel,
+          type,
+          usageScope,
+          passage: passage.trim() || undefined,
+          audioUrl:
+            skill === 'LISTENING' ? audioUrl.trim() || undefined : undefined,
+          prompt: prompt.trim(),
+          ...(structuredOptions !== undefined
+            ? { options: structuredOptions }
+            : {}),
+          ...(structuredCorrectOption !== undefined
+            ? { correctOption: structuredCorrectOption }
+            : {}),
+          ...(mergedRubric !== null ? { rubricCriteria: mergedRubric } : {}),
+          explanation: explanation.trim() || undefined,
+          irtA,
+          irtB,
+          irtC,
+        });
       }
       onSaved();
     } catch (err) {
@@ -327,10 +396,14 @@ export function AssessmentItemModal({
             <h2 className="text-lg font-bold text-slateDark-900">
               {isEditing
                 ? 'Chỉnh sửa câu hỏi Item Bank'
-                : 'Tạo item mới trong Item Bank'}
+                : isCloning
+                  ? 'Nhân bản câu hỏi Item Bank'
+                  : 'Tạo item mới trong Item Bank'}
             </h2>
             <p className="text-xs text-slateDark-700">
-              Hệ thống tự động làm mới cache ma trận CEFR sau khi lưu.
+              {isCloning
+                ? 'Đang tạo bản sao mới từ câu hỏi gốc (có thể chỉnh sửa tự do kể cả khi câu gốc đã khóa chỉnh sửa).'
+                : 'Hệ thống tự động làm mới cache ma trận CEFR sau khi lưu.'}
             </p>
           </div>
           <button
@@ -527,38 +600,36 @@ export function AssessmentItemModal({
               />
             </div>
             {groups.length > 0 && (
-              <>
-                <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs font-semibold text-slateDark-800">
-                    Thuộc nhóm đề (Group)
-                  </label>
-                  <div className="flex gap-1.5">
-                    <select
-                      value={groupId}
-                      onChange={(e) => setGroupId(e.target.value)}
-                      className="min-w-0 flex-1 rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-2.5 py-2 text-xs"
-                    >
-                      <option value="">-- Độc lập --</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          [{g.skill} {g.cefrLevel} P{g.partNumber}]{' '}
-                          {g.title ?? g.id.slice(0, 8)}
-                        </option>
-                      ))}
-                    </select>
-                    {groupId && (
-                      <input
-                        type="number"
-                        min={1}
-                        value={itemOrder}
-                        onChange={(e) => setItemOrder(Number(e.target.value))}
-                        title="Thứ tự trong nhóm"
-                        className="w-16 rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-2 py-2 text-xs"
-                      />
-                    )}
-                  </div>
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                  Thuộc nhóm đề (Group)
+                </label>
+                <div className="flex gap-1.5">
+                  <select
+                    value={groupId}
+                    onChange={(e) => setGroupId(e.target.value)}
+                    className="min-w-0 flex-1 rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-2.5 py-2 text-xs"
+                  >
+                    <option value="">-- Độc lập --</option>
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        [{g.skill} {g.cefrLevel} P{g.partNumber}]{' '}
+                        {g.title ?? g.id.slice(0, 8)}
+                      </option>
+                    ))}
+                  </select>
+                  {groupId && (
+                    <input
+                      type="number"
+                      min={1}
+                      value={itemOrder}
+                      onChange={(e) => setItemOrder(Number(e.target.value))}
+                      title="Thứ tự trong nhóm"
+                      className="w-16 rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-2 py-2 text-xs"
+                    />
+                  )}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
@@ -603,13 +674,24 @@ export function AssessmentItemModal({
 
           {usesChoiceOptions && (
             <div className="space-y-2.5">
-              <label className="block text-xs font-semibold text-slateDark-800">
-                Các phương án trả lời (chọn nút tròn cho đáp án đúng
-                {usageScope === 'PLACEMENT'
-                  ? ' — bắt buộc đúng 4 phương án cho PLACEMENT'
-                  : ''}
-                ) *
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="block text-xs font-semibold text-slateDark-800">
+                  Các phương án trả lời (chọn nút tròn cho đáp án đúng
+                  {usageScope === 'PLACEMENT'
+                    ? ' — bắt buộc đúng 4 phương án cho PLACEMENT'
+                    : ''}
+                  ) *
+                </label>
+                <button
+                  type="button"
+                  disabled={options.length >= maxChoiceOptions}
+                  onClick={() => setOptions((prev) => [...prev, ''])}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slateDark-200 bg-white px-2.5 py-1 text-xs font-semibold text-slateDark-800 hover:bg-slateDark-50 disabled:opacity-40"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>Thêm phương án</span>
+                </button>
+              </div>
               {options.map((opt, idx) => (
                 <div key={idx} className="flex items-center gap-2.5">
                   <input
@@ -632,6 +714,16 @@ export function AssessmentItemModal({
                     placeholder={`Phương án ${String.fromCharCode(65 + idx)}`}
                     className="flex-1 rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3.5 py-2 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
                   />
+                  {options.length > minChoiceOptions && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveOption(idx)}
+                      aria-label={`Xoá phương án ${idx + 1}`}
+                      className="rounded-lg px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      Xoá
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -805,6 +897,59 @@ export function AssessmentItemModal({
                   </>
                 )}
               </div>
+
+              {type === 'ESSAY' && (
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                      Task Achievement (taskAchievement)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={taskAchievement}
+                      onChange={(e) => setTaskAchievement(e.target.value)}
+                      placeholder="Tiêu chí hoàn thành đầy đủ các yêu cầu đề bài..."
+                      className="w-full rounded-xl border border-slateDark-200 bg-white p-2.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                      Coherence &amp; Cohesion (coherenceCohesion)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={coherenceCohesion}
+                      onChange={(e) => setCoherenceCohesion(e.target.value)}
+                      placeholder="Tiêu chí mạch lạc, bố cục đoạn và từ nối..."
+                      className="w-full rounded-xl border border-slateDark-200 bg-white p-2.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                      Lexical Resource (lexicalResource)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={lexicalResource}
+                      onChange={(e) => setLexicalResource(e.target.value)}
+                      placeholder="Tiêu chí vốn từ vựng theo bậc CEFR..."
+                      className="w-full rounded-xl border border-slateDark-200 bg-white p-2.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                      Grammar Accuracy (grammarAccuracy)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={grammarAccuracy}
+                      onChange={(e) => setGrammarAccuracy(e.target.value)}
+                      placeholder="Tiêu chí độ chính xác và đa dạng ngữ pháp..."
+                      className="w-full rounded-xl border border-slateDark-200 bg-white p-2.5 text-xs"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -838,7 +983,9 @@ export function AssessmentItemModal({
                 ? 'Đang lưu...'
                 : isEditing
                   ? 'Lưu thay đổi'
-                  : 'Thêm câu hỏi'}
+                  : isCloning
+                    ? 'Tạo bản sao'
+                    : 'Thêm câu hỏi'}
             </button>
           </div>
         </form>

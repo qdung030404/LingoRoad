@@ -1,8 +1,14 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Plus, Search, Tags, Trash2, X } from 'lucide-react';
 import { AdminShell } from '@/components/admin/AdminShell';
+import {
+  NOOP_ADMIN_TOAST,
+  useAdminToast,
+  type AdminToastApi,
+} from '@/components/admin/AdminToast';
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { GlobalPagination } from '@/components/admin/GlobalPagination';
 import { MediaUploadField } from '@/components/admin/MediaUploadField';
 import {
@@ -17,32 +23,57 @@ import {
   updateAdminVocabTopic,
   updateAdminVocabWord,
 } from '@/lib/admin-api';
+import { useDebouncedValue } from '@/lib/use-debounced-value';
 import type {
   AdminCuratedTopic,
   AdminCuratedWord,
   PaginationMeta,
 } from '@/types/admin';
 
+type ConfirmDeleteTarget =
+  | { kind: 'topic'; topic: AdminCuratedTopic }
+  | { kind: 'word'; word: AdminCuratedWord };
+
+function AdminToastBridge({
+  toastRef,
+}: {
+  toastRef: React.MutableRefObject<AdminToastApi>;
+}): null {
+  const toast = useAdminToast();
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast, toastRef]);
+  return null;
+}
+
 export default function AdminVocabularyPage(): React.ReactElement {
+  const toastRef = useRef<AdminToastApi>(NOOP_ADMIN_TOAST);
+  const [authReady, setAuthReady] = useState(false);
   const [topics, setTopics] = useState<AdminCuratedTopic[]>([]);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [topicSearch, setTopicSearch] = useState('');
+  const debouncedTopicSearch = useDebouncedValue(topicSearch, 300);
   const [loadingTopics, setLoadingTopics] = useState(true);
+  const requestIdRef = useRef(0);
 
   const [words, setWords] = useState<AdminCuratedWord[]>([]);
   const [wordPagination, setWordPagination] = useState<PaginationMeta>({
     page: 1,
-    limit: 12,
+    limit: 10,
     total: 0,
     totalPages: 0,
   });
   const [wordPage, setWordPage] = useState(1);
+  const [wordLimit, setWordLimit] = useState(10);
   const [wordSearchInput, setWordSearchInput] = useState('');
   const [wordSearch, setWordSearch] = useState('');
   const [loadingWords, setLoadingWords] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [bannerError, setBannerError] = useState<string | null>(null);
-  const [bannerSuccess, setBannerSuccess] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] =
+    useState<ConfirmDeleteTarget | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Topic modal
   const [showTopicModal, setShowTopicModal] = useState(false);
@@ -71,23 +102,28 @@ export default function AdminVocabularyPage(): React.ReactElement {
   const [wordError, setWordError] = useState<string | null>(null);
 
   const loadTopics = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoadingTopics(true);
     setBannerError(null);
     try {
-      const rows = await listAdminVocabTopics(topicSearch);
+      const rows = await listAdminVocabTopics(debouncedTopicSearch);
+      if (requestId !== requestIdRef.current) return;
       setTopics(rows);
       setSelectedTopicId((prev) => {
         if (prev && rows.some((r) => r.id === prev)) return prev;
         return rows[0]?.id ?? null;
       });
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setBannerError(
         err instanceof Error ? err.message : 'Không thể tải danh sách chủ đề từ vựng.',
       );
     } finally {
-      setLoadingTopics(false);
+      if (requestId === requestIdRef.current) {
+        setLoadingTopics(false);
+      }
     }
-  }, [topicSearch]);
+  }, [debouncedTopicSearch]);
 
   const loadWords = useCallback(async () => {
     if (!selectedTopicId) {
@@ -98,7 +134,7 @@ export default function AdminVocabularyPage(): React.ReactElement {
     try {
       const res = await listAdminVocabWords(selectedTopicId, {
         page: wordPage,
-        limit: 12,
+        limit: wordLimit,
         search: wordSearch,
       });
       setWords(res.items);
@@ -110,15 +146,17 @@ export default function AdminVocabularyPage(): React.ReactElement {
     } finally {
       setLoadingWords(false);
     }
-  }, [selectedTopicId, wordPage, wordSearch]);
+  }, [selectedTopicId, wordPage, wordLimit, wordSearch]);
 
   useEffect(() => {
+    if (!authReady) return;
     void loadTopics();
-  }, [loadTopics]);
+  }, [authReady, loadTopics]);
 
   useEffect(() => {
+    if (!authReady) return;
     void loadWords();
-  }, [loadWords]);
+  }, [authReady, loadWords]);
 
   const selectedTopic = topics.find((t) => t.id === selectedTopicId) ?? null;
 
@@ -149,35 +187,20 @@ export default function AdminVocabularyPage(): React.ReactElement {
       };
       if (editingTopic) {
         await updateAdminVocabTopic(editingTopic.id, payload);
-        setBannerSuccess(`Đã cập nhật chủ đề "${payload.titleVi}".`);
+        toastRef.current.success(`Đã cập nhật chủ đề "${payload.titleVi}".`);
       } else {
         const created = await createAdminVocabTopic(payload);
         setSelectedTopicId(created.id);
-        setBannerSuccess(`Đã tạo chủ đề "${payload.titleVi}".`);
+        toastRef.current.success(`Đã tạo chủ đề "${payload.titleVi}".`);
       }
       setShowTopicModal(false);
       await loadTopics();
     } catch (err) {
-      setTopicError(err instanceof Error ? err.message : 'Lưu chủ đề thất bại.');
+      const msg = err instanceof Error ? err.message : 'Lưu chủ đề thất bại.';
+      setTopicError(msg);
+      toastRef.current.error(msg);
     } finally {
       setSavingTopic(false);
-    }
-  };
-
-  const handleDeleteTopic = async (topic: AdminCuratedTopic): Promise<void> => {
-    if (
-      !window.confirm(
-        `Xoá chủ đề "${topic.titleVi}" cùng toàn bộ ${topic.wordsCount} từ vựng trong chủ đề này?`,
-      )
-    ) {
-      return;
-    }
-    try {
-      await deleteAdminVocabTopic(topic.id);
-      setBannerSuccess(`Đã xoá chủ đề "${topic.titleVi}".`);
-      await loadTopics();
-    } catch (err) {
-      setBannerError(err instanceof Error ? err.message : 'Xoá chủ đề thất bại.');
     }
   };
 
@@ -213,29 +236,70 @@ export default function AdminVocabularyPage(): React.ReactElement {
       };
       if (editingWord) {
         await updateAdminVocabWord(selectedTopicId, editingWord.id, payload);
-        setBannerSuccess(`Đã cập nhật từ "${payload.word}".`);
+        toastRef.current.success(`Đã cập nhật từ "${payload.word}".`);
       } else {
         await createAdminVocabWord(selectedTopicId, payload);
-        setBannerSuccess(`Đã thêm từ "${payload.word}".`);
+        toastRef.current.success(`Đã thêm từ "${payload.word}".`);
       }
       setShowWordModal(false);
       await Promise.all([loadWords(), loadTopics()]);
     } catch (err) {
-      setWordError(err instanceof Error ? err.message : 'Lưu từ vựng thất bại.');
+      const msg = err instanceof Error ? err.message : 'Lưu từ vựng thất bại.';
+      setWordError(msg);
+      toastRef.current.error(msg);
     } finally {
       setSavingWord(false);
     }
   };
 
-  const handleDeleteWord = async (word: AdminCuratedWord): Promise<void> => {
-    if (!selectedTopicId) return;
-    if (!window.confirm(`Xoá từ "${word.word}" khỏi chủ đề hiện tại?`)) return;
+  const handleConfirmDelete = async (): Promise<void> => {
+    if (!confirmDelete || deleting) return;
+    setDeleting(true);
+    setBannerError(null);
     try {
-      await deleteAdminVocabWord(selectedTopicId, word.id);
-      setBannerSuccess(`Đã xoá từ "${word.word}".`);
-      await Promise.all([loadWords(), loadTopics()]);
+      if (confirmDelete.kind === 'topic') {
+        await deleteAdminVocabTopic(confirmDelete.topic.id);
+        toastRef.current.success(
+          `Đã xoá chủ đề "${confirmDelete.topic.titleVi}".`,
+        );
+        setConfirmDelete(null);
+        await loadTopics();
+      } else {
+        if (!selectedTopicId) return;
+        await deleteAdminVocabWord(selectedTopicId, confirmDelete.word.id);
+        toastRef.current.success(`Đã xoá từ "${confirmDelete.word.word}".`);
+        setConfirmDelete(null);
+        await Promise.all([loadWords(), loadTopics()]);
+      }
     } catch (err) {
-      setBannerError(err instanceof Error ? err.message : 'Xoá từ thất bại.');
+      const fallback =
+        confirmDelete.kind === 'topic'
+          ? 'Xoá chủ đề thất bại.'
+          : 'Xoá từ thất bại.';
+      const msg = err instanceof Error ? err.message : fallback;
+      setBannerError(msg);
+      toastRef.current.error(msg);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleExport = async (format: 'csv' | 'json'): Promise<void> => {
+    if (exporting) return;
+    setExporting(true);
+    setBannerError(null);
+    try {
+      await downloadAdminExport('topics', format);
+      toastRef.current.success(
+        `Đã xuất dữ liệu từ vựng (${format.toUpperCase()}).`,
+      );
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Xuất dữ liệu từ vựng thất bại.';
+      setBannerError(msg);
+      toastRef.current.error(msg);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -244,20 +308,23 @@ export default function AdminVocabularyPage(): React.ReactElement {
       breadcrumbTitle="Từ vựng"
       title="Curated Vocabulary CMS"
       subtitle="Quản lý bộ chủ đề từ vựng hệ thống và từng từ vựng kèm phiên âm, ví dụ và hình ảnh."
+      onAuthenticated={() => setAuthReady(true)}
       actions={
         <>
           <button
             type="button"
-            onClick={() => void downloadAdminExport('topics', 'csv')}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
+            disabled={exporting}
+            onClick={() => void handleExport('csv')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50 disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
             <span>CSV</span>
           </button>
           <button
             type="button"
-            onClick={() => void downloadAdminExport('topics', 'json')}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
+            disabled={exporting}
+            onClick={() => void handleExport('json')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50 disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
             <span>JSON</span>
@@ -275,14 +342,11 @@ export default function AdminVocabularyPage(): React.ReactElement {
     >
       {() => (
         <div className="space-y-5">
+          <AdminToastBridge toastRef={toastRef} />
+
           {bannerError && (
             <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3.5 text-sm font-medium text-red-700">
               {bannerError}
-            </div>
-          )}
-          {bannerSuccess && (
-            <div className="rounded-2xl border border-brand-200 bg-brand-25 px-5 py-3.5 text-sm font-medium text-brand-800">
-              {bannerSuccess}
             </div>
           )}
 
@@ -349,7 +413,9 @@ export default function AdminVocabularyPage(): React.ReactElement {
                           </button>
                           <button
                             type="button"
-                            onClick={() => void handleDeleteTopic(topic)}
+                            onClick={() =>
+                              setConfirmDelete({ kind: 'topic', topic })
+                            }
                             aria-label="Xoá chủ đề"
                             className="rounded-lg p-1 text-red-600 hover:bg-red-50"
                           >
@@ -486,7 +552,9 @@ export default function AdminVocabularyPage(): React.ReactElement {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => void handleDeleteWord(word)}
+                                    onClick={() =>
+                                      setConfirmDelete({ kind: 'word', word })
+                                    }
                                     className="rounded-lg border border-red-200 bg-white px-2.5 py-1 font-semibold text-red-600 hover:bg-red-50"
                                   >
                                     Xóa
@@ -502,11 +570,14 @@ export default function AdminVocabularyPage(): React.ReactElement {
 
                   <GlobalPagination
                     page={wordPagination.page}
-                    limit={wordPagination.limit}
+                    limit={wordLimit}
                     total={wordPagination.total}
                     totalPages={wordPagination.totalPages}
                     onPageChange={(next) => setWordPage(next)}
-                    onLimitChange={() => undefined}
+                    onLimitChange={(next) => {
+                      setWordLimit(next);
+                      setWordPage(1);
+                    }}
                   />
                 </>
               ) : (
@@ -752,6 +823,38 @@ export default function AdminVocabularyPage(): React.ReactElement {
               </div>
             </div>
           )}
+
+          <ConfirmDialog
+            open={Boolean(confirmDelete)}
+            title={
+              confirmDelete?.kind === 'topic'
+                ? 'Xoá chủ đề từ vựng'
+                : 'Xoá từ vựng'
+            }
+            description={
+              confirmDelete?.kind === 'topic' ? (
+                <>
+                  Bạn có chắc muốn xoá chủ đề{' '}
+                  <strong>{confirmDelete.topic.titleVi}</strong> cùng toàn bộ{' '}
+                  <strong>{confirmDelete.topic.wordsCount} từ vựng</strong>{' '}
+                  trong chủ đề này? Hành động này không thể hoàn tác.
+                </>
+              ) : confirmDelete?.kind === 'word' ? (
+                <>
+                  Bạn có chắc muốn xoá từ{' '}
+                  <strong>{confirmDelete.word.word}</strong> khỏi chủ đề hiện
+                  tại?
+                </>
+              ) : null
+            }
+            confirmLabel={
+              confirmDelete?.kind === 'topic' ? 'Xoá chủ đề' : 'Xoá từ'
+            }
+            tone="danger"
+            busy={deleting}
+            onConfirm={handleConfirmDelete}
+            onCancel={() => setConfirmDelete(null)}
+          />
         </div>
       )}
     </AdminShell>

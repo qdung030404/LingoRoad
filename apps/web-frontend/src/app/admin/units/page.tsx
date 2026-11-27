@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   BookOpen,
   Download,
@@ -10,6 +10,11 @@ import {
   X,
 } from 'lucide-react';
 import { AdminShell } from '@/components/admin/AdminShell';
+import {
+  NOOP_ADMIN_TOAST,
+  useAdminToast,
+  type AdminToastApi,
+} from '@/components/admin/AdminToast';
 import { LegacyStatCard } from '@/components/admin/LegacyStatCard';
 import {
   createLearningUnit,
@@ -22,13 +27,27 @@ import type { CefrLevel, LearningUnitItem } from '@/types/admin';
 
 const CEFR_LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
+function AdminToastBridge({
+  toastRef,
+}: {
+  toastRef: React.MutableRefObject<AdminToastApi>;
+}): null {
+  const toast = useAdminToast();
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast, toastRef]);
+  return null;
+}
+
 export default function AdminUnitsPage(): React.ReactElement {
+  const toastRef = useRef<AdminToastApi>(NOOP_ADMIN_TOAST);
+  const [authReady, setAuthReady] = useState(false);
   const [units, setUnits] = useState<LearningUnitItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [cefrFilter, setCefrFilter] = useState<CefrLevel | ''>('');
   const [bannerError, setBannerError] = useState<string | null>(null);
-  const [bannerSuccess, setBannerSuccess] = useState<string | null>(null);
 
   // Create / Edit modal state
   const [showModal, setShowModal] = useState(false);
@@ -62,8 +81,9 @@ export default function AdminUnitsPage(): React.ReactElement {
   }, []);
 
   useEffect(() => {
+    if (!authReady) return;
     void loadUnits();
-  }, [loadUnits]);
+  }, [authReady, loadUnits]);
 
   const filteredUnits = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -135,17 +155,18 @@ export default function AdminUnitsPage(): React.ReactElement {
       };
       if (editingUnit) {
         await updateLearningUnit(editingUnit.id, payload);
-        setBannerSuccess(`Đã cập nhật chương học "${title.trim()}".`);
+        toastRef.current.success(`Đã cập nhật chương học "${title.trim()}".`);
       } else {
         await createLearningUnit(payload);
-        setBannerSuccess(`Đã tạo chương học "${title.trim()}".`);
+        toastRef.current.success(`Đã tạo chương học "${title.trim()}".`);
       }
       setShowModal(false);
       await loadUnits();
     } catch (err) {
-      setFormError(
-        err instanceof Error ? err.message : 'Không thể lưu chương học.',
-      );
+      const msg =
+        err instanceof Error ? err.message : 'Không thể lưu chương học.';
+      setFormError(msg);
+      toastRef.current.error(msg);
     } finally {
       setSaving(false);
     }
@@ -157,7 +178,7 @@ export default function AdminUnitsPage(): React.ReactElement {
     setBannerError(null);
     try {
       const res = await deleteLearningUnit(deleteTarget.id, detachLessons);
-      setBannerSuccess(
+      toastRef.current.success(
         res.detachedLessonsCount > 0
           ? `Đã xoá chương "${deleteTarget.title}" và gỡ liên kết ${res.detachedLessonsCount} bài học.`
           : `Đã xoá chương học "${deleteTarget.title}".`,
@@ -166,19 +187,31 @@ export default function AdminUnitsPage(): React.ReactElement {
       setDetachLessons(false);
       await loadUnits();
     } catch (err) {
-      setBannerError(
-        err instanceof Error ? err.message : 'Không thể xoá chương học.',
-      );
+      const msg =
+        err instanceof Error ? err.message : 'Không thể xoá chương học.';
+      setBannerError(msg);
+      toastRef.current.error(msg);
     } finally {
       setDeleting(false);
     }
   };
 
   const handleExport = async (format: 'json' | 'csv'): Promise<void> => {
+    if (exporting) return;
+    setExporting(true);
+    setBannerError(null);
     try {
       await downloadAdminExport('units', format);
+      toastRef.current.success(
+        `Đã xuất danh sách chương học (${format.toUpperCase()}).`,
+      );
     } catch (err) {
-      setBannerError(err instanceof Error ? err.message : 'Xuất dữ liệu thất bại.');
+      const msg =
+        err instanceof Error ? err.message : 'Xuất dữ liệu thất bại.';
+      setBannerError(msg);
+      toastRef.current.error(msg);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -187,20 +220,23 @@ export default function AdminUnitsPage(): React.ReactElement {
       breadcrumbTitle="Chương học"
       title="Learning Units"
       subtitle="Quản lý cấu trúc chương học lộ trình theo 6 bậc CEFR (A1 – C2) và thứ tự bài học."
+      onAuthenticated={() => setAuthReady(true)}
       actions={
         <>
           <button
             type="button"
+            disabled={exporting}
             onClick={() => void handleExport('csv')}
-            className="inline-flex items-center gap-2 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50 disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
             <span>CSV</span>
           </button>
           <button
             type="button"
+            disabled={exporting}
             onClick={() => void handleExport('json')}
-            className="inline-flex items-center gap-2 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50 disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
             <span>JSON</span>
@@ -218,6 +254,8 @@ export default function AdminUnitsPage(): React.ReactElement {
     >
       {() => (
         <div className="space-y-5">
+          <AdminToastBridge toastRef={toastRef} />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <LegacyStatCard
               label="Tổng chương học"
@@ -245,11 +283,6 @@ export default function AdminUnitsPage(): React.ReactElement {
           {bannerError && (
             <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-3.5 text-sm font-medium text-red-700">
               {bannerError}
-            </div>
-          )}
-          {bannerSuccess && (
-            <div className="rounded-2xl border border-brand-200 bg-brand-25 px-5 py-3.5 text-sm font-medium text-brand-800">
-              {bannerSuccess}
             </div>
           )}
 

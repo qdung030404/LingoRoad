@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -15,6 +15,7 @@ import {
   LogOut,
   Menu,
   Mic,
+  Server,
   ShieldCheck,
   Tags,
   Users,
@@ -28,6 +29,8 @@ import {
   saveAdminSession,
 } from '@/lib/admin-api';
 import type { AdminUser } from '@/types/admin';
+import { AdminProfileModal } from './AdminProfileModal';
+import { AdminToastProvider } from './AdminToast';
 import { LingoRoadWordmark } from './LingoRoadWordmark';
 
 interface AdminShellProps {
@@ -35,6 +38,7 @@ interface AdminShellProps {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  onAuthenticated?: (admin: AdminUser) => void;
   children: (currentAdmin: AdminUser) => React.ReactNode;
 }
 
@@ -49,6 +53,12 @@ const PRIMARY_NAV = [
     href: '/admin/users',
     label: 'Người dùng',
     icon: Users,
+    exact: false,
+  },
+  {
+    href: '/admin/system',
+    label: 'Hệ thống & AI',
+    icon: Server,
     exact: false,
   },
   {
@@ -124,6 +134,7 @@ export function AdminShell({
   title,
   subtitle,
   actions,
+  onAuthenticated,
   children,
 }: AdminShellProps): React.ReactElement {
   const router = useRouter();
@@ -131,6 +142,9 @@ export function AdminShell({
   const [admin, setAdmin] = useState<AdminUser | null>(null);
   const [checking, setChecking] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const onAuthenticatedRef = useRef(onAuthenticated);
+  onAuthenticatedRef.current = onAuthenticated;
 
   useEffect(() => {
     let active = true;
@@ -155,6 +169,7 @@ export function AdminShell({
         }
         saveAdminSession({ ...latestSession, user: freshAdmin });
         setAdmin(freshAdmin);
+        onAuthenticatedRef.current?.(freshAdmin);
       } catch {
         if (!active) return;
         clearAdminSession();
@@ -167,6 +182,31 @@ export function AdminShell({
     void verify();
     return () => {
       active = false;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleStorage = (event: StorageEvent): void => {
+      if (event.key !== null && event.key !== 'lingoroad_admin_session') return;
+      if (event.newValue === null) {
+        setProfileModalOpen(false);
+        setAdmin(null);
+        router.replace('/admin/login');
+        return;
+      }
+      const latest = getStoredAdminSession();
+      if (!latest || latest.user.role !== 'ADMIN') {
+        setProfileModalOpen(false);
+        setAdmin(null);
+        router.replace('/admin/login');
+        return;
+      }
+      setAdmin(latest.user);
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
     };
   }, [router]);
 
@@ -288,88 +328,109 @@ export function AdminShell({
   );
 
   return (
-    <div className="min-h-screen bg-slateDark-25 text-slateDark-900">
-      <aside className="hidden w-60 flex-col border-r border-slateDark-100 bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex">
-        {renderSidebarBody()}
-      </aside>
+    <AdminToastProvider>
+      <div className="min-h-screen bg-slateDark-25 text-slateDark-900">
+        <aside className="hidden w-60 flex-col border-r border-slateDark-100 bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex">
+          {renderSidebarBody()}
+        </aside>
 
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div
-            className="fixed inset-0 bg-slateDark-900/40"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <aside className="relative z-10 flex w-64 flex-col overflow-y-auto bg-white shadow-xl">
-            <button
-              type="button"
-              aria-label="Đóng menu"
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-50 flex lg:hidden">
+            <div
+              className="fixed inset-0 bg-slateDark-900/40"
               onClick={() => setMobileMenuOpen(false)}
-              className="absolute right-3 top-4 rounded-lg p-1.5 text-slateDark-700 hover:bg-slateDark-50"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            {renderSidebarBody(() => setMobileMenuOpen(false))}
-          </aside>
-        </div>
-      )}
+            />
+            <aside className="relative z-10 flex w-64 flex-col overflow-y-auto bg-white shadow-xl">
+              <button
+                type="button"
+                aria-label="Đóng menu"
+                onClick={() => setMobileMenuOpen(false)}
+                className="absolute right-3 top-4 rounded-lg p-1.5 text-slateDark-700 hover:bg-slateDark-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              {renderSidebarBody(() => setMobileMenuOpen(false))}
+            </aside>
+          </div>
+        )}
 
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-60">
-        <header className="flex h-16 items-center justify-between border-b border-slateDark-100 bg-white px-4 sm:px-8">
-          <div className="flex items-center gap-3">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-60">
+          <header className="flex h-16 items-center justify-between border-b border-slateDark-100 bg-white px-4 sm:px-8">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                aria-label="Mở menu điều hướng"
+                onClick={() => setMobileMenuOpen(true)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slateDark-200 text-slateDark-900 lg:hidden"
+              >
+                <Menu className="h-4 w-4" />
+              </button>
+              <div>
+                <p className="text-[11px] font-medium text-slateDark-700">
+                  Không gian quản trị
+                </p>
+                <p className="text-sm font-semibold text-slateDark-900">
+                  {breadcrumbTitle}
+                </p>
+              </div>
+            </div>
+
             <button
               type="button"
-              aria-label="Mở menu điều hướng"
-              onClick={() => setMobileMenuOpen(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slateDark-200 text-slateDark-900 lg:hidden"
+              onClick={() => setProfileModalOpen(true)}
+              aria-label="Mở hồ sơ và đổi mật khẩu quản trị viên"
+              className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-slateDark-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
             >
-              <Menu className="h-4 w-4" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#123820] text-xs font-bold text-white">
+                {getInitials(admin.name)}
+              </div>
+              <div className="hidden text-left sm:block">
+                <p className="text-xs font-bold leading-tight text-slateDark-900">
+                  {admin.name}
+                </p>
+                <p className="text-[11px] text-slateDark-700">
+                  Admin · Tài khoản
+                </p>
+              </div>
             </button>
-            <div>
-              <p className="text-[11px] font-medium text-slateDark-700">
-                Không gian quản trị
-              </p>
-              <p className="text-sm font-semibold text-slateDark-900">
-                {breadcrumbTitle}
-              </p>
-            </div>
-          </div>
+          </header>
 
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#123820] text-xs font-bold text-white">
-              {getInitials(admin.name)}
-            </div>
-            <div className="hidden text-left sm:block">
-              <p className="text-xs font-bold leading-tight text-slateDark-900">
-                {admin.name}
-              </p>
-              <p className="text-[11px] text-slateDark-700">Admin</p>
-            </div>
-          </div>
-        </header>
-
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-8">
-          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-700">
-                LingoRoad Admin
-              </p>
-              <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slateDark-900 sm:text-[28px]">
-                {title}
-              </h1>
-              {subtitle && (
-                <p className="mt-1 text-sm text-slateDark-800">{subtitle}</p>
+          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-8">
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-700">
+                  LingoRoad Admin
+                </p>
+                <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-slateDark-900 sm:text-[28px]">
+                  {title}
+                </h1>
+                {subtitle && (
+                  <p className="mt-1 text-sm text-slateDark-800">{subtitle}</p>
+                )}
+              </div>
+              {actions && (
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {actions}
+                </div>
               )}
             </div>
-            {actions && (
-              <div className="flex flex-wrap items-center gap-2.5">
-                {actions}
-              </div>
-            )}
-          </div>
 
-          {children(admin)}
-        </main>
+            {children(admin)}
+          </main>
+        </div>
+
+        <AdminProfileModal
+          open={profileModalOpen}
+          admin={admin}
+          onClose={() => setProfileModalOpen(false)}
+          onSessionUpdated={(session) => setAdmin(session.user)}
+          onLoggedOutAll={() => {
+            setProfileModalOpen(false);
+            setAdmin(null);
+            router.replace('/admin/login');
+          }}
+        />
       </div>
-    </div>
+    </AdminToastProvider>
   );
 }

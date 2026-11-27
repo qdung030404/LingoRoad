@@ -22,6 +22,15 @@ interface ListeningLessonFormProps {
   onSegmentsChange: (next: ListeningSegmentInput[]) => void;
 }
 
+function nextUniqueId(prefix: string, existingIds: string[]): string {
+  const used = new Set(existingIds);
+  let num = existingIds.length + 1;
+  while (used.has(`${prefix}-${num}`)) {
+    num += 1;
+  }
+  return `${prefix}-${num}`;
+}
+
 export function ListeningLessonForm({
   lessonCode,
   audioUrl,
@@ -134,12 +143,16 @@ export function ListeningLessonForm({
               onKeyVocabularyChange([
                 ...keyVocabulary,
                 {
-                  id: `kv-${keyVocabulary.length + 1}`,
+                  id: nextUniqueId(
+                    'kv',
+                    keyVocabulary.map((v) => v.id),
+                  ),
                   word: '',
                   meaning: '',
                   phonetic: '',
                   example: '',
                   translation: '',
+                  imageUrl: '',
                 },
               ])
             }
@@ -153,7 +166,7 @@ export function ListeningLessonForm({
         <div className="space-y-3">
           {keyVocabulary.map((vocab, idx) => (
             <div
-              key={`kv-${idx}`}
+              key={vocab.id || `kv-${idx}`}
               className="space-y-2.5 rounded-2xl border border-slateDark-100 bg-slateDark-25 p-3.5"
             >
               <div className="flex items-center justify-between">
@@ -243,6 +256,19 @@ export function ListeningLessonForm({
                   className="rounded-xl border-[1.5px] border-slateDark-200 bg-white px-3 py-1.5 text-xs focus:border-brand-500 focus:outline-none"
                 />
               </div>
+              <MediaUploadField
+                kind="image"
+                slug={`${lessonCode || 'listening'}-vocab-${idx + 1}`}
+                label="Ảnh minh họa từ vựng (tuỳ chọn)"
+                value={vocab.imageUrl ?? ''}
+                onChange={(url) =>
+                  onKeyVocabularyChange(
+                    keyVocabulary.map((v, i) =>
+                      i === idx ? { ...v, imageUrl: url } : v,
+                    ),
+                  )
+                }
+              />
             </div>
           ))}
         </div>
@@ -256,7 +282,7 @@ export function ListeningLessonForm({
               4. Phân đoạn lời thoại — Transcript Segments ({transcriptSegments.length})
             </h3>
             <p className="text-xs text-slateDark-700">
-              Mốc thời gian (ms) tăng dần dùng để đồng bộ karaoke & highlight dẫn chứng.
+              Mốc thời gian (ms) tăng dần, không chồng lấn, dùng để đồng bộ karaoke & highlight dẫn chứng.
             </p>
           </div>
           <button
@@ -267,13 +293,17 @@ export function ListeningLessonForm({
               onSegmentsChange([
                 ...transcriptSegments,
                 {
-                  id: `seg-${transcriptSegments.length + 1}`,
+                  id: nextUniqueId(
+                    'seg',
+                    transcriptSegments.map((s) => s.id),
+                  ),
                   speaker:
                     transcriptSegments.length % 2 === 0 ? 'Speaker A' : 'Speaker B',
                   startMs: lastEnd,
                   endMs: Math.min(audioDurationMs, lastEnd + 5000),
                   text: '',
                   translationVi: '',
+                  speakerAvatar: '',
                 },
               ]);
             }}
@@ -287,7 +317,7 @@ export function ListeningLessonForm({
         <div className="space-y-3">
           {transcriptSegments.map((seg, idx) => (
             <div
-              key={`seg-${idx}`}
+              key={seg.id || `seg-${idx}`}
               className="space-y-2.5 rounded-2xl border border-slateDark-100 bg-slateDark-25 p-3.5"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -386,6 +416,20 @@ export function ListeningLessonForm({
                   className="w-full rounded-xl border border-slateDark-200 bg-white p-2.5 text-xs focus:border-brand-500 focus:outline-none"
                 />
               </div>
+
+              <MediaUploadField
+                kind="image"
+                slug={`${lessonCode || 'listening'}-speaker-${idx + 1}`}
+                label="Ảnh đại diện người nói (speakerAvatar — tuỳ chọn)"
+                value={seg.speakerAvatar ?? ''}
+                onChange={(url) =>
+                  onSegmentsChange(
+                    transcriptSegments.map((s, i) =>
+                      i === idx ? { ...s, speakerAvatar: url } : s,
+                    ),
+                  )
+                }
+              />
             </div>
           ))}
         </div>

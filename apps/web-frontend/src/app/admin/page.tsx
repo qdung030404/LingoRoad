@@ -207,10 +207,14 @@ function CefrBarChart({
 }
 
 export default function AdminDashboardPage(): React.ReactElement {
+  const [authReady, setAuthReady] = useState(false);
   const [timeframe, setTimeframe] = useState<DashboardTimeframe>('30_DAYS');
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedTimeframeLabel =
+    TIMEFRAME_OPTIONS.find((opt) => opt.value === timeframe)?.label ?? '30 ngày';
 
   const loadData = useCallback(
     async (forceRefresh = false) => {
@@ -233,14 +237,16 @@ export default function AdminDashboardPage(): React.ReactElement {
   );
 
   useEffect(() => {
+    if (!authReady) return;
     void loadData(false);
-  }, [loadData]);
+  }, [authReady, loadData]);
 
   return (
     <AdminShell
       breadcrumbTitle="Tổng quan"
       title="Dashboard Overview"
       subtitle="Phân tích dữ liệu vận hành theo thời gian thực với bộ nhớ đệm SQL Aggregate."
+      onAuthenticated={() => setAuthReady(true)}
       actions={
         <>
           <div className="inline-flex rounded-xl border border-slateDark-200 bg-white p-1">
@@ -306,23 +312,27 @@ export default function AdminDashboardPage(): React.ReactElement {
                   tone="green"
                 />
                 <LegacyStatCard
-                  label="Active 30 ngày"
+                  label="Active 30 ngày (cố định)"
                   value={overview.users.active30d}
-                  subtitle="Học viên có hoạt động gần đây"
+                  subtitle={
+                    timeframe === '30_DAYS'
+                      ? 'Học viên có hoạt động trong 30 ngày gần nhất'
+                      : `Cố định 30 ngày gần nhất (khác bộ lọc ${selectedTimeframeLabel})`
+                  }
                   icon={<Activity className="h-4 w-4" />}
                   tone="emerald"
                 />
                 <LegacyStatCard
                   label="Bài hoàn thành"
                   value={overview.activity.learningAttemptsCompleted}
-                  subtitle={`${overview.activity.placementSessionsTotal} phiên placement`}
+                  subtitle={`${overview.activity.placementSessionsTotal} phiên placement · ${selectedTimeframeLabel}`}
                   icon={<Award className="h-4 w-4" />}
                   tone="slate"
                 />
                 <LegacyStatCard
                   label="Độ chính xác"
                   value={`${overview.activity.accuracyPercent}%`}
-                  subtitle={`${overview.activity.totalAnsweredQuestions} lượt trả lời`}
+                  subtitle={`${overview.activity.totalAnsweredQuestions} lượt trả lời · ${selectedTimeframeLabel}`}
                   icon={<Target className="h-4 w-4" />}
                   tone="amber"
                 />
@@ -446,6 +456,12 @@ export default function AdminDashboardPage(): React.ReactElement {
                       </div>
                     ))}
                   </div>
+
+                  <p className="mt-4 rounded-xl border border-slateDark-100 bg-slateDark-25 px-3.5 py-2.5 text-[11px] leading-relaxed text-slateDark-700">
+                    Lưu ý: Chỉ số <strong>Writing</strong> hiện chỉ tổng hợp từ các câu
+                    hỏi đánh giá trắc nghiệm (assessment MCQ), do bài viết tự luận chấm
+                    bằng AI hoạt động không lưu trạng thái (stateless).
+                  </p>
                 </div>
 
                 <div className="rounded-2xl border border-slateDark-100 bg-white p-6 shadow-sm lg:col-span-6">
@@ -475,9 +491,12 @@ export default function AdminDashboardPage(): React.ReactElement {
                       </p>
                     ) : (
                       (overview.hardItems ?? []).map((item) => (
-                        <div
+                        <Link
                           key={item.id}
-                          className="flex items-start justify-between gap-3 py-3 first:pt-1 last:pb-1"
+                          href={`/admin/items?search=${encodeURIComponent(
+                            item.externalId || item.prompt.slice(0, 60),
+                          )}`}
+                          className="flex items-start justify-between gap-3 rounded-lg px-2 py-3 transition hover:bg-slateDark-25 first:pt-2 last:pb-2"
                         >
                           <div className="min-w-0 flex-1">
                             <p className="line-clamp-1 text-xs font-bold text-slateDark-900">
@@ -491,14 +510,14 @@ export default function AdminDashboardPage(): React.ReactElement {
                           <span className="shrink-0 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-bold text-red-700">
                             Sai {item.wrongRatePercent}% ({item.totalResponses})
                           </span>
-                        </div>
+                        </Link>
                       ))
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Hàng 5: Người dùng mới nhất & Hoạt động gần đây */}
+              {/* Hàng 5: Người dùng mới nhất & Hoạt động học viên gần đây */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
                 <div className="rounded-2xl border border-slateDark-100 bg-white p-6 shadow-sm lg:col-span-6">
                   <div className="flex items-center justify-between">
@@ -514,9 +533,10 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </div>
                   <div className="mt-4 divide-y divide-slateDark-100">
                     {overview.recentUsers.map((u) => (
-                      <div
+                      <Link
                         key={u.id}
-                        className="flex items-center justify-between py-2.5 text-xs"
+                        href={`/admin/users?search=${encodeURIComponent(u.email)}`}
+                        className="flex items-center justify-between rounded-lg px-2 py-2.5 text-xs transition hover:bg-slateDark-25"
                       >
                         <div className="min-w-0">
                           <p className="truncate font-bold text-slateDark-900">
@@ -532,22 +552,35 @@ export default function AdminDashboardPage(): React.ReactElement {
                             {formatDateTime(u.createdAt)}
                           </p>
                         </div>
-                      </div>
+                      </Link>
                     ))}
                   </div>
                 </div>
 
                 <div className="rounded-2xl border border-slateDark-100 bg-white p-6 shadow-sm lg:col-span-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-base font-extrabold text-slateDark-900">
-                      Hoạt động gần đây
-                    </h2>
-                    <Link
-                      href="/admin/audit-logs"
-                      className="text-xs font-semibold text-brand-700 hover:underline"
-                    >
-                      Nhật ký Admin
-                    </Link>
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-base font-extrabold text-slateDark-900">
+                        Hoạt động học viên gần đây
+                      </h2>
+                      <p className="mt-0.5 text-[11px] text-slateDark-600">
+                        Bài học hoàn thành, đánh giá placement và tài khoản mới đăng ký.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3 text-xs font-semibold">
+                      <Link
+                        href="/admin/users"
+                        className="text-brand-700 hover:underline"
+                      >
+                        Xem học viên
+                      </Link>
+                      <Link
+                        href="/admin/audit-logs"
+                        className="text-slateDark-600 hover:text-slateDark-900 hover:underline"
+                      >
+                        Nhật ký Admin
+                      </Link>
+                    </div>
                   </div>
 
                   <div className="mt-4 divide-y divide-slateDark-100">
