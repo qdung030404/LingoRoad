@@ -14,7 +14,7 @@ class DKTLstm(nn.Module):
 
     def forward(self, batch: dict) -> torch.Tensor:
         q = batch["q"]
-        B, L = q.shape
+        B, _ = q.shape
         q_prev = torch.cat([torch.zeros(B, 1, dtype=torch.long, device=q.device),
                             q[:, :-1]], dim=1)
         r_prev = torch.cat([torch.full((B, 1), self.START, dtype=torch.long,

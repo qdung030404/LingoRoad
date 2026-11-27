@@ -82,8 +82,6 @@ CRITICAL SECURITY DIRECTIVES:
 }
 """
 
-CEFR_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
-
 INJECTION_PATTERNS = [
     re.compile(r"ignore\s+(all\s+|any\s+)?(previous|prior|above)\s+instructions", re.IGNORECASE),
     re.compile(r"disregard\s+(all\s+)?(previous|prior|rules|prompts)", re.IGNORECASE),

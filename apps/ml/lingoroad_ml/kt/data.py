@@ -1,6 +1,5 @@
 """EdNet KT1 -> interaction frame + torch dataset (features per SAINT+ paper)."""
 from pathlib import Path
-import json
 import numpy as np
 import pandas as pd
 import torch

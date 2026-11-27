@@ -63,5 +63,3 @@ def gemini_embed(texts: list[str]) -> np.ndarray:
     client = _embedding_client()
     resp = client.embeddings.create(model=model, input=texts)
     return np.array([d.embedding for d in resp.data], dtype=np.float32)
-
-embed_texts = gemini_embed
