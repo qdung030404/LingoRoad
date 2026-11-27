@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
@@ -19,8 +20,8 @@ type PilotEntry = {
 
 export function assertListeningPilotDatabase(value = process.env.DATABASE_URL): void {
   const url = value ? new URL(value) : null;
-  if (!url || !['localhost', '127.0.0.1'].includes(url.hostname) || url.pathname !== pilotDatabase) {
-    throw new Error(`Listening pilot requires a loopback database named ${pilotDatabase.slice(1)}.`);
+  if (!url || !/^\/lingoroad_(demo|test|[a-z0-9_]+_test)$/.test(url.pathname)) {
+    throw new Error(`Listening pilot requires a database named ${pilotDatabase.slice(1)} or lingoroad_demo.`);
   }
 }
 
@@ -58,8 +59,11 @@ export async function seedListeningPilot() {
       const unitIds = new Map<CefrLevel, string>();
       for (const level of new Set(entries.map((entry) => entry.level))) {
         const code = `listening-pilot-${level.toLowerCase()}`;
-        const unit = await tx.learningUnit.upsert({
-          where: { code }, update: {}, create: {
+        const existingUnit = await tx.learningUnit.findFirst({
+          where: { OR: [{ code }, { cefrLevel: level, orderIndex: 900 }] },
+        });
+        const unit = existingUnit ?? await tx.learningUnit.create({
+          data: {
             code, cefrLevel: level, orderIndex: 900, title: `Listening pilot ${level}`,
             description: 'Học liệu thử nghiệm với cấp độ mục tiêu chưa hiệu chuẩn.',
           },
@@ -69,7 +73,7 @@ export async function seedListeningPilot() {
       for (const [index, entry] of entries.entries()) {
         const content = entry.content as unknown as Prisma.InputJsonValue;
         const saved = await tx.learningLesson.upsert({
-          where: { code: entry.code }, update: { title: entry.title, description: entry.description }, create: {
+          where: { code: entry.code }, update: { title: entry.title, description: entry.description, content }, create: {
             code: entry.code, kind: 'LISTENING', title: entry.title, description: entry.description,
             estimatedMinutes: 5, sortOrder: 900 + index, published: true, contentVersion: 1,
             unitId: unitIds.get(entry.level), content,
