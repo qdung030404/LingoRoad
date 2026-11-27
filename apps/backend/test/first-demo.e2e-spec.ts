@@ -108,7 +108,10 @@ describe('First demo: real HTTP + PostgreSQL', () => {
     const login = await request(app.getHttpServer()).post('/auth/login').send({ email: account.email, password }).expect(200);
     const read = await api({ authorization: `Bearer ${login.body.data.accessToken}` }).get('/auth/me').expect(200);
     expect(read.body.data).toMatchObject({ name: 'Lan Demo', profile: { learningPurpose: 'WORK', dailyGoalMinutes: 10 } });
-    await api(account).patch('/auth/me').send({ dailyGoalMinutes: 20 }).expect(200);
+    await api(account).patch('/auth/me').send({
+      dailyGoalMinutes: 20,
+      expectedVersion: read.body.data.profile.preferencesVersion,
+    }).expect(200);
     expect((await api(account).get('/auth/me')).body.data.profile.dailyGoalMinutes).toBe(20);
   });
 
