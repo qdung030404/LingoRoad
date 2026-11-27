@@ -29,6 +29,30 @@ const _topicPresentation = {
   'my hobbies': (Icons.interests_outlined, 'Những việc bạn thích làm'),
   'my favourite food': (Icons.restaurant_outlined, 'Món ăn bạn yêu thích'),
   'where i live': (Icons.home_outlined, 'Nơi ở và khu vực xung quanh'),
+  'travel and holidays': (
+    Icons.flight_takeoff_rounded,
+    'Chuyến đi đáng nhớ và kỳ nghỉ mơ ước',
+  ),
+  'shopping and clothes': (
+    Icons.shopping_bag_outlined,
+    'Trang phục thường ngày và thói quen mua sắm',
+  ),
+  'health and sports': (
+    Icons.fitness_center_rounded,
+    'Thể thao, vận động và giữ gìn sức khỏe',
+  ),
+  'study and future plans': (
+    Icons.school_outlined,
+    'Việc học hiện tại và mục tiêu nghề nghiệp',
+  ),
+  'weather and seasons': (
+    Icons.wb_sunny_outlined,
+    'Thời tiết, các mùa và hoạt động ngoài trời',
+  ),
+  'technology in daily life': (
+    Icons.devices_rounded,
+    'Thiết bị số và ứng dụng hữu ích mỗi ngày',
+  ),
 };
 
 class SpeakingTopicCatalogue extends StatefulWidget {
