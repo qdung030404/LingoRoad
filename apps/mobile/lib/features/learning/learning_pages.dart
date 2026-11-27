@@ -24,15 +24,22 @@ Future<void> openLearningLesson(
   LearningController controller, {
   String? lessonId,
   String? attemptId,
+  bool skipStudy = false,
+  bool skipIntro = false,
 }) async {
   await previewPush<void>(
     context,
-    attemptId == null && lessonId != null
-        ? LearningLessonIntroPage(owner: controller, lessonId: lessonId)
+    attemptId == null && lessonId != null && !skipIntro
+        ? LearningLessonIntroPage(
+            owner: controller,
+            lessonId: lessonId,
+            skipStudy: skipStudy,
+          )
         : LearningAttemptPage(
             owner: controller,
             lessonId: lessonId,
             attemptId: attemptId,
+            skipStudy: skipStudy,
           ),
   );
   if (controller.active) await controller.refresh();
@@ -45,10 +52,12 @@ class LearningAttemptPage extends StatefulWidget {
     this.lessonId,
     this.attemptId,
     this.audioEngineFactory,
+    this.skipStudy = false,
   });
   final LearningController owner;
   final String? lessonId, attemptId;
   final ListeningAudioEngine Function()? audioEngineFactory;
+  final bool skipStudy;
   @override
   State<LearningAttemptPage> createState() => _LearningAttemptPageState();
 }
@@ -257,12 +266,16 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
         );
       }
       if (attempt.completed) return _result(attempt);
-      final study = controller.phase == 'STUDY' && attempt.steps.isNotEmpty;
+      final study =
+          !widget.skipStudy &&
+          controller.phase == 'STUDY' &&
+          attempt.steps.isNotEmpty;
       final items = study ? attempt.steps : attempt.questions;
       final index = controller.index.clamp(0, items.length - 1);
       final item = items[index];
       final passage = study ? null : attempt.content['passage'] as String?;
       final isReadingLesson = attempt.lesson.kind == 'READING';
+      final isGrammarQuiz = !study && attempt.lesson.kind == 'GRAMMAR';
       final listening = attempt.lesson.kind == 'LISTENING';
       final reading = passage != null && isReadingLesson;
       final options = study ? const <Json>[] : learningItems(item['options']);
@@ -285,6 +298,8 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                 ? 'Luyện nghe'
                 : reading
                 ? 'Luyện Đọc'
+                : isGrammarQuiz
+                ? 'Luyện ngữ pháp'
                 : attempt.lesson.title,
             titleStyle: designHeading(18),
             leading: IconButton(
@@ -445,7 +460,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
               key: reading || listening ? ValueKey(questionId) : null,
               padding: const EdgeInsets.all(16),
               children: [
-                if (listening || reading) ...[
+                if (listening || reading || isGrammarQuiz) ...[
                   ClipRRect(
                     borderRadius: AppRadius.pill,
                     child: LinearProgressIndicator(
@@ -576,13 +591,13 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                       ),
                     const SizedBox(height: 16),
                   ],
-                  if (reading || listening)
+                  if (reading || listening || isGrammarQuiz)
                     Text(
                       item['prompt'] as String,
-                      style: designHeading(20, height: 1.35),
+                      style: designHeading(18, height: 1.4),
                     )
                   else
-                    learningHeading(item['prompt'] as String, size: 24),
+                    learningHeading(item['prompt'] as String, size: 22),
                   const SizedBox(height: 16),
                   if ((reading || listening) &&
                       hasVisualImageOptions(options)) ...[

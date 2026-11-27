@@ -14,7 +14,7 @@ function lesson(
 ): PlannedLesson {
   return {
     id, code: id, kind, title: id, description: id, estimatedMinutes: minutes, sortOrder: order,
-    published: true, contentVersion: 1, unitId, unit: cefrLevel ? { cefrLevel } : null,
+    published: true, contentVersion: 1, unitId, grammarTopicId: null, unit: cefrLevel ? { cefrLevel } : null,
     content: {}, createdAt: now, updatedAt: now,
   };
 }

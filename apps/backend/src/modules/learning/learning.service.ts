@@ -209,8 +209,17 @@ export class LearningService {
     };
   }
 
-  async catalogue(userId: string, kind?: LearningLesson['kind']) {
+  async catalogue(
+    userId: string,
+    kind?: LearningLesson['kind'],
+    cefrLevel?: CefrLevel,
+    grammarTopicCode?: string,
+  ) {
     const kindClause = kind ? Prisma.sql`AND l.kind = ${kind}::"LearningKind"` : Prisma.empty;
+    const cefrClause = cefrLevel ? Prisma.sql`AND u.cefr_level = ${cefrLevel}::"CefrLevel"` : Prisma.empty;
+    const grammarJoin = grammarTopicCode
+      ? Prisma.sql`INNER JOIN grammar_topics gt ON gt.id = l.grammar_topic_id AND gt.code = ${grammarTopicCode} AND gt.published = true`
+      : Prisma.empty;
     const [lessons, attempts] = await Promise.all([
       this.prisma.$queryRaw<CatalogueLessonRow[]>`
         SELECT
@@ -235,8 +244,10 @@ export class LearningService {
           l.content ->> 'coverImageUrl' AS "coverImageUrl"
         FROM learning_lessons l
         LEFT JOIN learning_units u ON u.id = l.unit_id
+        ${grammarJoin}
         WHERE l.published = true
           ${kindClause}
+          ${cefrClause}
         ORDER BY l.sort_order ASC, l.code ASC
       `,
       this.prisma.learningAttempt.findMany({

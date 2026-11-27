@@ -7,6 +7,9 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import '../auth/session_controller.dart';
+import '../grammar/grammar_catalogue_view.dart';
+import '../grammar/grammar_controller.dart';
+import '../grammar/grammar_repository.dart';
 import '../profile/profile_page.dart';
 import '../speaking/speaking_controller.dart';
 import '../speaking/speaking_recorder.dart';
@@ -79,6 +82,14 @@ class _LearningPreviewState extends State<LearningPreview>
           accountId: _accountId,
           isCurrent: () =>
               widget.account!.user?['id'] == vocabularyController?.accountId,
+        );
+  late final GrammarController? grammarController = widget.account == null
+      ? null
+      : GrammarController(
+          repository: ApiGrammarRepository(
+            widget.account!.api,
+            authenticated: _accountId != null,
+          ),
         );
   late final DailyLearningController? daily =
       widget.account == null || _accountId == null
@@ -220,6 +231,7 @@ class _LearningPreviewState extends State<LearningPreview>
     daily?.dispose();
     learning?.dispose();
     vocabularyController?.dispose();
+    grammarController?.dispose();
     library.dispose();
     tabs.dispose();
     selectedTab.dispose();
@@ -608,7 +620,15 @@ class _LearningPreviewState extends State<LearningPreview>
         ),
         const SizedBox(height: 24),
         if (!vocabulary)
-          LearningCatalogue(controller: learning!, kinds: const ['GRAMMAR'])
+          grammarController != null
+              ? GrammarRoadSection(
+                  grammarController: grammarController!,
+                  learningController: learning,
+                )
+              : LearningCatalogue(
+                  controller: learning!,
+                  kinds: const ['GRAMMAR'],
+                )
         else ...[
           if (vocabLessons.isNotEmpty) ...[
             LearningCatalogue(

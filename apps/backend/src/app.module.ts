@@ -10,6 +10,7 @@ import { PlacementModule } from './modules/placement/placement.module';
 import { LearningModule } from './modules/learning/learning.module';
 import { VocabularyModule } from './modules/vocabulary/vocabulary.module';
 import { AssessmentModule } from './modules/assessment/assessment.module';
+import { GrammarModule } from './modules/grammar/grammar.module';
 import { HealthController } from './health.controller';
 import { SpeakingModule } from './modules/speaking/speaking.module';
 import { AdminModule } from './modules/admin/admin.module';
@@ -42,6 +43,7 @@ import { AdminModule } from './modules/admin/admin.module';
     VocabularyModule,
     SpeakingModule,
     AssessmentModule,
+    GrammarModule,
     AdminModule,
   ],
 })

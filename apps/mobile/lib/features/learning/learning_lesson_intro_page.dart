@@ -19,9 +19,11 @@ class LearningLessonIntroPage extends StatefulWidget {
     super.key,
     required this.owner,
     required this.lessonId,
+    this.skipStudy = false,
   });
   final LearningController owner;
   final String lessonId;
+  final bool skipStudy;
   @override
   State<LearningLessonIntroPage> createState() =>
       _LearningLessonIntroPageState();
@@ -149,6 +151,10 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
             ? 'Bắt đầu luyện nghe'
             : isReading
             ? 'Bắt đầu luyện đọc'
+            : widget.skipStudy
+            ? (lesson?.state == 'COMPLETED'
+                  ? 'Làm lại bài tập'
+                  : 'Bắt đầu luyện tập')
             : lesson?.state == 'COMPLETED'
             ? 'Học lại'
             : 'Bắt đầu học',
@@ -162,6 +168,7 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
                   LearningAttemptPage(
                     owner: widget.owner,
                     lessonId: widget.lessonId,
+                    skipStudy: widget.skipStudy,
                   ),
                 );
                 if (context.mounted) Navigator.pop(context);
@@ -170,7 +177,10 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          learningHeading(lesson?.title ?? 'Bài học', size: 28),
+          Text(
+            lesson?.title ?? 'Bài học',
+            style: designHeading(22, height: 1.35),
+          ),
           if (isListening || isReading) ...[
             if (lesson!.description.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -181,21 +191,32 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
           ] else ...[
             const SizedBox(height: 16),
             LearningCard(
+              gap: 12,
               children: [
                 if ((lesson?.description ?? '').isNotEmpty)
-                  learningBody(lesson!.description),
-                learningBody(
+                  learningBody(lesson!.description, size: 14),
+                Text(
                   '${lesson?.minutes ?? '—'} phút · ${lesson?.questionCount ?? 5} câu luyện tập',
+                  style: designText(
+                    14,
+                    weight: FontWeight.w600,
+                    color: AppColors.primary700,
+                  ),
                 ),
                 if (lesson?.json['audioDurationMs'] case final num ms)
-                  learningBody('Audio ${(ms / 1000).ceil()} giây'),
+                  learningBody('Audio ${(ms / 1000).ceil()} giây', size: 14),
                 learningBody(
                   'Chọn đáp án rồi bấm Kiểm tra để xem giải thích. Làm đủ câu và bấm Nộp bài để lưu kết quả.',
+                  size: 14,
                 ),
                 if (lesson?.kind == 'VOCABULARY')
-                  learningBody('Học 10 từ về gia đình trước phần luyện tập.'),
+                  learningBody(
+                    'Học 10 từ về gia đình trước phần luyện tập.',
+                    size: 14,
+                  ),
                 learningBody(
                   'Nếu thoát trước khi nộp bài, tiến độ và thời gian lượt này sẽ bị hủy để lần sau làm lại từ đầu.',
+                  size: 13,
                 ),
               ],
             ),
