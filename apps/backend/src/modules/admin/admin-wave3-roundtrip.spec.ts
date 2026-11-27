@@ -520,4 +520,111 @@ describe('Wave 3 Round-Trip Export/Import, Single-User Export & Bulk Publish', (
       data: { published: false },
     });
   });
+
+  it('AdminImportService rejects invalid speakingPrompts.sortOrder, duplicate assessmentGroups.id, isLeaf flip, and grammarTopicCode on non-GRAMMAR lessons', async () => {
+    const prisma = {
+      learningUnit: { findMany: jest.fn().mockResolvedValue([]) },
+      learningLesson: { findMany: jest.fn().mockResolvedValue([]) },
+      speakingPrompt: { findMany: jest.fn().mockResolvedValue([]) },
+      assessmentItemGroup: { findMany: jest.fn().mockResolvedValue([]) },
+      grammarTopic: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: 'g-branch',
+            code: 'grammar.tenses',
+            isLeaf: false,
+            parentId: null,
+            parent: null,
+          },
+          {
+            id: 'g-leaf',
+            code: 'grammar.tenses.present_simple',
+            isLeaf: true,
+            parentId: 'g-branch',
+            parent: { code: 'grammar.tenses' },
+          },
+        ]),
+      },
+      grammarPrerequisite: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const importer = new AdminImportService(
+      prisma as unknown as PrismaService,
+      { invalidateCache: jest.fn(async () => undefined) } as unknown as AssessmentMatrixService,
+      { invalidateTopicsCache: jest.fn() } as unknown as CuratedVocabularyService,
+    );
+
+    const invalidResult = await importer.validateBundle({
+      speakingPrompts: [
+        {
+          code: 'sp-bad-order',
+          mode: 'READ_ALOUD',
+          title: 'Bad order',
+          text: 'Hello world.',
+          sortOrder: -1,
+        },
+      ],
+      assessmentGroups: [
+        { id: UUID_1, skill: 'READING', cefrLevel: 'B1', partNumber: 1 },
+        { id: UUID_1, skill: 'READING', cefrLevel: 'B1', partNumber: 2 },
+      ],
+      grammarTopics: [
+        {
+          code: 'grammar.tenses',
+          cefrLevel: 'A1',
+          isLeaf: true,
+          titleEn: 'Tenses',
+          titleVi: 'Các thì',
+          formulas: [{ form: 'AFFIRMATIVE', labelVi: 'KĐ', structure: 'S + V' }],
+          usageNotes: [{ useCaseVi: 'Thói quen' }],
+          examples: [{ sentenceEn: 'I work.', translationVi: 'Tôi làm.' }],
+        },
+      ],
+      lessons: [
+        {
+          code: 'reading-with-grammar',
+          kind: 'READING',
+          title: 'Reading Lesson',
+          description: 'Desc',
+          estimatedMinutes: 5,
+          grammarTopicCode: 'grammar.tenses.present_simple',
+          content: {
+            passage: 'Short passage.',
+            steps: [],
+            questions: [1, 2, 3].map((i) => ({
+              id: `q-${i}`,
+              type: 'MULTIPLE_CHOICE',
+              prompt: `Question ${i}?`,
+              options: [
+                { id: 'A', text: '1' },
+                { id: 'B', text: '2' },
+                { id: 'C', text: '3' },
+                { id: 'D', text: '4' },
+              ],
+              correctOptionId: 'A',
+              explanation: 'Because.',
+            })),
+          },
+        },
+      ],
+    });
+
+    expect(invalidResult.isValid).toBe(false);
+    expect(invalidResult.errors.some((e) => e.path === 'speakingPrompts[0].sortOrder')).toBe(true);
+    expect(invalidResult.errors.some((e) => e.path === 'assessmentGroups[1].id')).toBe(true);
+    expect(invalidResult.errors.some((e) => e.path === 'grammarTopics[0].isLeaf')).toBe(true);
+    expect(invalidResult.errors.some((e) => e.path === 'lessons[0].grammarTopicCode')).toBe(true);
+
+    // Updating an existing branch (isLeaf=false) without repeating isLeaf inherits false cleanly.
+    const updateBranchResult = await importer.validateBundle({
+      grammarTopics: [
+        {
+          code: 'grammar.tenses',
+          cefrLevel: 'A1',
+          titleEn: 'Tenses Updated',
+          titleVi: 'Các thì (mới)',
+        },
+      ],
+    });
+    expect(updateBranchResult.isValid).toBe(true);
+  });
 });

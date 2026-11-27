@@ -378,6 +378,10 @@ export function parseSpeakingPromptsSection(
       errors.push({ path: `${path}.hints`, message: 'Mỗi đề luyện nói chỉ được tối đa 3 gợi ý (hints).' });
       itemValid = false;
     }
+    if (sortOrder !== undefined && (!Number.isInteger(sortOrder) || sortOrder < 0)) {
+      errors.push({ path: `${path}.sortOrder`, message: 'sortOrder phải là số nguyên >= 0.' });
+      itemValid = false;
+    }
     if (visualContext && visualContext.length > 2000) {
       errors.push({ path: `${path}.visualContext`, message: 'visualContext tối đa 2000 ký tự.' });
       itemValid = false;

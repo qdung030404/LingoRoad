@@ -223,7 +223,12 @@ export async function applyParsedBundleTransaction(
 
   for (const lesson of parsed.lessons) {
     const unitId = lesson.unitCode ? (unitIdByCode.get(lesson.unitCode) ?? null) : undefined;
-    const grammarTopicId = lesson.grammarTopicCode ? (grammarIdByCode.get(lesson.grammarTopicCode) ?? null) : undefined;
+    const grammarTopicId =
+      lesson.kind === 'GRAMMAR'
+        ? lesson.grammarTopicCode
+          ? (grammarIdByCode.get(lesson.grammarTopicCode) ?? null)
+          : undefined
+        : null;
     const sortOrder = lesson.sortOrder ?? nextSortOrder++;
 
     await tx.learningLesson.upsert({

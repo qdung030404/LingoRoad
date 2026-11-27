@@ -115,7 +115,7 @@ function toLocalDayIso(
 ): string | undefined {
   if (!dateStr) return undefined;
   const parsed = new Date(
-    `${dateStr}T${boundary === 'start' ? '00:00:00.000' : '23:59:59.999'}`,
+    `${dateStr}T${boundary === 'start' ? '00:00:00.000' : '23:59:59.999'}+07:00`,
   );
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
@@ -143,6 +143,7 @@ export default function AdminAuditLogsPage(): React.ReactElement {
   const [fromDate, setFromDate] = useState(initialFilters.from);
   const [toDate, setToDate] = useState(initialFilters.to);
   const [loading, setLoading] = useState(true);
+  const logsReqRef = useRef(0);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedLog, setSelectedLog] = useState<AdminAuditLog | null>(null);
@@ -182,6 +183,7 @@ export default function AdminAuditLogsPage(): React.ReactElement {
   };
 
   const loadLogs = useCallback(async () => {
+    const reqId = ++logsReqRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -194,14 +196,18 @@ export default function AdminAuditLogsPage(): React.ReactElement {
         from: toLocalDayIso(fromDate, 'start'),
         to: toLocalDayIso(toDate, 'end'),
       });
+      if (reqId !== logsReqRef.current) return;
       setLogs(res.items);
       setPagination(res.pagination);
     } catch (err) {
+      if (reqId !== logsReqRef.current) return;
       setError(
         err instanceof Error ? err.message : 'Không thể tải nhật ký kiểm toán.',
       );
     } finally {
-      setLoading(false);
+      if (reqId === logsReqRef.current) {
+        setLoading(false);
+      }
     }
   }, [page, limit, adminEmail, resourceType, actionFilter, fromDate, toDate]);
 

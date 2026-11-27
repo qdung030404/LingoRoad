@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Activity,
@@ -213,25 +213,31 @@ export default function AdminDashboardPage(): React.ReactElement {
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const reqIdRef = useRef(0);
 
   const selectedTimeframeLabel =
     TIMEFRAME_OPTIONS.find((opt) => opt.value === timeframe)?.label ?? '30 ngày';
 
   const loadData = useCallback(
     async (forceRefresh = false) => {
+      const reqId = ++reqIdRef.current;
       setLoading(true);
       setError(null);
       try {
         const data = await getDashboardOverview(timeframe, forceRefresh);
+        if (reqId !== reqIdRef.current) return;
         setOverview(data);
       } catch (err) {
+        if (reqId !== reqIdRef.current) return;
         setError(
           err instanceof Error
             ? err.message
             : 'Không thể tải dữ liệu tổng quan.',
         );
       } finally {
-        setLoading(false);
+        if (reqId === reqIdRef.current) {
+          setLoading(false);
+        }
       }
     },
     [timeframe],

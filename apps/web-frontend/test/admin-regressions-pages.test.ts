@@ -176,8 +176,8 @@ test('AdminAuditLogsPage converts local day boundaries to ISO and includes EXPOR
   await tick();
 
   const lastQuery = queries[queries.length - 1];
-  assert.equal(lastQuery.from, new Date('2026-11-27T00:00:00.000').toISOString());
-  assert.equal(lastQuery.to, new Date('2026-11-27T23:59:59.999').toISOString());
+  assert.equal(lastQuery.from, new Date('2026-11-27T00:00:00.000+07:00').toISOString());
+  assert.equal(lastQuery.to, new Date('2026-11-27T23:59:59.999+07:00').toISOString());
 });
 
 test('AdminItemsPage Group modal sends null on cleared fields and reorders/adds itemIds', async () => {
@@ -558,4 +558,168 @@ test('AdminUsersPage ignores stale out-of-order list responses', async () => {
   const bodyText = text(view.body);
   assert.ok(bodyText.includes('newest-admin@example.com'));
   assert.ok(!bodyText.includes('stale-learner@example.com'));
+});
+
+test('SpeakingQuerySync preserves rapid tab+filter changes when searchParams catches up to intermediate URL and still syncs external navigation', async () => {
+  const hooks = hookHarness();
+  let currentSearch = '';
+  let replaceCount = 0;
+  let lastReplacedUrl = '';
+
+  const adminApiMock = {
+    listAdminSpeakingPrompts: async () => ({ items: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } }),
+    listAdminSpeakingSubmissions: async () => ({ items: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } }),
+    listAdminVoiceConversations: async () => ({ items: [], pagination: { page: 1, limit: 10, total: 0, totalPages: 0 } }),
+    downloadAdminExport: async () => undefined,
+  };
+  const nextNavMock = {
+    usePathname: () => '/admin/speaking',
+    useRouter: () => ({
+      replace: (url: string) => {
+        replaceCount += 1;
+        lastReplacedUrl = url;
+      },
+    }),
+    useSearchParams: () => new URLSearchParams(currentSearch),
+  };
+  const toastMock = {
+    NOOP_ADMIN_TOAST: { success() {}, error() {}, info() {} },
+    useAdminToast: () => ({ success() {}, error() {}, info() {} }),
+  };
+
+  const queryParamsMod = loadComponent('lib/use-admin-query-params.ts', {
+    react: hooks.react,
+    'next/navigation': nextNavMock,
+  });
+  const speakingVoiceMod = loadComponent('lib/use-admin-speaking-voice.ts', {
+    react: hooks.react,
+    '@/lib/admin-api': adminApiMock,
+  });
+  const speakingPageHookMod = loadComponent('lib/use-admin-speaking-page.ts', {
+    react: hooks.react,
+    '@/components/admin/AdminToast': toastMock,
+    '@/lib/admin-api': adminApiMock,
+    '@/lib/use-admin-speaking-voice': speakingVoiceMod,
+  });
+
+  const mod = loadComponent('app/admin/speaking/page.tsx', {
+    react: hooks.react,
+    'lucide-react': new Proxy({}, { get: () => () => null }),
+    '@/components/admin/AdminShell': { AdminShell: (p: Record<string, unknown>) => p },
+    '@/components/admin/AdminToast': toastMock,
+    '@/components/admin/ConfirmDialog': { ConfirmDialog: () => null },
+    '@/components/admin/SpeakingPromptModal': { SpeakingPromptModal: () => null },
+    '@/components/admin/SpeakingPromptsTab': { SpeakingPromptsTab: () => null },
+    '@/components/admin/SpeakingSubmissionDrawer': { SpeakingSubmissionDrawer: () => null },
+    '@/components/admin/SpeakingSubmissionsTab': { SpeakingSubmissionsTab: () => null },
+    '@/components/admin/SpeakingVoiceDrawer': { SpeakingVoiceDrawer: () => null },
+    '@/components/admin/SpeakingVoiceTab': { SpeakingVoiceTab: () => null },
+    '@/lib/use-admin-speaking-page': speakingPageHookMod,
+    '@/lib/use-admin-query-params': queryParamsMod,
+  });
+  const AdminSpeakingPage = mod.default;
+
+  const querySyncHooks = hookHarness();
+  const extractSyncHooks = hookHarness();
+  const syncQueryParamsMod = loadComponent('lib/use-admin-query-params.ts', {
+    react: querySyncHooks.react,
+    'next/navigation': nextNavMock,
+  });
+  const syncExtractVoiceMod = loadComponent('lib/use-admin-speaking-voice.ts', {
+    react: extractSyncHooks.react,
+    '@/lib/admin-api': adminApiMock,
+  });
+  const syncExtractHookMod = loadComponent('lib/use-admin-speaking-page.ts', {
+    react: extractSyncHooks.react,
+    '@/components/admin/AdminToast': toastMock,
+    '@/lib/admin-api': adminApiMock,
+    '@/lib/use-admin-speaking-voice': syncExtractVoiceMod,
+  });
+  const syncPageMod = loadComponent('app/admin/speaking/page.tsx', {
+    react: querySyncHooks.react,
+    'lucide-react': new Proxy({}, { get: () => () => null }),
+    '@/components/admin/AdminShell': { AdminShell: (p: Record<string, unknown>) => p },
+    '@/components/admin/AdminToast': toastMock,
+    '@/components/admin/ConfirmDialog': { ConfirmDialog: () => null },
+    '@/components/admin/SpeakingPromptModal': { SpeakingPromptModal: () => null },
+    '@/components/admin/SpeakingPromptsTab': { SpeakingPromptsTab: () => null },
+    '@/components/admin/SpeakingSubmissionDrawer': { SpeakingSubmissionDrawer: () => null },
+    '@/components/admin/SpeakingSubmissionsTab': { SpeakingSubmissionsTab: () => null },
+    '@/components/admin/SpeakingVoiceDrawer': { SpeakingVoiceDrawer: () => null },
+    '@/components/admin/SpeakingVoiceTab': { SpeakingVoiceTab: () => null },
+    '@/lib/use-admin-speaking-page': syncExtractHookMod,
+    '@/lib/use-admin-query-params': syncQueryParamsMod,
+  });
+  const SyncComponent = nodes(
+    (extractSyncHooks.render(syncPageMod.default).props.children as Array<() => unknown>)[0](),
+  ).find((n) => typeof n.type === 'function' && n.type.name === 'SpeakingQuerySync')!.type;
+
+  let externalSyncCalls = 0;
+  const renderPage = () => {
+    const shell = hooks.render(AdminSpeakingPage);
+    const children = shell.props.children as Array<() => unknown>;
+    const body = children[0]();
+    const syncNode = nodes(body).find((n) => typeof n.type === 'function' && n.type.name === 'SpeakingQuerySync')!;
+    const wrappedSyncProps = {
+      ...syncNode.props,
+      onExternalQueryChange: (api: unknown) => {
+        externalSyncCalls += 1;
+        (syncNode.props.onExternalQueryChange as (a: unknown) => void)(api);
+      },
+    };
+    querySyncHooks.render(SyncComponent, wrappedSyncProps);
+    return { shell, body };
+  };
+
+  let view = renderPage();
+  view.shell.props.onAuthenticated?.();
+  view = renderPage();
+  hooks.flushEffects();
+  querySyncHooks.flushEffects();
+  await tick();
+
+  // Rapidly switch to submissions tab -> then set status=FAILED before searchParams updates
+  button(view.body, 'Bài nộp Speaking').props.onClick?.();
+  view = renderPage();
+  hooks.flushEffects();
+  querySyncHooks.flushEffects();
+  assert.equal(lastReplacedUrl, '/admin/speaking?tab=submissions');
+
+  const subTabNode = nodes(view.body).find(
+    (n) => typeof n.type === 'function' && n.type.name === 'SpeakingSubmissionsTab',
+  )!;
+  (subTabNode.props.setSubStatusFilter as (v: string) => void)('FAILED');
+  view = renderPage();
+  hooks.flushEffects();
+  querySyncHooks.flushEffects();
+  assert.equal(lastReplacedUrl, '/admin/speaking?status=FAILED&tab=submissions');
+
+  // Now searchParams delivers intermediate URL (?tab=submissions) -> must NOT clobber status=FAILED
+  currentSearch = 'tab=submissions';
+  view = renderPage();
+  querySyncHooks.flushEffects();
+  const subTabAfterIntermediate = nodes(view.body).find(
+    (n) => typeof n.type === 'function' && n.type.name === 'SpeakingSubmissionsTab',
+  )!;
+  assert.equal(subTabAfterIntermediate.props.subStatusFilter, 'FAILED');
+  assert.equal(externalSyncCalls, 0);
+
+  // Final URL commits -> settles pending internal queries
+  currentSearch = 'status=FAILED&tab=submissions';
+  view = renderPage();
+  querySyncHooks.flushEffects();
+  assert.equal(externalSyncCalls, 0);
+
+  // Genuine external navigation (?tab=voice&stuckOnly=true) MUST sync
+  currentSearch = 'tab=voice&stuckOnly=true';
+  view = renderPage();
+  querySyncHooks.flushEffects();
+  view = renderPage();
+  assert.equal(externalSyncCalls, 1);
+  const voiceTabNode = nodes(view.body).find(
+    (n) => typeof n.type === 'function' && n.type.name === 'SpeakingVoiceTab',
+  )!;
+  assert.ok(voiceTabNode);
+  assert.equal(voiceTabNode.props.voiceStuckOnly, true);
+  assert.ok(replaceCount >= 2);
 });

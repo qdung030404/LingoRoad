@@ -60,8 +60,10 @@ export default function AdminSystemReadinessPage(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const readinessReqRef = useRef(0);
 
   const loadReadiness = useCallback(async (isManual = false): Promise<void> => {
+    const reqId = ++readinessReqRef.current;
     if (isManual) {
       setRefreshing(true);
     } else {
@@ -70,11 +72,13 @@ export default function AdminSystemReadinessPage(): React.ReactElement {
     setError(null);
     try {
       const result = await getAdminSystemReadiness();
+      if (reqId !== readinessReqRef.current) return;
       setData(result);
       if (isManual) {
         toastRef.current.success('Đã làm mới trạng thái Hệ thống & AI.');
       }
     } catch (err) {
+      if (reqId !== readinessReqRef.current) return;
       const msg =
         err instanceof Error
           ? err.message
@@ -84,8 +88,10 @@ export default function AdminSystemReadinessPage(): React.ReactElement {
         toastRef.current.error(msg);
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (reqId === readinessReqRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 

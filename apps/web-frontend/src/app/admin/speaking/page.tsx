@@ -45,13 +45,26 @@ function SpeakingQuerySync({
   const rawSearch = queryApi.searchParams?.toString() ?? '';
   const lastSeenRawRef = useRef(rawSearch);
   const expectedQuery = buildQueryString(params, SPEAKING_QUERY_DEFAULTS);
+  const pendingInternalQueriesRef = useRef<Set<string>>(new Set());
 
   useSyncAdminQueryParams(params, SPEAKING_QUERY_DEFAULTS);
 
   useEffect(() => {
+    pendingInternalQueriesRef.current.add(expectedQuery);
+  }, [expectedQuery]);
+
+  useEffect(() => {
     if (rawSearch === lastSeenRawRef.current) return;
     lastSeenRawRef.current = rawSearch;
-    if (normalizeQueryString(rawSearch) === expectedQuery) return;
+    const normalizedRaw = normalizeQueryString(rawSearch);
+    if (normalizedRaw === expectedQuery) {
+      pendingInternalQueriesRef.current.clear();
+      return;
+    }
+    if (pendingInternalQueriesRef.current.has(normalizedRaw)) {
+      pendingInternalQueriesRef.current.delete(normalizedRaw);
+      return;
+    }
     onExternalQueryChange(queryApi);
   }, [rawSearch, expectedQuery, queryApi, onExternalQueryChange]);
 

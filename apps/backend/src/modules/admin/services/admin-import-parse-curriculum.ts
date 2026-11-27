@@ -196,9 +196,13 @@ export async function parseGrammarTopicsSection(
     }
 
     const code = asTrimmedString(raw.code).toLowerCase();
+    const existingInDb = existingGrammarByCode.get(code);
     const parentCode = asTrimmedString(raw.parentCode).toLowerCase() || null;
     const cefrLevel = asTrimmedString(raw.cefrLevel).toUpperCase();
-    const isLeaf = typeof raw.isLeaf === 'boolean' ? raw.isLeaf : true;
+    const hasExplicitIsLeaf = typeof raw.isLeaf === 'boolean';
+    const isLeaf = hasExplicitIsLeaf
+      ? (raw.isLeaf as boolean)
+      : (existingInDb?.isLeaf ?? true);
     const titleEn = asTrimmedString(raw.titleEn);
     const titleVi = asTrimmedString(raw.titleVi);
     const summaryVi = asTrimmedString(raw.summaryVi);
@@ -214,6 +218,12 @@ export async function parseGrammarTopicsSection(
       itemValid = false;
     } else if (bundleGrammarByCode.has(code)) {
       errors.push({ path: `${path}.code`, message: `Mã ngữ pháp "${code}" bị trùng trong gói JSON.` });
+      itemValid = false;
+    } else if (existingInDb && hasExplicitIsLeaf && raw.isLeaf !== existingInDb.isLeaf) {
+      errors.push({
+        path: `${path}.isLeaf`,
+        message: `Không thể thay đổi trạng thái isLeaf của chủ điểm ngữ pháp "${code}" đã tồn tại.`,
+      });
       itemValid = false;
     }
     if (!CEFR_LEVEL_VALUES.has(cefrLevel)) {
@@ -431,9 +441,14 @@ export function parseAssessmentGroupsSection(
     const transcript = asTrimmedString(raw.transcript) || null;
 
     let itemValid = true;
-    if (id && !UUID_REGEX.test(id)) {
-      errors.push({ path: `${path}.id`, message: 'id của AssessmentGroup phải là UUID hợp lệ.' });
-      itemValid = false;
+    if (id) {
+      if (!UUID_REGEX.test(id)) {
+        errors.push({ path: `${path}.id`, message: 'id của AssessmentGroup phải là UUID hợp lệ.' });
+        itemValid = false;
+      } else if (bundleGroupIds.has(id)) {
+        errors.push({ path: `${path}.id`, message: `id "${id}" của AssessmentGroup bị trùng trong gói JSON.` });
+        itemValid = false;
+      }
     }
     if (!ASSESSMENT_SKILL_VALUES.has(skill)) {
       errors.push({ path: `${path}.skill`, message: 'skill phải là READING, LISTENING, WRITING hoặc SPEAKING.' });
@@ -551,14 +566,22 @@ export async function parseLessonsSection(
       itemValid = false;
     }
     if (grammarTopicCode) {
-      const bundledTopic = bundleGrammarByCode.get(grammarTopicCode);
-      const dbTopic = existingGrammarByCode.get(grammarTopicCode);
-      if (!bundledTopic && !dbTopic) {
-        errors.push({ path: `${path}.grammarTopicCode`, message: `Không tìm thấy grammarTopicCode "${grammarTopicCode}" trong DB hoặc gói JSON.` });
+      if (LEARNING_KIND_VALUES.has(kind) && kind !== LearningKind.GRAMMAR) {
+        errors.push({
+          path: `${path}.grammarTopicCode`,
+          message: 'Chỉ bài học loại GRAMMAR mới được gắn grammarTopicCode.',
+        });
         itemValid = false;
-      } else if ((bundledTopic && !bundledTopic.isLeaf) || (!bundledTopic && dbTopic && !dbTopic.isLeaf)) {
-        errors.push({ path: `${path}.grammarTopicCode`, message: `Chủ điểm ngữ pháp "${grammarTopicCode}" phải là cấu trúc lá (isLeaf = true).` });
-        itemValid = false;
+      } else {
+        const bundledTopic = bundleGrammarByCode.get(grammarTopicCode);
+        const dbTopic = existingGrammarByCode.get(grammarTopicCode);
+        if (!bundledTopic && !dbTopic) {
+          errors.push({ path: `${path}.grammarTopicCode`, message: `Không tìm thấy grammarTopicCode "${grammarTopicCode}" trong DB hoặc gói JSON.` });
+          itemValid = false;
+        } else if ((bundledTopic && !bundledTopic.isLeaf) || (!bundledTopic && dbTopic && !dbTopic.isLeaf)) {
+          errors.push({ path: `${path}.grammarTopicCode`, message: `Chủ điểm ngữ pháp "${grammarTopicCode}" phải là cấu trúc lá (isLeaf = true).` });
+          itemValid = false;
+        }
       }
     }
     if (LEARNING_KIND_VALUES.has(kind)) {
