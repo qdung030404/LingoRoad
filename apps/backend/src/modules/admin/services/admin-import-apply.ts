@@ -1,10 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { MediaStorageService } from '../../media/media-storage.service';
 import {
   assertReferencedItemUnchanged,
   lockAssessmentItem,
-  resolveAdminPlacementBankVersion,
 } from './assessment-item-integrity';
 import {
   NormalizedGrammarTopicInput,
@@ -142,7 +140,6 @@ export async function applyParsedBundleTransaction(
   tx: Prisma.TransactionClient,
   parsed: ParsedImportBundle,
   topicWordsMode: 'replace' | 'merge',
-  mediaStorage: MediaStorageService | undefined,
 ): Promise<void> {
   // 1. Units
   const unitIdByCode = new Map<string, string>();
@@ -300,36 +297,18 @@ export async function applyParsedBundleTransaction(
           include: { _count: { select: { responses: true, currentSessions: true } } },
         });
       }
-      const bankVersion = await resolveAdminPlacementBankVersion(
-        {
-          ...item,
-          options: (item.options ?? null) as Prisma.JsonValue,
-          correctOption: item.correctOption ?? null,
-          passage: item.passage ?? null,
-          audioUrl: item.audioUrl ?? null,
-          groupId: item.groupId ?? existing?.groupId,
-        },
-        mediaStorage,
-      );
+      const bankVersion =
+        existing?.groupId && !item.groupId ? null : item.bankVersion;
       if (existing) assertReferencedItemUnchanged(existing, { ...itemData, bankVersion });
       await tx.assessmentItem.upsert({
         where: { externalId: item.externalId },
-        create: { externalId: item.externalId, ...itemData, bankVersion },
+        create: { externalId: item.externalId, ...itemData, bankVersion: item.bankVersion },
         update: { ...itemData, bankVersion },
       });
     } else {
-      const bankVersion = await resolveAdminPlacementBankVersion(
-        {
-          ...item,
-          options: (item.options ?? null) as Prisma.JsonValue,
-          correctOption: item.correctOption ?? null,
-          passage: item.passage ?? null,
-          audioUrl: item.audioUrl ?? null,
-          groupId: item.groupId ?? null,
-        },
-        mediaStorage,
-      );
-      await tx.assessmentItem.create({ data: { ...itemData, bankVersion } });
+      await tx.assessmentItem.create({
+        data: { ...itemData, bankVersion: item.bankVersion },
+      });
     }
   }
 

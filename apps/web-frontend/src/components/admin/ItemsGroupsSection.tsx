@@ -155,7 +155,6 @@ export function renderGroupsTable({
   groups,
   groupsLoading,
   groupsPagination,
-  groupsLimit,
   setGroupsPage,
   setGroupsLimit,
   onEditGroup,
@@ -164,7 +163,6 @@ export function renderGroupsTable({
   groups: AdminAssessmentGroup[];
   groupsLoading: boolean;
   groupsPagination: PaginationMeta;
-  groupsLimit: number;
   setGroupsPage: (next: number) => void;
   setGroupsLimit: (nextLimit: number) => void;
   onEditGroup: (group: AdminAssessmentGroup) => void;
@@ -243,7 +241,7 @@ export function renderGroupsTable({
 
       <GlobalPagination
         page={groupsPagination.page}
-        limit={groupsLimit}
+        limit={groupsPagination.limit}
         total={groupsPagination.total}
         totalPages={groupsPagination.totalPages}
         onPageChange={(next) => setGroupsPage(next)}

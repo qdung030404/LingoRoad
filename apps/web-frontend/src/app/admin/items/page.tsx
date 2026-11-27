@@ -710,7 +710,6 @@ export default function AdminItemsPage(): React.ReactElement {
                 groups,
                 groupsLoading,
                 groupsPagination,
-                groupsLimit,
                 setGroupsPage,
                 setGroupsLimit,
                 onEditGroup: openGroupModal,

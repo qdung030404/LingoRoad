@@ -102,6 +102,7 @@ export interface NormalizedAssessmentItemInput {
   explanation?: string | null;
   audioUrl?: string | null;
   rubricCriteria?: unknown;
+  bankVersion: string | null;
   irtA: number;
   irtB: number;
   irtC: number;

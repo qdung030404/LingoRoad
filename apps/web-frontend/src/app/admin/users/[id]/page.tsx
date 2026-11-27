@@ -281,6 +281,12 @@ export default function AdminUser360Page(): React.ReactElement {
       );
       return;
     }
+    if (editPassword.length > 0 && editPassword !== editPassword.trim()) {
+      toastRef.current.error(
+        'Mật khẩu mới không được chứa khoảng trắng ở đầu hoặc cuối.',
+      );
+      return;
+    }
 
     setSavingProfile(true);
     try {

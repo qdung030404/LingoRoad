@@ -290,6 +290,12 @@ export default function AdminUsersPage(): React.ReactElement {
   ): Promise<void> => {
     event.preventDefault();
     if (!editingUser) return;
+    if (editPassword.length > 0 && editPassword !== editPassword.trim()) {
+      setEditError(
+        'Mật khẩu mới không được chứa khoảng trắng ở đầu hoặc cuối.',
+      );
+      return;
+    }
     setEditError(null);
     setSavingEdit(true);
     try {

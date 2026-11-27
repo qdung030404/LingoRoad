@@ -97,7 +97,9 @@ function normalizeHints(raw: unknown): string[] {
     .filter(Boolean);
 }
 
-function validatePreparation(raw: Record<string, unknown>): Record<string, unknown> {
+export function validatePreparation(
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
   const goal = typeof raw.goal === 'string' ? raw.goal.trim() : '';
   const sceneImageUrl =
     typeof raw.sceneImageUrl === 'string' && raw.sceneImageUrl.trim()

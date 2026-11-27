@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { isSafeImageUrl } from '../../learning/learning.types';
 import { MediaStorageService } from '../../media/media-storage.service';
+import { validatePreparation } from './admin-speaking.service';
 import { resolveAdminPlacementBankVersion } from './assessment-item-integrity';
 import {
   ASSESSMENT_SKILL_VALUES,
@@ -133,10 +134,15 @@ export async function parseAssessmentItemsSection(
       errors.push({ path: `${path}.audioUrl`, message: 'audioUrl chỉ chấp nhận đường dẫn http(s)://, /media/ hoặc assets/ hợp lệ.' });
       itemValid = false;
     }
+    if (rubricCriteria !== undefined && rubricCriteria !== null && !isPlainObject(rubricCriteria)) {
+      errors.push({ path: `${path}.rubricCriteria`, message: 'rubricCriteria phải là đối tượng JSON (Object) hoặc null.' });
+      itemValid = false;
+    }
 
+    let bankVersion: string | null = null;
     if (itemValid) {
       try {
-        await resolveAdminPlacementBankVersion(
+        bankVersion = await resolveAdminPlacementBankVersion(
           {
             type: type as ItemType,
             skill: skill as AssessmentSkill,
@@ -182,6 +188,7 @@ export async function parseAssessmentItemsSection(
       explanation,
       audioUrl,
       rubricCriteria,
+      bankVersion,
       irtA,
       irtB,
       irtC,
@@ -338,7 +345,7 @@ export function parseSpeakingPromptsSection(
     const sampleAsset = asTrimmedString(raw.sampleAsset) || null;
     const imageUrl = asTrimmedString(raw.imageUrl) || null;
     const visualContext = asTrimmedString(raw.visualContext) || null;
-    const preparation = isPlainObject(raw.preparation) ? raw.preparation : null;
+    let preparation: Record<string, unknown> | null = null;
     const linkedReadAloudCodes = Array.isArray(raw.linkedReadAloudCodes)
       ? raw.linkedReadAloudCodes.filter((c): c is string => typeof c === 'string').map((c) => c.trim().toLowerCase()).filter(Boolean)
       : [];
@@ -378,6 +385,14 @@ export function parseSpeakingPromptsSection(
       errors.push({ path: `${path}.hints`, message: 'Mỗi đề luyện nói chỉ được tối đa 3 gợi ý (hints).' });
       itemValid = false;
     }
+    if (sampleAsset && sampleAsset.length > 100) {
+      errors.push({ path: `${path}.sampleAsset`, message: 'sampleAsset tối đa 100 ký tự.' });
+      itemValid = false;
+    }
+    if (linkedReadAloudCodes.length > 10) {
+      errors.push({ path: `${path}.linkedReadAloudCodes`, message: 'linkedReadAloudCodes tối đa 10 mã.' });
+      itemValid = false;
+    }
     if (sortOrder !== undefined && (!Number.isInteger(sortOrder) || sortOrder < 0)) {
       errors.push({ path: `${path}.sortOrder`, message: 'sortOrder phải là số nguyên >= 0.' });
       itemValid = false;
@@ -393,6 +408,22 @@ export function parseSpeakingPromptsSection(
     if (mode === SpeakingMode.PICTURE_DESCRIPTION && !imageUrl) {
       errors.push({ path: `${path}.imageUrl`, message: 'Chế độ PICTURE_DESCRIPTION bắt buộc có imageUrl.' });
       itemValid = false;
+    }
+    if (raw.preparation !== undefined && raw.preparation !== null) {
+      if (!isPlainObject(raw.preparation)) {
+        errors.push({ path: `${path}.preparation`, message: 'preparation phải là một đối tượng JSON hợp lệ.' });
+        itemValid = false;
+      } else {
+        try {
+          preparation = validatePreparation(raw.preparation);
+        } catch (err) {
+          errors.push({
+            path: `${path}.preparation`,
+            message: err instanceof Error ? err.message : 'Nội dung preparation không hợp lệ.',
+          });
+          itemValid = false;
+        }
+      }
     }
     if (!itemValid) return;
 

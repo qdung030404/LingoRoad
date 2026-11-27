@@ -395,6 +395,103 @@ const GROUP_INCLUDE = {
   _count: { select: { items: true } },
 };
 
+async function syncAssessmentGroupItems(
+  tx: Prisma.TransactionClient,
+  groupId: string,
+  itemIds: string[],
+  detachExisting: boolean,
+): Promise<void> {
+  const uniqueIds = [...new Set(itemIds)];
+
+  if (detachExisting) {
+    const candidates = await tx.assessmentItem.findMany({
+      where: {
+        groupId,
+        ...(uniqueIds.length > 0 ? { id: { notIn: uniqueIds } } : {}),
+      },
+      select: { id: true },
+    });
+    if (candidates.length > 0) {
+      const detachIds = candidates.map((c) => c.id).sort();
+      for (const itemId of detachIds) {
+        await lockAssessmentItem(tx, itemId);
+      }
+      const lockedDetach = await tx.assessmentItem.findMany({
+        where: { id: { in: detachIds } },
+        select: {
+          id: true,
+          _count: { select: { responses: true, currentSessions: true } },
+        },
+      });
+      const inUse = lockedDetach.find(
+        (item) => item._count.responses > 0 || item._count.currentSessions > 0,
+      );
+      if (inUse) {
+        throw new ConflictException({
+          code: 'ADMIN_ITEM_IN_USE',
+          message:
+            'Không thể gỡ câu hỏi đã có lịch sử trả lời hoặc đang trong phiên kiểm tra khỏi nhóm.',
+        });
+      }
+      await tx.assessmentItem.updateMany({
+        where: { id: { in: detachIds } },
+        data: { groupId: null, itemOrder: 1 },
+      });
+    }
+  }
+
+  if (uniqueIds.length === 0) return;
+
+  for (const itemId of [...uniqueIds].sort()) {
+    await lockAssessmentItem(tx, itemId);
+  }
+
+  const foundItems = await tx.assessmentItem.findMany({
+    where: { id: { in: uniqueIds } },
+    select: {
+      id: true,
+      groupId: true,
+      itemOrder: true,
+      bankVersion: true,
+      _count: { select: { responses: true, currentSessions: true } },
+    },
+  });
+  if (foundItems.length !== uniqueIds.length) {
+    throw new NotFoundException({
+      code: 'ADMIN_ASSESSMENT_ITEM_NOT_FOUND',
+      message: 'Một hoặc nhiều câu hỏi trong danh sách không tồn tại.',
+    });
+  }
+
+  const foundById = new Map(foundItems.map((item) => [item.id, item]));
+  const itemsToUpdate: Array<{ id: string; itemOrder: number }> = [];
+  for (let idx = 0; idx < uniqueIds.length; idx++) {
+    const itemId = uniqueIds[idx];
+    const existing = foundById.get(itemId)!;
+    const nextOrder = idx + 1;
+    const changed =
+      existing.groupId !== groupId ||
+      existing.itemOrder !== nextOrder ||
+      existing.bankVersion !== null;
+    if (!changed) continue;
+    if (existing._count.responses > 0 || existing._count.currentSessions > 0) {
+      throw new ConflictException({
+        code: 'ADMIN_ITEM_IN_USE',
+        message:
+          'Câu hỏi đã được sử dụng trong bài kiểm tra không thể chuyển nhóm hoặc thay đổi thứ tự.',
+      });
+    }
+    itemsToUpdate.push({ id: itemId, itemOrder: nextOrder });
+  }
+
+  for (const entry of itemsToUpdate) {
+    await tx.assessmentItem.updateMany({
+      where: { id: entry.id },
+      data: { groupId, itemOrder: entry.itemOrder, bankVersion: null },
+    });
+  }
+}
+
 export async function listAssessmentGroupsHelper(
   deps: AdminContentDeps,
   query: AdminAssessmentGroupsQueryDto,
@@ -465,13 +562,7 @@ export async function createAssessmentGroupHelper(
       },
     });
     if (dto.itemIds?.length) {
-      const uniqueIds = [...new Set(dto.itemIds)];
-      for (let idx = 0; idx < uniqueIds.length; idx++) {
-        await tx.assessmentItem.updateMany({
-          where: { id: uniqueIds[idx] },
-          data: { groupId: group.id, itemOrder: idx + 1, bankVersion: null },
-        });
-      }
+      await syncAssessmentGroupItems(tx, group.id, dto.itemIds, false);
     }
     return tx.assessmentItemGroup.findUniqueOrThrow({ where: { id: group.id }, include: GROUP_INCLUDE });
   });
@@ -521,17 +612,7 @@ export async function updateAssessmentGroupHelper(
       },
     });
     if (dto.itemIds !== undefined) {
-      const uniqueIds = [...new Set(dto.itemIds)];
-      await tx.assessmentItem.updateMany({
-        where: { groupId: id, id: { notIn: uniqueIds } },
-        data: { groupId: null, itemOrder: 1 },
-      });
-      for (let idx = 0; idx < uniqueIds.length; idx++) {
-        await tx.assessmentItem.updateMany({
-          where: { id: uniqueIds[idx] },
-          data: { groupId: id, itemOrder: idx + 1, bankVersion: null },
-        });
-      }
+      await syncAssessmentGroupItems(tx, id, dto.itemIds, true);
     }
     return tx.assessmentItemGroup.findUniqueOrThrow({ where: { id }, include: GROUP_INCLUDE });
   });

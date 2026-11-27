@@ -300,7 +300,7 @@ export class AdminImportService {
     const topicWordsMode = options?.topicWordsMode ?? 'replace';
 
     await this.prisma.$transaction(
-      async (tx) => applyParsedBundleTransaction(tx, parsed, topicWordsMode, this.mediaStorage),
+      async (tx) => applyParsedBundleTransaction(tx, parsed, topicWordsMode),
       { timeout: 30000 },
     );
 

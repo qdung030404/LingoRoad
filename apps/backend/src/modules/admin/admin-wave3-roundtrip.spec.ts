@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   CallHandler,
+  ConflictException,
   ExecutionContext,
 } from '@nestjs/common';
 import {
@@ -626,5 +627,174 @@ describe('Wave 3 Round-Trip Export/Import, Single-User Export & Bulk Publish', (
       ],
     });
     expect(updateBranchResult.isValid).toBe(true);
+  });
+
+  it('AdminImportService enforces speaking preparation image safety, sampleAsset/linkedReadAloudCodes bounds, rubricCriteria object check, and single pre-tx placement check', async () => {
+    const mediaStorage = { exists: jest.fn(async () => true) };
+    const tx = {
+      $queryRaw: jest.fn(async () => []),
+      assessmentItem: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        upsert: jest.fn(),
+        create: jest.fn(),
+      },
+    };
+    const prisma = {
+      learningUnit: { findMany: jest.fn().mockResolvedValue([]) },
+      assessmentItem: { findMany: jest.fn().mockResolvedValue([]) },
+      speakingPrompt: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn(async (cb: (client: typeof tx) => Promise<unknown>) => cb(tx)),
+    };
+    const importer = new AdminImportService(
+      prisma as unknown as PrismaService,
+      { invalidateCache: jest.fn(async () => undefined) } as unknown as AssessmentMatrixService,
+      { invalidateTopicsCache: jest.fn() } as unknown as CuratedVocabularyService,
+      mediaStorage as unknown as MediaStorageService,
+    );
+
+    const invalid = await importer.validateBundle({
+      items: [
+        {
+          skill: 'WRITING',
+          skillCode: 'writing.essay',
+          cefrLevel: 'B1',
+          type: 'ESSAY',
+          usageScope: 'MOCK_EXAM',
+          prompt: 'Write about technology in daily life.',
+          rubricCriteria: ['invalid-array'],
+        },
+      ],
+      speakingPrompts: [
+        {
+          code: 'sp-unsafe-prep',
+          mode: 'TOPIC',
+          title: 'Unsafe prep',
+          text: 'Describe your favorite trip.',
+          sampleAsset: 'a'.repeat(101),
+          linkedReadAloudCodes: Array.from({ length: 11 }, (_, i) => `ra-${i}`),
+          preparation: {
+            vocabulary: [
+              {
+                word: 'flight',
+                meaningVi: 'chuyến bay',
+                imageUrl: 'javascript:alert(1)',
+              },
+            ],
+          },
+        },
+      ],
+    });
+
+    expect(invalid.isValid).toBe(false);
+    expect(invalid.errors.map((e) => e.path)).toEqual(
+      expect.arrayContaining([
+        'items[0].rubricCriteria',
+        'speakingPrompts[0].sampleAsset',
+        'speakingPrompts[0].linkedReadAloudCodes',
+        'speakingPrompts[0].preparation',
+      ]),
+    );
+
+    await importer.applyBundle({
+      items: [
+        {
+          skill: 'LISTENING',
+          skillCode: 'listening.detail',
+          cefrLevel: 'A2',
+          type: 'MULTIPLE_CHOICE',
+          usageScope: 'PLACEMENT',
+          prompt: 'Where is the train?',
+          audioUrl: '/media/placement/train.wav',
+          options: ['Platform 1', 'Platform 2', 'Platform 3', 'Platform 4'],
+          correctOption: 'Platform 1',
+        },
+      ],
+    });
+
+    expect(mediaStorage.exists).toHaveBeenCalledTimes(1);
+    expect(tx.assessmentItem.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ bankVersion: 'demo-v1' }),
+      }),
+    );
+  });
+
+  it('updateAssessmentGroupHelper protects referenced items from detach/reorder while allowing adding unreferenced items', async () => {
+    const savedGroup = {
+      id: UUID_1,
+      skill: AssessmentSkill.READING,
+      title: 'Part 5',
+      cefrLevel: CefrLevel.B1,
+      partNumber: 5,
+      passage: 'Passage',
+      audioUrl: null,
+      transcript: null,
+      usageScope: ItemUsageScope.MOCK_EXAM,
+      createdAt: new Date(),
+      _count: { items: 2 },
+      items: [],
+    };
+    const tx = {
+      $queryRaw: jest.fn(async () => []),
+      assessmentItemGroup: {
+        update: jest.fn(),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(savedGroup),
+      },
+      assessmentItem: {
+        findMany: jest.fn(),
+        updateMany: jest.fn(),
+      },
+    };
+    const prisma = {
+      assessmentItemGroup: { findUnique: jest.fn().mockResolvedValue({ id: UUID_1 }) },
+      $transaction: jest.fn(async (cb: (client: typeof tx) => Promise<unknown>) => cb(tx)),
+    };
+    const contentService = new AdminContentService(
+      prisma as unknown as PrismaService,
+      { invalidateCache: jest.fn(async () => undefined) } as unknown as AssessmentMatrixService,
+    );
+
+    // Referenced item at order 1 stays unchanged while unreferenced UUID_3 is appended at order 2
+    tx.assessmentItem.findMany
+      .mockResolvedValueOnce([]) // candidates to detach
+      .mockResolvedValueOnce([
+        {
+          id: UUID_2,
+          groupId: UUID_1,
+          itemOrder: 1,
+          bankVersion: null,
+          _count: { responses: 5, currentSessions: 0 },
+        },
+        {
+          id: UUID_3,
+          groupId: null,
+          itemOrder: 1,
+          bankVersion: null,
+          _count: { responses: 0, currentSessions: 0 },
+        },
+      ]);
+
+    await contentService.updateAssessmentGroup(UUID_1, {
+      itemIds: [UUID_2, UUID_3],
+    });
+    expect(tx.assessmentItem.updateMany).toHaveBeenCalledTimes(1);
+    expect(tx.assessmentItem.updateMany).toHaveBeenCalledWith({
+      where: { id: UUID_3 },
+      data: { groupId: UUID_1, itemOrder: 2, bankVersion: null },
+    });
+
+    // Attempting to detach referenced UUID_2 is rejected with ConflictException
+    jest.clearAllMocks();
+    prisma.assessmentItemGroup.findUnique.mockResolvedValue({ id: UUID_1 });
+    tx.assessmentItem.findMany
+      .mockResolvedValueOnce([{ id: UUID_2 }]) // candidates to detach
+      .mockResolvedValueOnce([
+        { id: UUID_2, _count: { responses: 2, currentSessions: 0 } },
+      ]);
+
+    await expect(
+      contentService.updateAssessmentGroup(UUID_1, { itemIds: [] }),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(tx.assessmentItem.updateMany).not.toHaveBeenCalled();
   });
 });
