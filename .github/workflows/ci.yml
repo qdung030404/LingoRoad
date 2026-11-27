@@ -316,7 +316,7 @@ jobs:
             .
 
       - name: Scan Backend Image for Critical Vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "${{ steps.record_state.outputs.acr_server }}/lingoroad-backend:${{ github.sha }}"
           format: 'table'
@@ -326,7 +326,7 @@ jobs:
           severity: 'CRITICAL'
 
       - name: Scan Web Admin Image for Critical Vulnerabilities
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "${{ steps.record_state.outputs.acr_server }}/lingoroad-web-admin:${{ github.sha }}"
           format: 'table'
