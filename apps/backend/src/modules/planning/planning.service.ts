@@ -47,6 +47,16 @@ export type {
 
 type Db = Prisma.TransactionClient;
 
+const PLAN_LESSON_SELECT = {
+  id: true,
+  code: true,
+  kind: true,
+  title: true,
+  estimatedMinutes: true,
+  sortOrder: true,
+  unit: { select: { cefrLevel: true } },
+} as const;
+
 @Injectable()
 export class PlanningService {
   constructor(private readonly prisma: PrismaService) {}
@@ -60,9 +70,35 @@ export class PlanningService {
     return profile;
   }
   private preferenceDto(profile: Awaited<ReturnType<PlanningService['profile']>>) {
-    return { dailyGoalMinutes: profile.dailyGoalMinutes, preferredKinds: profile.preferredKinds, version: profile.preferencesVersion };
+    return {
+      learningPurpose: profile.learningPurpose ?? null,
+      targetCefr: profile.targetCefr,
+      dailyGoalMinutes: profile.dailyGoalMinutes,
+      preferredKinds: profile.preferredKinds,
+      version: profile.preferencesVersion,
+    };
   }
-  async preferences(userId: string) { return this.preferenceDto(await this.profile(this.prisma, userId)); }
+  async preferences(userId: string) {
+    const profile = await this.profile(this.prisma, userId);
+    const [skillLevel, placement] = await Promise.all([
+      this.prisma.learningSkillLevel?.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }) ?? Promise.resolve(null),
+      this.prisma.placementSession?.findFirst({
+        where: { userId, status: 'COMPLETED' },
+        orderBy: { completedAt: 'desc' },
+        select: { skillResults: true, completedAt: true },
+      }) ?? Promise.resolve(null),
+    ]);
+    const placementInit = initialReadingLevel(
+      placement?.skillResults as Record<string, unknown> | undefined,
+      placement?.completedAt,
+    );
+    const readingLevel = skillLevel
+      ? this.shouldUpgradeFromPlacement(skillLevel, placementInit)
+        ? { cefrLevel: placementInit.cefrLevel, source: placementInit.source }
+        : { cefrLevel: skillLevel.cefrLevel, source: skillLevel.source }
+      : { cefrLevel: placementInit.cefrLevel, source: placementInit.source };
+    return { ...this.preferenceDto(profile), readingLevel };
+  }
 
   async updatePreferences(userId: string, dto: LearningPreferencesDto) {
     return this.prisma.$transaction(async tx => {
@@ -70,10 +106,21 @@ export class PlanningService {
       const profile = await this.profile(tx, userId);
       if (profile.preferencesVersion !== dto.expectedVersion) this.conflict();
       const preferredKinds = [...new Set(dto.preferredKinds)];
-      const changed = profile.dailyGoalMinutes !== dto.dailyGoalMinutes || [...profile.preferredKinds].sort().join() !== [...preferredKinds].sort().join();
-      const saved = changed ? await tx.userProfile.update({ where: { userId }, data: {
-        dailyGoalMinutes: dto.dailyGoalMinutes, preferredKinds, preferencesVersion: { increment: 1 },
-      } }) : profile;
+      const kindsChanged = [...profile.preferredKinds].sort().join() !== [...preferredKinds].sort().join();
+      const minutesChanged = profile.dailyGoalMinutes !== dto.dailyGoalMinutes;
+      const purposeChanged = dto.learningPurpose !== undefined && dto.learningPurpose !== profile.learningPurpose;
+      const cefrChanged = dto.targetCefr !== undefined && dto.targetCefr !== profile.targetCefr;
+      const changed = minutesChanged || kindsChanged || purposeChanged || cefrChanged;
+      const saved = changed ? await tx.userProfile.update({
+        where: { userId },
+        data: {
+          dailyGoalMinutes: dto.dailyGoalMinutes,
+          preferredKinds,
+          ...(dto.learningPurpose === undefined ? {} : { learningPurpose: dto.learningPurpose }),
+          ...(dto.targetCefr === undefined ? {} : { targetCefr: dto.targetCefr }),
+          preferencesVersion: { increment: 1 },
+        },
+      }) : profile;
       const existing = await tx.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });
       if (existing && changed) await this.ensureIn(tx, userId);
       return this.preferenceDto(saved);
@@ -89,12 +136,18 @@ export class PlanningService {
     });
   }
 
-  async updateAccountProfile<T>(userId: string, write: (db: Db) => Promise<T>): Promise<T> {
+  async updateAccountProfile<T>(
+    userId: string,
+    write: (db: Db) => Promise<T>,
+    shouldReconcile?: (result: T) => boolean,
+  ): Promise<T> {
     return this.prisma.$transaction(async tx => {
       await this.lock(tx, userId);
       const result = await write(tx);
-      const existing = await tx.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });
-      if (existing) await this.ensureIn(tx, userId);
+      if (shouldReconcile ? shouldReconcile(result) : true) {
+        const existing = await tx.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });
+        if (existing) await this.ensureIn(tx, userId);
+      }
       return result;
     });
   }
@@ -195,7 +248,7 @@ export class PlanningService {
       tx.learningAnswerExposure.findMany({ where: { userId }, select: { lessonId: true, firstAttemptId: true } }),
       tx.learningLesson.findMany({
         where: { published: true, kind: 'READING' },
-        include: { unit: { select: { cefrLevel: true } } },
+        select: { id: true, unit: { select: { cefrLevel: true } } },
       }),
     ]);
     const exposureByLesson = new Map(exposures.map((e) => [e.lessonId, e.firstAttemptId]));
@@ -257,6 +310,72 @@ export class PlanningService {
     await this.ensureIn(db, userId, { force: true, existingOnly: true, skillLevel, exposureByLesson });
   }
 
+  private async computeDailyPlanItems(
+    db: Db,
+    userId: string,
+    now: Date,
+    date: string,
+    profile: Awaited<ReturnType<PlanningService['profile']>>,
+    placement: { skillResults: unknown; completedAt: Date | null } | null,
+    skillLevel: LearningSkillLevel | null,
+    existingItems: PlanItem[],
+    exposureByLesson?: ReadonlyMap<string, string>,
+  ): Promise<PlanItem[]> {
+    const [lessons, attempts] = await Promise.all([
+      db.learningLesson.findMany({
+        where: { published: true },
+        select: PLAN_LESSON_SELECT,
+        orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      }),
+      db.learningAttempt.findMany({ where: { userId } }),
+    ]);
+    const readingTarget: AdaptiveReadingTarget | null = skillLevel
+      ? { cefrLevel: skillLevel.cefrLevel, strictCeiling: skillLevel.source === 'ADAPTIVE' }
+      : null;
+    let readingFocus: ReadingFocusCode | undefined;
+    if (skillLevel && attempts.some(attempt => attempt.status === 'COMPLETED')) {
+      const resolvedExposure = exposureByLesson ?? new Map((await db.learningAnswerExposure.findMany({
+        where: { userId }, select: { lessonId: true, firstAttemptId: true },
+      })).map(exposure => [exposure.lessonId, exposure.firstAttemptId]));
+      const evidence = selectReadingFocusAttempts(attempts, resolvedExposure, skillLevel, now);
+      if (evidence.length >= 2) {
+        const answers = await db.learningAttemptAnswer.findMany({
+          where: { attemptId: { in: evidence.map(attempt => attempt.id) }, checked: true },
+          select: { attemptId: true, questionId: true, isCorrect: true },
+        });
+        readingFocus = chooseReadingFocus(evidence, answers);
+      }
+    }
+    let plannedLessons: PlannedLesson[] = lessons;
+    if (readingFocus && readingTarget) {
+      const missingContentIds = lessons
+        .filter(
+          lesson =>
+            lesson.kind === 'READING'
+            && lesson.unit?.cefrLevel === readingTarget.cefrLevel
+            && (lesson as PlannedLesson).content === undefined,
+        )
+        .map(lesson => lesson.id);
+      if (missingContentIds.length > 0) {
+        const contentRows = await db.learningLesson.findMany({
+          where: { id: { in: missingContentIds } },
+          select: { id: true, content: true },
+        });
+        const contentById = new Map(contentRows.map(row => [row.id, row.content]));
+        plannedLessons = lessons.map(lesson =>
+          contentById.has(lesson.id) ? { ...lesson, content: contentById.get(lesson.id) } : lesson,
+        );
+      }
+    }
+    return chooseDailyItems(
+      plannedLessons, attempts, date, profile.dailyGoalMinutes, profile.preferredKinds,
+      existingItems,
+      placement?.skillResults as Record<string, unknown> | undefined,
+      readingTarget,
+      readingFocus,
+    );
+  }
+
   private async ensureIn(db: Db, userId: string, opts?: {
     force?: boolean;
     existingOnly?: boolean;
@@ -282,38 +401,12 @@ export class PlanningService {
       && existing.policyVersion === CURRENT_PLAN_POLICY_VERSION
       && existing.preferencesVersion === profile.preferencesVersion
       && existing.dailyGoalMinutes === profile.dailyGoalMinutes;
-    if (!opts?.force && currentPlan) return existing;
-    const [lessons, attempts] = await Promise.all([
-      db.learningLesson.findMany({
-        where: { published: true },
-        include: { unit: { select: { cefrLevel: true } } },
-        orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
-      }),
-      db.learningAttempt.findMany({ where: { userId } }),
-    ]);
-    const readingTarget: AdaptiveReadingTarget | null = skillLevel
-      ? { cefrLevel: skillLevel.cefrLevel, strictCeiling: skillLevel.source === 'ADAPTIVE' }
-      : null;
-    let readingFocus: ReadingFocusCode | undefined;
-    if (skillLevel && attempts.some(attempt => attempt.status === 'COMPLETED')) {
-      const exposureByLesson = opts?.exposureByLesson ?? new Map((await db.learningAnswerExposure.findMany({
-        where: { userId }, select: { lessonId: true, firstAttemptId: true },
-      })).map(exposure => [exposure.lessonId, exposure.firstAttemptId]));
-      const evidence = selectReadingFocusAttempts(attempts, exposureByLesson, skillLevel, now);
-      if (evidence.length >= 2) {
-        const answers = await db.learningAttemptAnswer.findMany({
-          where: { attemptId: { in: evidence.map(attempt => attempt.id) }, checked: true },
-          select: { attemptId: true, questionId: true, isCorrect: true },
-        });
-        readingFocus = chooseReadingFocus(evidence, answers);
-      }
-    }
-    const items = chooseDailyItems(
-      lessons, attempts, date, profile.dailyGoalMinutes, profile.preferredKinds,
+    // Reconcile against the live curriculum: CMS changes do not alter user preferences.
+    // chooseDailyItems retains completed snapshots; deep equality below avoids unnecessary writes.
+    const items = await this.computeDailyPlanItems(
+      db, userId, now, date, profile, placement, skillLevel,
       existing?.items as unknown as PlanItem[] ?? [],
-      placement?.skillResults as Record<string, unknown> | undefined,
-      readingTarget,
-      readingFocus,
+      opts?.exposureByLesson,
     );
     if (currentPlan && isDeepStrictEqual(items, existing.items)) return existing;
     return db.learningDayPlan.upsert({
@@ -334,23 +427,35 @@ export class PlanningService {
     return { plan: plan ? await this.planDto(plan) : null };
   }
   async today(userId: string) {
-    const plan = await this.prisma.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });
-    if (!plan) return { plan: null };
-    const [skillRow, placement] = await Promise.all([
-      this.prisma.learningSkillLevel?.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }) ?? Promise.resolve(null),
-      this.prisma.placementSession?.findFirst({
+    const now = new Date();
+    const date = learningDate(now);
+    const existing = await this.prisma.learningDayPlan.findUnique({ where: { userId_date: { userId, date } } });
+    if (!existing) return { plan: null };
+    const [profile, placement, skillLevel] = await Promise.all([
+      this.profile(this.prisma, userId),
+      this.prisma.placementSession.findFirst({
         where: { userId, status: 'COMPLETED' },
         orderBy: { completedAt: 'desc' },
         select: { skillResults: true, completedAt: true },
-      }) ?? Promise.resolve(null),
+      }),
+      this.prisma.learningSkillLevel?.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }) ?? Promise.resolve(null),
     ]);
-    const init = initialReadingLevel(placement?.skillResults as Record<string, unknown> | undefined, placement?.completedAt);
-    const needsSkillUpgrade = skillRow != null && this.shouldUpgradeFromPlacement(skillRow, init);
-    const staleBeforePlacement = placement?.completedAt != null && plan.updatedAt < placement.completedAt;
-    if (plan.policyVersion !== CURRENT_PLAN_POLICY_VERSION || needsSkillUpgrade || staleBeforePlacement) {
-      return this.ensureToday(userId);
-    }
-    return { plan: await this.planDto(plan) };
+    const placementInit = initialReadingLevel(placement?.skillResults as Record<string, unknown> | undefined, placement?.completedAt);
+    const needsSkillSync = Boolean(
+      this.prisma.learningSkillLevel && (!skillLevel || this.shouldUpgradeFromPlacement(skillLevel, placementInit)),
+    );
+    const planStaleFromPlacement = placement?.completedAt != null && existing.updatedAt < placement.completedAt;
+    const currentPlan = !needsSkillSync && !planStaleFromPlacement
+      && existing.policyVersion === CURRENT_PLAN_POLICY_VERSION
+      && existing.preferencesVersion === profile.preferencesVersion
+      && existing.dailyGoalMinutes === profile.dailyGoalMinutes;
+    if (!currentPlan) return this.ensureToday(userId);
+    const items = await this.computeDailyPlanItems(
+      this.prisma, userId, now, date, profile, placement, skillLevel,
+      existing.items as unknown as PlanItem[],
+    );
+    if (isDeepStrictEqual(items, existing.items)) return { plan: await this.planDto(existing) };
+    return this.ensureToday(userId);
   }
   private async planDto(plan: LearningDayPlan) {
     const planItems = plan.items as unknown as PlanItem[];

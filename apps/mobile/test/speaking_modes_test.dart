@@ -106,11 +106,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(ListView), const Offset(0, -350));
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('speaking-mode-TONGUE_TWISTER')),
+      final tongueTwisterBtn = find.byKey(
+        const ValueKey('speaking-mode-TONGUE_TWISTER'),
       );
+      await tester.scrollUntilVisible(
+        tongueTwisterBtn,
+        250,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(tongueTwisterBtn);
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(find.text('Hoàn thành màn trước'), 200);
       final locked = tester.widget<FilledButton>(

@@ -3,8 +3,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import 'learning_controller.dart';
 import 'learning_pages.dart';
 import 'learning_repository.dart';
@@ -241,8 +243,13 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
                 }
                 final items = snapshot.data!;
                 final preparation = _introContent['preparation'] as Json?;
+                final coverImageUrl =
+                    (_introContent['coverImageUrl'] as String?) ??
+                    lesson?.coverImageUrl;
                 if (isListening) {
-                  if (items.isEmpty && preparation == null) {
+                  if (items.isEmpty &&
+                      preparation == null &&
+                      (coverImageUrl == null || coverImageUrl.trim().isEmpty)) {
                     return const SizedBox.shrink();
                   }
                   return Padding(
@@ -250,27 +257,56 @@ class _LearningLessonIntroPageState extends State<LearningLessonIntroPage> {
                     child: ListeningPreparation(
                       preparation: preparation,
                       words: items,
+                      coverImageUrl: coverImageUrl,
                     ),
                   );
                 }
-                if (items.isEmpty) return const SizedBox.shrink();
+                final heroCover =
+                    isReading &&
+                        coverImageUrl != null &&
+                        coverImageUrl.trim().isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.lg),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: LearningMediaImage(
+                            key: const ValueKey('reading-prep-hero-image'),
+                            imageUrl: coverImageUrl,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      )
+                    : null;
+                if (heroCover == null && items.isEmpty) {
+                  return const SizedBox.shrink();
+                }
                 return Padding(
                   padding: const EdgeInsets.only(top: 16),
-                  child: KeyVocabularySection(
-                    items: items,
-                    compact: true,
-                    header: PracticeSectionHeader(
-                      icon: 'home-v2/imgVuesaxBulkBook',
-                      title: 'Từ vựng trọng tâm',
-                      trailing: PracticeCountBadge('${items.length} từ'),
-                    ),
-                    savedWordKeysListenable: canSaveWords
-                        ? _savedWordKeys
-                        : null,
-                    savingWordKeysListenable: canSaveWords
-                        ? _savingWordKeys
-                        : null,
-                    onSaveWord: canSaveWords ? _saveReadingWord : null,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ?heroCover,
+                      if (heroCover != null && items.isNotEmpty)
+                        const SizedBox(height: 16),
+                      if (items.isNotEmpty)
+                        KeyVocabularySection(
+                          items: items,
+                          compact: true,
+                          header: PracticeSectionHeader(
+                            icon: 'home-v2/imgVuesaxBulkBook',
+                            title: 'Từ vựng trọng tâm',
+                            trailing: PracticeCountBadge('${items.length} từ'),
+                          ),
+                          savedWordKeysListenable: canSaveWords
+                              ? _savedWordKeys
+                              : null,
+                          savingWordKeysListenable: canSaveWords
+                              ? _savingWordKeys
+                              : null,
+                          onSaveWord: canSaveWords ? _saveReadingWord : null,
+                        ),
+                    ],
                   ),
                 );
               },

@@ -89,6 +89,10 @@ export class CuratedVocabularyService {
 
   constructor(private readonly prisma: PrismaService) { }
 
+  invalidateTopicsCache(): void {
+    this.topicsCache = null;
+  }
+
   /**
    * Chuẩn hóa và kiểm tra hợp lệ chuỗi truy vấn từ vựng:
    * - Áp dụng chuẩn Unicode NFKC để chuẩn hóa các ký tự homoglyph (như ʼ U+02BC thành ' U+0027).

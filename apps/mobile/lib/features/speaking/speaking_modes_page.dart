@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import '../learning/learning_widgets.dart';
 import 'speaking_controller.dart';
 import 'speaking_pages.dart';
@@ -18,6 +19,11 @@ const speakingModes = {
     'Nói theo chủ đề',
     'Diễn đạt trong 60 giây, nhận phản hồi phát âm và nội dung.',
     Icons.chat_bubble_outline_rounded,
+  ),
+  'PICTURE_DESCRIPTION': (
+    'Miêu tả bức tranh',
+    'Quan sát tranh chi tiết và miêu tả bằng tiếng Anh trong 60 giây.',
+    Icons.collections_outlined,
   ),
   'TONGUE_TWISTER': (
     'Thử thách phát âm',
@@ -265,16 +271,36 @@ class _SpeakingModesPageState extends State<SpeakingModesPage> {
                   final unlocked =
                       c.mode != 'TONGUE_TWISTER' ||
                       progress?['unlocked'] == true;
+                  final promptImage = prompt['imageUrl']?.toString().trim() ?? '';
+                  final promptTitle = prompt['title']?.toString().trim() ?? '';
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: LearningCard(
                       children: [
+                        if (promptImage.isNotEmpty)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: AspectRatio(
+                              aspectRatio: 16 / 9,
+                              child: LearningMediaImage(
+                                imageUrl: promptImage,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                semanticLabel: promptTitle.isNotEmpty
+                                    ? promptTitle
+                                    : 'Tranh ${index + 1}',
+                              ),
+                            ),
+                          ),
                         Row(
                           children: [
                             Expanded(
                               child: learningHeading(
                                 c.mode == 'TONGUE_TWISTER'
                                     ? 'Màn ${index + 1}'
+                                    : c.mode == 'PICTURE_DESCRIPTION' &&
+                                          promptTitle.isNotEmpty
+                                    ? promptTitle
                                     : 'Bài ${index + 1}',
                                 size: 18,
                               ),

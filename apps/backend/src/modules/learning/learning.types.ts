@@ -37,7 +37,7 @@ export const LEARNING_QUESTION_TYPES = [
 ] as const;
 export type LearningQuestionType = (typeof LEARNING_QUESTION_TYPES)[number];
 
-export interface LearningOption { id: string; text: string }
+export interface LearningOption { id: string; text: string; imageUrl?: string }
 export interface LearningQuestion {
   id: string;
   type?: LearningQuestionType;
@@ -56,6 +56,7 @@ export interface LearningVocabularyItem {
   meaning: string;
   example?: string;
   translation?: string;
+  imageUrl?: string;
 }
 export interface LearningStep {
   id: string;
@@ -73,6 +74,7 @@ export interface LearningContent {
   passage?: string;
   audioUrl?: string;
   transcript?: string;
+  coverImageUrl?: string;
   keyVocabulary?: LearningVocabularyItem[];
   listeningVersion?: 1;
   audioDurationMs?: number;
@@ -86,6 +88,7 @@ export interface ListeningTranscriptSegment {
   endMs: number;
   text: string;
   translationVi: string;
+  speakerAvatar?: string;
 }
 export interface LessonSnapshot {
   id: string;
@@ -98,6 +101,19 @@ export interface LessonSnapshot {
   cefrLevel?: CefrLevel;
   questionCount?: number;
   audioDurationMs?: number;
+  coverImageUrl?: string;
+}
+
+export function isSafeImageUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 500 || trimmed !== value) return false;
+  if (trimmed.includes('..') || /[\s\u0000-\u001f]/.test(trimmed)) return false;
+  return (
+    /^\/media\/learning\/v1\/images\/[a-z0-9-]+(?:\.(?:svg|png|webp|jpg|jpeg))$/i.test(trimmed) ||
+    /^assets\/illustrations\/[a-z0-9-]+(?:\.(?:svg|png|webp|jpg|jpeg))$/i.test(trimmed) ||
+    /^https:\/\/[^\s]+$/i.test(trimmed)
+  );
 }
 
 function hasUniquePassageMatch(passage: unknown, evidence: unknown): boolean {
@@ -116,6 +132,9 @@ export function validateLearningContent(value: unknown, kind?: LearningKind): as
   if (!content || !Array.isArray(content.steps) || !Array.isArray(content.questions) || content.questions.length < 3 || content.questions.length > 10) {
     throw new Error('Learning content must contain steps and between three and ten questions.');
   }
+  if (content.coverImageUrl !== undefined && !isSafeImageUrl(content.coverImageUrl)) {
+    throw new Error('Invalid learning coverImageUrl.');
+  }
   const ids = new Set<string>();
   for (const question of content.questions) {
     if (question.type !== undefined && !(LEARNING_QUESTION_TYPES as readonly string[]).includes(question.type)) {
@@ -128,6 +147,13 @@ export function validateLearningContent(value: unknown, kind?: LearningKind): as
       || new Set(question.options.map((option) => option.id)).size !== question.options.length
       || !question.options.some((option) => option.id === question.correctOptionId)) {
       throw new Error('Invalid learning question.');
+    }
+    const optionImages = question.options.map((option) => option.imageUrl);
+    if (optionImages.some((url) => url !== undefined)) {
+      if (optionImages.some((url) => !isSafeImageUrl(url))
+        || new Set(optionImages).size !== question.options.length) {
+        throw new Error('Invalid learning question option images.');
+      }
     }
     if (questionType === 'MULTIPLE_CHOICE' && question.options.length !== 4) {
       throw new Error('Invalid learning question.');
@@ -171,6 +197,9 @@ export function validateLearningContent(value: unknown, kind?: LearningKind): as
       if (item.translation !== undefined && (typeof item.translation !== 'string' || item.translation.length > 1000)) {
         throw new Error('Invalid learning keyVocabulary item.');
       }
+      if (item.imageUrl !== undefined && !isSafeImageUrl(item.imageUrl)) {
+        throw new Error('Invalid learning keyVocabulary item.');
+      }
       const pairKey = `${word.toLowerCase()}||${meaning.toLowerCase()}`;
       if (vocabPairs.has(pairKey)) {
         throw new Error('Duplicate learning keyVocabulary item.');
@@ -212,6 +241,7 @@ function validateListeningProfile(content: LearningContent, kind?: LearningKind)
   for (const [index, segment] of segments.entries()) {
     if (!segment || !nonEmptyString(segment.id, 100) || indexes.has(segment.id)
       || !nonEmptyString(segment.speaker, 100) || !nonEmptyString(segment.text) || !nonEmptyString(segment.translationVi)
+      || (segment.speakerAvatar !== undefined && !isSafeImageUrl(segment.speakerAvatar))
       || !Number.isInteger(segment.startMs) || !Number.isInteger(segment.endMs)
       || segment.startMs < previousEnd || segment.endMs <= segment.startMs || segment.endMs > duration!) invalid();
     indexes.set(segment.id, index);

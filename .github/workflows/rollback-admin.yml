@@ -1,0 +1,99 @@
+name: LingoRoad Manual Digest Rollback (Azure App Service)
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend_digest:
+        description: 'Digest image Backend cần khôi phục (ví dụ: sha256:... hoặc lingoroad6e9f265b.azurecr.io/lingoroad-backend@sha256:...)'
+        required: true
+        type: string
+      frontend_digest:
+        description: 'Digest image Web Admin cần khôi phục (ví dụ: sha256:... hoặc lingoroad6e9f265b.azurecr.io/lingoroad-web-admin@sha256:...)'
+        required: true
+        type: string
+      resource_group:
+        description: 'Azure Resource Group chứa 2 ứng dụng App Service'
+        required: false
+        default: 'rg-lingoroad-demo-web'
+        type: string
+      reason:
+        description: 'Lý do thực hiện rollback (ghi vào biên bản phát hành)'
+        required: false
+        default: 'Manual rollback / Rollback rehearsal'
+        type: string
+
+concurrency:
+  group: azure-lingoroad-admin-deploy
+  cancel-in-progress: false
+
+jobs:
+  rollback-by-digest:
+    name: Rollback Backend & Web Admin by Digest
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AZURE_RESOURCE_GROUP: ${{ inputs.resource_group || vars.AZURE_RESOURCE_GROUP || 'rg-lingoroad-demo-web' }}
+      AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME || 'lingoroad6e9f265b' }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Execute Digest Rollback and Verify Health
+        run: |
+          set -euo pipefail
+          RG="${AZURE_RESOURCE_GROUP}"
+          ACR_SERVER="${AZURE_ACR_NAME}.azurecr.io"
+
+          BACKEND_APP="${{ vars.AZURE_BACKEND_APP_NAME }}"
+          FRONTEND_APP="${{ vars.AZURE_FRONTEND_APP_NAME }}"
+
+          if [ -z "${BACKEND_APP}" ]; then
+            BACKEND_APP=$(az webapp list -g "${RG}" --query "[?starts_with(name, 'lingoroad-api-')].name | [0]" -o tsv)
+          fi
+          if [ -z "${FRONTEND_APP}" ]; then
+            FRONTEND_APP=$(az webapp list -g "${RG}" --query "[?starts_with(name, 'lingoroad-admin-')].name | [0]" -o tsv)
+          fi
+
+          pwsh -NoProfile -File scripts/azure-rollback.ps1 \
+            -ResourceGroupName "${RG}" \
+            -AcrLoginServer "${ACR_SERVER}" \
+            -BackendAppName "${BACKEND_APP}" \
+            -BackendImageDigest "${{ inputs.backend_digest }}" \
+            -FrontendAppName "${FRONTEND_APP}" \
+            -FrontendImageDigest "${{ inputs.frontend_digest }}"
+
+          node scripts/azure-smoke-test.mjs \
+            --backend-url "https://${BACKEND_APP}.azurewebsites.net" \
+            --frontend-url "https://${FRONTEND_APP}.azurewebsites.net" | tee rollback-smoke-test.json
+
+          {
+            echo "### Rollback Completed"
+            echo "- **Reason**: ${{ inputs.reason }}"
+            echo "- **Backend App**: \`${BACKEND_APP}\` -> \`${{ inputs.backend_digest }}\`"
+            echo "- **Web Admin App**: \`${FRONTEND_APP}\` -> \`${{ inputs.frontend_digest }}\`"
+            echo "- *Lưu ý*: Rollback image không tự đảo migration database."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Rollback Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azure-rollback-${{ github.run_id }}
+          path: rollback-smoke-test.json
+          if-no-files-found: warn
+          retention-days: 30

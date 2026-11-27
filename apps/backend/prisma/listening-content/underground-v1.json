@@ -2,6 +2,7 @@
   "listeningVersion": 1,
   "steps": [],
   "audioUrl": "/media/learning/v1/listening-underground-v1.wav",
+  "coverImageUrl": "/media/learning/v1/images/scene-underground.jpg",
   "audioDurationMs": 49955,
   "preparation": {
     "situation": "Bạn nghe người kể hướng dẫn khách đi từ cửa hầm xuống một lối đi dưới lòng đất.",
@@ -13,21 +14,24 @@
       "word": "slope",
       "meaning": "dốc xuống hoặc dốc lên",
       "example": "The garden slopes towards the river.",
-      "translation": "Khu vườn dốc về phía con sông."
+      "translation": "Khu vườn dốc về phía con sông.",
+      "imageUrl": "/media/learning/v1/images/vocab-slope.jpg"
     },
     {
       "id": "v02",
       "word": "loaded",
       "meaning": "đã chất hàng",
       "example": "The loaded truck waited at the gate.",
-      "translation": "Chiếc xe tải đã chất hàng đợi ở cổng."
+      "translation": "Chiếc xe tải đã chất hàng đợi ở cổng.",
+      "imageUrl": "/media/learning/v1/images/vocab-loaded.jpg"
     },
     {
       "id": "v03",
       "word": "trunk",
       "meaning": "thân cây",
       "example": "The trunk is wider at its base.",
-      "translation": "Thân cây rộng hơn ở phần gốc."
+      "translation": "Thân cây rộng hơn ở phần gốc.",
+      "imageUrl": "/media/learning/v1/images/vocab-trunk.jpg"
     }
   ],
   "transcript": "The entrance is light because it opens so wide, but we can see that the floor slopes downward and the way looks dark and narrow before us. Walk down the sloping foot-path now, and be careful to keep out of the way of the little cars that are coming and going on each side of you, loaded on one side and empty on the other, and seeming to run up and down by themselves. Look a little closer while our guide lets the light of his lamp fall upon the black wall at your side. See, beneath your feet is the marking of great tree trunks lying aslant across the floor, and the forms of gigantic palm leaves strewed among them.",
@@ -35,6 +39,7 @@
     {
       "id": "s01",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "The entrance is light because it opens so wide, but we can see that the floor slopes downward and the way looks dark and narrow before us.",
       "translationVi": "Cửa hầm sáng vì mở rất rộng, nhưng chúng ta có thể thấy nền dốc xuống và lối phía trước có vẻ tối và hẹp.",
       "startMs": 0,
@@ -43,6 +48,7 @@
     {
       "id": "s02",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "Walk down the sloping foot-path now, and be careful to keep out of the way of the little cars that are coming and going on each side of you, loaded on one side and empty on the other, and seeming to run up and down by themselves.",
       "translationVi": "Hãy đi xuống theo lối dốc và cẩn thận tránh các toa xe nhỏ chạy hai bên. Một bên xe chở đầy, bên kia xe chạy rỗng, trông như chúng tự chạy lên xuống.",
       "startMs": 11475,
@@ -51,6 +57,7 @@
     {
       "id": "s03",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "Look a little closer while our guide lets the light of his lamp fall upon the black wall at your side.",
       "translationVi": "Hãy nhìn kỹ hơn khi người hướng dẫn soi đèn vào vách đen bên cạnh bạn.",
       "startMs": 28520,
@@ -59,6 +66,7 @@
     {
       "id": "s04",
       "speaker": "Narrator",
+      "speakerAvatar": "/media/learning/v1/images/avatar-narrator.jpg",
       "text": "See, beneath your feet is the marking of great tree trunks lying aslant across the floor, and the forms of gigantic palm leaves strewed among them.",
       "translationVi": "Nhìn kìa, dưới chân bạn là dấu những thân cây lớn nằm chéo trên nền, xen giữa là hình những chiếc lá cọ khổng lồ.",
       "startMs": 37240,

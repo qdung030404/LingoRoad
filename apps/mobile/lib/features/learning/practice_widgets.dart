@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import 'learning_controller.dart';
 import 'learning_repository.dart';
 import 'learning_widgets.dart';
@@ -312,6 +313,20 @@ class _PracticeReviewPageState extends State<PracticeReviewPage> {
                                 ),
                               ),
                               const SizedBox(width: 10),
+                              Align(
+                                alignment: Alignment.topCenter,
+                                child: LearningMediaImage(
+                                  imageUrl: speakerAvatarAsset(
+                                    segment['speaker']?.toString() ?? '',
+                                    avatarUrl:
+                                        segment['speakerAvatar'] as String?,
+                                  ),
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   '${segment['speaker']} · ${segment['text']}',
@@ -390,29 +405,40 @@ class _PracticeReviewPageState extends State<PracticeReviewPage> {
             const SizedBox(height: 20),
             learningHeading(question['prompt'] as String, size: 18),
             const SizedBox(height: 12),
-            for (final (optionIndex, option) in learningItems(
-              question['options'],
-            ).indexed) ...[
-              PracticeAnswerTile(
-                index: optionIndex,
-                text: option['text'] as String,
-                correct: option['id'] == answer?['correctOptionId'],
-                selected: option['id'] == answer?['optionId'],
-                wrong:
-                    option['id'] == answer?['optionId'] &&
-                    answer?['isCorrect'] == false,
-                label: switch ((
-                  option['id'] == answer?['correctOptionId'],
-                  option['id'] == answer?['optionId'],
-                )) {
-                  (true, true) => 'Đáp án đúng · Bạn chọn',
-                  (true, false) => 'Đáp án đúng',
-                  (false, true) => 'Bạn chọn',
-                  _ => null,
-                },
+            if (hasVisualImageOptions(learningItems(question['options']))) ...[
+              PracticeImageAnswerGrid(
+                options: learningItems(question['options']),
+                checked: true,
+                selectedOptionId: answer?['optionId'] as String?,
+                correctOptionId: answer?['correctOptionId'] as String?,
+                keyPrefix: 'review-option-',
+                showReviewLabels: true,
               ),
               const SizedBox(height: 8),
-            ],
+            ] else
+              for (final (optionIndex, option) in learningItems(
+                question['options'],
+              ).indexed) ...[
+                PracticeAnswerTile(
+                  index: optionIndex,
+                  text: option['text'] as String,
+                  correct: option['id'] == answer?['correctOptionId'],
+                  selected: option['id'] == answer?['optionId'],
+                  wrong:
+                      option['id'] == answer?['optionId'] &&
+                      answer?['isCorrect'] == false,
+                  label: switch ((
+                    option['id'] == answer?['correctOptionId'],
+                    option['id'] == answer?['optionId'],
+                  )) {
+                    (true, true) => 'Đáp án đúng · Bạn chọn',
+                    (true, false) => 'Đáp án đúng',
+                    (false, true) => 'Bạn chọn',
+                    _ => null,
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
             if (explanation.isNotEmpty)
               FigmaCard(
                 padding: const EdgeInsets.all(16),

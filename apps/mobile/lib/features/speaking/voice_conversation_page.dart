@@ -618,15 +618,24 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
           children: [
             ConversationCallHeader(
               topic:
+                  (preparedTopic ?? widget.topic)['title']?.toString() ??
                   (preparedTopic ?? widget.topic)['text']?.toString() ??
                   'Hội thoại AI',
+              topicImageUrl:
+                  ((preparedTopic ?? widget.topic)['imageUrl'] ??
+                          (preparedTopic?['preparation'] is Map
+                              ? (preparedTopic!['preparation']
+                                    as Map)['sceneImageUrl']
+                              : null))
+                      ?.toString(),
+              voiceName: settings.voice.name,
               seconds: seconds,
               status: recording ? 'Đang ghi âm' : status,
               active: connected && !ending,
             ),
             Expanded(
               child: turns.isEmpty
-                  ? const ConversationWelcome()
+                  ? ConversationWelcome(voiceName: settings.voice.name)
                   : ConversationTimeline(
                       revision: turns.map((turn) => turn['itemId']).join('|'),
                       children: [
@@ -634,6 +643,7 @@ class _VoiceConversationPageState extends State<VoiceConversationPage>
                           ConversationMessage(
                             key: ValueKey(turn['itemId']),
                             isUser: turn['isUser'] as bool,
+                            voiceName: settings.voice.name,
                             text: turn['text'] as String,
                             onTranslate: turn['isUser'] == true
                                 ? null

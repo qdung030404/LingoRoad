@@ -5,6 +5,7 @@ import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import 'learning_repository.dart';
 
 /// Native audio boundary, injectable so timing and interrupted loads can be tested.
@@ -688,6 +689,16 @@ class _ListeningTranscriptState extends State<ListeningTranscript> {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        LearningMediaImage(
+                          imageUrl: speakerAvatarAsset(
+                            segment['speaker']?.toString() ?? '',
+                            avatarUrl: segment['speakerAvatar'] as String?,
+                          ),
+                          width: 24,
+                          height: 24,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             "${segment['speaker']} · ${ListeningAudioControls._time(Duration(milliseconds: start))}",

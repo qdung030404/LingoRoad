@@ -6,6 +6,7 @@ import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import '../learning/learning_widgets.dart';
 import 'conversation_preparation.dart';
 import 'speaking_controller.dart';
@@ -28,6 +29,30 @@ const _topicPresentation = {
   'my hobbies': (Icons.interests_outlined, 'Những việc bạn thích làm'),
   'my favourite food': (Icons.restaurant_outlined, 'Món ăn bạn yêu thích'),
   'where i live': (Icons.home_outlined, 'Nơi ở và khu vực xung quanh'),
+  'travel and holidays': (
+    Icons.flight_takeoff_rounded,
+    'Chuyến đi đáng nhớ và kỳ nghỉ mơ ước',
+  ),
+  'shopping and clothes': (
+    Icons.shopping_bag_outlined,
+    'Trang phục thường ngày và thói quen mua sắm',
+  ),
+  'health and sports': (
+    Icons.fitness_center_rounded,
+    'Thể thao, vận động và giữ gìn sức khỏe',
+  ),
+  'study and future plans': (
+    Icons.school_outlined,
+    'Việc học hiện tại và mục tiêu nghề nghiệp',
+  ),
+  'weather and seasons': (
+    Icons.wb_sunny_outlined,
+    'Thời tiết, các mùa và hoạt động ngoài trời',
+  ),
+  'technology in daily life': (
+    Icons.devices_rounded,
+    'Thiết bị số và ứng dụng hữu ích mỗi ngày',
+  ),
 };
 
 class SpeakingTopicCatalogue extends StatefulWidget {
@@ -100,6 +125,10 @@ class _SpeakingTopicCatalogueState extends State<SpeakingTopicCatalogue> {
       title: title,
       detail: description,
       icon: icon,
+      imageUrl: topicIllustrationAsset(
+        title,
+        imageUrl: topic['imageUrl'] as String?,
+      ),
       onTap: () => openTopic(topic),
     );
   }
@@ -149,6 +178,22 @@ class _SpeakingTopicCatalogueState extends State<SpeakingTopicCatalogue> {
           const SizedBox(height: 16),
           learningHeading('Luyện thêm', size: 18),
           const SizedBox(height: 8),
+          _SpeakingRow(
+            title: 'Miêu tả bức tranh',
+            history: active
+                ? () => previewPush(
+                    context,
+                    SpeakingHistoryPage(
+                      controller: controller,
+                      mode: 'PICTURE_DESCRIPTION',
+                    ),
+                  )
+                : null,
+            detail: 'Quan sát tranh và diễn đạt · Tối đa 60 giây',
+            icon: Icons.collections_outlined,
+            imageUrl: 'assets/illustrations/picture-campus-cafe.jpg',
+            onTap: ready ? () => openExtra('PICTURE_DESCRIPTION') : null,
+          ),
           _SpeakingRow(
             title: 'Bộ câu đọc mở rộng',
             history: active
@@ -310,6 +355,7 @@ class _SpeakingRow extends StatelessWidget {
     required this.title,
     this.detail,
     required this.icon,
+    this.imageUrl,
     required this.onTap,
     this.primary = false,
     this.history,
@@ -319,6 +365,7 @@ class _SpeakingRow extends StatelessWidget {
   final String title;
   final String? detail;
   final IconData icon;
+  final String? imageUrl;
   final VoidCallback? onTap;
   final bool primary;
   final VoidCallback? history;
@@ -334,25 +381,35 @@ class _SpeakingRow extends StatelessWidget {
         ? AppColors.grey900
         : AppColors.grey800;
     final secondary = dark ? AppColors.grey200 : AppColors.grey800;
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
     final content = Padding(
       padding: primary
           ? const EdgeInsets.symmetric(horizontal: 16, vertical: 20)
           : const EdgeInsets.all(12),
       child: Row(
         children: [
-          Container(
-            width: primary ? 52 : 44,
-            height: primary ? 52 : 44,
-            decoration: BoxDecoration(
-              color: enabled ? AppColors.primary25 : AppColors.grey50,
+          if (hasImage && !primary)
+            LearningMediaImage(
+              imageUrl: imageUrl,
+              width: 48,
+              height: 48,
               borderRadius: BorderRadius.circular(12),
+              semanticLabel: title,
+            )
+          else
+            Container(
+              width: primary ? 52 : 44,
+              height: primary ? 52 : 44,
+              decoration: BoxDecoration(
+                color: enabled ? AppColors.primary25 : AppColors.grey50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                size: primary ? 26 : 22,
+                color: enabled ? AppColors.primary700 : AppColors.grey800,
+              ),
             ),
-            child: Icon(
-              icon,
-              size: primary ? 26 : 22,
-              color: enabled ? AppColors.primary700 : AppColors.grey800,
-            ),
-          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

@@ -744,4 +744,104 @@ describe('Progress roadmap units and score stats', () => {
       ['read-b1-newer', 'ROTATION'],
     ]);
   });
+
+  it('returns and atomically updates learningPurpose, targetCefr, dailyGoalMinutes, and preferredKinds with version protection', async () => {
+    let profileRow = {
+      userId: 'u',
+      learningPurpose: 'STUDY' as any,
+      targetCefr: CefrLevel.B1,
+      dailyGoalMinutes: 10,
+      preferredKinds: [LearningKind.GRAMMAR, LearningKind.READING],
+      preferencesVersion: 2,
+    };
+    let planRow: any = {
+      id: 'plan-1',
+      userId: 'u',
+      date: '2026-11-16',
+      version: 0,
+      preferencesVersion: 2,
+      dailyGoalMinutes: 10,
+      policyVersion: 'adaptive-v2',
+      createdAt: now,
+      updatedAt: now,
+      items: [],
+    };
+    const db: any = {
+      $queryRaw: jest.fn(async () => [{ id: 'u' }]),
+      userProfile: {
+        findUnique: jest.fn(async () => ({ ...profileRow })),
+        update: jest.fn(async ({ data }: any) => {
+          profileRow = {
+            ...profileRow,
+            ...data,
+            preferencesVersion: data.preferencesVersion?.increment
+              ? profileRow.preferencesVersion + data.preferencesVersion.increment
+              : profileRow.preferencesVersion,
+          };
+          return { ...profileRow };
+        }),
+      },
+      learningSkillLevel: {
+        findUnique: jest.fn(async () => ({
+          userId: 'u',
+          kind: LearningKind.READING,
+          cefrLevel: CefrLevel.B1,
+          source: 'ADAPTIVE',
+          changedAt: now,
+        })),
+      },
+      placementSession: { findFirst: jest.fn(async () => null) },
+      learningDayPlan: {
+        findUnique: jest.fn(async () => ({ ...planRow })),
+        upsert: jest.fn(async ({ update }: any) => {
+          planRow = { ...planRow, ...update, version: planRow.version + 1 };
+          return { ...planRow };
+        }),
+      },
+      learningLesson: { findMany: jest.fn(async () => [lesson('l-gram', 'GRAMMAR', 10, 1)]) },
+      learningAttempt: { findMany: jest.fn(async () => []) },
+      learningAttemptAnswer: { findMany: jest.fn(async () => []) },
+      learningAnswerExposure: { findMany: jest.fn(async () => []) },
+    };
+    db.$transaction = jest.fn(async (cb: (tx: any) => Promise<any>) => cb(db));
+    const svc = new PlanningService(db as unknown as PrismaService);
+
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-16T06:00:00Z'));
+    try {
+      expect(await svc.preferences('u')).toEqual({
+        learningPurpose: 'STUDY',
+        targetCefr: 'B1',
+        dailyGoalMinutes: 10,
+        preferredKinds: ['GRAMMAR', 'READING'],
+        version: 2,
+        readingLevel: { cefrLevel: 'B1', source: 'ADAPTIVE' },
+      });
+
+      const saved = await svc.updatePreferences('u', {
+        expectedVersion: 2,
+        learningPurpose: 'WORK',
+        targetCefr: 'B2',
+        dailyGoalMinutes: 20,
+        preferredKinds: [LearningKind.VOCABULARY, LearningKind.LISTENING],
+      });
+      expect(saved).toEqual({
+        learningPurpose: 'WORK',
+        targetCefr: 'B2',
+        dailyGoalMinutes: 20,
+        preferredKinds: ['VOCABULARY', 'LISTENING'],
+        version: 3,
+      });
+      expect(planRow.preferencesVersion).toBe(3);
+
+      await expect(
+        svc.updatePreferences('u', {
+          expectedVersion: 2,
+          dailyGoalMinutes: 30,
+          preferredKinds: [LearningKind.GRAMMAR],
+        }),
+      ).rejects.toThrow(ConflictException);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

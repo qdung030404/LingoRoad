@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import '../learning/learning_widgets.dart';
 import 'speaking_controller.dart';
 import 'speaking_repository.dart';
@@ -107,58 +108,83 @@ class _ConversationPreparationState extends State<ConversationPreparation> {
                         border: Border.all(color: AppColors.primary300),
                       ),
                       padding: const EdgeInsets.all(20),
-                      child: Column(
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (widget.activities != null)
-                            const Icon(
-                              Icons.forum_outlined,
-                              color: AppColors.primary700,
-                              size: 28,
-                            )
-                          else
-                            Text(
-                              'TRƯỚC KHI BẮT ĐẦU',
-                              style: designText(
-                                12,
-                                weight: FontWeight.w600,
-                                color: AppColors.primary700,
-                              ),
-                            ),
-                          const SizedBox(height: 8),
-                          learningHeading(
-                            data['title']?.toString() ??
-                                data['text'].toString(),
-                            size: widget.activities == null ? 24 : 28,
-                          ),
-                          const SizedBox(height: 8),
-                          learningBody(
-                            preparation['goal']?.toString() ??
-                                'Xem câu hỏi gợi ý và chuẩn bị câu trả lời của bạn.',
-                            size: 15,
-                          ),
-                          if (widget.activities == null) ...[
-                            const SizedBox(height: 16),
-                            Row(
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(
-                                  Icons.schedule_rounded,
-                                  size: 18,
-                                  color: AppColors.primary700,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Tối đa 3 phút · Hỏi đáp bằng tiếng Anh',
+                                if (widget.activities != null)
+                                  const Icon(
+                                    Icons.forum_outlined,
+                                    color: AppColors.primary700,
+                                    size: 28,
+                                  )
+                                else
+                                  Text(
+                                    'TRƯỚC KHI BẮT ĐẦU',
                                     style: designText(
-                                      13,
+                                      12,
+                                      weight: FontWeight.w600,
                                       color: AppColors.primary700,
                                     ),
                                   ),
+                                const SizedBox(height: 8),
+                                learningHeading(
+                                  data['title']?.toString() ??
+                                      data['text'].toString(),
+                                  size: widget.activities == null ? 24 : 28,
                                 ),
+                                const SizedBox(height: 8),
+                                learningBody(
+                                  preparation['goal']?.toString() ??
+                                      'Xem câu hỏi gợi ý và chuẩn bị câu trả lời của bạn.',
+                                  size: 15,
+                                ),
+                                if (widget.activities == null) ...[
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.schedule_rounded,
+                                        size: 18,
+                                        color: AppColors.primary700,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Tối đa 3 phút · Hỏi đáp bằng tiếng Anh',
+                                          style: designText(
+                                            13,
+                                            color: AppColors.primary700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
                             ),
-                          ],
+                          ),
+                          const SizedBox(width: 14),
+                          LearningMediaImage(
+                            key: const ValueKey('conversation-prep-hero-image'),
+                            imageUrl:
+                                (data['imageUrl'] ??
+                                        preparation['sceneImageUrl'])
+                                    ?.toString() ??
+                                topicIllustrationAsset(
+                                  (data['title'] ?? data['text'] ?? '')
+                                      .toString(),
+                                ),
+                            width: 84,
+                            height: 84,
+                            borderRadius: BorderRadius.circular(14),
+                            semanticLabel:
+                                (data['title'] ?? data['text'] ?? '')
+                                    .toString(),
+                          ),
                         ],
                       ),
                     ),
@@ -478,6 +504,7 @@ class _VocabularyCard extends StatelessWidget {
     phonetic: (item['phonetic'] ?? '').toString(),
     meaning: (item['meaningVi'] ?? item['meaning'] ?? '').toString(),
     example: (item['example'] ?? '').toString(),
+    imageUrl: item['imageUrl']?.toString(),
     compact: true,
   );
 }

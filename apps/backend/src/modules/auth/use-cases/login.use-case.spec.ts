@@ -81,6 +81,8 @@ describe('LoginUseCase', () => {
         preferredKinds: ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'],
         preferencesVersion: 0,
         reminderEnabled: true,
+        reminderTime: '19:30',
+        reminderVersion: 0,
         updatedAt: new Date(),
       },
     };

@@ -112,6 +112,7 @@ class _ConversationHistoryChatState extends State<ConversationHistoryChat> {
                   );
                 }
                 final turns = speakingItems(snapshot.data!['items']);
+                final voice = snapshot.data!['voice']?.toString() ?? 'standard';
                 if (turns.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.all(16),
@@ -126,6 +127,7 @@ class _ConversationHistoryChatState extends State<ConversationHistoryChat> {
                           turn['id'] ?? turn['providerItemId'] ?? 'turn-$index',
                         ),
                         isUser: turn['role'] == 'USER',
+                        voiceName: voice,
                         text: turn['transcript']?.toString() ?? '',
                         translationVi: turn['translationVi'] as String?,
                         onTranslate: turn['role'] == 'USER'

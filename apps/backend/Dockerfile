@@ -39,6 +39,7 @@ ENV NODE_ENV=production
 
 # Prisma verifies the managed PostgreSQL certificate using the system CA store.
 RUN apt-get update -y \
+    && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends ca-certificates openssl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -52,5 +53,5 @@ COPY --from=builder /opt/prisma-cli /opt/prisma-cli
 
 EXPOSE 3000
 
-# Deploy SQL migrations, including partial uniqueness constraints Prisma db push cannot express.
-CMD ["sh", "-c", "/opt/prisma-cli/node_modules/.bin/prisma migrate deploy --schema /app/prisma/schema.prisma && node dist/main"]
+# Deploy SQL migrations when explicitly enabled (default true for local docker-compose; set false on cloud when running under a least-privilege DB app role).
+CMD ["sh", "-c", "if [ \"${RUN_STARTUP_MIGRATIONS:-true}\" = \"true\" ]; then /opt/prisma-cli/node_modules/.bin/prisma migrate deploy --schema /app/prisma/schema.prisma; fi && exec node dist/main"]

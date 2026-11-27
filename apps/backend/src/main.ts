@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication, ExpressAdapter } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { buildCorsOptions } from './common/config/cors.config';
 import { placementMediaRoot } from './modules/placement/services/demo-placement.service';
 import { learningMediaRoot } from './modules/learning/learning.service';
 
@@ -16,11 +17,16 @@ async function bootstrap() {
     new ExpressAdapter(),
   );
 
-  app.enableCors({
-    origin: '*',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    credentials: true,
-  });
+  // Bound bulk curriculum imports while retaining the default parser for other bodies.
+  app.useBodyParser('json', { limit: '5mb' });
+
+  const configService = app.get(ConfigService);
+  app.enableCors(
+    buildCorsOptions({
+      corsAllowedOrigins: configService.get<string>('CORS_ALLOWED_ORIGINS'),
+      nodeEnv: configService.get<string>('NODE_ENV'),
+    }),
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({
@@ -37,7 +43,6 @@ async function bootstrap() {
   app.useStaticAssets(placementMediaRoot(), { prefix: '/media/placement/', index: false, dotfiles: 'deny' });
   app.useStaticAssets(learningMediaRoot(), { prefix: '/media/learning/', index: false, dotfiles: 'deny' });
 
-  const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
 
   await app.listen(port);

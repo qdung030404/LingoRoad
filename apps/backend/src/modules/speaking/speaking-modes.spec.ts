@@ -3,13 +3,17 @@ import { SpeakingMode } from '@prisma/client';
 import { seedSpeakingContent } from '../../../prisma/seed-speaking';
 
 describe('Speaking mode catalogue', () => {
-  const prompt = { id: 'prompt', text: 'Hello', title: 'Hello', mode: SpeakingMode.READ_ALOUD,
-    contentVersion: 1, difficulty: 1, maxDurationSeconds: 30, hints: [], sampleAsset: null };
+  const prompt = {
+    id: 'prompt', text: 'Hello', title: 'Hello', mode: SpeakingMode.READ_ALOUD,
+    contentVersion: 1, difficulty: 1, maxDurationSeconds: 30, hints: [], sampleAsset: null
+  };
   let prisma: any;
   let service: SpeakingService;
   beforeEach(() => {
-    prisma = { speakingPrompt: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(prompt) },
-      speakingSubmission: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({ id: 'submission' }) } };
+    prisma = {
+      speakingPrompt: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(prompt) },
+      speakingSubmission: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({ id: 'submission' }) }
+    };
     service = new SpeakingService(prisma, { speakingProfile: 'read-aloud-v2' } as any,
       { get: (key: string, fallback: string) => key === 'SPEAKING_ENABLED' ? 'true' : fallback } as any);
   });
@@ -31,17 +35,44 @@ describe('Speaking mode catalogue', () => {
     await expect(service.create('owner', { promptId: 'prompt', clientRequestId: 'request' })).rejects.toMatchObject({ status: 503 });
     expect(prisma.speakingSubmission.create).not.toHaveBeenCalled();
   });
-  it('seeds the reading, topic and game prompts idempotently', async () => {
+  it('seeds the reading, topic, picture and game prompts idempotently', async () => {
     const upsert = jest.fn().mockResolvedValue({});
     await seedSpeakingContent({ speakingPrompt: { upsert } } as any);
     const rows = upsert.mock.calls.map(call => call[0]);
     expect(rows.filter(row => row.where.code.startsWith('read-aloud-'))).toHaveLength(9);
     expect(rows.filter(row => row.where.code.startsWith('topic-read-aloud-'))).toHaveLength(3);
-    expect(rows.filter(row => row.create.mode === 'TOPIC')).toHaveLength(6);
+    expect(rows.filter(row => row.create.mode === 'TOPIC')).toHaveLength(12);
+    expect(rows.filter(row => row.create.mode === 'PICTURE_DESCRIPTION')).toHaveLength(8);
     expect(rows.filter(row => row.create.mode === 'TONGUE_TWISTER')).toHaveLength(12);
-    expect(new Set(rows.map(row => row.where.code)).size).toBe(30);
-    expect(rows.filter(row => row.create.mode === 'TOPIC').every(row => row.create.maxDurationSeconds === 60)).toBe(true);
+    expect(new Set(rows.map(row => row.where.code)).size).toBe(44);
+    expect(rows.filter(row => row.create.mode === 'TOPIC' || row.create.mode === 'PICTURE_DESCRIPTION').every(row => row.create.maxDurationSeconds === 60)).toBe(true);
+    expect(rows.filter(row => row.create.mode === 'TOPIC' || row.create.mode === 'PICTURE_DESCRIPTION').every(row => typeof row.create.imageUrl === 'string' && row.create.imageUrl.startsWith('/media/learning/v1/images/'))).toBe(true);
+    expect(rows.filter(row => row.create.mode === 'PICTURE_DESCRIPTION').every(row => typeof row.create.visualContext === 'string' && row.create.visualContext.length > 20)).toBe(true);
     await seedSpeakingContent({ speakingPrompt: { upsert } } as any);
-    expect(upsert).toHaveBeenCalledTimes(60);
+    expect(upsert).toHaveBeenCalledTimes(88);
+  });
+
+  it('supports PICTURE_DESCRIPTION prompt snapshots with imageUrl and 60s limit', async () => {
+    const pictureService = new SpeakingService(prisma, { speakingProfile: 'read-aloud-v2' } as any,
+      { get: (key: string, fallback?: string) => key === 'SPEAKING_ENABLED' || key === 'SPEAKING_PICTURE_ENABLED' ? 'true' : fallback } as any);
+    prisma.speakingPrompt.findFirst.mockResolvedValue({
+      ...prompt,
+      id: 'pic-1',
+      mode: SpeakingMode.PICTURE_DESCRIPTION,
+      title: 'At a busy campus café',
+      text: 'Describe this café scene.',
+      maxDurationSeconds: 60,
+      hints: ['Who is at the counter?'],
+      imageUrl: '/media/learning/v1/images/picture-campus-cafe.jpg',
+      visualContext: 'A barista serving students coffee.',
+    });
+    await pictureService.create('owner', { promptId: 'pic-1', clientRequestId: 'req-pic' });
+    expect(prisma.speakingSubmission.create.mock.calls[0][0].data.promptSnapshot).toMatchObject({
+      mode: 'PICTURE_DESCRIPTION',
+      maxDurationSeconds: 60,
+      imageUrl: '/media/learning/v1/images/picture-campus-cafe.jpg',
+      visualContext: 'A barista serving students coffee.',
+      assessmentProfile: 'topic-speaking-v1',
+    });
   });
 });

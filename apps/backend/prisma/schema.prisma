@@ -139,6 +139,7 @@ enum SpeakingStatus {
 enum SpeakingMode {
   READ_ALOUD
   TOPIC
+  PICTURE_DESCRIPTION
   TONGUE_TWISTER
 }
 
@@ -149,6 +150,8 @@ model SpeakingPrompt {
   maxDurationSeconds Int @default(30) @map("max_duration_seconds")
   hints Json @default("[]")
   sampleAsset String? @map("sample_asset")
+  imageUrl String? @map("image_url") @db.VarChar(500)
+  visualContext String? @map("visual_context") @db.Text
   id String @id @default(uuid()) @db.Uuid
   code String @unique @db.VarChar(100)
   text String @db.Text
@@ -195,6 +198,8 @@ model UserProfile {
   selfAssessedCefr CefrLevel? @map("self_assessed_cefr")
   onboardingCompletedAt DateTime? @map("onboarding_completed_at")
   reminderEnabled  Boolean   @default(true) @map("reminder_enabled")
+  reminderTime     String    @default("19:30") @map("reminder_time") @db.VarChar(5)
+  reminderVersion  Int       @default(0) @map("reminder_version")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

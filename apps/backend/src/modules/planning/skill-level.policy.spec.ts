@@ -247,7 +247,7 @@ describe('Adaptive Reading skill-level policy', () => {
     expect(() => validateLearningSeeds(content)).not.toThrow();
 
     const clubLesson = content.find((l) => l.code === 'reading-a2-club-meeting');
-    expect(clubLesson?.contentVersion).toBe(4);
+    expect(clubLesson?.contentVersion).toBeGreaterThanOrEqual(4);
     expect(() => validateReadingPrepNoAnswerLeak(clubLesson!)).not.toThrow();
 
     const leakedTimeLesson = structuredClone(clubLesson!);

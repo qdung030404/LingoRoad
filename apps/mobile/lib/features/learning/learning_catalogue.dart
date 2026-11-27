@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import 'learning_controller.dart';
 import 'learning_pages.dart';
 import 'learning_repository.dart';
@@ -232,11 +233,34 @@ class _LearningCatalogueState extends State<LearningCatalogue> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              learningHeading(lesson.title, size: 20),
-              if (lesson.description.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                learningBody(lesson.description, size: 15),
-              ],
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (lesson.coverImageUrl case final String cover
+                      when cover.trim().isNotEmpty) ...[
+                    LearningMediaImage(
+                      imageUrl: cover,
+                      width: 68,
+                      height: 68,
+                      borderRadius: BorderRadius.circular(12),
+                      semanticLabel: lesson.title,
+                    ),
+                    const SizedBox(width: 14),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        learningHeading(lesson.title, size: 20),
+                        if (lesson.description.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          learningBody(lesson.description, size: 15),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [

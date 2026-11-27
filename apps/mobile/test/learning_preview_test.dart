@@ -226,8 +226,13 @@ void main() {
         await tester.pumpWidget(MyApp(session: session));
         await tester.pumpAndSettle();
         await tap(tester, find.byKey(const Key('previewAvatar')));
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('logoutButton')),
+          200,
+          scrollable: find.byType(Scrollable).last,
+        );
         expect(find.text('Đăng xuất'), findsOneWidget);
-        await tap(tester, find.byKey(const Key('previewLogout')));
+        await tap(tester, find.byKey(const Key('logoutButton')));
         expect(api.logoutCalls, 1);
         expect(api.accessToken, isNull);
         expect(await api.store.read(), isNull);

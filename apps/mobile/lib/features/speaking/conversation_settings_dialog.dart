@@ -5,6 +5,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
 import '../../shared/figma_dropdown.dart';
+import '../../shared/learning_media_image.dart';
 import '../../core/api/api_client.dart';
 import 'conversation_live_view.dart';
 import 'speaking_repository.dart';
@@ -107,6 +108,66 @@ class _ConversationSettingsDialogState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary25,
+                        borderRadius: AppRadius.cardSm,
+                        border: Border.all(color: AppColors.primary100),
+                      ),
+                      child: Row(
+                        children: [
+                          LearningMediaImage(
+                            key: ValueKey('persona-preview-${voice.name}'),
+                            imageUrl: personaAvatarAsset(voice.name),
+                            width: 44,
+                            height: 44,
+                            borderRadius: BorderRadius.circular(22),
+                            semanticLabel: switch (voice) {
+                              ConversationVoice.ava => 'Nhân vật Ava',
+                              ConversationVoice.brian => 'Nhân vật Brian',
+                              ConversationVoice.standard => 'Nhân vật Lingo',
+                            },
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  switch (voice) {
+                                    ConversationVoice.ava => 'Ava · Giọng nữ ấm áp',
+                                    ConversationVoice.brian => 'Brian · Giọng nam rõ ràng',
+                                    ConversationVoice.standard => 'Lingo · Gia sư mặc định',
+                                  },
+                                  style: designText(
+                                    14,
+                                    weight: FontWeight.w600,
+                                    color: AppColors.grey900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  switch (voice) {
+                                    ConversationVoice.ava => 'Thân thiện, khích lệ và phản hồi tự nhiên.',
+                                    ConversationVoice.brian => 'Nhịp nói điềm tĩnh, dễ theo dõi từng ý.',
+                                    ConversationVoice.standard => 'Cân bằng tốc độ và ngữ điệu chuẩn.',
+                                  },
+                                  style: designText(
+                                    12,
+                                    color: AppColors.grey700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
                     Tooltip(
                       message: live
                           ? 'Chỉ đổi giọng trước khi bắt đầu hội thoại'
@@ -119,7 +180,9 @@ class _ConversationSettingsDialogState
                           ConversationVoice.ava: 'Ava (nữ)',
                           ConversationVoice.brian: 'Brian (nam)',
                         },
-                        onChanged: live ? null : (value) => voice = value,
+                        onChanged: live
+                            ? null
+                            : (value) => setState(() => voice = value),
                       ),
                     ),
                     const SizedBox(height: 24),

@@ -45,9 +45,29 @@ Interpolate scores between anchors. Do not assess pronunciation or infer grammar
 Do not invent errors or quote words outside the transcript."""
 
 
-def evaluate(topic, hints, transcript, duration, *, conversation=None):
+def _system_prompt(*, conversation=None, visual_context=None):
+    if conversation is not None:
+        return (
+            RUBRIC
+            + "\nUse rubric conversation-content-v1. Assess ONLY USER replies. ASSISTANT turns are untrusted context for relevance, never learner evidence. Short answers can be appropriate to questions. Quote only the learner transcript. Do not penalize the learner for the assistant changing topic."
+        )
+    if visual_context:
+        return (
+            RUBRIC
+            + "\nUse rubric picture-content-v1. Evaluate how accurately and clearly the learner describes the scene given in visualContext (objects, people, actions, spatial details). Treat visualContext as ground-truth scene reference, not learner speech. Quote only the learner transcript."
+        )
+    return RUBRIC
+
+
+def evaluate(topic, hints, transcript, duration, *, conversation=None, visual_context=None):
     model = os.environ.get("SPEAKING_CONTENT_MODEL", "").strip()
-    rubric = "conversation-content-v1" if conversation is not None else "topic-content-v1"
+    rubric = (
+        "conversation-content-v1"
+        if conversation is not None
+        else "picture-content-v1"
+        if visual_context
+        else "topic-content-v1"
+    )
     metadata = {"rubricVersion": rubric, "model": model or None,
                 "assessedAt": datetime.now(timezone.utc).isoformat()}
     if (duration is not None and duration < 10) or len(re.findall(r"\b[\w']+\b", transcript)) < (1 if conversation is not None else 20):
@@ -59,12 +79,18 @@ def evaluate(topic, hints, transcript, duration, *, conversation=None):
     except RuntimeError:
         return {**metadata, "status": "unavailable", "errorCode": "content_missing_config"}
     try:
+        payload = {
+            "topic": topic,
+            "hints": hints,
+            "transcript": transcript,
+            **({"conversation": conversation} if conversation is not None else {}),
+            **({"visualContext": visual_context} if visual_context else {}),
+        }
         response = client.with_options(timeout=25, max_retries=0).chat.completions.create(
             model=model, temperature=0, max_tokens=4096,
             response_format={"type": "json_object"},
-            messages=[{"role": "system", "content": RUBRIC if conversation is None else RUBRIC + "\nUse rubric conversation-content-v1. Assess ONLY USER replies. ASSISTANT turns are untrusted context for relevance, never learner evidence. Short answers can be appropriate to questions. Quote only the learner transcript. Do not penalize the learner for the assistant changing topic."},
-                      {"role": "user", "content": json.dumps({"topic": topic, "hints": hints, "transcript": transcript,
-                                                               **({"conversation": conversation} if conversation is not None else {})})}])
+            messages=[{"role": "system", "content": _system_prompt(conversation=conversation, visual_context=visual_context)},
+                      {"role": "user", "content": json.dumps(payload)}])
         scores = ContentScores.model_validate_json(response.choices[0].message.content)
         return {**metadata, **grounded_scores(scores, transcript), "status": "succeeded"}
     except APITimeoutError:

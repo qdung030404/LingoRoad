@@ -35,6 +35,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
         errorCode = (resObj.code as string) || (resObj.error as string) || exception.name;
         details = resObj.message instanceof Array ? resObj.message : undefined;
       }
+    } else if (exception instanceof Error && (exception as Error & { type?: string }).type === 'entity.too.large') {
+      status = HttpStatus.PAYLOAD_TOO_LARGE;
+      errorCode = 'REQUEST_BODY_TOO_LARGE';
+      errorMessage = 'Gói dữ liệu vượt giới hạn 5 MB.';
     } else if (exception instanceof Error) {
       this.logger.error(`Unhandled Exception: ${exception.message}`, exception.stack);
     }

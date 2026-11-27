@@ -11,6 +11,7 @@ import '../core/theme/figma_assets.dart';
 import '../core/theme/learning_assets.dart';
 import '../core/theme/updated_figma_assets.dart';
 import 'app_button.dart';
+import 'learning_media_image.dart';
 
 TextStyle designText(
   double size, {
@@ -92,6 +93,7 @@ class FigmaPage extends StatelessWidget {
     this.headerHeight = 52,
     this.leadingWidth = 56,
     this.headerPadding = EdgeInsets.zero,
+    this.minimumTopInset = 60,
     this.titleStyle,
   });
   final Widget child;
@@ -101,6 +103,7 @@ class FigmaPage extends StatelessWidget {
   final double headerHeight;
   final double leadingWidth;
   final EdgeInsetsGeometry headerPadding;
+  final double minimumTopInset;
   final TextStyle? titleStyle;
   @override
   Widget build(BuildContext context) => AnnotatedRegion<SystemUiOverlayStyle>(
@@ -116,7 +119,10 @@ class FigmaPage extends StatelessWidget {
         child: Column(
           children: [
             SizedBox(
-              height: math.max(0, 60 - MediaQuery.paddingOf(context).top),
+              height: math.max(
+                0,
+                minimumTopInset - MediaQuery.paddingOf(context).top,
+              ),
             ),
             if (title != null)
               SizedBox(
@@ -549,6 +555,7 @@ class PracticeVocabularyCard extends StatelessWidget {
     required this.meaning,
     this.phonetic = '',
     this.example = '',
+    this.imageUrl,
     this.compact = false,
     this.highlighted = false,
     this.trailing,
@@ -558,6 +565,7 @@ class PracticeVocabularyCard extends StatelessWidget {
   final String meaning;
   final String phonetic;
   final String example;
+  final String? imageUrl;
   final bool compact;
   final bool highlighted;
   final Widget? trailing;
@@ -568,6 +576,7 @@ class PracticeVocabularyCard extends StatelessWidget {
     final trimmedPhonetic = phonetic.trim();
     final trimmedMeaning = meaning.trim();
     final trimmedExample = example.trim();
+    final trimmedImage = imageUrl?.trim() ?? '';
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: 12,
@@ -586,6 +595,16 @@ class PracticeVocabularyCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (trimmedImage.isNotEmpty) ...[
+                LearningMediaImage(
+                  imageUrl: trimmedImage,
+                  width: 48,
+                  height: 48,
+                  borderRadius: BorderRadius.circular(10),
+                  semanticLabel: trimmedWord,
+                ),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -749,6 +768,7 @@ class KeyVocabularySection extends StatelessWidget {
       phonetic: phonetic,
       meaning: meaning,
       example: example,
+      imageUrl: item['imageUrl'] as String?,
       compact: compact,
       highlighted: saved,
       trailing: onSaveWord == null
@@ -1152,4 +1172,206 @@ class SectionProgress extends StatelessWidget {
       ],
     ],
   );
+}
+
+bool hasVisualImageOptions(List<Map<String, dynamic>> options) =>
+    options.length == 4 &&
+    options.every(
+      (option) => (option['imageUrl'] as String?)?.trim().isNotEmpty == true,
+    );
+
+/// 2x2 visual MCQ option grid rendered inside vertical scrolling lists without
+/// triggering GridView unbounded viewport height errors.
+class PracticeImageAnswerGrid extends StatelessWidget {
+  const PracticeImageAnswerGrid({
+    super.key,
+    required this.options,
+    required this.checked,
+    this.selectedOptionId,
+    this.correctOptionId,
+    this.onSelect,
+    this.keyPrefix = 'learning-option-',
+    this.showReviewLabels = false,
+  });
+
+  final List<Map<String, dynamic>> options;
+  final bool checked;
+  final String? selectedOptionId;
+  final String? correctOptionId;
+  final ValueChanged<String>? onSelect;
+  final String keyPrefix;
+  final bool showReviewLabels;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <List<int>>[
+      [for (var i = 0; i < math.min(2, options.length); i++) i],
+      if (options.length > 2)
+        [for (var i = 2; i < math.min(4, options.length); i++) i],
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (rowIndex, row) in rows.indexed) ...[
+          if (rowIndex > 0) const SizedBox(height: 10),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (colIndex, optIndex) in row.indexed) ...[
+                  if (colIndex > 0) const SizedBox(width: 10),
+                  Expanded(child: _buildOptionCard(optIndex, options[optIndex])),
+                ],
+                if (row.length == 1) const Expanded(child: SizedBox.shrink()),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildOptionCard(int index, Map<String, dynamic> option) {
+    final optionId = option['id'] as String;
+    final text = option['text'] as String? ?? '';
+    final imageUrl = option['imageUrl'] as String?;
+    final selected = selectedOptionId == optionId;
+    final correct = checked && correctOptionId == optionId;
+    final wrong = checked && selected && correctOptionId != optionId;
+    final letter = String.fromCharCode(65 + index);
+    final label = showReviewLabels
+        ? switch ((correct, selected)) {
+            (true, true) => 'Đáp án đúng · Bạn chọn',
+            (true, false) => 'Đáp án đúng',
+            (false, true) => 'Bạn chọn',
+            _ => null,
+          }
+        : correct
+        ? 'Đúng'
+        : wrong
+        ? 'Sai'
+        : null;
+
+    final borderColor = wrong
+        ? const Color(0xFFFFCC01)
+        : correct
+        ? const Color(0xFF049228)
+        : selected
+        ? AppColors.primary500
+        : AppColors.grey100;
+    final fillColor = wrong
+        ? AppColors.warning0
+        : correct
+        ? AppColors.primary25
+        : selected
+        ? AppColors.grey0
+        : AppColors.grey5;
+    final badgeFill = wrong
+        ? const Color(0xFFF4DFB2)
+        : correct
+        ? AppColors.primary100
+        : selected
+        ? AppColors.primary25
+        : AppColors.grey25;
+    final tone = wrong
+        ? const Color(0xFFCA8A04)
+        : correct
+        ? const Color(0xFF0A5D21)
+        : selected
+        ? AppColors.primary600
+        : AppColors.grey900;
+
+    return Semantics(
+      button: onSelect != null,
+      selected: selected,
+      label: 'Đáp án $letter: $text',
+      child: Material(
+        color: fillColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.cardRadius,
+          side: BorderSide(
+            color: borderColor,
+            width: selected || correct ? 1.5 : 1,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: ValueKey('$keyPrefix$optionId'),
+          onTap: onSelect == null ? null : () => onSelect!(optionId),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: AppRadius.cardSm,
+                      child: AspectRatio(
+                        aspectRatio: 4 / 3,
+                        child: LearningMediaImage(
+                          imageUrl: imageUrl,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          semanticLabel: text,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        width: 26,
+                        height: 26,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: badgeFill,
+                          border: Border.all(color: borderColor),
+                        ),
+                        child: Text(
+                          letter,
+                          style: designText(
+                            12,
+                            weight: FontWeight.w700,
+                            color: tone,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  text,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: designText(
+                    14,
+                    weight: FontWeight.w600,
+                    color: AppColors.grey900,
+                    height: 1.3,
+                  ),
+                ),
+                if (label != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: designText(
+                      12,
+                      weight: FontWeight.w600,
+                      color: tone,
+                      height: 1.25,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

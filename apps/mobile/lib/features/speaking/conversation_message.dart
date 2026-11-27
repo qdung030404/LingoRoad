@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import 'conversation_live_view.dart';
 
 class ConversationMessage extends StatefulWidget {
@@ -11,11 +12,13 @@ class ConversationMessage extends StatefulWidget {
     required this.text,
     this.translationVi,
     this.onTranslate,
+    this.voiceName = 'standard',
   });
   final bool isUser;
   final String text;
   final String? translationVi;
   final Future<String> Function()? onTranslate;
+  final String voiceName;
   @override
   State<ConversationMessage> createState() => _ConversationMessageState();
 }
@@ -53,10 +56,14 @@ class _ConversationMessageState extends State<ConversationMessage> {
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final user = widget.isUser;
-      final avatar = ConversationLiveIcon(
-        user ? 'user' : 'assistant',
-        size: 36,
-      );
+      final avatar = user
+          ? const ConversationLiveIcon('user', size: 36)
+          : LearningMediaImage(
+              imageUrl: personaAvatarAsset(widget.voiceName),
+              width: 36,
+              height: 36,
+              borderRadius: BorderRadius.circular(18),
+            );
       final message = SelectableText(
         widget.text,
         style: _messageStyle(

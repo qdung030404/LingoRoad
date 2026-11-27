@@ -23,7 +23,12 @@ export class FirebaseUserService {
       throw new UnauthorizedException({ code: 'AUTH_EMAIL_REQUIRED', message: 'Tài khoản đăng nhập cần có email.' });
     }
     const normalizedEmail = rawEmail.toLowerCase();
-    if (token.firebase?.sign_in_provider === 'google.com' && !token.email_verified) {
+    const isGoogle = token.firebase?.sign_in_provider === 'google.com';
+    const tokenAvatarUrl =
+      typeof token.picture === 'string' && token.picture.startsWith('https://')
+        ? token.picture.slice(0, 500)
+        : null;
+    if (isGoogle && !token.email_verified) {
       throw new UnauthorizedException({
         code: 'AUTH_EMAIL_NOT_VERIFIED',
         message: 'Tài khoản Google cần có email đã được xác thực.',
@@ -32,6 +37,7 @@ export class FirebaseUserService {
 
     this.logger.debug(`Đang tìm/tạo người dùng cho Firebase UID: ${uid}, email: ${maskEmail(normalizedEmail)}`);
     let user = await this.prisma.user.findUnique({ where: { firebaseUid: uid } });
+    const existingUser = user !== null;
     if (!user) {
       this.logger.debug(`Chưa có user với firebaseUid: ${uid}. Đang tạo mới user trong DB...`);
       try {
@@ -40,8 +46,8 @@ export class FirebaseUserService {
             firebaseUid: uid,
             email: normalizedEmail,
             name: (typeof token.name === 'string' && token.name.trim().length > 0 ? token.name.trim() : rawEmail.split('@')[0]).slice(0, 100),
-            provider: token.firebase?.sign_in_provider === 'google.com' ? AuthProvider.GOOGLE : AuthProvider.LOCAL,
-            avatarUrl: typeof token.picture === 'string' && token.picture.startsWith('https://') ? token.picture.slice(0, 500) : null,
+            provider: isGoogle ? AuthProvider.GOOGLE : AuthProvider.LOCAL,
+            avatarUrl: tokenAvatarUrl,
             role: UserRole.LEARNER,
             status: UserStatus.ACTIVE,
             profile: {
@@ -68,22 +74,55 @@ export class FirebaseUserService {
       this.logger.debug(`Đã tìm thấy user trong DB: ID=${user.id}`);
     }
 
-    if (user.role === UserRole.ADMIN && token.firebase?.sign_in_provider === 'google.com') {
+    if (user.role === UserRole.ADMIN && isGoogle) {
       throw new ForbiddenException({
         code: 'AUTH_ADMIN_GOOGLE_LINK_RESTRICTED',
         message: 'Tài khoản Quản trị viên không được phép đăng nhập qua Google SSO.',
       });
     }
+    this.assertActive(user);
+
+    if (existingUser) {
+      user = await this.syncGoogleIdentityIfNeeded(user, isGoogle, tokenAvatarUrl);
+    }
     return this.principal(user);
   }
 
-  private principal(user: User): FirebaseUserPrincipal {
+  private async syncGoogleIdentityIfNeeded(
+    user: User,
+    isGoogle: boolean,
+    tokenAvatarUrl: string | null,
+  ): Promise<User> {
+    const needsProviderSync = isGoogle && user.provider !== AuthProvider.GOOGLE;
+    const hasAvatar = typeof user.avatarUrl === 'string' && user.avatarUrl.trim().length > 0;
+    const needsAvatarSync = isGoogle && !hasAvatar && tokenAvatarUrl !== null;
+    if (!needsProviderSync && !needsAvatarSync) {
+      return user;
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        ...(needsProviderSync ? { provider: AuthProvider.GOOGLE } : {}),
+        ...(needsAvatarSync ? { avatarUrl: tokenAvatarUrl } : {}),
+      },
+    });
+    this.logger.log(
+      `Đã đồng bộ thông tin Google cho user ID=${updated.id} (provider=${updated.provider}, avatarSynced=${needsAvatarSync})`,
+    );
+    return updated;
+  }
+
+  private assertActive(user: User): void {
     if (user.status !== UserStatus.ACTIVE) {
       throw new ForbiddenException({
         code: user.status === UserStatus.DELETED ? 'AUTH_USER_DELETED' : 'AUTH_USER_SUSPENDED',
         message: 'Tài khoản đã bị tạm khóa hoặc không còn hoạt động.',
       });
     }
+  }
+
+  private principal(user: User): FirebaseUserPrincipal {
+    this.assertActive(user);
     return { sub: user.id, email: user.email, role: user.role, firebaseUid: user.firebaseUid };
   }
 }
