@@ -331,29 +331,42 @@ describe('Daily plans and observed learning time', () => {
   it('tracks A1 roadmap units and practice score stats across weeks', async () => {
     const owner = await account();
     const initial = await progress(owner);
-    assert.equal(initial.units.length, 9);
-    assert.equal(initial.units.find(unit => unit.cefrLevel === 'A2').totalLessons, 3);
+    const totalUnits = await prisma.learningUnit.count();
+    const a1Unit1Lessons = await prisma.learningLesson.findMany({
+      where: { published: true, unit: { code: 'a1-unit-1' } },
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+    });
+    const a2Unit1Count = await prisma.learningLesson.count({
+      where: { published: true, unit: { code: 'a2-unit-1' } },
+    });
+    assert.equal(initial.units.length, totalUnits);
+    assert.equal(initial.units.find(unit => unit.cefrLevel === 'A2').totalLessons, a2Unit1Count);
     assert.equal(initial.units[0].status, 'IN_PROGRESS');
-    assert.equal(initial.units[0].totalLessons, 3);
+    assert.equal(initial.units[0].totalLessons, a1Unit1Lessons.length);
     assert.equal(initial.scoreStats.averageScore, null);
 
-    // Complete previous week attempt at 3/5 (60%) and current week attempts at 5/5 (100%)
-    const firstDone = await finish(owner, lessons.GRAMMAR, 3);
+    // Complete previous week attempt at 60% and remaining unit-1 attempts this week at 100%
+    const firstLesson = a1Unit1Lessons[0];
+    const firstCorrect = Math.round(firstLesson.content.questions.length * 0.6);
+    const firstPct = Math.round((firstCorrect / firstLesson.content.questions.length) * 100);
+    const firstDone = await finish(owner, firstLesson, firstCorrect);
     await prisma.learningAttempt.update({
       where: { id: firstDone.id },
       data: { submittedAt: new Date(Date.now() - 8 * dayMs) },
     });
-    await finish(owner, lessons.READING, 5);
-    await finish(owner, lessons.LISTENING, 5);
+    for (const lesson of a1Unit1Lessons.slice(1)) {
+      await finish(owner, lesson, lesson.content.questions.length);
+    }
 
     const updated = await progress(owner);
     assert.equal(updated.units[0].status, 'COMPLETED');
-    assert.equal(updated.units[0].completedLessonCount, 3);
+    assert.equal(updated.units[0].completedLessonCount, a1Unit1Lessons.length);
     assert.equal(updated.units[1].status, 'IN_PROGRESS');
-    assert.equal(updated.scoreStats.averageScore, 87);
-    assert.equal(updated.scoreStats.previousWeekAverage, 60);
+    const expectedAvg = Math.round((firstPct + 100 * (a1Unit1Lessons.length - 1)) / a1Unit1Lessons.length);
+    assert.equal(updated.scoreStats.averageScore, expectedAvg);
+    assert.equal(updated.scoreStats.previousWeekAverage, firstPct);
     assert.equal(updated.scoreStats.currentWeekAverage, 100);
-    assert.equal(updated.scoreStats.deltaPercent, 40);
+    assert.equal(updated.scoreStats.deltaPercent, 100 - firstPct);
   });
 
   it('filters daily plan suggestions by skill-specific CEFR ceiling from placement', async () => {
