@@ -3,13 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --primary: #59b070;
-  --primary-hover: #418a54;
-  --primary-dark: #1e713b;
   --bg-light: #f4f7fb;
-  --surface-light: #ffffff;
   --text-primary: #1a2029;
-  --text-secondary: #5b6574;
 }
 
 html {
