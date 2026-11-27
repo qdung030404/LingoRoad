@@ -70,11 +70,11 @@ export const CtaBanner: React.FC = () => {
               </div>
               <h3 className="mt-4 text-xl font-bold text-white">LingoRoad Mobile</h3>
               <p className="mt-2 text-xs text-slateDark-400">
-                Hỗ trợ mượt mà trên Android và iOS. Giao diện trực quan, bắt mắt và dễ sử dụng.
+                Hỗ trợ mượt mà trên Android và iOS (Sắp ra mắt). Giao diện trực quan, hiện đại và dễ sử dụng.
               </p>
               <div className="mt-5 rounded-xl bg-slateDark-800/80 p-3 border border-slateDark-700">
-                <div className="text-[11px] font-medium text-brand-300">Đã sẵn sàng tải về trải nghiệm</div>
-                <div className="mt-1 text-[11px] text-slateDark-400">Dự án Đồ án Tốt nghiệp</div>
+                <div className="text-[11px] font-medium text-brand-300">Android: Đã sẵn sàng tải APK</div>
+                <div className="mt-1 text-[11px] text-slateDark-400">iOS (Sắp ra mắt)</div>
               </div>
               <a
                 href="https://github.com/qdung030404/LingoRoad/releases"

@@ -18,6 +18,8 @@ export const Navbar: React.FC = () => {
     setIsMobileMenuOpen(false);
   };
 
+  const resolveHref = (href: string): string => (href.startsWith('#') ? `/${href}` : href);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slateDark-100 bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -44,11 +46,11 @@ export const Navbar: React.FC = () => {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-8">
+        <nav className="hidden lg:flex items-center gap-8">
           {NAV_ITEMS.map((item: NavItem) => (
             <Link
               key={item.href}
-              href={item.href}
+              href={resolveHref(item.href)}
               className="text-sm font-medium text-slateDark-700 transition-colors hover:text-brand-600"
             >
               {item.label}
@@ -59,7 +61,7 @@ export const Navbar: React.FC = () => {
         {/* Desktop Actions */}
         <div className="hidden lg:flex items-center gap-3">
           <Link
-            href="#simulator"
+            href="/#simulator"
             className="flex items-center gap-2 rounded-xl border border-brand-300 bg-brand-50 px-4 py-2.5 text-sm font-semibold text-brand-700 transition-all hover:bg-brand-100"
           >
             <Sparkles className="h-4 w-4 text-brand-600" />
@@ -67,7 +69,7 @@ export const Navbar: React.FC = () => {
           </Link>
 
           <Link
-            href="#cta"
+            href="/#cta"
             className="btn-primary flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm shadow-sm transition-all hover:shadow-md"
           >
             <Smartphone className="h-4 w-4 !text-white" />
@@ -75,25 +77,26 @@ export const Navbar: React.FC = () => {
           </Link>
         </div>
 
-        {/* Mobile Menu Button */}
+        {/* Mobile & Tablet Menu Button */}
         <button
           type="button"
           onClick={toggleMobileMenu}
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slateDark-200 text-slateDark-700 md:hidden"
+          aria-expanded={isMobileMenuOpen}
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-slateDark-200 text-slateDark-700 lg:hidden"
           aria-label="Toggle navigation menu"
         >
           {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
       </div>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile & Tablet Menu Dropdown */}
       {isMobileMenuOpen && (
-        <div className="border-b border-slateDark-100 bg-white px-4 py-6 md:hidden">
+        <div className="border-b border-slateDark-100 bg-white px-4 py-6 lg:hidden">
           <div className="flex flex-col space-y-4">
             {NAV_ITEMS.map((item: NavItem) => (
               <Link
                 key={item.href}
-                href={item.href}
+                href={resolveHref(item.href)}
                 onClick={closeMobileMenu}
                 className="text-base font-medium text-slateDark-800 transition-colors hover:text-brand-600"
               >
@@ -102,7 +105,7 @@ export const Navbar: React.FC = () => {
             ))}
             <div className="pt-4 flex flex-col gap-3">
               <Link
-                href="#simulator"
+                href="/#simulator"
                 onClick={closeMobileMenu}
                 className="flex items-center justify-center gap-2 rounded-xl border border-brand-300 bg-brand-50 py-3 text-sm font-semibold text-brand-700"
               >
@@ -110,7 +113,7 @@ export const Navbar: React.FC = () => {
                 <span>Kiểm tra trình độ</span>
               </Link>
               <Link
-                href="#cta"
+                href="/#cta"
                 onClick={closeMobileMenu}
                 className="btn-primary flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold"
               >

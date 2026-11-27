@@ -225,6 +225,6 @@ export const FAQ_DATA: FaqItem[] = [
   {
     question: 'Tôi có thể tải và học LingoRoad trên những thiết bị nào?',
     answer:
-      'LingoRoad có ứng dụng di động hoàn chỉnh cho cả điện thoại Android và iOS (iPhone/iPad). Toàn bộ dữ liệu bài học, chuỗi ngày chăm chỉ (Streak), điểm số và sổ tay từ vựng của bạn được đồng bộ xuyên suốt, giúp bạn có thể tranh thủ học mọi lúc mọi nơi.',
+      'Hiện tại bạn có thể tải và cài đặt ứng dụng LingoRoad trên điện thoại Android (file APK từ trang phát hành chính thức). Phiên bản iOS (Sắp ra mắt) đang được hoàn thiện. Toàn bộ dữ liệu bài học, chuỗi ngày chăm chỉ (Streak), điểm số và sổ tay từ vựng của bạn được đồng bộ xuyên suốt trên tài khoản.',
   },
 ];

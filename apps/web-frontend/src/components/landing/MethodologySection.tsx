@@ -62,7 +62,7 @@ export const MethodologySection: React.FC = () => {
               }`}
             >
               <Cpu className="h-4 w-4" />
-              <span>Chuyên sâu Đồ án &amp; Thuật toán AI</span>
+              <span>Nghiên cứu &amp; Thuật toán AI</span>
             </button>
           </div>
         </div>
@@ -127,7 +127,7 @@ export const MethodologySection: React.FC = () => {
                 Nhờ vậy, bạn không cần chép phạt hàng trăm lần mà vẫn nhớ từ vựng như in.
               </p>
 
-              <div className="mt-5 rounded-xl bg-emerald-25/50 border border-emerald-100 p-4 space-y-2.5 text-xs text-slateDark-800">
+              <div className="mt-5 rounded-xl bg-emerald-50/50 border border-emerald-100 p-4 space-y-2.5 text-xs text-slateDark-800">
                 <div className="flex items-center gap-2 font-medium">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
                   <span>Giảm 40% số lần phải ôn bài mỗi ngày</span>
@@ -163,7 +163,7 @@ export const MethodologySection: React.FC = () => {
                 <strong> Không bao giờ rơi vào cảm giác &quot;chưa biết đi đã phải học chạy&quot;</strong>.
               </p>
 
-              <div className="mt-5 rounded-xl bg-blue-25/50 border border-blue-100 p-4 space-y-2.5 text-xs text-slateDark-800">
+              <div className="mt-5 rounded-xl bg-blue-50/50 border border-blue-100 p-4 space-y-2.5 text-xs text-slateDark-800">
                 <div className="flex items-center gap-2 font-medium">
                   <CheckCircle2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
                   <span>Biết rõ hôm nay cần học bài nào để tiến bộ</span>
@@ -199,7 +199,7 @@ export const MethodologySection: React.FC = () => {
                 <strong> Chỉ ra vì sao bạn chọn nhầm, dịch nghĩa dễ hiểu và cho bạn một câu tương tự để sửa ngay tại chỗ</strong>.
               </p>
 
-              <div className="mt-5 rounded-xl bg-amberGold-50/60 border border-amberGold-200/60 p-4 space-y-2.5 text-xs text-slateDark-800">
+              <div className="mt-5 rounded-xl bg-amberGold-50/60 border border-amber-200/60 p-4 space-y-2.5 text-xs text-slateDark-800">
                 <div className="flex items-center gap-2 font-medium">
                   <CheckCircle2 className="h-4 w-4 text-amber-600 flex-shrink-0" />
                   <span>Giải thích nhẹ nhàng, dễ hiểu, không hàn lâm</span>
@@ -218,7 +218,7 @@ export const MethodologySection: React.FC = () => {
           </div>
         )}
 
-        {/* View Mode 2: Dành cho Chuyên gia & Đồ án (Academic View) */}
+        {/* View Mode 2: Dành cho Chuyên gia & Nghiên cứu (Academic View) */}
         {viewMode === 'academic' && (
           <div className="mt-14 grid grid-cols-1 gap-8 md:grid-cols-2">
 

@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { Check, X, Sparkles } from 'lucide-react';
 import { ModelComparison } from '@/types/landing';
@@ -33,10 +31,10 @@ export const ComparisonSection: React.FC = () => {
                   <th className="py-4 px-6 text-sm font-bold text-slateDark-800 w-1/4">
                     Nhu cầu học tập
                   </th>
-                  <th className="py-4 px-6 text-sm font-semibold text-slateDark-500 w-3/8">
+                  <th className="py-4 px-6 text-sm font-semibold text-slateDark-500 w-[37.5%]">
                     Cách học truyền thống / App thông thường
                   </th>
-                  <th className="py-4 px-6 text-sm font-bold text-brand-700 bg-brand-50/80 w-3/8">
+                  <th className="py-4 px-6 text-sm font-bold text-brand-700 bg-brand-50/80 w-[37.5%]">
                     <div className="flex items-center gap-2">
                       <span className="flex h-2.5 w-2.5 rounded-full bg-brand-500 animate-pulse" />
                       <span>Giải pháp LingoRoad</span>

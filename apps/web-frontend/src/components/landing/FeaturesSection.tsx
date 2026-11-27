@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { Target, GitFork, RotateCw, Bot, Award, Mic } from 'lucide-react';
 import { FeatureItem } from '@/types/landing';
