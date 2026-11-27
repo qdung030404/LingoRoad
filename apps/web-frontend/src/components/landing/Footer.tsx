@@ -1,7 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Globe, Heart } from 'lucide-react';
+import { Globe, Mail } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
@@ -31,101 +31,97 @@ export const Footer: React.FC = () => {
               học đúng trình độ thực tế và tự tin giao tiếp cùng Trợ lý AI.
             </p>
 
-            <div className="mt-4 text-xs text-slateDark-500">
-              Đồ án Tốt nghiệp Kỹ sư Công nghệ Thông tin (Graduation Thesis)
+            <div className="mt-4 flex items-center gap-2 text-xs text-slateDark-600">
+              <Mail className="h-3.5 w-3.5 text-brand-600 flex-shrink-0" />
+              <a
+                href="mailto:support@lingoroad.app"
+                className="font-medium text-slateDark-700 transition-colors hover:text-brand-600"
+              >
+                support@lingoroad.app
+              </a>
             </div>
           </div>
 
           {/* Column 1: Khám phá */}
           <div>
             <h4 className="text-sm font-bold uppercase tracking-wider text-slateDark-900">
-              Tính năng nổi bật
+              Khám phá
             </h4>
             <ul className="mt-4 space-y-2.5 text-sm">
               <li>
-                <Link href="#features" className="hover:text-brand-600 transition-colors">
-                  Kiểm tra trình độ nhanh
+                <Link href="/#features" className="hover:text-brand-600 transition-colors">
+                  Tính năng nổi bật
                 </Link>
               </li>
               <li>
-                <Link href="#features" className="hover:text-brand-600 transition-colors">
-                  Lộ trình cây kỹ năng
+                <Link href="/#methodology" className="hover:text-brand-600 transition-colors">
+                  Phương pháp học
                 </Link>
               </li>
               <li>
-                <Link href="#features" className="hover:text-brand-600 transition-colors">
-                  Sổ tay từ vựng chống quên
+                <Link href="/#simulator" className="hover:text-brand-600 transition-colors">
+                  Trải nghiệm thử
                 </Link>
               </li>
               <li>
-                <Link href="#features" className="hover:text-brand-600 transition-colors">
-                  Gia sư AI sửa lỗi 24/7
+                <Link href="/#comparison" className="hover:text-brand-600 transition-colors">
+                  So sánh ưu việt
                 </Link>
               </li>
               <li>
-                <Link href="#features" className="hover:text-brand-600 transition-colors">
-                  Luyện nói &amp; sửa phát âm
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Column 2: Phương pháp */}
-          <div>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-slateDark-900">
-              Phương pháp học
-            </h4>
-            <ul className="mt-4 space-y-2.5 text-sm">
-              <li>
-                <Link href="#methodology" className="hover:text-brand-600 transition-colors">
-                  Đo trình độ thích ứng
-                </Link>
-              </li>
-              <li>
-                <Link href="#methodology" className="hover:text-brand-600 transition-colors">
-                  Quy luật ghi nhớ từ vựng
-                </Link>
-              </li>
-              <li>
-                <Link href="#methodology" className="hover:text-brand-600 transition-colors">
-                  Học từ gốc rễ đến nâng cao
-                </Link>
-              </li>
-              <li>
-                <Link href="#methodology" className="hover:text-brand-600 transition-colors">
-                  Gia sư AI đồng hành
-                </Link>
-              </li>
-              <li>
-                <Link href="#simulator" className="hover:text-brand-600 transition-colors">
-                  Trải nghiệm tính năng thử
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Column 3: Liên kết */}
-          <div>
-            <h4 className="text-sm font-bold uppercase tracking-wider text-slateDark-900">
-              Hệ thống
-            </h4>
-            <ul className="mt-4 space-y-2.5 text-sm">
-              <li>
-                <span className="text-slateDark-500">Ứng dụng di động Flutter</span>
-              </li>
-              <li>
-                <span className="text-slateDark-500">Hệ thống dịch vụ API NestJS</span>
-              </li>
-              <li>
-                <span className="text-slateDark-500">Mô hình AI &amp; Xử lý giọng nói</span>
-              </li>
-              <li>
-                <span className="text-slateDark-500">Đồng bộ đám mây</span>
-              </li>
-              <li>
-                <Link href="#faq" className="hover:text-brand-600 transition-colors">
+                <Link href="/#faq" className="hover:text-brand-600 transition-colors">
                   Hỏi đáp (FAQ)
                 </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 2: Ứng dụng */}
+          <div>
+            <h4 className="text-sm font-bold uppercase tracking-wider text-slateDark-900">
+              Ứng dụng
+            </h4>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              <li>
+                <Link href="/#download" className="hover:text-brand-600 transition-colors">
+                  Tải APK cho Android
+                </Link>
+              </li>
+              <li>
+                <span className="text-slateDark-500">Phiên bản iOS (Sắp ra mắt)</span>
+              </li>
+              <li>
+                <span className="text-slateDark-500">Chuẩn khung tham chiếu CEFR</span>
+              </li>
+              <li>
+                <span className="text-slateDark-500">Đồng bộ tiến độ đa phiên học</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 3: Pháp lý & Hỗ trợ */}
+          <div>
+            <h4 className="text-sm font-bold uppercase tracking-wider text-slateDark-900">
+              Pháp lý &amp; Hỗ trợ
+            </h4>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              <li>
+                <Link href="/privacy" className="hover:text-brand-600 transition-colors">
+                  Chính sách bảo mật
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="hover:text-brand-600 transition-colors">
+                  Điều khoản sử dụng
+                </Link>
+              </li>
+              <li>
+                <a
+                  href="mailto:support@lingoroad.app"
+                  className="hover:text-brand-600 transition-colors"
+                >
+                  Liên hệ: support@lingoroad.app
+                </a>
               </li>
             </ul>
           </div>
@@ -134,16 +130,18 @@ export const Footer: React.FC = () => {
 
         {/* Bottom Bar */}
         <div className="mt-12 flex flex-col sm:flex-row items-center justify-between border-t border-slateDark-100 pt-8 text-xs text-slateDark-500 gap-4">
-          <div className="flex items-center gap-1">
-            <span>© 2026 LingoRoad. Xây dựng với</span>
-            <Heart className="h-3.5 w-3.5 text-rose-500 fill-rose-500" />
-            <span>cho Đồ án Tốt nghiệp.</span>
-          </div>
+          <div>© 2026 LingoRoad. Bảo lưu mọi quyền.</div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            <Link href="/privacy" className="hover:text-brand-600 transition-colors">
+              Chính sách bảo mật
+            </Link>
+            <Link href="/terms" className="hover:text-brand-600 transition-colors">
+              Điều khoản sử dụng
+            </Link>
             <span className="flex items-center gap-1.5">
               <Globe className="h-3.5 w-3.5 text-slateDark-400" />
-              <span>Múi giờ: GMT+7 (Asia/Ho_Chi_Minh)</span>
+              <span>GMT+7 (Asia/Ho_Chi_Minh)</span>
             </span>
           </div>
         </div>

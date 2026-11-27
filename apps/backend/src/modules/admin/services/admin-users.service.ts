@@ -10,17 +10,23 @@ import { randomUUID } from 'node:crypto';
 import {
   AuthProvider,
   CefrLevel,
+  LearningKind,
   LearningPurpose,
   Prisma,
+  SkillLevelSource,
   UserRole,
   UserStatus,
 } from '@prisma/client';
 import { FirebaseTokenService } from '../../auth/firebase/firebase-token.service';
+import { learningDate } from '../../planning/planning.helpers';
+import { PlanningService } from '../../planning/planning.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PasswordService } from '../../security/password.service';
 import {
   AdminUsersQueryDto,
   CreateAdminUserDto,
+  OverrideUserSkillLevelDto,
+  ResetPlacementRetakeDto,
   UpdateAdminUserDto,
 } from '../dto/admin-users.dto';
 
@@ -29,6 +35,7 @@ const ADMIN_USER_SELECT = {
   email: true,
   name: true,
   avatarUrl: true,
+  firebaseUid: true,
   provider: true,
   role: true,
   status: true,
@@ -39,6 +46,13 @@ const ADMIN_USER_SELECT = {
       targetCefr: true,
       dailyGoalMinutes: true,
       learningPurpose: true,
+      preferredKinds: true,
+      selfAssessedCefr: true,
+      onboardingCompletedAt: true,
+      reminderEnabled: true,
+      reminderTime: true,
+      preferencesVersion: true,
+      reminderVersion: true,
     },
   },
   _count: {
@@ -47,6 +61,7 @@ const ADMIN_USER_SELECT = {
       placementSessions: true,
       vocabularyDecks: true,
       speakingSubmissions: true,
+      voiceConversations: true,
     },
   },
 } as const;
@@ -60,6 +75,7 @@ export interface AdminUserListItem {
   email: string;
   name: string;
   avatarUrl: string | null;
+  hasFirebaseIdentity: boolean;
   provider: AuthProvider;
   role: UserRole;
   status: UserStatus;
@@ -69,16 +85,67 @@ export interface AdminUserListItem {
     targetCefr: CefrLevel;
     dailyGoalMinutes: number;
     learningPurpose?: LearningPurpose | null;
+    preferredKinds?: LearningKind[];
+    selfAssessedCefr?: CefrLevel | null;
+    onboardingCompletedAt?: Date | null;
+    reminderEnabled?: boolean;
+    reminderTime?: string;
+    preferencesVersion?: number;
+    reminderVersion?: number;
   } | null;
   stats: {
     learningAttempts: number;
     placementSessions: number;
     vocabularyDecks: number;
     speakingSubmissions: number;
+    voiceConversations: number;
   };
 }
 
 export interface AdminUserDetail extends AdminUserListItem {
+  skillLevels: Array<{
+    id: string;
+    kind: LearningKind;
+    cefrLevel: CefrLevel;
+    source: SkillLevelSource;
+    previousCefr: CefrLevel | null;
+    changedAt: Date | null;
+    updatedAt: Date;
+  }>;
+  skillLevelEvents: Array<{
+    id: string;
+    attemptId: string;
+    kind: LearningKind;
+    fromCefr: CefrLevel;
+    toCefr: CefrLevel;
+    direction: string;
+    createdAt: Date;
+  }>;
+  todayDayPlan: {
+    id: string;
+    date: string;
+    version: number;
+    preferencesVersion: number;
+    dailyGoalMinutes: number;
+    policyVersion: string;
+    items: Prisma.JsonValue;
+    createdAt: Date;
+    updatedAt: Date;
+  } | null;
+  answerExposuresCount: number;
+  recentVoiceConversations: Array<{
+    id: string;
+    topicId: string;
+    topicTitle: string;
+    status: string;
+    endReason: string | null;
+    assessmentStatus: string;
+    hasActiveLock: boolean;
+    turnsCount: number;
+    createdAt: Date;
+    startedAt: Date | null;
+    endedAt: Date | null;
+  }>;
   recentAttempts: Array<{
     id: string;
     lessonTitle: string;
@@ -106,6 +173,14 @@ export interface AdminUserDetail extends AdminUserListItem {
   }>;
 }
 
+export interface AdminUserSessionView {
+  id: string;
+  deviceIdentifier: string | null;
+  ipAddress: string | null;
+  expiresAt: Date;
+  createdAt: Date;
+}
+
 export interface UsersListSummary {
   total: number;
   activeLearners30d: number;
@@ -127,12 +202,36 @@ export interface PaginatedResult<T, S = undefined> {
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+export function extractSpeakingOverallScore(result: unknown): number | null {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return null;
+  }
+  const resObj = result as Record<string, unknown>;
+  for (const key of ['overall', 'pronunciation', 'overallScore', 'score'] as const) {
+    const raw = resObj[key];
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+      return raw;
+    }
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed.length > 0) {
+        const parsed = Number(trimmed);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function mapUserItem(user: SelectedAdminUser): AdminUserListItem {
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     avatarUrl: user.avatarUrl,
+    hasFirebaseIdentity: Boolean(user.firebaseUid),
     provider: user.provider,
     role: user.role,
     status: user.status,
@@ -145,6 +244,27 @@ function mapUserItem(user: SelectedAdminUser): AdminUserListItem {
           ...(user.profile.learningPurpose !== undefined
             ? { learningPurpose: user.profile.learningPurpose }
             : {}),
+          ...(user.profile.preferredKinds !== undefined
+            ? { preferredKinds: user.profile.preferredKinds }
+            : {}),
+          ...(user.profile.selfAssessedCefr !== undefined
+            ? { selfAssessedCefr: user.profile.selfAssessedCefr }
+            : {}),
+          ...(user.profile.onboardingCompletedAt !== undefined
+            ? { onboardingCompletedAt: user.profile.onboardingCompletedAt }
+            : {}),
+          ...(user.profile.reminderEnabled !== undefined
+            ? { reminderEnabled: user.profile.reminderEnabled }
+            : {}),
+          ...(user.profile.reminderTime !== undefined
+            ? { reminderTime: user.profile.reminderTime }
+            : {}),
+          ...(user.profile.preferencesVersion !== undefined
+            ? { preferencesVersion: user.profile.preferencesVersion }
+            : {}),
+          ...(user.profile.reminderVersion !== undefined
+            ? { reminderVersion: user.profile.reminderVersion }
+            : {}),
         }
       : null,
     stats: {
@@ -152,6 +272,7 @@ function mapUserItem(user: SelectedAdminUser): AdminUserListItem {
       placementSessions: user._count.placementSessions,
       vocabularyDecks: user._count.vocabularyDecks,
       speakingSubmissions: user._count.speakingSubmissions,
+      voiceConversations: user._count.voiceConversations ?? 0,
     },
   };
 }
@@ -162,6 +283,7 @@ export class AdminUsersService {
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
     @Optional() private readonly firebase?: FirebaseTokenService,
+    @Optional() private readonly planning?: PlanningService,
   ) {}
 
   async listUsers(
@@ -207,6 +329,7 @@ export class AdminUsersService {
               { placementSessions: { some: { startedAt: { gte: thirtyDaysAgo } } } },
               { vocabularyReviews: { some: { startedAt: { gte: thirtyDaysAgo } } } },
               { speakingSubmissions: { some: { createdAt: { gte: thirtyDaysAgo } } } },
+              { voiceConversations: { some: { createdAt: { gte: thirtyDaysAgo } } } },
             ],
           },
         }),
@@ -323,11 +446,21 @@ export class AdminUsersService {
       });
     }
 
-    const [attempts, placements, speakings] = await Promise.all([
+    const todayDate = learningDate(new Date());
+    const [
+      attempts,
+      placements,
+      speakings,
+      skillLevels,
+      skillLevelEvents,
+      todayDayPlan,
+      answerExposuresCount,
+      voiceConversations,
+    ] = await Promise.all([
       this.prisma.learningAttempt.findMany({
         where: { userId: id },
         orderBy: [{ startedAt: 'desc' }],
-        take: 5,
+        take: 10,
         select: {
           id: true,
           status: true,
@@ -341,7 +474,7 @@ export class AdminUsersService {
       this.prisma.placementSession.findMany({
         where: { userId: id },
         orderBy: [{ startedAt: 'desc' }],
-        take: 5,
+        take: 10,
         select: {
           id: true,
           status: true,
@@ -355,7 +488,7 @@ export class AdminUsersService {
       this.prisma.speakingSubmission.findMany({
         where: { userId: id },
         orderBy: [{ createdAt: 'desc' }],
-        take: 5,
+        take: 10,
         select: {
           id: true,
           status: true,
@@ -364,10 +497,90 @@ export class AdminUsersService {
           createdAt: true,
         },
       }),
+      this.prisma.learningSkillLevel?.findMany({
+        where: { userId: id },
+        orderBy: [{ kind: 'asc' }],
+        select: {
+          id: true,
+          kind: true,
+          cefrLevel: true,
+          source: true,
+          previousCefr: true,
+          changedAt: true,
+          updatedAt: true,
+        },
+      }) ?? Promise.resolve([]),
+      this.prisma.learningSkillLevelEvent?.findMany({
+        where: { userId: id },
+        orderBy: [{ createdAt: 'desc' }],
+        take: 20,
+        select: {
+          id: true,
+          attemptId: true,
+          kind: true,
+          fromCefr: true,
+          toCefr: true,
+          direction: true,
+          createdAt: true,
+        },
+      }) ?? Promise.resolve([]),
+      this.prisma.learningDayPlan?.findUnique({
+        where: { userId_date: { userId: id, date: todayDate } },
+        select: {
+          id: true,
+          date: true,
+          version: true,
+          preferencesVersion: true,
+          dailyGoalMinutes: true,
+          policyVersion: true,
+          items: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }) ?? Promise.resolve(null),
+      this.prisma.learningAnswerExposure?.count({
+        where: { userId: id },
+      }) ?? Promise.resolve(0),
+      this.prisma.voiceConversation?.findMany({
+        where: { userId: id },
+        orderBy: [{ createdAt: 'desc' }],
+        take: 10,
+        select: {
+          id: true,
+          topicId: true,
+          topicSnapshot: true,
+          status: true,
+          endReason: true,
+          assessmentStatus: true,
+          activeUserId: true,
+          createdAt: true,
+          startedAt: true,
+          endedAt: true,
+          _count: { select: { turns: true } },
+        },
+      }) ?? Promise.resolve([]),
     ]);
 
     return {
       ...mapUserItem(user),
+      skillLevels,
+      skillLevelEvents,
+      todayDayPlan,
+      answerExposuresCount,
+      recentVoiceConversations: voiceConversations.map((vc) => ({
+        id: vc.id,
+        topicId: vc.topicId,
+        topicTitle:
+          (vc.topicSnapshot as { title?: string } | null)?.title ?? 'Hội thoại AI',
+        status: vc.status,
+        endReason: vc.endReason,
+        assessmentStatus: vc.assessmentStatus,
+        hasActiveLock: Boolean(vc.activeUserId),
+        turnsCount: vc._count.turns,
+        createdAt: vc.createdAt,
+        startedAt: vc.startedAt,
+        endedAt: vc.endedAt,
+      })),
       recentAttempts: attempts.map((a) => ({
         id: a.id,
         lessonTitle:
@@ -379,20 +592,14 @@ export class AdminUsersService {
         submittedAt: a.submittedAt,
       })),
       recentPlacements: placements,
-      recentSpeaking: speakings.map((s) => {
-        const resObj = (s.result && typeof s.result === 'object' ? s.result : null) as
-          | { overallScore?: unknown; score?: unknown }
-          | null;
-        const rawScore = resObj?.overallScore ?? resObj?.score;
-        return {
-          id: s.id,
-          promptTitle:
-            ((s.promptSnapshot as { title?: string } | null)?.title ?? 'Luyện nói'),
-          status: s.status,
-          overallScore: typeof rawScore === 'number' ? rawScore : null,
-          createdAt: s.createdAt,
-        };
-      }),
+      recentSpeaking: speakings.map((s) => ({
+        id: s.id,
+        promptTitle:
+          ((s.promptSnapshot as { title?: string } | null)?.title ?? 'Luyện nói'),
+        status: s.status,
+        overallScore: extractSpeakingOverallScore(s.result),
+        createdAt: s.createdAt,
+      })),
     };
   }
 
@@ -415,7 +622,7 @@ export class AdminUsersService {
 
     const existing = await this.prisma.user.findUnique({
       where: { id: targetId },
-      select: { id: true, firebaseUid: true },
+      select: { id: true, firebaseUid: true, status: true },
     });
     if (!existing) {
       throw new NotFoundException({
@@ -437,12 +644,23 @@ export class AdminUsersService {
       dto.role !== undefined ||
       Boolean(passwordHash);
 
-    const hasProfileChanges =
+    const preferredKinds = dto.preferredKinds
+      ? [...new Set(dto.preferredKinds)]
+      : undefined;
+
+    const hasGoalChanges =
       dto.targetCefr !== undefined ||
       dto.dailyGoalMinutes !== undefined ||
-      dto.learningPurpose !== undefined;
+      dto.learningPurpose !== undefined ||
+      preferredKinds !== undefined ||
+      dto.selfAssessedCefr !== undefined;
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    const hasReminderChanges =
+      dto.reminderEnabled !== undefined || dto.reminderTime !== undefined;
+
+    const hasProfileChanges = hasGoalChanges || hasReminderChanges;
+
+    const runUpdate = async (tx: Prisma.TransactionClient) => {
       if (hasProfileChanges) {
         await tx.userProfile.upsert({
           where: { userId: targetId },
@@ -451,7 +669,14 @@ export class AdminUsersService {
             targetCefr: dto.targetCefr ?? CefrLevel.B1,
             dailyGoalMinutes: dto.dailyGoalMinutes ?? 10,
             learningPurpose: dto.learningPurpose ?? null,
-            reminderEnabled: true,
+            ...(preferredKinds !== undefined ? { preferredKinds } : {}),
+            ...(dto.selfAssessedCefr !== undefined
+              ? { selfAssessedCefr: dto.selfAssessedCefr }
+              : {}),
+            reminderEnabled: dto.reminderEnabled ?? true,
+            ...(dto.reminderTime !== undefined
+              ? { reminderTime: dto.reminderTime }
+              : {}),
           },
           update: {
             ...(dto.targetCefr !== undefined ? { targetCefr: dto.targetCefr } : {}),
@@ -461,7 +686,18 @@ export class AdminUsersService {
             ...(dto.learningPurpose !== undefined
               ? { learningPurpose: dto.learningPurpose }
               : {}),
-            preferencesVersion: { increment: 1 },
+            ...(preferredKinds !== undefined ? { preferredKinds } : {}),
+            ...(dto.selfAssessedCefr !== undefined
+              ? { selfAssessedCefr: dto.selfAssessedCefr }
+              : {}),
+            ...(dto.reminderEnabled !== undefined
+              ? { reminderEnabled: dto.reminderEnabled }
+              : {}),
+            ...(dto.reminderTime !== undefined
+              ? { reminderTime: dto.reminderTime }
+              : {}),
+            ...(hasGoalChanges ? { preferencesVersion: { increment: 1 } } : {}),
+            ...(hasReminderChanges ? { reminderVersion: { increment: 1 } } : {}),
           },
         });
       }
@@ -473,6 +709,7 @@ export class AdminUsersService {
           ...(dto.role !== undefined ? { role: dto.role } : {}),
           ...(dto.status !== undefined ? { status: dto.status } : {}),
           ...(passwordHash !== undefined ? { passwordHash } : {}),
+          ...(shouldRevokeSessions ? { tokenVersion: { increment: 1 } } : {}),
         },
         select: ADMIN_USER_SELECT,
       });
@@ -485,15 +722,27 @@ export class AdminUsersService {
       }
 
       return user;
-    });
+    };
 
-    if (
-      shouldRevokeSessions &&
-      !dto.password &&
-      this.firebase?.enabled &&
-      existing.firebaseUid
-    ) {
-      await this.firebase.revoke(existing.firebaseUid);
+    const updated =
+      hasGoalChanges && this.planning
+        ? await this.planning.updateAccountProfile(targetId, runUpdate, () => true)
+        : await this.prisma.$transaction(runUpdate);
+
+    if (this.firebase?.enabled && existing.firebaseUid) {
+      if (typeof this.firebase.setDisabled === 'function') {
+        if (dto.status === UserStatus.ACTIVE && existing.status !== UserStatus.ACTIVE) {
+          await this.firebase.setDisabled(existing.firebaseUid, false);
+        } else if (
+          dto.status === UserStatus.SUSPENDED ||
+          dto.status === UserStatus.DELETED
+        ) {
+          await this.firebase.setDisabled(existing.firebaseUid, true);
+        }
+      }
+      if (shouldRevokeSessions && !dto.password) {
+        await this.firebase.revoke(existing.firebaseUid);
+      }
     }
 
     return mapUserItem(updated);
@@ -523,27 +772,364 @@ export class AdminUsersService {
     }
 
     if (hard) {
+      if (this.firebase?.enabled && existing.firebaseUid) {
+        try {
+          await this.firebase.deleteUser(existing.firebaseUid);
+        } catch (error) {
+          if (error instanceof ServiceUnavailableException) {
+            throw error;
+          }
+          throw new ServiceUnavailableException({
+            code: 'ADMIN_FIREBASE_DELETE_FAILED',
+            message:
+              'Không thể xoá danh tính Firebase. Dữ liệu tài khoản trong DB vẫn được giữ nguyên.',
+          });
+        }
+      }
       await this.prisma.user.delete({ where: { id: targetId } });
-    } else {
-      await this.prisma.$transaction(async (tx) => {
-        await tx.user.update({
-          where: { id: targetId },
-          data: { status: UserStatus.DELETED },
-        });
-        await tx.refreshSession.updateMany({
-          where: { userId: targetId, isRevoked: false },
-          data: { isRevoked: true },
-        });
-      });
+      return {
+        id: targetId,
+        action: 'HARD_DELETED',
+      };
     }
 
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: targetId },
+        data: { status: UserStatus.DELETED, tokenVersion: { increment: 1 } },
+      });
+      await tx.refreshSession.updateMany({
+        where: { userId: targetId, isRevoked: false },
+        data: { isRevoked: true },
+      });
+    });
+
     if (this.firebase?.enabled && existing.firebaseUid) {
+      if (typeof this.firebase.setDisabled === 'function') {
+        await this.firebase.setDisabled(existing.firebaseUid, true).catch(() => undefined);
+      }
       await this.firebase.revoke(existing.firebaseUid).catch(() => undefined);
     }
 
     return {
       id: targetId,
-      action: hard ? 'HARD_DELETED' : 'SOFT_DELETED',
+      action: 'SOFT_DELETED',
+    };
+  }
+
+  async overrideSkillLevel(
+    userId: string,
+    kind: LearningKind,
+    dto: OverrideUserSkillLevelDto,
+  ) {
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!existingUser) {
+      throw new NotFoundException({
+        code: 'ADMIN_USER_NOT_FOUND',
+        message: 'Không tìm thấy người dùng.',
+      });
+    }
+
+    const write = async (tx: Prisma.TransactionClient) => {
+      const current = await tx.learningSkillLevel.findUnique({
+        where: { userId_kind: { userId, kind } },
+      });
+      const now = new Date();
+      const skillLevel = await tx.learningSkillLevel.upsert({
+        where: { userId_kind: { userId, kind } },
+        create: {
+          userId,
+          kind,
+          cefrLevel: dto.cefrLevel,
+          source: SkillLevelSource.ADAPTIVE,
+          previousCefr: null,
+          changedAt: now,
+        },
+        update: {
+          cefrLevel: dto.cefrLevel,
+          source: SkillLevelSource.ADAPTIVE,
+          previousCefr: current?.cefrLevel ?? null,
+          changedAt: now,
+        },
+      });
+
+      let resetExposuresCount = 0;
+      if (dto.resetExposures) {
+        const deleted = await tx.learningAnswerExposure.deleteMany({
+          where: { userId, lesson: { kind } },
+        });
+        resetExposuresCount = deleted.count;
+      }
+
+      return { skillLevel, resetExposuresCount };
+    };
+
+    return this.planning
+      ? this.planning.updateAccountProfile(userId, write, () => true)
+      : this.prisma.$transaction(write);
+  }
+
+  async getPlacementSessionDetail(userId: string, sessionId: string) {
+    const session = await this.prisma.placementSession.findFirst({
+      where: { id: sessionId, userId },
+      include: {
+        responses: {
+          orderBy: { itemIndex: 'asc' },
+          include: {
+            item: {
+              select: {
+                id: true,
+                externalId: true,
+                prompt: true,
+                skill: true,
+                skillCode: true,
+                cefrLevel: true,
+                type: true,
+                options: true,
+                correctOption: true,
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!session) {
+      throw new NotFoundException({
+        code: 'ADMIN_PLACEMENT_SESSION_NOT_FOUND',
+        message: 'Không tìm thấy phiên đánh giá đầu vào.',
+      });
+    }
+    return session;
+  }
+
+  async resetPlacementRetake(
+    userId: string,
+    dto: ResetPlacementRetakeDto = {},
+  ): Promise<{
+    userId: string;
+    abandonedSessionsCount: number;
+    resetSkillLevelsCount: number;
+  }> {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'ADMIN_USER_NOT_FOUND',
+        message: 'Không tìm thấy người dùng.',
+      });
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
+
+      const updated = await tx.placementSession.updateMany({
+        where: {
+          userId,
+          status: { in: ['IN_PROGRESS', 'COMPLETED'] },
+        },
+        data: {
+          status: 'ABANDONED',
+          currentItemId: null,
+          version: { increment: 1 },
+        },
+      });
+
+      let resetSkillLevelsCount = 0;
+      if (dto.resetSkillLevels) {
+        const deleted = await tx.learningSkillLevel.deleteMany({
+          where: {
+            userId,
+            source: SkillLevelSource.PLACEMENT,
+          },
+        });
+        resetSkillLevelsCount = deleted.count;
+      }
+
+      return {
+        userId,
+        abandonedSessionsCount: updated.count,
+        resetSkillLevelsCount,
+      };
+    });
+  }
+
+  async listUserSessions(userId: string): Promise<AdminUserSessionView[]> {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'ADMIN_USER_NOT_FOUND',
+        message: 'Không tìm thấy người dùng.',
+      });
+    }
+
+    return this.prisma.refreshSession.findMany({
+      where: {
+        userId,
+        isRevoked: false,
+        expiresAt: { gt: new Date() },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+      select: {
+        id: true,
+        deviceIdentifier: true,
+        ipAddress: true,
+        expiresAt: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  async revokeUserSession(
+    userId: string,
+    sessionId: string,
+  ): Promise<{ id: string; revoked: boolean }> {
+    const session = await this.prisma.refreshSession.findFirst({
+      where: { id: sessionId, userId },
+      select: { id: true, isRevoked: true },
+    });
+    if (!session) {
+      throw new NotFoundException({
+        code: 'ADMIN_SESSION_NOT_FOUND',
+        message: 'Không tìm thấy phiên đăng nhập.',
+      });
+    }
+
+    if (!session.isRevoked) {
+      await this.prisma.refreshSession.update({
+        where: { id: sessionId },
+        data: { isRevoked: true },
+      });
+    }
+
+    return { id: sessionId, revoked: true };
+  }
+
+  async revokeAllUserSessions(
+    userId: string,
+  ): Promise<{ userId: string; revokedSessionsCount: number }> {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, firebaseUid: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'ADMIN_USER_NOT_FOUND',
+        message: 'Không tìm thấy người dùng.',
+      });
+    }
+
+    const revokedCount = await this.prisma.$transaction(async (tx) => {
+      const res = await tx.refreshSession.updateMany({
+        where: { userId, isRevoked: false },
+        data: { isRevoked: true },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { tokenVersion: { increment: 1 } },
+      });
+      return res.count;
+    });
+
+    if (this.firebase?.enabled && existing.firebaseUid) {
+      await this.firebase.revoke(existing.firebaseUid);
+    }
+
+    return {
+      userId,
+      revokedSessionsCount: revokedCount,
+    };
+  }
+
+  async exportUserData(
+    userId: string,
+  ): Promise<{ filename: string; contentType: string; body: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatarUrl: true,
+        provider: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        profile: true,
+        skillLevels: true,
+        skillLevelEvents: { orderBy: [{ createdAt: 'desc' }] },
+        dayPlans: { orderBy: [{ date: 'desc' }] },
+        placementSessions: {
+          orderBy: [{ startedAt: 'desc' }],
+          include: { responses: { orderBy: { itemIndex: 'asc' } } },
+        },
+        learningAttempts: {
+          orderBy: [{ startedAt: 'desc' }],
+          include: { answers: true },
+        },
+        speakingSubmissions: { orderBy: [{ createdAt: 'desc' }] },
+        speakingGameProgress: true,
+        voiceConversations: {
+          orderBy: [{ createdAt: 'desc' }],
+          include: { turns: { orderBy: { sequence: 'asc' } } },
+        },
+        vocabularyDecks: {
+          orderBy: [{ createdAt: 'desc' }],
+          include: { words: true },
+        },
+        vocabularyReviews: { orderBy: [{ startedAt: 'desc' }] },
+        refreshSessions: {
+          orderBy: [{ createdAt: 'desc' }],
+          select: {
+            id: true,
+            deviceIdentifier: true,
+            ipAddress: true,
+            expiresAt: true,
+            isRevoked: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+    if (!user) {
+      throw new NotFoundException({
+        code: 'ADMIN_USER_NOT_FOUND',
+        message: 'Không tìm thấy người dùng.',
+      });
+    }
+
+    // Defensive strip in case any mock or relation leaked secret hashes
+    const safeUser = { ...(user as Record<string, unknown>) };
+    delete safeUser.passwordHash;
+    if (Array.isArray(safeUser.refreshSessions)) {
+      safeUser.refreshSessions = safeUser.refreshSessions.map((session) => {
+        if (!session || typeof session !== 'object') return session;
+        const copy = { ...(session as Record<string, unknown>) };
+        delete copy.tokenHash;
+        return copy;
+      });
+    }
+
+    const stamp = new Date().toISOString().slice(0, 10);
+    return {
+      filename: `lingoroad-user-${userId}-${stamp}.json`,
+      contentType: 'application/json; charset=utf-8',
+      body: JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          user: safeUser,
+        },
+        null,
+        2,
+      ),
     };
   }
 }

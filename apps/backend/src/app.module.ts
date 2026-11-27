@@ -14,6 +14,7 @@ import { GrammarModule } from './modules/grammar/grammar.module';
 import { HealthController } from './health.controller';
 import { SpeakingModule } from './modules/speaking/speaking.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { MediaModule } from './modules/media/media.module';
 
 @Module({
   controllers: [HealthController],
@@ -35,6 +36,7 @@ import { AdminModule } from './modules/admin/admin.module';
       },
     ]),
     PrismaModule,
+    MediaModule,
     SecurityModule,
     AuthModule,
     MlModule,

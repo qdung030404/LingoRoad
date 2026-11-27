@@ -71,6 +71,7 @@ export class CreateAdminSpeakingPromptDto {
 
   @IsString()
   @MinLength(2)
+  @MaxLength(1000)
   text!: string;
 
   @IsOptional()
@@ -84,12 +85,12 @@ export class CreateAdminSpeakingPromptDto {
   @Type(() => Number)
   @IsInt()
   @Min(5)
-  @Max(300)
+  @Max(60)
   maxDurationSeconds?: number;
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(10)
+  @ArrayMaxSize(3)
   @IsString({ each: true })
   hints?: string[];
 
@@ -108,6 +109,7 @@ export class CreateAdminSpeakingPromptDto {
   @IsOptional()
   @ValidateIf((_obj, value) => value !== null)
   @IsString()
+  @MaxLength(2000)
   visualContext?: string | null;
 
   @IsOptional()
@@ -154,6 +156,7 @@ export class UpdateAdminSpeakingPromptDto {
   @IsOptional()
   @IsString()
   @MinLength(2)
+  @MaxLength(1000)
   text?: string;
 
   @IsOptional()
@@ -167,12 +170,12 @@ export class UpdateAdminSpeakingPromptDto {
   @Type(() => Number)
   @IsInt()
   @Min(5)
-  @Max(300)
+  @Max(60)
   maxDurationSeconds?: number;
 
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(10)
+  @ArrayMaxSize(3)
   @IsString({ each: true })
   hints?: string[];
 
@@ -191,6 +194,7 @@ export class UpdateAdminSpeakingPromptDto {
   @IsOptional()
   @ValidateIf((_obj, value) => value !== null)
   @IsString()
+  @MaxLength(2000)
   visualContext?: string | null;
 
   @IsOptional()

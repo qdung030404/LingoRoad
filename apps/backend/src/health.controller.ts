@@ -1,10 +1,16 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, Optional, ServiceUnavailableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { Public } from './common/decorators/public.decorator';
+import { MediaStorageService } from './modules/media/media-storage.service';
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly configService?: ConfigService,
+    @Optional() private readonly mediaStorage?: MediaStorageService,
+  ) {}
 
   @Public()
   @Get()
@@ -16,7 +22,22 @@ export class HealthController {
                (SELECT history_hidden_at FROM public.speaking_submissions LIMIT 0),
                (SELECT history_hidden_at FROM public.voice_conversations LIMIT 0)
       `;
-      return { success: true, data: { status: 'ok', database: 'ready', schema: 'ready' } };
+      const version =
+        this.configService?.get<string>('APP_VERSION')?.trim() ||
+        process.env.APP_VERSION?.trim() ||
+        '1.0.0';
+      return {
+        success: true,
+        data: {
+          status: 'ok',
+          service: 'backend',
+          version,
+          storage: this.mediaStorage?.storageMode() ?? 'local',
+          database: 'ready',
+          schema: 'ready',
+          timestamp: new Date().toISOString(),
+        },
+      };
     } catch {
       throw new ServiceUnavailableException({ code: 'DATABASE_UNAVAILABLE', message: 'Cơ sở dữ liệu chưa sẵn sàng.' });
     }

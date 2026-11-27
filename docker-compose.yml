@@ -63,8 +63,8 @@ services:
   # -------------------------------------------------------------
   backend:
     build:
-      context: ./apps/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/backend/Dockerfile
     container_name: lingoroad-backend
     restart: unless-stopped
     ports:

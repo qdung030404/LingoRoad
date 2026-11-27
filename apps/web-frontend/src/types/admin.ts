@@ -11,11 +11,21 @@ export type SpeakingMode =
   | 'TOPIC'
   | 'PICTURE_DESCRIPTION'
   | 'TONGUE_TWISTER';
+export type SpeakingStatus =
+  | 'CREATED'
+  | 'PROCESSING'
+  | 'SUCCEEDED'
+  | 'FAILED'
+  | 'UNKNOWN';
+export type SkillLevelSource = 'PLACEMENT' | 'ADAPTIVE' | 'DEFAULT';
+export type VoiceHistoryStatus = 'PENDING' | 'SAVED' | 'DISCARDED';
+export type SessionStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
 export type DashboardTimeframe = '7_DAYS' | '30_DAYS' | '90_DAYS' | 'ALL_TIME';
 export type AdminExportEntity =
   | 'units'
   | 'lessons'
   | 'items'
+  | 'assessment-groups'
   | 'topics'
   | 'speaking'
   | 'grammar'
@@ -138,30 +148,92 @@ export interface DashboardOverview {
   }>;
 }
 
+export interface AdminUserProfile {
+  targetCefr: CefrLevel;
+  dailyGoalMinutes: number;
+  learningPurpose?: LearningPurpose | null;
+  preferredKinds?: LearningKind[];
+  selfAssessedCefr?: CefrLevel | null;
+  onboardingCompletedAt?: string | null;
+  reminderEnabled?: boolean;
+  reminderTime?: string;
+  preferencesVersion?: number;
+  reminderVersion?: number;
+}
+
 export interface AdminUserListItem {
   id: string;
   email: string;
   name: string;
   avatarUrl: string | null;
+  hasFirebaseIdentity?: boolean;
   provider: AuthProvider;
   role: UserRole;
   status: UserStatus;
   createdAt: string;
   updatedAt: string;
-  profile: {
-    targetCefr: CefrLevel;
-    dailyGoalMinutes: number;
-    learningPurpose?: LearningPurpose | null;
-  } | null;
+  profile: AdminUserProfile | null;
   stats: {
     learningAttempts: number;
     placementSessions: number;
     vocabularyDecks: number;
     speakingSubmissions: number;
+    voiceConversations?: number;
   };
 }
 
+export interface AdminUserSkillLevel {
+  id: string;
+  kind: LearningKind;
+  cefrLevel: CefrLevel;
+  source: SkillLevelSource;
+  previousCefr: CefrLevel | null;
+  changedAt: string | null;
+  updatedAt: string;
+}
+
+export interface AdminUserSkillLevelEvent {
+  id: string;
+  attemptId: string;
+  kind: LearningKind;
+  fromCefr: CefrLevel;
+  toCefr: CefrLevel;
+  direction: string;
+  createdAt: string;
+}
+
+export interface AdminUserDayPlan {
+  id: string;
+  date: string;
+  version: number;
+  preferencesVersion: number;
+  dailyGoalMinutes: number;
+  policyVersion: string;
+  items: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminUserRecentVoiceConversation {
+  id: string;
+  topicId: string;
+  topicTitle: string;
+  status: string;
+  endReason: string | null;
+  assessmentStatus: string;
+  hasActiveLock: boolean;
+  turnsCount: number;
+  createdAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
+}
+
 export interface AdminUserDetail extends AdminUserListItem {
+  skillLevels: AdminUserSkillLevel[];
+  skillLevelEvents: AdminUserSkillLevelEvent[];
+  todayDayPlan: AdminUserDayPlan | null;
+  answerExposuresCount: number;
+  recentVoiceConversations: AdminUserRecentVoiceConversation[];
   recentAttempts: Array<{
     id: string;
     lessonTitle: string;
@@ -187,6 +259,211 @@ export interface AdminUserDetail extends AdminUserListItem {
     overallScore: number | null;
     createdAt: string;
   }>;
+}
+
+export interface AdminUserSessionView {
+  id: string;
+  deviceIdentifier: string | null;
+  ipAddress: string | null;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface AdminUserSkillLevelOverrideResult {
+  skillLevel: AdminUserSkillLevel & { userId?: string };
+  resetExposuresCount: number;
+}
+
+export interface AdminPlacementSessionResponseItem {
+  id: string;
+  sessionId: string;
+  itemId: string;
+  itemIndex: number;
+  selectedOption: string;
+  isCorrect: boolean;
+  responseTimeMs: number | null;
+  createdAt: string;
+  item: {
+    id: string;
+    externalId: string | null;
+    prompt: string;
+    skill: AssessmentSkill | null;
+    skillCode: string;
+    cefrLevel: CefrLevel;
+    type: ItemType;
+    options: unknown;
+    correctOption: string | null;
+  };
+}
+
+export interface AdminPlacementSessionDetail {
+  id: string;
+  userId: string;
+  status: SessionStatus | string;
+  currentItemIndex: number;
+  totalItems: number;
+  testVersion: string;
+  bankVersion: string;
+  currentItemId: string | null;
+  version: number;
+  skillResults: unknown;
+  correctCount: number;
+  estimatedCefr: CefrLevel | null;
+  confidenceScore: number | null;
+  startedAt: string;
+  completedAt: string | null;
+  responses: AdminPlacementSessionResponseItem[];
+}
+
+export interface ResetPlacementRetakeResult {
+  userId: string;
+  abandonedSessionsCount: number;
+  resetSkillLevelsCount: number;
+}
+
+export interface AdminVoiceConversationItem {
+  id: string;
+  userId: string;
+  topicId: string;
+  topicTitle: string;
+  status: string;
+  endReason: string | null;
+  historyStatus: VoiceHistoryStatus | string;
+  historyHiddenAt: string | null;
+  assessmentStatus: string;
+  hasActiveLock: boolean;
+  turnsCount: number;
+  createdAt: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  assessmentStartedAt: string | null;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+}
+
+export interface AdminVoiceConversationsSummary {
+  activeLocks: number;
+  failedAssessments: number;
+  stuckProcessing: number;
+}
+
+export interface AdminVoiceConversationTurn {
+  id: string;
+  providerItemId: string;
+  sequence: number;
+  role: string;
+  transcript: string;
+  translationVi: string | null;
+  interrupted: boolean;
+  createdAt: string;
+}
+
+export interface AdminVoiceConversationDetail extends AdminVoiceConversationItem {
+  topicSnapshot: unknown;
+  assessment: unknown;
+  assessmentAudioHash: string | null;
+  turns: AdminVoiceConversationTurn[];
+}
+
+export interface ReleaseVoiceConversationLockResult {
+  id: string;
+  released: boolean;
+  hadLiveCall: boolean;
+  status: string;
+  endReason: string | null;
+  endedAt: string | null;
+  hasActiveLock: boolean;
+}
+
+export interface AdminSpeakingSubmissionItem {
+  id: string;
+  userId: string;
+  promptId: string;
+  promptCode: string | null;
+  promptTitle: string;
+  mode: SpeakingMode;
+  status: SpeakingStatus;
+  overallScore: number | null;
+  contentStatus: string | null;
+  errorCode: string | null;
+  adapterVersion: string | null;
+  canRetryContent: boolean;
+  isStuckProcessing: boolean;
+  processingAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  historyHiddenAt: string | null;
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+}
+
+export interface AdminSpeakingSubmissionsSummary {
+  failed: number;
+  unknown: number;
+  stuckProcessing: number;
+  contentUnavailable: number;
+}
+
+export interface AdminSpeakingSubmissionDetail extends AdminSpeakingSubmissionItem {
+  promptSnapshot: unknown;
+  result: unknown;
+  audioHash: string | null;
+}
+
+export interface AdminMlReadinessView {
+  reachable: boolean;
+  httpStatus: number | null;
+  status: string;
+  components: Record<string, unknown>;
+  speakingProfiles?: unknown;
+  error?: string;
+}
+
+export interface AdminSystemReadinessView {
+  checkedAt: string;
+  appVersion: string;
+  authProvider: string;
+  database: {
+    status: 'ready' | 'unavailable';
+    latencyMs: number;
+    error?: string;
+  };
+  mediaStorage: {
+    mode: 'azure' | 'local';
+    azureConfigured: boolean;
+    azureRequired: boolean;
+  };
+  ml: AdminMlReadinessView;
+  voiceLive: {
+    enabled: boolean;
+    status: string;
+    maxDurationSeconds: number;
+    model: string;
+    voice: string;
+    apiVersion: string;
+  };
+  speaking: {
+    scoringProfile: string;
+    modes: Record<SpeakingMode, boolean>;
+  };
+  incidents: {
+    stuckVoiceLocks: number;
+    stuckSpeakingJobs: number;
+    failedSpeaking24h: number;
+    activeRefreshSessions: number;
+  };
+}
+
+export interface BulkPublishResult {
+  updatedCount: number;
+  published: boolean;
+  ids: string[];
 }
 
 export interface UsersListSummary {
@@ -406,21 +683,24 @@ export interface AdminCuratedWord {
   createdAt: string;
 }
 
+export type GrammarFormulaForm = 'AFFIRMATIVE' | 'NEGATIVE' | 'QUESTION' | 'NOTE';
+
 export interface GrammarFormulaItem {
-  label: string;
+  form: GrammarFormulaForm;
+  labelVi: string;
   structure: string;
-  example?: string;
+  noteVi?: string;
 }
 
 export interface GrammarUsageItem {
-  title: string;
-  description: string;
+  useCaseVi: string;
   signalWords?: string[];
+  commonMistakeVi?: string;
 }
 
 export interface GrammarExampleItem {
-  en: string;
-  vi: string;
+  sentenceEn: string;
+  translationVi: string;
   highlight?: string;
 }
 
@@ -512,14 +792,14 @@ export interface AdminMediaImageUploadResult {
   url: string;
   storage: 'azure' | 'local';
   mime: string;
-  sizeBytes: number;
+  size: number;
 }
 
 export interface AdminMediaAudioUploadResult {
   url: string;
   scope: 'learning' | 'placement';
   durationMs: number;
-  sizeBytes: number;
+  size: number;
 }
 
 export interface ImportErrorItem {

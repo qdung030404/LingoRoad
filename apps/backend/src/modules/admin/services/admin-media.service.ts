@@ -1,17 +1,8 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  Optional,
-} from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
-import { basename, join, resolve, sep } from 'node:path';
-import { learningMediaRoot } from '../../learning/learning.service';
+import { basename } from 'node:path';
 import { listeningWaveDurationMs } from '../../learning/listening-media';
-import { placementMediaRoot } from '../../placement/services/demo-placement.service';
-import { AzureBlobStorageService } from '../../vocabulary/azure-storage.service';
+import { MediaStorageService } from '../../media/media-storage.service';
 
 export interface UploadedAdminFile {
   buffer: Buffer;
@@ -32,6 +23,7 @@ export interface AdminAudioUploadResult {
   durationMs: number;
   size: number;
   scope: 'learning' | 'placement';
+  storage: 'azure' | 'local';
 }
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -97,29 +89,13 @@ export function buildSafeMediaStem(hint?: string, fallback = 'media'): string {
   return `${stem}-${suffix}`;
 }
 
-function writeFileAtomically(targetDir: string, filename: string, buffer: Buffer): void {
-  const root = resolve(targetDir);
-  mkdirSync(root, { recursive: true });
-  const destination = resolve(root, filename);
-  if (destination !== root && !destination.startsWith(`${root}${sep}`)) {
-    throw new BadRequestException({
-      code: 'ADMIN_INVALID_MEDIA_PATH',
-      message: 'Đường dẫn lưu trữ tệp không hợp lệ.',
-    });
-  }
-  const tempPath = resolve(root, `.${filename}.${randomBytes(4).toString('hex')}.tmp`);
-  writeFileSync(tempPath, buffer);
-  renameSync(tempPath, destination);
-}
-
 @Injectable()
 export class AdminMediaService {
-  private readonly logger = new Logger(AdminMediaService.name);
+  private readonly storage: MediaStorageService;
 
-  constructor(
-    @Optional() private readonly configService?: ConfigService,
-    @Optional() private readonly azureStorage?: AzureBlobStorageService,
-  ) {}
+  constructor(@Optional() mediaStorage?: MediaStorageService) {
+    this.storage = mediaStorage ?? new MediaStorageService();
+  }
 
   async uploadImage(
     file?: UploadedAdminFile,
@@ -148,37 +124,27 @@ export class AdminMediaService {
       });
     }
 
-    const azureConn = this.configService?.get<string>('AZURE_STORAGE_CONNECTION_STRING')?.trim();
-    if (azureConn && this.azureStorage) {
-      try {
-        const url = await this.azureStorage.uploadImage(file);
-        return { url, mime: detected.mime, size: file.buffer.length, storage: 'azure' };
-      } catch (err) {
-        this.logger.warn(
-          `Upload Azure Blob thất bại, chuyển sang lưu trữ cục bộ: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      }
-    }
-
     const filename = `${buildSafeMediaStem(slugHint || file.originalname, 'img')}${detected.ext}`;
-    const imagesDir = join(learningMediaRoot(), 'v1', 'images');
-    writeFileAtomically(imagesDir, filename, file.buffer);
+    const key = `learning/v1/images/${filename}`;
+    const uploaded = await this.storage.uploadBuffer(
+      key,
+      file.buffer,
+      detected.mime,
+    );
 
     return {
-      url: `/media/learning/v1/images/${filename}`,
+      url: `/media/${uploaded.key}`,
       mime: detected.mime,
       size: file.buffer.length,
-      storage: 'local',
+      storage: uploaded.storage,
     };
   }
 
-  uploadAudio(
+  async uploadAudio(
     file?: UploadedAdminFile,
     scope: 'learning' | 'placement' = 'learning',
     slugHint?: string,
-  ): AdminAudioUploadResult {
+  ): Promise<AdminAudioUploadResult> {
     if (scope !== 'learning' && scope !== 'placement') {
       throw new BadRequestException({
         code: 'ADMIN_INVALID_AUDIO_SCOPE',
@@ -223,22 +189,26 @@ export class AdminMediaService {
     }
 
     const filename = `${buildSafeMediaStem(slugHint || file.originalname, scope === 'learning' ? 'listening' : 'placement')}.wav`;
-    if (scope === 'learning') {
-      writeFileAtomically(join(learningMediaRoot(), 'v1'), filename, file.buffer);
-      return {
-        url: `/media/learning/v1/${filename}`,
-        durationMs,
-        size: file.buffer.length,
+    const key =
+      scope === 'learning'
+        ? `learning/v1/${filename}`
+        : `placement/${filename}`;
+    const uploaded = await this.storage.uploadBuffer(
+      key,
+      file.buffer,
+      'audio/wav',
+      {
+        durationms: String(durationMs),
         scope,
-      };
-    }
+      },
+    );
 
-    writeFileAtomically(placementMediaRoot(), filename, file.buffer);
     return {
-      url: `/media/placement/${filename}`,
+      url: `/media/${uploaded.key}`,
       durationMs,
       size: file.buffer.length,
       scope,
+      storage: uploaded.storage,
     };
   }
 }

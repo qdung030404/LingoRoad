@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   BarChart3,
   CheckCircle2,
+  Eye,
+  EyeOff,
   ShieldCheck,
 } from 'lucide-react';
 import { LingoRoadWordmark } from '@/components/admin/LingoRoadWordmark';
@@ -19,6 +21,7 @@ export default function AdminLoginPage(): React.ReactElement {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -161,16 +164,31 @@ export default function AdminLoginPage(): React.ReactElement {
               >
                 Mật khẩu
               </label>
-              <input
-                id="admin-password"
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Nhập mật khẩu quản trị"
-                className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-4 py-3 text-sm text-slateDark-900 focus:border-brand-500 focus:bg-white focus:outline-none"
-              />
+              <div className="relative">
+                <input
+                  id="admin-password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu quản trị"
+                  className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 py-3 pl-4 pr-11 text-sm text-slateDark-900 focus:border-brand-500 focus:bg-white focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  aria-pressed={showPassword}
+                  className="absolute inset-y-0 right-0 flex items-center justify-center px-3.5 text-slateDark-600 transition hover:text-slateDark-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <button

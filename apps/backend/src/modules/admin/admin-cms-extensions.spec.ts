@@ -1,14 +1,31 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException, HttpException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   AssessmentSkill,
+  AuthProvider,
   CefrLevel,
+  ItemType,
   ItemUsageScope,
   LearningKind,
+  Prisma,
   SpeakingMode,
+  UserRole,
+  UserStatus,
 } from '@prisma/client';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { AssessmentMatrixService } from '../assessment/services/assessment-matrix.service';
+import { MlClientService } from '../ml/ml-client.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PasswordService } from '../security/password.service';
+import { SpeakingService } from '../speaking/speaking.service';
 import { CuratedVocabularyService } from '../vocabulary/curated-vocabulary.service';
+import { UpdateAdminAssessmentItemDto } from './dto/admin-content.dto';
+import {
+  CreateAdminSpeakingPromptDto,
+  UpdateAdminSpeakingPromptDto,
+} from './dto/admin-speaking.dto';
+import { AdminAnalyticsService } from './services/admin-analytics.service';
 import { redactSensitiveData } from './services/admin-audit.service';
 import { AdminContentService } from './services/admin-content.service';
 import { rowsToSafeCsv, sanitizeCsvCell } from './services/admin-export.service';
@@ -18,7 +35,36 @@ import {
   detectSafeAdminImage,
 } from './services/admin-media.service';
 import { AdminSpeakingService } from './services/admin-speaking.service';
+import {
+  AdminUsersService,
+  extractSpeakingOverallScore,
+} from './services/admin-users.service';
 import { AdminVocabularyService } from './services/admin-vocabulary.service';
+
+jest.mock('firebase-admin/app', () => ({}));
+jest.mock('firebase-admin/auth', () => ({}));
+
+function buildMono16kWav(durationSeconds: number): Buffer {
+  const dataSize = durationSeconds * 32000;
+  const buf = Buffer.alloc(44 + dataSize);
+  buf.write('RIFF', 0, 'ascii');
+  buf.writeUInt32LE(36 + dataSize, 4);
+  buf.write('WAVE', 8, 'ascii');
+  buf.write('fmt ', 12, 'ascii');
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(1, 22);
+  buf.writeUInt32LE(16000, 24);
+  buf.writeUInt32LE(32000, 28);
+  buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);
+  buf.write('data', 36, 'ascii');
+  buf.writeUInt32LE(dataSize, 40);
+  for (let i = 44; i < buf.length; i += 2) {
+    buf.writeInt16LE(1000, i);
+  }
+  return buf;
+}
 
 describe('Admin CMS Extensions (P0 + P1 + P2)', () => {
   describe('AdminMediaService helpers', () => {
@@ -329,6 +375,583 @@ describe('Admin CMS Extensions (P0 + P1 + P2)', () => {
             meaningVi: 'Chuối',
           }),
         ],
+      });
+    });
+
+    it('đồng bộ GRAMMAR_CODE_REGEX khớp grammar-admin.dto và giới hạn Speaking ML khi validateBundle', async () => {
+      const prisma = {
+        learningUnit: { findMany: jest.fn().mockResolvedValue([]) },
+        grammarTopic: { findMany: jest.fn().mockResolvedValue([]) },
+        speakingPrompt: { findMany: jest.fn().mockResolvedValue([]) },
+      };
+      const service = new AdminImportService(
+        prisma as unknown as PrismaService,
+        { invalidateCache: jest.fn(async () => undefined) } as unknown as AssessmentMatrixService,
+        { invalidateTopicsCache: jest.fn() } as unknown as CuratedVocabularyService,
+      );
+
+      const validGrammar = await service.validateBundle({
+        grammarTopics: [
+          {
+            code: 'grammar',
+            cefrLevel: 'A1',
+            isLeaf: false,
+            titleEn: 'Grammar Root',
+            titleVi: 'Ngữ pháp gốc',
+          },
+          {
+            code: 'grammar.present_simple',
+            parentCode: 'grammar',
+            cefrLevel: 'A1',
+            isLeaf: true,
+            titleEn: 'Present Simple',
+            titleVi: 'Hiện tại đơn',
+            summaryVi: 'Thì hiện tại đơn',
+            formulas: [
+              { form: 'AFFIRMATIVE', labelVi: 'Khẳng định', structure: 'S + V(s/es)' },
+            ],
+            usageNotes: [{ useCaseVi: 'Thói quen' }],
+            examples: [{ sentenceEn: 'I walk.', translationVi: 'Tôi đi bộ.' }],
+          },
+        ],
+      });
+      expect(validGrammar.isValid).toBe(true);
+
+      const invalidGrammar = await service.validateBundle({
+        grammarTopics: [
+          {
+            code: 'grammar.present-simple',
+            cefrLevel: 'A1',
+            isLeaf: false,
+            titleEn: 'Bad Hyphen',
+            titleVi: 'Sai dấu gạch ngang',
+          },
+          {
+            code: 'grammar.tense2',
+            cefrLevel: 'A1',
+            isLeaf: false,
+            titleEn: 'Bad Digit',
+            titleVi: 'Sai chứa số',
+          },
+        ],
+      });
+      expect(invalidGrammar.isValid).toBe(false);
+      expect(invalidGrammar.errors.map((e) => e.path)).toEqual([
+        'grammarTopics[0].code',
+        'grammarTopics[1].code',
+      ]);
+
+      const invalidSpeaking = await service.validateBundle({
+        speakingPrompts: [
+          {
+            code: 'ra-over-limit',
+            mode: 'READ_ALOUD',
+            title: 'Too long read aloud',
+            text: 'a'.repeat(1001),
+            maxDurationSeconds: 31,
+            hints: ['h1', 'h2', 'h3', 'h4'],
+            visualContext: 'v'.repeat(2001),
+          },
+          {
+            code: 'topic-over-limit',
+            mode: 'TOPIC',
+            title: 'Too long topic',
+            text: 'Talk about your hometown.',
+            maxDurationSeconds: 61,
+            hints: ['h1', 'h2', 'h3'],
+          },
+        ],
+      });
+      expect(invalidSpeaking.isValid).toBe(false);
+      expect(invalidSpeaking.errors.map((e) => e.path)).toEqual(
+        expect.arrayContaining([
+          'speakingPrompts[0].text',
+          'speakingPrompts[0].maxDurationSeconds',
+          'speakingPrompts[0].hints',
+          'speakingPrompts[0].visualContext',
+          'speakingPrompts[1].maxDurationSeconds',
+        ]),
+      );
+
+      const validSpeaking = await service.validateBundle({
+        speakingPrompts: [
+          {
+            code: 'ra-ok',
+            mode: 'READ_ALOUD',
+            title: 'Valid Read Aloud',
+            text: 'a'.repeat(1000),
+            maxDurationSeconds: 30,
+            hints: ['h1', 'h2', 'h3'],
+            visualContext: 'v'.repeat(2000),
+          },
+          {
+            code: 'topic-ok',
+            mode: 'TOPIC',
+            title: 'Valid Topic',
+            text: 'Talk about travel.',
+            maxDurationSeconds: 60,
+            hints: ['Where', 'Who', 'Why'],
+          },
+        ],
+      });
+      expect(validSpeaking.isValid).toBe(true);
+    });
+  });
+
+  describe('Wave 1 P0: Speaking scores, AssessmentItem clear-to-null, Speaking ML limits & contentVersion', () => {
+    it('extractSpeakingOverallScore ưu tiên overall -> pronunciation -> overallScore -> score', () => {
+      expect(
+        extractSpeakingOverallScore({
+          overall: 86.4,
+          pronunciation: 72,
+          overallScore: 65,
+          score: 50,
+        }),
+      ).toBe(86.4);
+      expect(
+        extractSpeakingOverallScore({ overall: null, pronunciation: 73.6 }),
+      ).toBe(73.6);
+      expect(extractSpeakingOverallScore({ overallScore: 81 })).toBe(81);
+      expect(extractSpeakingOverallScore({ score: '92.5' })).toBe(92.5);
+      expect(extractSpeakingOverallScore({ overall: '84' })).toBe(84);
+      expect(extractSpeakingOverallScore({ overall: 0 })).toBe(0);
+      expect(
+        extractSpeakingOverallScore({ overall: Number.NaN, pronunciation: 75 }),
+      ).toBe(75);
+      expect(
+        extractSpeakingOverallScore({ overall: 'not-a-num', score: '68.5' }),
+      ).toBe(68.5);
+      expect(extractSpeakingOverallScore({ overall: '' })).toBeNull();
+      expect(extractSpeakingOverallScore({ overall: Number.POSITIVE_INFINITY })).toBeNull();
+      expect(extractSpeakingOverallScore(null)).toBeNull();
+      expect(extractSpeakingOverallScore([])).toBeNull();
+    });
+
+    it('AdminUsersService.getUserDetail ánh xạ recentSpeaking[].overallScore bằng extractSpeakingOverallScore', async () => {
+      const prisma = {
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'u-1',
+            email: 'learner@example.com',
+            name: 'Learner',
+            avatarUrl: null,
+            provider: AuthProvider.LOCAL,
+            role: UserRole.LEARNER,
+            status: UserStatus.ACTIVE,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            profile: { targetCefr: CefrLevel.B1, dailyGoalMinutes: 15, learningPurpose: null },
+            _count: {
+              learningAttempts: 0,
+              placementSessions: 0,
+              vocabularyDecks: 0,
+              speakingSubmissions: 2,
+            },
+          }),
+        },
+        learningAttempt: { findMany: jest.fn().mockResolvedValue([]) },
+        placementSession: { findMany: jest.fn().mockResolvedValue([]) },
+        speakingSubmission: {
+          findMany: jest.fn().mockResolvedValue([
+            {
+              id: 'sub-1',
+              status: 'SUCCEEDED',
+              promptSnapshot: { title: 'Read Aloud 1' },
+              result: { overall: 88.25, pronunciation: 80 },
+              createdAt: new Date(),
+            },
+            {
+              id: 'sub-2',
+              status: 'SUCCEEDED',
+              promptSnapshot: { title: 'Read Aloud Partial' },
+              result: { overall: null, pronunciation: 74.5 },
+              createdAt: new Date(),
+            },
+          ]),
+        },
+      };
+
+      const usersService = new AdminUsersService(
+        prisma as unknown as PrismaService,
+        {} as PasswordService,
+      );
+      const detail = await usersService.getUserDetail('u-1');
+      expect(detail.recentSpeaking.map((s) => s.overallScore)).toEqual([88.25, 74.5]);
+    });
+
+    it('AdminAnalyticsService.getDashboard dùng SQL ưu tiên overall -> pronunciation -> overallScore -> score ở cả 2 nhánh timeframe', async () => {
+      const capturedSpeakingSqls: string[] = [];
+      const prisma = {
+        user: {
+          count: jest.fn().mockResolvedValue(1),
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        learningLesson: {
+          count: jest.fn().mockResolvedValue(0),
+          groupBy: jest.fn().mockResolvedValue([]),
+        },
+        learningUnit: { count: jest.fn().mockResolvedValue(0) },
+        assessmentItem: {
+          count: jest.fn().mockResolvedValue(0),
+          groupBy: jest.fn().mockResolvedValue([]),
+        },
+        speakingPrompt: { count: jest.fn().mockResolvedValue(0) },
+        curatedTopic: { count: jest.fn().mockResolvedValue(0) },
+        grammarTopic: { count: jest.fn().mockResolvedValue(0) },
+        learningAttempt: {
+          count: jest.fn().mockResolvedValue(0),
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        placementSession: {
+          count: jest.fn().mockResolvedValue(0),
+          findMany: jest.fn().mockResolvedValue([]),
+        },
+        $queryRaw: jest.fn(async (sql: Prisma.Sql) => {
+          const text = sql.strings.join('?');
+          if (text.includes('speaking_submissions')) {
+            capturedSpeakingSqls.push(text);
+            return [{ avg_score: 84.6, sample_count: BigInt(3) }];
+          }
+          return [];
+        }),
+      };
+
+      const analytics = new AdminAnalyticsService(prisma as unknown as PrismaService);
+      const dash30d = await analytics.getDashboard('30_DAYS', true);
+      const dashAll = await analytics.getDashboard('ALL_TIME', true);
+
+      expect(dash30d.masteryBySkill.find((m) => m.group === 'speaking')).toEqual({
+        group: 'speaking',
+        sampleCount: 3,
+        accuracyPercent: 85,
+      });
+      expect(dashAll.masteryBySkill.find((m) => m.group === 'speaking')).toEqual({
+        group: 'speaking',
+        sampleCount: 3,
+        accuracyPercent: 85,
+      });
+
+      expect(capturedSpeakingSqls).toHaveLength(2);
+      expect(capturedSpeakingSqls[0]).toContain('ss.created_at >=');
+      expect(capturedSpeakingSqls[1]).not.toContain('ss.created_at >=');
+      for (const sql of capturedSpeakingSqls) {
+        const idxOverall = sql.indexOf("ss.result->>'overall'");
+        const idxPron = sql.indexOf("ss.result->>'pronunciation'");
+        const idxOverallScore = sql.indexOf("ss.result->>'overallScore'");
+        const idxScore = sql.indexOf("ss.result->>'score'");
+        expect(idxOverall).toBeGreaterThan(-1);
+        expect(idxPron).toBeGreaterThan(idxOverall);
+        expect(idxOverallScore).toBeGreaterThan(idxPron);
+        expect(idxScore).toBeGreaterThan(idxOverallScore);
+        expect(sql).toContain("^[0-9]+(\\.[0-9]+)?$");
+      }
+    });
+
+    it('UpdateAdminAssessmentItemDto chấp nhận null và updateAssessmentItem xoá trường tuỳ chọn về null không lỗi', async () => {
+      const validDto = plainToInstance(UpdateAdminAssessmentItemDto, {
+        passage: null,
+        correctOption: null,
+        explanation: null,
+        audioUrl: null,
+      });
+      expect(await validate(validDto)).toHaveLength(0);
+
+      const invalidDto = plainToInstance(UpdateAdminAssessmentItemDto, {
+        passage: 12345,
+      });
+      expect((await validate(invalidDto)).length).toBeGreaterThan(0);
+
+      const existingEssay = {
+        id: 'item-essay-1',
+        externalId: null,
+        groupId: null,
+        itemOrder: 1,
+        bankVersion: null,
+        skill: AssessmentSkill.WRITING,
+        skillCode: 'writing.essay',
+        cefrLevel: CefrLevel.B1,
+        type: ItemType.ESSAY,
+        usageScope: ItemUsageScope.MOCK_EXAM,
+        passage: 'Old passage',
+        prompt: 'Write about education.',
+        options: null,
+        correctOption: 'Old anchor',
+        explanation: 'Old explanation',
+        audioUrl: '/media/learning/v1/old.wav',
+        rubricCriteria: { grammar: 25, taskResponse: 25 },
+        irtA: 1,
+        irtB: 0,
+        irtC: 0.25,
+        createdAt: new Date(),
+        _count: { responses: 0, currentSessions: 0 },
+      };
+      const tx = {
+        $queryRaw: jest.fn(async () => []),
+        assessmentItem: {
+          findUnique: jest.fn().mockResolvedValue(existingEssay),
+          update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+            ...existingEssay,
+            ...data,
+          })),
+        },
+      };
+      const prisma = {
+        $transaction: jest.fn(async (cb: (client: typeof tx) => Promise<unknown>) => cb(tx)),
+      };
+      const matrix = { invalidateCache: jest.fn(async () => undefined) };
+      const contentService = new AdminContentService(
+        prisma as unknown as PrismaService,
+        matrix as unknown as AssessmentMatrixService,
+      );
+
+      const updated = await contentService.updateAssessmentItem('item-essay-1', {
+        passage: null,
+        correctOption: null,
+        explanation: null,
+        audioUrl: null,
+      });
+      expect(updated.passage).toBeNull();
+      expect(updated.correctOption).toBeNull();
+      expect(updated.explanation).toBeNull();
+      expect(updated.audioUrl).toBeNull();
+      expect(updated.rubricCriteria).toEqual({ grammar: 25, taskResponse: 25 });
+      expect(tx.assessmentItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            passage: null,
+            correctOption: null,
+            explanation: null,
+            audioUrl: null,
+          }),
+        }),
+      );
+
+      tx.assessmentItem.findUnique.mockResolvedValueOnce({
+        ...existingEssay,
+        id: 'item-mcq-1',
+        skill: AssessmentSkill.READING,
+        type: ItemType.MULTIPLE_CHOICE,
+        options: ['A', 'B', 'C', 'D'],
+        correctOption: 'A',
+      });
+      await expect(
+        contentService.updateAssessmentItem('item-mcq-1', { correctOption: null }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('Speaking DTO, AdminSpeakingService ML limits và không tăng contentVersion khi chỉ sửa metadata', async () => {
+      const badCreate = plainToInstance(CreateAdminSpeakingPromptDto, {
+        code: 'sp-limit-test',
+        mode: SpeakingMode.TOPIC,
+        title: 'Test',
+        text: 'x'.repeat(1001),
+        maxDurationSeconds: 61,
+        hints: ['1', '2', '3', '4'],
+        visualContext: 'v'.repeat(2001),
+      });
+      const createErrors = await validate(badCreate);
+      expect(createErrors.map((e) => e.property)).toEqual(
+        expect.arrayContaining(['text', 'maxDurationSeconds', 'hints', 'visualContext']),
+      );
+
+      const badUpdate = plainToInstance(UpdateAdminSpeakingPromptDto, {
+        text: 'x'.repeat(1001),
+        maxDurationSeconds: 61,
+        hints: ['1', '2', '3', '4'],
+        visualContext: 'v'.repeat(2001),
+      });
+      const updateErrors = await validate(badUpdate);
+      expect(updateErrors.map((e) => e.property)).toEqual(
+        expect.arrayContaining(['text', 'maxDurationSeconds', 'hints', 'visualContext']),
+      );
+
+      const existingPrompt = {
+        id: 'sp-10',
+        code: 'tt-01',
+        mode: SpeakingMode.TONGUE_TWISTER,
+        title: 'Old title',
+        text: 'She sells seashells by the seashore.',
+        difficulty: 2,
+        maxDurationSeconds: 25,
+        hints: ['Focus on sh', 'Keep steady pace'],
+        sampleAsset: null,
+        imageUrl: null,
+        visualContext: null,
+        preparation: { goal: 'Practice /s/ and /sh/', vocabulary: [], phrases: [] },
+        linkedReadAloudCodes: [],
+        contentVersion: 3,
+        sortOrder: 1,
+        published: true,
+        _count: { submissions: 0 },
+      };
+
+      const prisma = {
+        speakingPrompt: {
+          findUnique: jest.fn(),
+          aggregate: jest.fn().mockResolvedValue({ _max: { sortOrder: 1 } }),
+          create: jest.fn(),
+          update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+            ...existingPrompt,
+            ...data,
+            contentVersion:
+              data.contentVersion !== undefined
+                ? existingPrompt.contentVersion + 1
+                : existingPrompt.contentVersion,
+            _count: { submissions: 0 },
+          })),
+        },
+      };
+      const speakingAdmin = new AdminSpeakingService(prisma as unknown as PrismaService);
+
+      prisma.speakingPrompt.findUnique.mockResolvedValueOnce(null);
+      await expect(
+        speakingAdmin.createPrompt({
+          code: 'ra-too-long',
+          mode: SpeakingMode.READ_ALOUD,
+          title: 'Too long',
+          text: 'Hello world',
+          maxDurationSeconds: 31,
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'ADMIN_INVALID_SPEAKING_DURATION' }),
+      });
+
+      prisma.speakingPrompt.findUnique.mockResolvedValueOnce(existingPrompt);
+      await expect(
+        speakingAdmin.updatePrompt('sp-10', { maxDurationSeconds: 45 }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'ADMIN_INVALID_SPEAKING_DURATION' }),
+      });
+
+      // Metadata-only edit (even when unchanged content fields are sent by modal) does NOT bump contentVersion
+      prisma.speakingPrompt.findUnique.mockResolvedValueOnce(existingPrompt);
+      const metaRes = await speakingAdmin.updatePrompt('sp-10', {
+        title: 'Updated title only',
+        sortOrder: 5,
+        difficulty: 3,
+        published: false,
+        linkedReadAloudCodes: ['ra-01'],
+        text: 'She sells seashells by the seashore.',
+        mode: SpeakingMode.TONGUE_TWISTER,
+        hints: ['Focus on sh', 'Keep steady pace'],
+        visualContext: null,
+        imageUrl: null,
+        preparation: { goal: 'Practice /s/ and /sh/', vocabulary: [], phrases: [] },
+      });
+      expect(metaRes.contentVersion).toBe(3);
+      expect(prisma.speakingPrompt.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({ contentVersion: expect.anything() }),
+        }),
+      );
+
+      // Actual content change DOES bump contentVersion
+      prisma.speakingPrompt.findUnique.mockResolvedValueOnce(existingPrompt);
+      const contentRes = await speakingAdmin.updatePrompt('sp-10', {
+        text: 'Peter Piper picked a peck of pickled peppers.',
+      });
+      expect(contentRes.contentVersion).toBe(4);
+      expect(prisma.speakingPrompt.update).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ contentVersion: { increment: 1 } }),
+        }),
+      );
+    });
+
+    it('SpeakingService.upload áp dụng clamp maxDurationSeconds từ promptSnapshot', async () => {
+      const prisma = {
+        speakingSubmission: {
+          findMany: jest.fn().mockResolvedValue([]),
+          findFirst: jest.fn(),
+        },
+      };
+      const config = { get: jest.fn(() => 'true') };
+      const speakingService = new SpeakingService(
+        prisma as unknown as PrismaService,
+        {} as MlClientService,
+        config as unknown as ConfigService,
+      );
+
+      prisma.speakingSubmission.findFirst.mockResolvedValueOnce({
+        id: 'sub-10s',
+        userId: 'u-1',
+        promptId: 'p-1',
+        status: 'CREATED',
+        audioHash: null,
+        promptSnapshot: {
+          text: 'Hello',
+          mode: SpeakingMode.READ_ALOUD,
+          maxDurationSeconds: 10,
+        },
+      });
+      await expect(
+        speakingService.upload('u-1', 'sub-10s', buildMono16kWav(11)),
+      ).rejects.toMatchObject({
+        status: 422,
+        response: expect.objectContaining({
+          code: 'invalid_audio',
+          message: expect.stringContaining('10 giây'),
+        }),
+      });
+
+      prisma.speakingSubmission.findFirst.mockResolvedValueOnce({
+        id: 'sub-clamp-high',
+        userId: 'u-1',
+        promptId: 'p-1',
+        status: 'CREATED',
+        audioHash: null,
+        promptSnapshot: {
+          text: 'Hello',
+          mode: SpeakingMode.READ_ALOUD,
+          maxDurationSeconds: 120,
+        },
+      });
+      await expect(
+        speakingService.upload('u-1', 'sub-clamp-high', buildMono16kWav(31)),
+      ).rejects.toBeInstanceOf(HttpException);
+
+      prisma.speakingSubmission.findFirst.mockResolvedValueOnce({
+        id: 'sub-clamp-high-msg',
+        userId: 'u-1',
+        promptId: 'p-1',
+        status: 'CREATED',
+        audioHash: null,
+        promptSnapshot: {
+          text: 'Hello',
+          mode: SpeakingMode.READ_ALOUD,
+          maxDurationSeconds: 120,
+        },
+      });
+      await expect(
+        speakingService.upload('u-1', 'sub-clamp-high-msg', buildMono16kWav(31)),
+      ).rejects.toMatchObject({
+        status: 422,
+        response: expect.objectContaining({
+          code: 'invalid_audio',
+          message: expect.stringContaining('30 giây'),
+        }),
+      });
+
+      prisma.speakingSubmission.findFirst.mockResolvedValueOnce({
+        id: 'sub-clamp-low',
+        userId: 'u-1',
+        promptId: 'p-1',
+        status: 'CREATED',
+        audioHash: null,
+        promptSnapshot: {
+          text: 'Hello',
+          mode: SpeakingMode.READ_ALOUD,
+          maxDurationSeconds: 2,
+        },
+      });
+      await expect(
+        speakingService.upload('u-1', 'sub-clamp-low', buildMono16kWav(6)),
+      ).rejects.toMatchObject({
+        status: 422,
+        response: expect.objectContaining({
+          code: 'invalid_audio',
+          message: expect.stringContaining('5 giây'),
+        }),
       });
     });
   });

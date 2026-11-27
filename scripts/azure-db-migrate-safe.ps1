@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Quy trình bảo toàn Database, sao lưu, diễn tập migration trên bản phục hồi riêng và áp dụng prisma migrate deploy.
 .DESCRIPTION
@@ -48,9 +48,11 @@ $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $backupFile = Join-Path $BackupDirectory "${targetDbName}_${timestamp}.dump"
 $rehearsalDbName = "${targetDbName}_rehearsal_${timestamp}"
 
-# Tạo URL kết nối fără query string schema=public cho psql/pg_dump (vì libpq không nhận tham số schema của Prisma)
+# Tạo URL kết nối không có các query param riêng của Prisma cho psql/pg_dump (vì libpq chỉ nhận chuẩn PostgreSQL)
 $builder = New-Object System.UriBuilder($uri)
-$queryParts = ($uri.Query.TrimStart('?') -split '&') | Where-Object { $_ -and ($_ -notmatch '^schema=') }
+$queryParts = ($uri.Query.TrimStart('?') -split '&') | Where-Object {
+  $_ -and ($_ -notmatch '^(schema|sslaccept|connection_limit|pool_timeout|pgbouncer|statement_cache_size|socket_timeout)=')
+}
 $builder.Query = ($queryParts -join '&')
 $libpqTargetUrl = $builder.Uri.AbsoluteUri
 
@@ -67,7 +69,7 @@ $rehearsalPrismaBuilder.Path = "/$rehearsalDbName"
 $prismaRehearsalUrl = $rehearsalPrismaBuilder.Uri.AbsoluteUri
 
 Write-Host "==> [1/4] Chạy kiểm tra preflight Read-Only trên '$targetDbName'..." -ForegroundColor Cyan
-psql -X "$libpqTargetUrl" -f $preflightSql
+psql -X --dbname="$libpqTargetUrl" -f "$preflightSql"
 if ($LASTEXITCODE -ne 0) {
   throw "Kiểm tra preflight database thất bại. Dừng quy trình để bảo toàn dữ liệu."
 }
@@ -80,7 +82,7 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $backupFile)) {
 Write-Host "    Đã lưu bản sao lưu: $backupFile" -ForegroundColor Green
 
 Write-Host "==> [3/4] Khôi phục thử vào database diễn tập '$rehearsalDbName' và chạy 'prisma migrate deploy'..." -ForegroundColor Cyan
-psql -X "$libpqMaintUrl" -v ON_ERROR_STOP=1 -c "CREATE DATABASE `"$rehearsalDbName`";"
+psql -X --dbname="$libpqMaintUrl" -v ON_ERROR_STOP=1 -c "CREATE DATABASE `"$rehearsalDbName`";"
 if ($LASTEXITCODE -ne 0) {
   throw "Không thể tạo database diễn tập '$rehearsalDbName'."
 }
@@ -103,14 +105,16 @@ try {
     if ($LASTEXITCODE -ne 0) {
       throw "Trạng thái migration sau diễn tập chưa đồng bộ!"
     }
-  } finally {
+  }
+  finally {
     $env:DATABASE_URL = $prevDb
     Pop-Location
   }
   Write-Host "    Diễn tập migration trên bản phục hồi thành công!" -ForegroundColor Green
-} finally {
+}
+finally {
   Write-Host "    Dọn dẹp database diễn tập '$rehearsalDbName'..."
-  psql -X "$libpqMaintUrl" -c "DROP DATABASE IF EXISTS `"$rehearsalDbName`" WITH (FORCE);" | Out-Null
+  psql -X --dbname="$libpqMaintUrl" -c "DROP DATABASE IF EXISTS `"$rehearsalDbName`" WITH (FORCE);" | Out-Null
 }
 
 if ($ApplyToTarget) {
@@ -133,11 +137,13 @@ if ($ApplyToTarget) {
         throw "Khởi tạo tài khoản Admin thất bại."
       }
     }
-  } finally {
+  }
+  finally {
     $env:DATABASE_URL = $prevDb
     Pop-Location
   }
   Write-Host "Hoàn tất migration an toàn trên '$targetDbName'!" -ForegroundColor Green
-} else {
+}
+else {
   Write-Host "==> [4/4] Đã hoàn tất kiểm tra & diễn tập trên bản sao lưu. Thêm cờ -ApplyToTarget để áp dụng lên '$targetDbName'." -ForegroundColor Yellow
 }

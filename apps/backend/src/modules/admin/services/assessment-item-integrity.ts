@@ -1,18 +1,41 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { AssessmentItem, Prisma } from '@prisma/client';
 import { isDeepStrictEqual } from 'node:util';
+import { MediaStorageService } from '../../media/media-storage.service';
 import { DEMO_BANK_VERSION, isValidPlacementItem } from '../../placement/services/demo-placement.service';
 
 type PlacementCandidate = Pick<AssessmentItem, 'type' | 'options' | 'correctOption' | 'prompt' | 'irtA' | 'irtB' | 'irtC' | 'skill' | 'passage' | 'audioUrl' | 'usageScope'> & { groupId?: string | null };
 
-export function adminPlacementBankVersion(item: PlacementCandidate): string | null {
+export function adminPlacementBankVersion(
+  item: PlacementCandidate,
+  audioExists?: (audioUrl: string) => boolean,
+): string | null {
   const eligible = !item.groupId && (item.usageScope === 'PLACEMENT' || item.usageScope === 'ALL')
     && (item.skill === 'READING' || item.skill === 'LISTENING') && item.type === 'MULTIPLE_CHOICE';
-  const valid = eligible && isValidPlacementItem(item);
+  const valid = eligible && isValidPlacementItem(item, audioExists);
   if (item.usageScope === 'PLACEMENT' && !valid) {
     throw new BadRequestException({ code: 'ADMIN_INVALID_PLACEMENT_ITEM', message: 'Câu hỏi placement cần 4 lựa chọn khác nhau, đáp án hợp lệ, IRT hợp lệ và đoạn đọc hoặc file audio cục bộ khả dụng.' });
   }
   return valid ? DEMO_BANK_VERSION : null;
+}
+
+export async function resolveAdminPlacementBankVersion(
+  item: PlacementCandidate,
+  mediaStorage?: MediaStorageService,
+): Promise<string | null> {
+  if (!mediaStorage) {
+    return adminPlacementBankVersion(item);
+  }
+  const eligible = !item.groupId && (item.usageScope === 'PLACEMENT' || item.usageScope === 'ALL')
+    && (item.skill === 'READING' || item.skill === 'LISTENING') && item.type === 'MULTIPLE_CHOICE';
+  if (!eligible) {
+    return adminPlacementBankVersion(item, () => false);
+  }
+  let audioFound = true;
+  if (item.skill === 'LISTENING' && item.audioUrl) {
+    audioFound = await mediaStorage.exists(item.audioUrl);
+  }
+  return adminPlacementBankVersion(item, () => audioFound);
 }
 
 /** Lock before checking references so a concurrent FK assignment cannot race the check. */

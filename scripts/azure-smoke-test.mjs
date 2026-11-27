@@ -3,9 +3,9 @@
  * Smoke test tự động cho bản triển khai LingoRoad Admin & Backend trên Azure App Service.
  *
  * Kiểm chứng:
- * 1. Backend GET /health trả về 200 kèm { database: 'ready', schema: 'ready' }.
+ * 1. Backend GET /health trả về 200 kèm { database: 'ready', schema: 'ready' }, khớp version (nếu truyền --expected-version) và không lộ header X-Powered-By.
  * 2. Web Admin GET /health trả về 200 kèm { status: 'ok', service: 'web-frontend' } và khớp version (nếu truyền --expected-version).
- * 3. Các trang /admin/login, /admin/users, /admin/lessons, /admin/items, /admin/import mở trực tiếp trả về HTTP 200 và không chứa localhost:3000 trong HTML.
+ * 3. Các trang Admin mở trực tiếp trả về HTTP 200, có header Content-Security-Policy và không chứa localhost:3000 trong HTML.
  * 4. Chính sách CORS trên Backend: cho phép origin của Web Admin và từ chối origin lạ.
  * 5. Bảo vệ API /admin/users khi không có token trả về 401.
  * 6. Media Listening tĩnh (/media/learning/v1/...) hoặc ranh giới payload > 5 MB trả 413 REQUEST_BODY_TOO_LARGE.
@@ -68,19 +68,63 @@ async function main() {
     checks: [],
   };
 
-  // 1. Backend /health
-  const backendHealthRes = await fetchWithRetry(`${backendUrl}/health`);
+  // 1. Backend /health (chờ container mới hoàn tất swap nếu có --expected-version)
+  let backendHealth = null;
+  let backendStatus = 0;
+  let backendHealthHeaders = null;
+  for (let attempt = 1; attempt <= 36; attempt += 1) {
+    try {
+      const res = await fetch(`${backendUrl}/health`);
+      backendStatus = res.status;
+      backendHealthHeaders = res.headers;
+      if (res.status === 200) {
+        const body = await res.json();
+        backendHealth = body;
+        const versionMatches =
+          !expectedVersion || body?.data?.version === expectedVersion;
+        if (
+          body?.success === true &&
+          body?.data?.status === 'ok' &&
+          body?.data?.database === 'ready' &&
+          body?.data?.schema === 'ready' &&
+          versionMatches
+        ) {
+          break;
+        }
+      }
+    } catch {
+      // Thử lại trong thời gian container khởi động
+    }
+    if (attempt < 36) {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  }
   assert.equal(
-    backendHealthRes.status,
+    backendStatus,
     200,
-    `Backend /health phải trả 200, nhận được ${backendHealthRes.status}`,
+    `Backend /health phải trả 200, nhận được ${backendStatus}`,
   );
-  const backendHealth = await backendHealthRes.json();
   assert.equal(backendHealth?.success, true);
   assert.equal(backendHealth?.data?.status, 'ok');
   assert.equal(backendHealth?.data?.database, 'ready');
   assert.equal(backendHealth?.data?.schema, 'ready');
-  report.checks.push({ name: 'backend_health', status: 'passed' });
+  if (expectedVersion) {
+    assert.equal(
+      backendHealth?.data?.version,
+      expectedVersion,
+      `Phiên bản backend (${backendHealth?.data?.version}) không khớp expectedVersion (${expectedVersion})`,
+    );
+  }
+  assert.equal(
+    backendHealthHeaders?.get('x-powered-by'),
+    null,
+    'Backend không được để lộ header X-Powered-By',
+  );
+  report.checks.push({
+    name: 'backend_health',
+    status: 'passed',
+    version: backendHealth?.data?.version ?? null,
+  });
 
   // 2. Frontend /health (chờ container mới hoàn tất swap nếu có --expected-version)
   let frontendHealth = null;
@@ -135,6 +179,7 @@ async function main() {
   const adminRoutes = [
     '/admin/login',
     '/admin/users',
+    '/admin/system',
     '/admin/units',
     '/admin/lessons',
     '/admin/grammar',
@@ -151,6 +196,10 @@ async function main() {
       200,
       `Trang ${route} phải trả 200, nhận được ${pageRes.status}`,
     );
+    assert.ok(
+      pageRes.headers.get('content-security-policy')?.trim(),
+      `Trang ${route} phải có header Content-Security-Policy`,
+    );
     const html = await pageRes.text();
     assert.ok(
       !html.includes('http://localhost:3000'),
@@ -161,6 +210,10 @@ async function main() {
     name: 'frontend_admin_routes',
     status: 'passed',
     routes: adminRoutes,
+  });
+  report.checks.push({
+    name: 'security_headers',
+    status: 'passed',
   });
 
   // 4. Kiểm tra CORS trên Backend: cho phép origin Frontend, chặn origin lạ

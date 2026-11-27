@@ -1,21 +1,29 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   CheckSquare,
   ClipboardList,
   Compass,
+  Copy,
   Download,
   FileEdit,
   FileUp,
   FolderKanban,
   Plus,
+  RotateCcw,
   Search,
   X,
 } from 'lucide-react';
 import { AdminShell } from '@/components/admin/AdminShell';
+import {
+  NOOP_ADMIN_TOAST,
+  useAdminToast,
+  type AdminToastApi,
+} from '@/components/admin/AdminToast';
 import { AssessmentItemModal } from '@/components/admin/AssessmentItemModal';
+import { ConfirmDialog } from '@/components/admin/ConfirmDialog';
 import { GlobalPagination } from '@/components/admin/GlobalPagination';
 import { LegacyStatCard } from '@/components/admin/LegacyStatCard';
 import { MediaUploadField } from '@/components/admin/MediaUploadField';
@@ -29,6 +37,13 @@ import {
   listDescriptors,
   updateAdminAssessmentGroup,
 } from '@/lib/admin-api';
+import {
+  parseEnumParam,
+  parsePositiveIntParam,
+  useSyncAdminQueryParams,
+  type QueryParamValue,
+} from '@/lib/use-admin-query-params';
+import { useDebouncedValue } from '@/lib/use-debounced-value';
 import type {
   AdminAssessmentGroup,
   AdminAssessmentItem,
@@ -41,6 +56,95 @@ import type {
   PaginationMeta,
 } from '@/types/admin';
 
+interface SelectedGroupItem {
+  id: string;
+  externalId: string | null;
+  skillCode: string;
+  type: ItemType;
+  prompt: string;
+  fromOtherGroupLabel?: string | null;
+  responsesCount?: number;
+}
+
+const ITEM_TYPES: readonly ItemType[] = [
+  'MULTIPLE_CHOICE',
+  'CLOZE',
+  'GAP_FILL',
+  'SENTENCE_REORDER',
+  'MATCHING',
+  'ESSAY',
+  'SPEAKING_PROMPT',
+];
+const ASSESSMENT_SKILLS: readonly AssessmentSkill[] = [
+  'READING',
+  'LISTENING',
+  'WRITING',
+  'SPEAKING',
+];
+const CEFR_LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+const USAGE_SCOPES: readonly ItemUsageScope[] = [
+  'ALL',
+  'PLACEMENT',
+  'MOCK_EXAM',
+  'PRACTICE',
+];
+const PAGE_LIMITS = [10, 20, 50] as const;
+const ITEMS_QUERY_DEFAULTS: Record<string, QueryParamValue> = {
+  page: 1,
+  limit: 10,
+};
+
+function readInitialItemsFilters(): {
+  page: number;
+  limit: number;
+  search: string;
+  skill: AssessmentSkill | '';
+  cefr: CefrLevel | '';
+  type: ItemType | '';
+  scope: ItemUsageScope | '';
+  groupId: string;
+} {
+  const sp =
+    typeof window !== 'undefined' && typeof window.location?.search === 'string'
+      ? new URLSearchParams(window.location.search)
+      : null;
+  const parsedLimit = parsePositiveIntParam(sp?.get('limit'), 10);
+  const limit = (PAGE_LIMITS as readonly number[]).includes(parsedLimit)
+    ? parsedLimit
+    : 10;
+  return {
+    page: parsePositiveIntParam(sp?.get('page'), 1),
+    limit,
+    search: sp?.get('search')?.trim() ?? '',
+    skill: parseEnumParam(sp?.get('skill'), ASSESSMENT_SKILLS),
+    cefr: parseEnumParam(sp?.get('cefr'), CEFR_LEVELS),
+    type: parseEnumParam(sp?.get('type'), ITEM_TYPES),
+    scope: parseEnumParam(sp?.get('scope'), USAGE_SCOPES),
+    groupId: sp?.get('groupId')?.trim() ?? '',
+  };
+}
+
+function AdminToastBridge({
+  toastRef,
+}: {
+  toastRef: React.MutableRefObject<AdminToastApi>;
+}): null {
+  const toast = useAdminToast();
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast, toastRef]);
+  return null;
+}
+
+function ItemsQuerySync({
+  params,
+}: {
+  params: Record<string, QueryParamValue>;
+}): null {
+  useSyncAdminQueryParams(params, ITEMS_QUERY_DEFAULTS);
+  return null;
+}
+
 function formatShortType(type: ItemType): string {
   if (type === 'MULTIPLE_CHOICE') return 'mcq';
   if (type === 'SENTENCE_REORDER') return 'reorder';
@@ -48,6 +152,9 @@ function formatShortType(type: ItemType): string {
 }
 
 export default function AdminItemsPage(): React.ReactElement {
+  const toastRef = useRef<AdminToastApi>(NOOP_ADMIN_TOAST);
+  const [initialFilters] = useState(readInitialItemsFilters);
+  const [authReady, setAuthReady] = useState(false);
   const [activeTab, setActiveTab] = useState<'items' | 'groups'>('items');
   const [descriptors, setDescriptors] = useState<CefrDescriptorItem[]>([]);
   const [allGroupsForSelect, setAllGroupsForSelect] = useState<
@@ -63,31 +170,46 @@ export default function AdminItemsPage(): React.ReactElement {
     coveredSkillsCount: 0,
   });
   const [pagination, setPagination] = useState<PaginationMeta>({
-    page: 1,
-    limit: 10,
+    page: initialFilters.page,
+    limit: initialFilters.limit,
     total: 0,
     totalPages: 0,
   });
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-  const [searchInput, setSearchInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<ItemType | ''>('');
-  const [skillFilter, setSkillFilter] = useState<AssessmentSkill | ''>('');
-  const [cefrFilter, setCefrFilter] = useState<CefrLevel | ''>('');
-  const [usageScopeFilter, setUsageScopeFilter] = useState<ItemUsageScope | ''>('');
+  const [page, setPage] = useState(initialFilters.page);
+  const [limit, setLimit] = useState(initialFilters.limit);
+  const [searchInput, setSearchInput] = useState(initialFilters.search);
+  const [searchQuery, setSearchQuery] = useState(initialFilters.search);
+  const [typeFilter, setTypeFilter] = useState<ItemType | ''>(
+    initialFilters.type,
+  );
+  const [skillFilter, setSkillFilter] = useState<AssessmentSkill | ''>(
+    initialFilters.skill,
+  );
+  const [cefrFilter, setCefrFilter] = useState<CefrLevel | ''>(
+    initialFilters.cefr,
+  );
+  const [usageScopeFilter, setUsageScopeFilter] = useState<ItemUsageScope | ''>(
+    initialFilters.scope,
+  );
+  const [groupIdFilter, setGroupIdFilter] = useState(initialFilters.groupId);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [bannerError, setBannerError] = useState<string | null>(null);
-  const [bannerSuccess, setBannerSuccess] = useState<string | null>(null);
 
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<AdminAssessmentItem | null>(
+    null,
+  );
+  const [cloningItem, setCloningItem] = useState<AdminAssessmentItem | null>(
     null,
   );
   const [deleteTarget, setDeleteTarget] =
     useState<AdminAssessmentItem | null>(null);
   const [forceDelete, setForceDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteGroupTarget, setDeleteGroupTarget] =
+    useState<AdminAssessmentGroup | null>(null);
+  const [deletingGroup, setDeletingGroup] = useState(false);
 
   // Groups tab state
   const [groups, setGroups] = useState<AdminAssessmentGroup[]>([]);
@@ -98,6 +220,7 @@ export default function AdminItemsPage(): React.ReactElement {
     totalPages: 0,
   });
   const [groupsPage, setGroupsPage] = useState(1);
+  const [groupsLimit, setGroupsLimit] = useState(10);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<AdminAssessmentGroup | null>(
@@ -111,6 +234,13 @@ export default function AdminItemsPage(): React.ReactElement {
   const [gPassage, setGPassage] = useState('');
   const [gAudioUrl, setGAudioUrl] = useState('');
   const [gTranscript, setGTranscript] = useState('');
+  const [gSelectedItems, setGSelectedItems] = useState<SelectedGroupItem[]>([]);
+  const [gItemSearch, setGItemSearch] = useState('');
+  const debouncedGItemSearch = useDebouncedValue(gItemSearch, 300);
+  const [gPickerResults, setGPickerResults] = useState<AdminAssessmentItem[]>([]);
+  const [gPickerLoading, setGPickerLoading] = useState(false);
+  const [gPickerError, setGPickerError] = useState<string | null>(null);
+  const gPickerRequestIdRef = useRef(0);
   const [savingGroup, setSavingGroup] = useState(false);
   const [groupError, setGroupError] = useState<string | null>(null);
 
@@ -139,6 +269,7 @@ export default function AdminItemsPage(): React.ReactElement {
         skill: skillFilter,
         cefrLevel: cefrFilter,
         usageScope: usageScopeFilter,
+        groupId: groupIdFilter || undefined,
       });
       setItems(result.items);
       setPagination(result.pagination);
@@ -154,7 +285,16 @@ export default function AdminItemsPage(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, searchQuery, typeFilter, skillFilter, cefrFilter, usageScopeFilter]);
+  }, [
+    page,
+    limit,
+    searchQuery,
+    typeFilter,
+    skillFilter,
+    cefrFilter,
+    usageScopeFilter,
+    groupIdFilter,
+  ]);
 
   const loadGroups = useCallback(async () => {
     setGroupsLoading(true);
@@ -162,7 +302,7 @@ export default function AdminItemsPage(): React.ReactElement {
     try {
       const result = await listAdminAssessmentGroups({
         page: groupsPage,
-        limit: 10,
+        limit: groupsLimit,
         skill: skillFilter,
         cefrLevel: cefrFilter,
         usageScope: usageScopeFilter,
@@ -177,35 +317,122 @@ export default function AdminItemsPage(): React.ReactElement {
     } finally {
       setGroupsLoading(false);
     }
-  }, [groupsPage, skillFilter, cefrFilter, usageScopeFilter, searchQuery]);
+  }, [groupsPage, groupsLimit, skillFilter, cefrFilter, usageScopeFilter, searchQuery]);
+
+  const itemsQueryParams = useMemo<Record<string, QueryParamValue>>(
+    () => ({
+      page,
+      limit,
+      search: searchQuery,
+      skill: skillFilter,
+      cefr: cefrFilter,
+      type: typeFilter,
+      scope: usageScopeFilter,
+      groupId: groupIdFilter,
+    }),
+    [
+      page,
+      limit,
+      searchQuery,
+      skillFilter,
+      cefrFilter,
+      typeFilter,
+      usageScopeFilter,
+      groupIdFilter,
+    ],
+  );
+
+  const hasActiveFilters = Boolean(
+    searchInput.trim() ||
+      searchQuery.trim() ||
+      skillFilter ||
+      cefrFilter ||
+      usageScopeFilter ||
+      (activeTab === 'items' && (typeFilter || groupIdFilter)),
+  );
+
+  const handleResetFilters = (): void => {
+    setPage(1);
+    setGroupsPage(1);
+    setSearchInput('');
+    setSearchQuery('');
+    setTypeFilter('');
+    setSkillFilter('');
+    setCefrFilter('');
+    setUsageScopeFilter('');
+    setGroupIdFilter('');
+  };
 
   useEffect(() => {
+    if (!authReady) return;
     void loadDescriptors();
-  }, [loadDescriptors]);
+  }, [authReady, loadDescriptors]);
 
   useEffect(() => {
+    if (!authReady) return;
     if (activeTab === 'items') {
       void loadItems();
     } else {
       void loadGroups();
     }
-  }, [activeTab, loadItems, loadGroups]);
+  }, [authReady, activeTab, loadItems, loadGroups]);
+
+  useEffect(() => {
+    if (!authReady || !showGroupModal) return;
+    const requestId = ++gPickerRequestIdRef.current;
+    setGPickerLoading(true);
+    setGPickerError(null);
+    void listAdminAssessmentItems({
+      page: 1,
+      limit: 20,
+      search: debouncedGItemSearch,
+      skill: gSkill,
+      cefrLevel: gCefr,
+    })
+      .then((res) => {
+        if (requestId !== gPickerRequestIdRef.current) return;
+        setGPickerResults(res.items);
+      })
+      .catch((err) => {
+        if (requestId !== gPickerRequestIdRef.current) return;
+        setGPickerError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tìm danh sách câu hỏi để gắn vào nhóm.',
+        );
+      })
+      .finally(() => {
+        if (requestId === gPickerRequestIdRef.current) {
+          setGPickerLoading(false);
+        }
+      });
+  }, [authReady, showGroupModal, debouncedGItemSearch, gSkill, gCefr]);
+
+  const selectedGroupItemIds = useMemo(
+    () => new Set(gSelectedItems.map((item) => item.id)),
+    [gSelectedItems],
+  );
+
+  const availablePickerItems = useMemo(
+    () => gPickerResults.filter((item) => !selectedGroupItemIds.has(item.id)),
+    [gPickerResults, selectedGroupItemIds],
+  );
 
   const handleConfirmDelete = async (): Promise<void> => {
     if (!deleteTarget) return;
     setDeleting(true);
     setBannerError(null);
-    setBannerSuccess(null);
     try {
       await deleteAdminAssessmentItem(deleteTarget.id, forceDelete);
-      setBannerSuccess('Đã xoá câu hỏi khỏi Item Bank.');
+      toastRef.current.success('Đã xoá câu hỏi khỏi Item Bank.');
       setDeleteTarget(null);
       setForceDelete(false);
       await loadItems();
     } catch (err) {
-      setBannerError(
-        err instanceof Error ? err.message : 'Không thể xoá câu hỏi.',
-      );
+      const msg =
+        err instanceof Error ? err.message : 'Không thể xoá câu hỏi.';
+      setBannerError(msg);
+      toastRef.current.error(msg);
     } finally {
       setDeleting(false);
     }
@@ -221,8 +448,62 @@ export default function AdminItemsPage(): React.ReactElement {
     setGPassage(group?.passage ?? '');
     setGAudioUrl(group?.audioUrl ?? '');
     setGTranscript(group?.transcript ?? '');
+    setGSelectedItems(
+      [...(group?.items ?? [])]
+        .sort((a, b) => a.itemOrder - b.itemOrder)
+        .map((item) => ({
+          id: item.id,
+          externalId: item.externalId,
+          skillCode: item.skillCode,
+          type: item.type,
+          prompt: item.prompt,
+        })),
+    );
+    setGItemSearch('');
+    setGPickerResults([]);
+    setGPickerError(null);
     setGroupError(null);
     setShowGroupModal(true);
+  };
+
+  const handleMoveSelectedItem = (index: number, direction: -1 | 1): void => {
+    setGSelectedItems((prev) => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(index, 1);
+      next.splice(targetIndex, 0, moved);
+      return next;
+    });
+  };
+
+  const handleRemoveSelectedItem = (itemId: string): void => {
+    setGSelectedItems((prev) => prev.filter((item) => item.id !== itemId));
+  };
+
+  const handleAddSelectedItem = (candidate: AdminAssessmentItem): void => {
+    setGSelectedItems((prev) => {
+      if (prev.some((item) => item.id === candidate.id)) return prev;
+      const belongsToOtherGroup = Boolean(
+        candidate.groupId && candidate.groupId !== editingGroup?.id,
+      );
+      return [
+        ...prev,
+        {
+          id: candidate.id,
+          externalId: candidate.externalId,
+          skillCode: candidate.skillCode,
+          type: candidate.type,
+          prompt: candidate.prompt,
+          fromOtherGroupLabel: belongsToOtherGroup
+            ? candidate.group
+              ? `P${candidate.group.partNumber}`
+              : 'Nhóm khác'
+            : null,
+          responsesCount: candidate.responsesCount,
+        },
+      ];
+    });
   };
 
   const handleSaveGroup = async (event: React.FormEvent): Promise<void> => {
@@ -230,50 +511,65 @@ export default function AdminItemsPage(): React.ReactElement {
     setGroupError(null);
     setSavingGroup(true);
     try {
-      const payload = {
-        skill: gSkill,
-        cefrLevel: gCefr,
-        usageScope: gScope,
-        partNumber: gPartNumber,
-        title: gTitle.trim() || undefined,
-        passage: gPassage.trim() || undefined,
-        audioUrl: gAudioUrl.trim() || undefined,
-        transcript: gTranscript.trim() || undefined,
-      };
+      const itemIds = gSelectedItems.map((item) => item.id);
       if (editingGroup) {
-        await updateAdminAssessmentGroup(editingGroup.id, payload);
-        setBannerSuccess('Đã cập nhật nhóm câu hỏi.');
+        await updateAdminAssessmentGroup(editingGroup.id, {
+          skill: gSkill,
+          cefrLevel: gCefr,
+          usageScope: gScope,
+          partNumber: gPartNumber,
+          title: gTitle.trim() || null,
+          passage: gPassage.trim() || null,
+          audioUrl: gSkill === 'LISTENING' ? gAudioUrl.trim() || null : null,
+          transcript: gSkill === 'LISTENING' ? gTranscript.trim() || null : null,
+          itemIds,
+        });
+        toastRef.current.success('Đã cập nhật nhóm câu hỏi.');
       } else {
-        await createAdminAssessmentGroup(payload);
-        setBannerSuccess('Đã tạo nhóm câu hỏi mới.');
+        await createAdminAssessmentGroup({
+          skill: gSkill,
+          cefrLevel: gCefr,
+          usageScope: gScope,
+          partNumber: gPartNumber,
+          title: gTitle.trim() || undefined,
+          passage: gPassage.trim() || undefined,
+          audioUrl:
+            gSkill === 'LISTENING' ? gAudioUrl.trim() || undefined : undefined,
+          transcript:
+            gSkill === 'LISTENING' ? gTranscript.trim() || undefined : undefined,
+          itemIds,
+        });
+        toastRef.current.success('Đã tạo nhóm câu hỏi mới.');
       }
       setShowGroupModal(false);
       await Promise.all([loadGroups(), loadDescriptors()]);
     } catch (err) {
-      setGroupError(
-        err instanceof Error ? err.message : 'Không thể lưu nhóm câu hỏi.',
-      );
+      const msg =
+        err instanceof Error ? err.message : 'Không thể lưu nhóm câu hỏi.';
+      setGroupError(msg);
+      toastRef.current.error(msg);
     } finally {
       setSavingGroup(false);
     }
   };
 
-  const handleDeleteGroup = async (group: AdminAssessmentGroup): Promise<void> => {
-    if (
-      !window.confirm(
-        `Xoá nhóm "${group.title || `Part ${group.partNumber}`}"? Các câu hỏi con (${group.itemsCount}) sẽ được gỡ liên kết an toàn.`,
-      )
-    ) {
-      return;
-    }
+  const handleConfirmDeleteGroup = async (): Promise<void> => {
+    if (!deleteGroupTarget || deletingGroup) return;
+    setDeletingGroup(true);
+    setBannerError(null);
     try {
-      const res = await deleteAdminAssessmentGroup(group.id);
-      setBannerSuccess(
+      const res = await deleteAdminAssessmentGroup(deleteGroupTarget.id);
+      toastRef.current.success(
         `Đã xoá nhóm câu hỏi (gỡ liên kết ${res.detachedItemsCount} câu hỏi).`,
       );
+      setDeleteGroupTarget(null);
       await Promise.all([loadGroups(), loadDescriptors()]);
     } catch (err) {
-      setBannerError(err instanceof Error ? err.message : 'Xoá nhóm thất bại.');
+      const msg = err instanceof Error ? err.message : 'Xoá nhóm thất bại.';
+      setBannerError(msg);
+      toastRef.current.error(msg);
+    } finally {
+      setDeletingGroup(false);
     }
   };
 
@@ -283,20 +579,39 @@ export default function AdminItemsPage(): React.ReactElement {
         (deleteTarget.activeSessionsCount ?? 0) > 0),
   );
 
+  const handleExport = async (): Promise<void> => {
+    if (exporting) return;
+    setExporting(true);
+    setBannerError(null);
+    try {
+      await downloadAdminExport('items', 'csv');
+      toastRef.current.success('Đã xuất ngân hàng câu hỏi (CSV).');
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Xuất ngân hàng đề thất bại.';
+      setBannerError(msg);
+      toastRef.current.error(msg);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <AdminShell
       breadcrumbTitle="Ngân hàng đề"
       title="Item Bank & Nhóm đề"
       subtitle="Quản lý câu hỏi IRT, phạm vi Placement/Mock Exam và nhóm ngữ cảnh chung (AssessmentItemGroup)."
+      onAuthenticated={() => setAuthReady(true)}
       actions={
         <>
           <button
             type="button"
-            onClick={() => void downloadAdminExport('items', 'csv')}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
+            disabled={exporting}
+            onClick={() => void handleExport()}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50 disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
-            <span>CSV</span>
+            <span>{exporting ? 'Đang xuất...' : 'CSV'}</span>
           </button>
           <Link
             href="/admin/import"
@@ -310,6 +625,7 @@ export default function AdminItemsPage(): React.ReactElement {
               type="button"
               onClick={() => {
                 setEditingItem(null);
+                setCloningItem(null);
                 setShowModal(true);
               }}
               className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-sm"
@@ -332,6 +648,9 @@ export default function AdminItemsPage(): React.ReactElement {
     >
       {() => (
         <div className="space-y-5">
+          <AdminToastBridge toastRef={toastRef} />
+          <ItemsQuerySync params={itemsQueryParams} />
+
           {/* Tabs Items / Groups */}
           <div className="inline-flex rounded-xl border border-slateDark-100 bg-white p-1 shadow-sm">
             <button
@@ -396,11 +715,6 @@ export default function AdminItemsPage(): React.ReactElement {
               {bannerError}
             </div>
           )}
-          {bannerSuccess && (
-            <div className="rounded-2xl border border-brand-200 bg-brand-25 px-5 py-3.5 text-sm font-medium text-brand-800">
-              {bannerSuccess}
-            </div>
-          )}
 
           {/* Thanh lọc */}
           <div className="rounded-2xl border border-slateDark-100 bg-white p-5 shadow-sm">
@@ -413,7 +727,7 @@ export default function AdminItemsPage(): React.ReactElement {
               }}
               className="grid grid-cols-1 items-end gap-3 lg:grid-cols-12"
             >
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-4">
                 <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
                   Tìm kiếm
                 </label>
@@ -496,7 +810,7 @@ export default function AdminItemsPage(): React.ReactElement {
                 </select>
               </div>
 
-              <div className="lg:col-span-1">
+              <div className="lg:col-span-2">
                 <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
                   CEFR
                 </label>
@@ -518,7 +832,45 @@ export default function AdminItemsPage(): React.ReactElement {
                 </select>
               </div>
 
-              <div className="flex items-center justify-end gap-2 lg:col-span-2">
+              {activeTab === 'items' && (
+                <div className="lg:col-span-8">
+                  <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
+                    Nhóm đề (Group)
+                  </label>
+                  <select
+                    value={groupIdFilter}
+                    onChange={(e) => {
+                      setPage(1);
+                      setGroupIdFilter(e.target.value);
+                    }}
+                    className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-white px-3 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
+                  >
+                    <option value="">Tất cả nhóm đề</option>
+                    {allGroupsForSelect.map((grp) => (
+                      <option key={grp.id} value={grp.id}>
+                        [{grp.skill} {grp.cefrLevel} P{grp.partNumber}]{' '}
+                        {grp.title || grp.id.slice(0, 8)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div
+                className={`flex flex-wrap items-center justify-end gap-2 ${
+                  activeTab === 'items' ? 'lg:col-span-4' : 'lg:col-span-2'
+                }`}
+              >
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={handleResetFilters}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3 py-2.5 text-xs font-semibold text-slateDark-800 hover:bg-slateDark-50"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span>Đặt lại bộ lọc</span>
+                  </button>
+                )}
                 <button
                   type="submit"
                   className="rounded-xl border border-slateDark-200 bg-slateDark-50 px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-100"
@@ -605,6 +957,20 @@ export default function AdminItemsPage(): React.ReactElement {
                               <button
                                 type="button"
                                 onClick={() => {
+                                  setEditingItem(null);
+                                  setCloningItem(item);
+                                  setShowModal(true);
+                                }}
+                                title="Tạo bản sao mới từ câu hỏi này"
+                                className="inline-flex items-center gap-1 rounded-lg border border-brand-200 bg-brand-25 px-2.5 py-1.5 text-xs font-semibold text-brand-800 transition hover:bg-brand-50"
+                              >
+                                <Copy className="h-3 w-3" />
+                                <span>Nhân bản</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCloningItem(null);
                                   setEditingItem(item);
                                   setShowModal(true);
                                 }}
@@ -708,7 +1074,7 @@ export default function AdminItemsPage(): React.ReactElement {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => void handleDeleteGroup(grp)}
+                                onClick={() => setDeleteGroupTarget(grp)}
                                 className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
                               >
                                 Xóa
@@ -724,11 +1090,14 @@ export default function AdminItemsPage(): React.ReactElement {
 
               <GlobalPagination
                 page={groupsPagination.page}
-                limit={groupsPagination.limit}
+                limit={groupsLimit}
                 total={groupsPagination.total}
                 totalPages={groupsPagination.totalPages}
                 onPageChange={(next) => setGroupsPage(next)}
-                onLimitChange={() => undefined}
+                onLimitChange={(nextLimit) => {
+                  setGroupsLimit(nextLimit);
+                  setGroupsPage(1);
+                }}
               />
             </div>
           )}
@@ -738,18 +1107,23 @@ export default function AdminItemsPage(): React.ReactElement {
               descriptors={descriptors}
               groups={allGroupsForSelect}
               editingItem={editingItem}
+              cloneFrom={cloningItem}
               onClose={() => {
                 setShowModal(false);
                 setEditingItem(null);
+                setCloningItem(null);
               }}
               onSaved={() => {
                 setShowModal(false);
-                setBannerSuccess(
+                toastRef.current.success(
                   editingItem
                     ? 'Đã cập nhật câu hỏi thành công.'
-                    : 'Đã thêm câu hỏi mới vào Item Bank.',
+                    : cloningItem
+                      ? 'Đã nhân bản câu hỏi mới vào Item Bank.'
+                      : 'Đã thêm câu hỏi mới vào Item Bank.',
                 );
                 setEditingItem(null);
+                setCloningItem(null);
                 void loadItems();
               }}
             />
@@ -757,7 +1131,7 @@ export default function AdminItemsPage(): React.ReactElement {
 
           {showGroupModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slateDark-900/50 p-4">
-              <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slateDark-100 bg-white shadow-2xl">
+              <div className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slateDark-100 bg-white shadow-2xl">
                 <div className="flex items-center justify-between border-b border-slateDark-100 px-6 py-4">
                   <h2 className="text-lg font-bold text-slateDark-900">
                     {editingGroup ? 'Cập nhật nhóm đề' : 'Tạo nhóm câu hỏi mới'}
@@ -895,6 +1269,169 @@ export default function AdminItemsPage(): React.ReactElement {
                     </div>
                   )}
 
+                  {/* Group itemIds Picker */}
+                  <div className="space-y-3 rounded-2xl border border-slateDark-100 bg-slateDark-25 p-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-xs font-bold uppercase text-slateDark-800">
+                        Câu hỏi thuộc nhóm ({gSelectedItems.length})
+                      </h3>
+                      <span className="text-[11px] text-slateDark-600">
+                        Thứ tự lưu theo danh sách bên dưới
+                      </span>
+                    </div>
+
+                    {gSelectedItems.length === 0 ? (
+                      <p className="rounded-xl border border-dashed border-slateDark-200 bg-white px-3 py-3 text-center text-xs text-slateDark-600">
+                        Chưa có câu hỏi nào trong nhóm. Tìm và bấm &ldquo;+ Thêm&rdquo; ở khung bên dưới.
+                      </p>
+                    ) : (
+                      <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
+                        {gSelectedItems.map((item, idx) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between gap-2 rounded-xl border border-slateDark-100 bg-white px-3 py-2 text-xs"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="rounded bg-brand-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-brand-800">
+                                  #{idx + 1}
+                                </span>
+                                <span className="font-mono text-[11px] font-semibold text-brand-700">
+                                  {item.externalId || item.id.slice(0, 8)}
+                                </span>
+                                <span className="rounded bg-slateDark-50 px-1.5 py-0.5 text-[10px] font-medium text-slateDark-700">
+                                  {formatShortType(item.type)}
+                                </span>
+                                {item.fromOtherGroupLabel && (
+                                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                    Chuyển từ {item.fromOtherGroupLabel}
+                                  </span>
+                                )}
+                                {(item.responsesCount ?? 0) > 0 && (
+                                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                                    {item.responsesCount} lượt trả lời
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-0.5 line-clamp-1 text-slateDark-800">
+                                {item.prompt}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveSelectedItem(idx, -1)}
+                                aria-label="Di chuyển lên"
+                                className="rounded-lg border border-slateDark-200 bg-white px-2 py-1 text-xs font-bold text-slateDark-800 hover:bg-slateDark-50 disabled:opacity-40"
+                              >
+                                ↑
+                              </button>
+                              <button
+                                type="button"
+                                disabled={idx === gSelectedItems.length - 1}
+                                onClick={() => handleMoveSelectedItem(idx, 1)}
+                                aria-label="Di chuyển xuống"
+                                className="rounded-lg border border-slateDark-200 bg-white px-2 py-1 text-xs font-bold text-slateDark-800 hover:bg-slateDark-50 disabled:opacity-40"
+                              >
+                                ↓
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSelectedItem(item.id)}
+                                aria-label="Gỡ câu hỏi khỏi nhóm"
+                                className="rounded-lg border border-red-200 bg-white px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="space-y-2 border-t border-slateDark-100 pt-3">
+                      <label className="block text-xs font-semibold text-slateDark-800">
+                        Tìm câu hỏi ({gSkill} · {gCefr}) để thêm vào nhóm
+                      </label>
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slateDark-600" />
+                        <input
+                          type="text"
+                          value={gItemSearch}
+                          onChange={(e) => setGItemSearch(e.target.value)}
+                          placeholder="Tìm theo mã, đề bài hoặc skillCode..."
+                          className="w-full rounded-xl border border-slateDark-200 bg-white py-2 pl-8 pr-3 text-xs focus:border-brand-500 focus:outline-none"
+                        />
+                      </div>
+
+                      {gPickerError && (
+                        <p className="text-xs font-medium text-red-700">
+                          {gPickerError}
+                        </p>
+                      )}
+
+                      <div className="max-h-40 space-y-1.5 overflow-y-auto pr-1">
+                        {gPickerLoading ? (
+                          <p className="py-3 text-center text-xs text-slateDark-600">
+                            Đang tìm câu hỏi phù hợp...
+                          </p>
+                        ) : availablePickerItems.length === 0 ? (
+                          <p className="py-3 text-center text-xs text-slateDark-600">
+                            Không còn câu hỏi phù hợp ({gSkill} · {gCefr}).
+                          </p>
+                        ) : (
+                          availablePickerItems.map((candidate) => {
+                            const inAnotherGroup = Boolean(
+                              candidate.groupId &&
+                                candidate.groupId !== editingGroup?.id,
+                            );
+                            return (
+                              <div
+                                key={candidate.id}
+                                className="flex items-center justify-between gap-2 rounded-xl border border-slateDark-100 bg-white px-3 py-2 text-xs"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="font-mono text-[11px] font-semibold text-brand-700">
+                                      {candidate.externalId || candidate.id.slice(0, 8)}
+                                    </span>
+                                    <span className="font-mono text-[10px] text-slateDark-600">
+                                      {candidate.skillCode}
+                                    </span>
+                                    {inAnotherGroup && (
+                                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                                        Thuộc nhóm khác
+                                        {candidate.group
+                                          ? ` (P${candidate.group.partNumber})`
+                                          : ''}
+                                      </span>
+                                    )}
+                                    {candidate.responsesCount > 0 && (
+                                      <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-semibold text-red-700">
+                                        {candidate.responsesCount} lượt trả lời
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="mt-0.5 line-clamp-1 text-slateDark-800">
+                                    {candidate.prompt}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddSelectedItem(candidate)}
+                                  className="shrink-0 rounded-lg border border-brand-200 bg-brand-25 px-2.5 py-1 text-xs font-semibold text-brand-800 hover:bg-brand-50"
+                                >
+                                  + Thêm
+                                </button>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex justify-end gap-2 border-t border-slateDark-100 pt-4">
                     <button
                       type="button"
@@ -965,6 +1502,28 @@ export default function AdminItemsPage(): React.ReactElement {
               </div>
             </div>
           )}
+          <ConfirmDialog
+            open={Boolean(deleteGroupTarget)}
+            title="Xoá nhóm câu hỏi"
+            description={
+              deleteGroupTarget ? (
+                <>
+                  Bạn có chắc muốn xoá nhóm{' '}
+                  <strong>
+                    {deleteGroupTarget.title ||
+                      `Part ${deleteGroupTarget.partNumber}`}
+                  </strong>
+                  ? Các câu hỏi con ({deleteGroupTarget.itemsCount}) sẽ được gỡ
+                  liên kết an toàn và giữ nguyên trong Item Bank.
+                </>
+              ) : null
+            }
+            confirmLabel="Xoá nhóm"
+            tone="danger"
+            busy={deletingGroup}
+            onConfirm={handleConfirmDeleteGroup}
+            onCancel={() => setDeleteGroupTarget(null)}
+          />
         </div>
       )}
     </AdminShell>

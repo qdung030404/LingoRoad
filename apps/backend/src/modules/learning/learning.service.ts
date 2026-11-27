@@ -7,6 +7,7 @@ import { CheckLearningAnswerDto, LearningProgressDto } from './learning.dto';
 import { LearningContent, LessonSnapshot, validateLearningContent } from './learning.types';
 import { MlClientService } from '../ml/ml-client.service';
 import { PlanningService } from '../planning/planning.service';
+import { MediaStorageService } from '../media/media-storage.service';
 import { validateListeningAudio } from './listening-media';
 
 export const MAX_READING_EXPLAIN_PASSAGE_CHARS = 4000;
@@ -64,6 +65,7 @@ export class LearningService {
     private readonly prisma: PrismaService,
     @Optional() private readonly planning?: PlanningService,
     @Optional() private readonly ml?: MlClientService,
+    @Optional() private readonly mediaStorage?: MediaStorageService,
   ) { }
 
   private conflict(): never {
@@ -279,18 +281,34 @@ export class LearningService {
     return { ...catalogue.items.find((item) => item.id === lesson.id)!, content: this.publicContent(content, false), questions: this.publicQuestions(content) };
   }
 
+  private async verifyContentAndAudio(content: LearningContent, kind: LearningLesson['kind']): Promise<void> {
+    try {
+      validateLearningContent(content, kind);
+      if (this.mediaStorage) {
+        await this.mediaStorage.verifyListeningAudio(content, learningMediaRoot());
+      } else {
+        validateListeningAudio(content, learningMediaRoot());
+      }
+    } catch {
+      throw new ServiceUnavailableException({ code: 'LEARNING_CONTENT_UNAVAILABLE', message: 'Nội dung bài học chưa sẵn sàng.' });
+    }
+  }
+
   async start(userId: string, lessonId: string) {
+    // Validate content & listening audio (may perform async Azure Blob lookup) BEFORE acquiring the user row lock.
+    const preflightLesson = await this.prisma.learningLesson.findFirst({ where: { id: lessonId, published: true }, include: includeUnitLevel });
+    if (!preflightLesson) throw new NotFoundException({ code: 'LEARNING_LESSON_NOT_FOUND', message: 'Không tìm thấy bài học.' });
+    const preflightContent = preflightLesson.content as unknown as LearningContent;
+    await this.verifyContentAndAudio(preflightContent, preflightLesson.kind);
+
     const attempt = await this.prisma.$transaction(async (tx) => {
       // Serialize start requests for one account and discard any leftover unfinished attempt.
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
       const lesson = await tx.learningLesson.findFirst({ where: { id: lessonId, published: true }, include: includeUnitLevel });
       if (!lesson) throw new NotFoundException({ code: 'LEARNING_LESSON_NOT_FOUND', message: 'Không tìm thấy bài học.' });
       const content = lesson.content as unknown as LearningContent;
-      try {
-        validateLearningContent(content, lesson.kind);
-        validateListeningAudio(content, learningMediaRoot());
-      } catch {
-        throw new ServiceUnavailableException({ code: 'LEARNING_CONTENT_UNAVAILABLE', message: 'Nội dung bài học chưa sẵn sàng.' });
+      if (lesson.contentVersion !== preflightLesson.contentVersion) {
+        await this.verifyContentAndAudio(content, lesson.kind);
       }
       await tx.learningAttempt.deleteMany({ where: { userId, lessonId, status: 'IN_PROGRESS' } });
       const [priorExposure, priorCompleted] = await Promise.all([

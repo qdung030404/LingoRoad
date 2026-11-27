@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import {
   AssessmentSkill,
@@ -17,14 +18,16 @@ import {
   CanDoDescriptor,
 } from '../../assessment/constants/cefr-can-do-matrix.constant';
 import { AssessmentMatrixService } from '../../assessment/services/assessment-matrix.service';
-import { validateLearningContent } from '../../learning/learning.types';
+import { LearningContent, validateLearningContent } from '../../learning/learning.types';
 import { validateListeningAudio } from '../../learning/listening-media';
 import { learningMediaRoot } from '../../learning/learning.service';
+import { MediaStorageService } from '../../media/media-storage.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   AdminAssessmentGroupsQueryDto,
   AdminAssessmentItemsQueryDto,
   AdminLessonsQueryDto,
+  BulkPublishDto,
   CreateAdminAssessmentItemDto,
   CreateAdminLessonDto,
   CreateAssessmentItemGroupDto,
@@ -36,9 +39,9 @@ import {
 } from '../dto/admin-content.dto';
 import { PaginatedResult } from './admin-users.service';
 import {
-  adminPlacementBankVersion,
   assertReferencedItemUnchanged,
   lockAssessmentItem,
+  resolveAdminPlacementBankVersion,
 } from './assessment-item-integrity';
 
 export interface AdminUnitItem {
@@ -307,6 +310,7 @@ export class AdminContentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly assessmentMatrixService: AssessmentMatrixService,
+    @Optional() private readonly mediaStorage?: MediaStorageService,
   ) {}
 
   async listUnits(): Promise<AdminUnitItem[]> {
@@ -626,7 +630,13 @@ export class AdminContentService {
     const code = dto.code.trim().toLowerCase();
     try {
       validateLearningContent(dto.content, dto.kind);
-      if (dto.published ?? true) validateListeningAudio(dto.content, learningMediaRoot());
+      if (dto.published ?? true) {
+        if (this.mediaStorage) {
+          await this.mediaStorage.verifyListeningAudio(dto.content, learningMediaRoot());
+        } else {
+          validateListeningAudio(dto.content, learningMediaRoot());
+        }
+      }
     } catch (error) {
       throw new BadRequestException({
         code: 'ADMIN_INVALID_LESSON_CONTENT',
@@ -730,7 +740,13 @@ export class AdminContentService {
       try {
         const nextContent = dto.content ?? current.content;
         validateLearningContent(nextContent, nextKind);
-        if (dto.published ?? current.published) validateListeningAudio(nextContent, learningMediaRoot());
+        if (dto.published ?? current.published) {
+          if (this.mediaStorage) {
+            await this.mediaStorage.verifyListeningAudio(nextContent, learningMediaRoot());
+          } else {
+            validateListeningAudio(nextContent, learningMediaRoot());
+          }
+        }
       } catch (error) {
         throw new BadRequestException({
           code: 'ADMIN_INVALID_LESSON_CONTENT',
@@ -875,6 +891,61 @@ export class AdminContentService {
     return { id, action: 'DELETED', attemptsCount };
   }
 
+  async bulkPublishLessons(
+    dto: BulkPublishDto,
+  ): Promise<{ updatedCount: number; published: boolean; ids: string[] }> {
+    const uniqueIds = [...new Set(dto.ids)];
+    const lessons = await this.prisma.learningLesson.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, code: true, kind: true, content: true },
+    });
+    if (lessons.length !== uniqueIds.length) {
+      throw new NotFoundException({
+        code: 'ADMIN_LESSON_NOT_FOUND',
+        message: 'Một hoặc nhiều bài tập trong danh sách không tồn tại.',
+      });
+    }
+
+    if (dto.published) {
+      for (const lesson of lessons) {
+        if (lesson.kind !== LearningKind.LISTENING) continue;
+        try {
+          if (this.mediaStorage) {
+            await this.mediaStorage.verifyListeningAudio(
+              lesson.content as unknown as LearningContent,
+              learningMediaRoot(),
+            );
+          } else {
+            validateListeningAudio(
+              lesson.content as unknown as LearningContent,
+              learningMediaRoot(),
+            );
+          }
+        } catch (error) {
+          throw new BadRequestException({
+            code: 'ADMIN_INVALID_LESSON_CONTENT',
+            message: `Bài tập nghe "${lesson.code}" không đạt điều kiện âm thanh để xuất bản: ${
+              error instanceof Error ? error.message : 'Âm thanh không hợp lệ.'
+            }`,
+          });
+        }
+      }
+    }
+
+    const updated = await this.prisma.$transaction((tx) =>
+      tx.learningLesson.updateMany({
+        where: { id: { in: uniqueIds } },
+        data: { published: dto.published },
+      }),
+    );
+
+    return {
+      updatedCount: updated.count,
+      published: dto.published,
+      ids: uniqueIds,
+    };
+  }
+
   listDescriptors(): readonly CanDoDescriptor[] {
     return CEFR_CAN_DO_DESCRIPTORS;
   }
@@ -995,24 +1066,29 @@ export class AdminContentService {
       }
     }
 
+    const bankVersion = await resolveAdminPlacementBankVersion(
+      {
+        ...dto,
+        type: itemType,
+        usageScope: dto.usageScope ?? ItemUsageScope.ALL,
+        options: (dto.options ?? null) as Prisma.JsonValue,
+        correctOption: dto.correctOption?.trim() || null,
+        passage: dto.passage?.trim() || null,
+        audioUrl: dto.audioUrl?.trim() || null,
+        irtA: dto.irtA ?? 1,
+        irtB: dto.irtB ?? 0,
+        irtC: dto.irtC ?? 0.25,
+        groupId: dto.groupId ?? null,
+      },
+      this.mediaStorage,
+    );
+
     const created = await this.prisma.assessmentItem.create({
       data: {
         ...(externalId ? { externalId } : {}),
         ...(dto.groupId !== undefined ? { groupId: dto.groupId } : {}),
         ...(dto.itemOrder !== undefined ? { itemOrder: dto.itemOrder } : {}),
-        bankVersion: adminPlacementBankVersion({
-          ...dto,
-          type: itemType,
-          usageScope: dto.usageScope ?? ItemUsageScope.ALL,
-          options: (dto.options ?? null) as Prisma.JsonValue,
-          correctOption: dto.correctOption?.trim() || null,
-          passage: dto.passage?.trim() || null,
-          audioUrl: dto.audioUrl?.trim() || null,
-          irtA: dto.irtA ?? 1,
-          irtB: dto.irtB ?? 0,
-          irtC: dto.irtC ?? 0.25,
-          groupId: dto.groupId ?? null,
-        }),
+        bankVersion,
         skill: dto.skill,
         skillCode: dto.skillCode.trim(),
         cefrLevel: dto.cefrLevel,
@@ -1094,8 +1170,8 @@ export class AdminContentService {
         dto.options !== undefined ? dto.options : existing.options;
       const nextCorrectOption =
         dto.correctOption !== undefined
-          ? dto.correctOption.trim()
-          : existing.correctOption?.trim();
+          ? dto.correctOption?.trim() || null
+          : existing.correctOption?.trim() || null;
 
       if (nextType === ItemType.MULTIPLE_CHOICE) {
         const optionValues = extractOptionValues(nextOptions);
@@ -1125,7 +1201,7 @@ export class AdminContentService {
         ...(dto.type !== undefined ? { type: dto.type } : {}),
         ...(dto.usageScope !== undefined ? { usageScope: dto.usageScope } : {}),
         ...(dto.passage !== undefined
-          ? { passage: dto.passage.trim() || null }
+          ? { passage: dto.passage?.trim() || null }
           : {}),
         ...(dto.prompt !== undefined ? { prompt: dto.prompt.trim() } : {}),
         ...(dto.options !== undefined
@@ -1137,13 +1213,13 @@ export class AdminContentService {
             }
           : {}),
         ...(dto.correctOption !== undefined
-          ? { correctOption: dto.correctOption.trim() || null }
+          ? { correctOption: dto.correctOption?.trim() || null }
           : {}),
         ...(dto.explanation !== undefined
-          ? { explanation: dto.explanation.trim() || null }
+          ? { explanation: dto.explanation?.trim() || null }
           : {}),
         ...(dto.audioUrl !== undefined
-          ? { audioUrl: dto.audioUrl.trim() || null }
+          ? { audioUrl: dto.audioUrl?.trim() || null }
           : {}),
         ...(dto.rubricCriteria !== undefined
           ? {
@@ -1164,7 +1240,10 @@ export class AdminContentService {
           ? dto.options
           : existing.options) as Prisma.JsonValue,
       };
-      const bankVersion = adminPlacementBankVersion(next);
+      const bankVersion = await resolveAdminPlacementBankVersion(
+        next,
+        this.mediaStorage,
+      );
       assertReferencedItemUnchanged(existing, { ...data, bankVersion });
       return tx.assessmentItem.update({
         where: { id },

@@ -6,12 +6,17 @@ import {
   createAdminGrammarTopic,
   updateAdminGrammarTopic,
 } from '@/lib/admin-api';
+import {
+  GRAMMAR_CODE_REGEX,
+  GRAMMAR_FORMULA_FORMS,
+  normalizeGrammarTopicPayload,
+} from '@/lib/admin-validation';
 import type {
   AdminGrammarTopic,
   CefrLevel,
   GrammarExampleItem,
+  GrammarFormulaForm,
   GrammarFormulaItem,
-  GrammarUsageItem,
 } from '@/types/admin';
 
 interface GrammarTopicModalProps {
@@ -21,7 +26,63 @@ interface GrammarTopicModalProps {
   onSaved: () => void;
 }
 
+interface UsageNoteFormRow {
+  useCaseVi: string;
+  signalWordsText: string;
+  commonMistakeVi: string;
+}
+
 const LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+const FORMULA_FORM_LABELS: Record<GrammarFormulaForm, string> = {
+  AFFIRMATIVE: 'Khẳng định (AFFIRMATIVE)',
+  NEGATIVE: 'Phủ định (NEGATIVE)',
+  QUESTION: 'Nghi vấn (QUESTION)',
+  NOTE: 'Lưu ý (NOTE)',
+};
+
+function toInitialFormulas(topic: AdminGrammarTopic | null): GrammarFormulaItem[] {
+  if (Array.isArray(topic?.formulas) && topic.formulas.length > 0) {
+    return topic.formulas.map((f) => ({
+      form:
+        f && (GRAMMAR_FORMULA_FORMS as readonly string[]).includes(f.form)
+          ? f.form
+          : 'AFFIRMATIVE',
+      labelVi: typeof f?.labelVi === 'string' ? f.labelVi : '',
+      structure: typeof f?.structure === 'string' ? f.structure : '',
+      noteVi: typeof f?.noteVi === 'string' ? f.noteVi : '',
+    }));
+  }
+  return [{ form: 'AFFIRMATIVE', labelVi: 'Khẳng định', structure: '', noteVi: '' }];
+}
+
+function toInitialUsageNotes(topic: AdminGrammarTopic | null): UsageNoteFormRow[] {
+  if (Array.isArray(topic?.usageNotes) && topic.usageNotes.length > 0) {
+    return topic.usageNotes.map((u) => ({
+      useCaseVi: typeof u?.useCaseVi === 'string' ? u.useCaseVi : '',
+      signalWordsText: Array.isArray(u?.signalWords)
+        ? u.signalWords
+            .filter((word): word is string => typeof word === 'string')
+            .join(', ')
+        : '',
+      commonMistakeVi:
+        typeof u?.commonMistakeVi === 'string' ? u.commonMistakeVi : '',
+    }));
+  }
+  return [{ useCaseVi: '', signalWordsText: '', commonMistakeVi: '' }];
+}
+
+function toInitialExamples(topic: AdminGrammarTopic | null): GrammarExampleItem[] {
+  if (Array.isArray(topic?.examples) && topic.examples.length > 0) {
+    return topic.examples.map((ex) => ({
+      sentenceEn: typeof ex?.sentenceEn === 'string' ? ex.sentenceEn : '',
+      translationVi:
+        typeof ex?.translationVi === 'string' ? ex.translationVi : '',
+      highlight: typeof ex?.highlight === 'string' ? ex.highlight : '',
+    }));
+  }
+  return [{ sentenceEn: '', translationVi: '', highlight: '' }];
+}
 
 export function GrammarTopicModal({
   allTopics,
@@ -46,20 +107,14 @@ export function GrammarTopicModal({
   const [orderIndex, setOrderIndex] = useState(editingTopic?.orderIndex ?? 0);
   const [published, setPublished] = useState(editingTopic?.published ?? true);
 
-  const [formulas, setFormulas] = useState<GrammarFormulaItem[]>(
-    Array.isArray(editingTopic?.formulas) && editingTopic.formulas.length > 0
-      ? editingTopic.formulas
-      : [{ label: 'Khẳng định', structure: '', example: '' }],
+  const [formulas, setFormulas] = useState<GrammarFormulaItem[]>(() =>
+    toInitialFormulas(editingTopic),
   );
-  const [usageNotes, setUsageNotes] = useState<GrammarUsageItem[]>(
-    Array.isArray(editingTopic?.usageNotes) && editingTopic.usageNotes.length > 0
-      ? editingTopic.usageNotes
-      : [{ title: 'Cách dùng chính', description: '', signalWords: [] }],
+  const [usageNotes, setUsageNotes] = useState<UsageNoteFormRow[]>(() =>
+    toInitialUsageNotes(editingTopic),
   );
-  const [examples, setExamples] = useState<GrammarExampleItem[]>(
-    Array.isArray(editingTopic?.examples) && editingTopic.examples.length > 0
-      ? editingTopic.examples
-      : [{ en: '', vi: '', highlight: '' }],
+  const [examples, setExamples] = useState<GrammarExampleItem[]>(() =>
+    toInitialExamples(editingTopic),
   );
 
   const [saving, setSaving] = useState(false);
@@ -69,42 +124,23 @@ export function GrammarTopicModal({
     event.preventDefault();
     setError(null);
     const cleanCode = code.trim().toLowerCase();
-    if (!isEditing && !/^grammar\.[a-z0-9._-]+$/.test(cleanCode)) {
-      setError('Mã chủ điểm phải bắt đầu bằng "grammar." và chỉ gồm chữ thường/số/._-.');
+    if (!isEditing && !GRAMMAR_CODE_REGEX.test(cleanCode)) {
+      setError(
+        'Mã cấu trúc ngữ pháp phải khớp định dạng grammar hoặc grammar.<nhóm>.<tên> (chỉ gồm chữ thường a-z và dấu gạch dưới _).',
+      );
       return;
     }
 
-    const cleanFormulas = isLeaf
-      ? formulas
-          .filter((f) => f.label.trim() && f.structure.trim())
-          .map((f) => ({
-            label: f.label.trim(),
-            structure: f.structure.trim(),
-            ...(f.example?.trim() ? { example: f.example.trim() } : {}),
-          }))
-      : [];
-
-    const cleanUsage = isLeaf
-      ? usageNotes
-          .filter((u) => u.title.trim() && u.description.trim())
-          .map((u) => ({
-            title: u.title.trim(),
-            description: u.description.trim(),
-            ...(u.signalWords?.length
-              ? { signalWords: u.signalWords.map((s) => s.trim()).filter(Boolean) }
-              : {}),
-          }))
-      : [];
-
-    const cleanExamples = isLeaf
-      ? examples
-          .filter((ex) => ex.en.trim() && ex.vi.trim())
-          .map((ex) => ({
-            en: ex.en.trim(),
-            vi: ex.vi.trim(),
-            ...(ex.highlight?.trim() ? { highlight: ex.highlight.trim() } : {}),
-          }))
-      : [];
+    const normalized = normalizeGrammarTopicPayload({
+      isLeaf,
+      formulas,
+      usageNotes,
+      examples,
+    });
+    if (normalized.error) {
+      setError(normalized.error);
+      return;
+    }
 
     setSaving(true);
     try {
@@ -115,9 +151,9 @@ export function GrammarTopicModal({
           titleEn: titleEn.trim(),
           titleVi: titleVi.trim(),
           summaryVi: summaryVi.trim(),
-          formulas: cleanFormulas,
-          usageNotes: cleanUsage,
-          examples: cleanExamples,
+          formulas: normalized.formulas,
+          usageNotes: normalized.usageNotes,
+          examples: normalized.examples,
           orderIndex,
           published,
         });
@@ -130,9 +166,9 @@ export function GrammarTopicModal({
           titleEn: titleEn.trim(),
           titleVi: titleVi.trim(),
           summaryVi: summaryVi.trim(),
-          formulas: cleanFormulas,
-          usageNotes: cleanUsage,
-          examples: cleanExamples,
+          formulas: normalized.formulas,
+          usageNotes: normalized.usageNotes,
+          examples: normalized.examples,
           orderIndex,
           published,
         });
@@ -316,7 +352,12 @@ export function GrammarTopicModal({
                     onClick={() =>
                       setFormulas((prev) => [
                         ...prev,
-                        { label: '', structure: '', example: '' },
+                        {
+                          form: 'AFFIRMATIVE',
+                          labelVi: '',
+                          structure: '',
+                          noteVi: '',
+                        },
                       ])
                     }
                     className="inline-flex items-center gap-1 rounded-lg border border-slateDark-200 bg-white px-2.5 py-1 text-xs font-semibold"
@@ -325,57 +366,91 @@ export function GrammarTopicModal({
                   </button>
                 </div>
                 {formulas.map((f, idx) => (
-                  <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-12">
-                    <input
-                      type="text"
-                      value={f.label}
-                      onChange={(e) =>
-                        setFormulas((prev) =>
-                          prev.map((item, i) =>
-                            i === idx ? { ...item, label: e.target.value } : item,
-                          ),
-                        )
-                      }
-                      placeholder="Nhãn (VD: Khẳng định)"
-                      className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1.5 text-xs sm:col-span-3"
-                    />
-                    <input
-                      type="text"
-                      value={f.structure}
-                      onChange={(e) =>
-                        setFormulas((prev) =>
-                          prev.map((item, i) =>
-                            i === idx
-                              ? { ...item, structure: e.target.value }
-                              : item,
-                          ),
-                        )
-                      }
-                      placeholder="Công thức (S + V(s/es) + O)"
-                      className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1.5 font-mono text-xs sm:col-span-4"
-                    />
-                    <input
-                      type="text"
-                      value={f.example ?? ''}
-                      onChange={(e) =>
-                        setFormulas((prev) =>
-                          prev.map((item, i) =>
-                            i === idx ? { ...item, example: e.target.value } : item,
-                          ),
-                        )
-                      }
-                      placeholder="Ví dụ minh họa"
-                      className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1.5 text-xs sm:col-span-4"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormulas((prev) => prev.filter((_, i) => i !== idx))
-                      }
-                      className="flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50 sm:col-span-1"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                  <div
+                    key={idx}
+                    className="space-y-2 rounded-xl border border-slateDark-100 bg-white p-3"
+                  >
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-12">
+                      <select
+                        value={f.form}
+                        onChange={(e) =>
+                          setFormulas((prev) =>
+                            prev.map((item, i) =>
+                              i === idx
+                                ? {
+                                    ...item,
+                                    form: e.target.value as GrammarFormulaForm,
+                                  }
+                                : item,
+                            ),
+                          )
+                        }
+                        className="rounded-lg border border-slateDark-200 bg-slateDark-25 px-2.5 py-1.5 text-xs sm:col-span-4"
+                      >
+                        {GRAMMAR_FORMULA_FORMS.map((formOpt) => (
+                          <option key={formOpt} value={formOpt}>
+                            {FORMULA_FORM_LABELS[formOpt]}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={f.labelVi}
+                        onChange={(e) =>
+                          setFormulas((prev) =>
+                            prev.map((item, i) =>
+                              i === idx
+                                ? { ...item, labelVi: e.target.value }
+                                : item,
+                            ),
+                          )
+                        }
+                        placeholder="Nhãn tiếng Việt * (VD: Câu khẳng định)"
+                        className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1.5 text-xs sm:col-span-7"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormulas((prev) => prev.filter((_, i) => i !== idx))
+                        }
+                        aria-label="Xoá công thức"
+                        className="flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50 sm:col-span-1"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      <input
+                        type="text"
+                        value={f.structure}
+                        onChange={(e) =>
+                          setFormulas((prev) =>
+                            prev.map((item, i) =>
+                              i === idx
+                                ? { ...item, structure: e.target.value }
+                                : item,
+                            ),
+                          )
+                        }
+                        placeholder="Công thức * (VD: S + V(s/es) + O)"
+                        className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1.5 font-mono text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={f.noteVi ?? ''}
+                        onChange={(e) =>
+                          setFormulas((prev) =>
+                            prev.map((item, i) =>
+                              i === idx
+                                ? { ...item, noteVi: e.target.value }
+                                : item,
+                            ),
+                          )
+                        }
+                        placeholder="Ghi chú tiếng Việt (tuỳ chọn)"
+                        className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1.5 text-xs"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -391,7 +466,11 @@ export function GrammarTopicModal({
                     onClick={() =>
                       setUsageNotes((prev) => [
                         ...prev,
-                        { title: '', description: '', signalWords: [] },
+                        {
+                          useCaseVi: '',
+                          signalWordsText: '',
+                          commonMistakeVi: '',
+                        },
                       ])
                     }
                     className="inline-flex items-center gap-1 rounded-lg border border-slateDark-200 bg-white px-2.5 py-1 text-xs font-semibold"
@@ -400,19 +479,24 @@ export function GrammarTopicModal({
                   </button>
                 </div>
                 {usageNotes.map((u, idx) => (
-                  <div key={idx} className="space-y-2 rounded-xl bg-white p-3">
+                  <div
+                    key={idx}
+                    className="space-y-2 rounded-xl border border-slateDark-100 bg-white p-3"
+                  >
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        value={u.title}
+                        value={u.useCaseVi}
                         onChange={(e) =>
                           setUsageNotes((prev) =>
                             prev.map((item, i) =>
-                              i === idx ? { ...item, title: e.target.value } : item,
+                              i === idx
+                                ? { ...item, useCaseVi: e.target.value }
+                                : item,
                             ),
                           )
                         }
-                        placeholder="Tiêu đề cách dùng"
+                        placeholder="Tình huống sử dụng tiếng Việt * (useCaseVi)"
                         className="flex-1 rounded-lg border border-slateDark-200 px-2.5 py-1.5 text-xs"
                       />
                       <button
@@ -420,6 +504,7 @@ export function GrammarTopicModal({
                         onClick={() =>
                           setUsageNotes((prev) => prev.filter((_, i) => i !== idx))
                         }
+                        aria-label="Xoá cách dùng"
                         className="rounded-lg p-1 text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -427,38 +512,32 @@ export function GrammarTopicModal({
                     </div>
                     <input
                       type="text"
-                      value={u.description}
+                      value={u.signalWordsText}
                       onChange={(e) =>
                         setUsageNotes((prev) =>
                           prev.map((item, i) =>
                             i === idx
-                              ? { ...item, description: e.target.value }
-                              : item,
-                          ),
-                        )
-                      }
-                      placeholder="Giải thích chi tiết cách dùng"
-                      className="w-full rounded-lg border border-slateDark-200 px-2.5 py-1.5 text-xs"
-                    />
-                    <input
-                      type="text"
-                      value={(u.signalWords ?? []).join(', ')}
-                      onChange={(e) =>
-                        setUsageNotes((prev) =>
-                          prev.map((item, i) =>
-                            i === idx
-                              ? {
-                                  ...item,
-                                  signalWords: e.target.value
-                                    .split(',')
-                                    .map((s) => s.trim())
-                                    .filter(Boolean),
-                                }
+                              ? { ...item, signalWordsText: e.target.value }
                               : item,
                           ),
                         )
                       }
                       placeholder="Từ dấu hiệu (cách nhau dấu phẩy: always, usually, every day)"
+                      className="w-full rounded-lg border border-slateDark-200 px-2.5 py-1.5 text-xs"
+                    />
+                    <input
+                      type="text"
+                      value={u.commonMistakeVi}
+                      onChange={(e) =>
+                        setUsageNotes((prev) =>
+                          prev.map((item, i) =>
+                            i === idx
+                              ? { ...item, commonMistakeVi: e.target.value }
+                              : item,
+                          ),
+                        )
+                      }
+                      placeholder="Lỗi thường gặp cần tránh (commonMistakeVi — tuỳ chọn)"
                       className="w-full rounded-lg border border-slateDark-200 px-2.5 py-1.5 text-xs"
                     />
                   </div>
@@ -476,7 +555,7 @@ export function GrammarTopicModal({
                     onClick={() =>
                       setExamples((prev) => [
                         ...prev,
-                        { en: '', vi: '', highlight: '' },
+                        { sentenceEn: '', translationVi: '', highlight: '' },
                       ])
                     }
                     className="inline-flex items-center gap-1 rounded-lg border border-slateDark-200 bg-white px-2.5 py-1 text-xs font-semibold"
@@ -488,28 +567,32 @@ export function GrammarTopicModal({
                   <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-12">
                     <input
                       type="text"
-                      value={ex.en}
+                      value={ex.sentenceEn}
                       onChange={(e) =>
                         setExamples((prev) =>
                           prev.map((item, i) =>
-                            i === idx ? { ...item, en: e.target.value } : item,
+                            i === idx
+                              ? { ...item, sentenceEn: e.target.value }
+                              : item,
                           ),
                         )
                       }
-                      placeholder="Câu tiếng Anh"
+                      placeholder="Câu tiếng Anh * (sentenceEn)"
                       className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1.5 text-xs sm:col-span-5"
                     />
                     <input
                       type="text"
-                      value={ex.vi}
+                      value={ex.translationVi}
                       onChange={(e) =>
                         setExamples((prev) =>
                           prev.map((item, i) =>
-                            i === idx ? { ...item, vi: e.target.value } : item,
+                            i === idx
+                              ? { ...item, translationVi: e.target.value }
+                              : item,
                           ),
                         )
                       }
-                      placeholder="Dịch tiếng Việt"
+                      placeholder="Dịch tiếng Việt * (translationVi)"
                       className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1.5 text-xs sm:col-span-4"
                     />
                     <input
@@ -532,6 +615,7 @@ export function GrammarTopicModal({
                       onClick={() =>
                         setExamples((prev) => prev.filter((_, i) => i !== idx))
                       }
+                      aria-label="Xoá ví dụ"
                       className="flex items-center justify-center rounded-lg text-red-600 hover:bg-red-50 sm:col-span-1"
                     >
                       <Trash2 className="h-3.5 w-3.5" />

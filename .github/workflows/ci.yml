@@ -304,8 +304,9 @@ jobs:
 
           docker build \
             -f apps/backend/Dockerfile \
+            --build-arg APP_VERSION="${SHA}" \
             -t "${ACR_SERVER}/lingoroad-backend:${SHA}" \
-            apps/backend
+            .
 
           docker build \
             -f apps/web-frontend/Dockerfile \
@@ -393,10 +394,13 @@ jobs:
           az webapp restart -g "${RG}" -n "${APP}" --output none
 
           echo "Waiting for Backend /health at ${BACKEND_URL}/health ..."
+          EXPECTED_SHA="${{ github.sha }}"
           HEALTHY="false"
           for i in $(seq 1 36); do
             if RESP=$(curl -fsS --max-time 10 "${BACKEND_URL}/health" 2>/dev/null); then
-              if echo "${RESP}" | grep -q '"database":"ready"' && echo "${RESP}" | grep -q '"schema":"ready"'; then
+              if echo "${RESP}" | grep -q '"database":"ready"' \
+                && echo "${RESP}" | grep -q '"schema":"ready"' \
+                && echo "${RESP}" | grep -q "\"version\":\"${EXPECTED_SHA}\""; then
                 echo "Backend is healthy: ${RESP}"
                 HEALTHY="true"
                 break

@@ -10,12 +10,23 @@ import type {
   AdminLessonItem,
   AdminMediaAudioUploadResult,
   AdminMediaImageUploadResult,
+  AdminPlacementSessionDetail,
   AdminSpeakingPrompt,
+  AdminSpeakingSubmissionDetail,
+  AdminSpeakingSubmissionItem,
+  AdminSpeakingSubmissionsSummary,
+  AdminSystemReadinessView,
   AdminUser,
   AdminUserDetail,
   AdminUserListItem,
+  AdminUserSessionView,
+  AdminUserSkillLevelOverrideResult,
+  AdminVoiceConversationDetail,
+  AdminVoiceConversationItem,
+  AdminVoiceConversationsSummary,
   AssessmentItemsSummary,
   AssessmentSkill,
+  BulkPublishResult,
   CefrDescriptorItem,
   CefrLevel,
   DashboardOverview,
@@ -33,15 +44,19 @@ import type {
   LearningUnitItem,
   LessonsListSummary,
   PaginatedData,
+  ReleaseVoiceConversationLockResult,
+  ResetPlacementRetakeResult,
   SpeakingMode,
   SpeakingPreparationPayload,
   SpeakingPromptsSummary,
+  SpeakingStatus,
   UserRole,
   UserStatus,
   UsersListSummary,
 } from '../types/admin';
 
 const SESSION_KEY = 'lingoroad_admin_session';
+const REFRESH_LOCK_NAME = 'lingoroad_admin_refresh';
 
 export function validateCloudApiBaseUrl(rawUrl?: string): string {
   const value = rawUrl?.trim() ?? '';
@@ -180,31 +195,50 @@ async function parseJsonSafe<T>(response: Response): Promise<ApiEnvelope<T> | nu
 
 let refreshPromise: Promise<AdminAuthSession | null> | null = null;
 
-async function refreshAdminSession(): Promise<AdminAuthSession | null> {
-  if (refreshPromise) return refreshPromise;
-  refreshPromise = (async () => {
-    const current = getStoredAdminSession();
-    if (!current?.refreshToken) return null;
+async function performLockedRefresh(
+  failedAccessToken?: string,
+): Promise<AdminAuthSession | null> {
+  const latest = getStoredAdminSession();
+  if (!latest?.refreshToken) return null;
+  if (failedAccessToken && latest.accessToken !== failedAccessToken) {
+    return latest;
+  }
 
-    try {
-      const response = await fetch(`${apiBaseUrl()}/admin/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: current.refreshToken }),
-      });
-      const payload = await parseJsonSafe<AdminAuthSession>(response);
-      if (!response.ok || !payload?.success || !payload.data) {
-        clearAdminSession();
-        return null;
-      }
-      saveAdminSession(payload.data);
-      return payload.data;
-    } catch {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/admin/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: latest.refreshToken }),
+    });
+    const payload = await parseJsonSafe<AdminAuthSession>(response);
+    if (!response.ok || !payload?.success || !payload.data) {
+      clearAdminSession();
       return null;
-    } finally {
-      refreshPromise = null;
     }
-  })();
+    saveAdminSession(payload.data);
+    return payload.data;
+  } catch {
+    return null;
+  }
+}
+
+async function refreshAdminSession(
+  failedAccessToken?: string,
+): Promise<AdminAuthSession | null> {
+  if (
+    typeof navigator !== 'undefined' &&
+    navigator.locks &&
+    typeof navigator.locks.request === 'function'
+  ) {
+    return (await navigator.locks.request(REFRESH_LOCK_NAME, () =>
+      performLockedRefresh(failedAccessToken),
+    )) as AdminAuthSession | null;
+  }
+
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = performLockedRefresh(failedAccessToken).finally(() => {
+    refreshPromise = null;
+  });
   return refreshPromise;
 }
 
@@ -230,7 +264,7 @@ async function adminFetch<T>(
   });
 
   if (response.status === 401 && retryOnUnauthorized && session?.refreshToken) {
-    const refreshed = await refreshAdminSession();
+    const refreshed = await refreshAdminSession(session.accessToken);
     if (refreshed) {
       return adminFetch<T>(path, options, false);
     }
@@ -274,17 +308,59 @@ export async function adminLogin(
 
 export async function adminLogout(): Promise<void> {
   const session = getStoredAdminSession();
-  clearAdminSession();
-  if (!session?.refreshToken) return;
+  if (!session?.refreshToken) {
+    clearAdminSession();
+    return;
+  }
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (session.accessToken) {
+    headers.Authorization = `Bearer ${session.accessToken}`;
+  }
+  const signal =
+    typeof AbortSignal !== 'undefined' &&
+    typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(4000)
+      : undefined;
   try {
     await fetch(`${apiBaseUrl()}/admin/auth/logout`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ refreshToken: session.refreshToken }),
+      ...(signal ? { signal } : {}),
     });
   } catch {
-    // Bỏ qua lỗi mạng khi đăng xuất cục bộ
+    // Bỏ qua lỗi mạng hoặc timeout khi đăng xuất cục bộ
+  } finally {
+    clearAdminSession();
   }
+}
+
+export async function adminChangePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<AdminAuthSession> {
+  const session = await adminFetch<AdminAuthSession>(
+    '/admin/auth/change-password',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  saveAdminSession(session);
+  return session;
+}
+
+export async function adminLogoutAll(): Promise<{
+  revokedSessionsCount: number;
+}> {
+  const result = await adminFetch<{ revokedSessionsCount: number }>(
+    '/admin/auth/logout-all',
+    { method: 'POST' },
+  );
+  clearAdminSession();
+  return result;
 }
 
 export async function getAdminMe(): Promise<AdminUser> {
@@ -387,12 +463,92 @@ export async function updateAdminUser(
     targetCefr?: CefrLevel;
     dailyGoalMinutes?: number;
     learningPurpose?: LearningPurpose | null;
+    preferredKinds?: LearningKind[];
+    selfAssessedCefr?: CefrLevel | null;
+    reminderEnabled?: boolean;
+    reminderTime?: string;
   },
 ): Promise<AdminUserListItem> {
   return adminFetch<AdminUserListItem>(`/admin/users/${userId}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
+}
+
+export async function overrideAdminUserSkillLevel(
+  userId: string,
+  kind: LearningKind,
+  input: {
+    cefrLevel: CefrLevel;
+    resetExposures?: boolean;
+  },
+): Promise<AdminUserSkillLevelOverrideResult> {
+  return adminFetch<AdminUserSkillLevelOverrideResult>(
+    `/admin/users/${userId}/skill-levels/${kind}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function getAdminUserPlacementDetail(
+  userId: string,
+  sessionId: string,
+): Promise<AdminPlacementSessionDetail> {
+  return adminFetch<AdminPlacementSessionDetail>(
+    `/admin/users/${userId}/placements/${sessionId}`,
+  );
+}
+
+export async function resetAdminUserPlacementRetake(
+  userId: string,
+  input: { resetSkillLevels?: boolean } = {},
+): Promise<ResetPlacementRetakeResult> {
+  return adminFetch<ResetPlacementRetakeResult>(
+    `/admin/users/${userId}/placements/reset-retake`,
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function listAdminUserSessions(
+  userId: string,
+): Promise<AdminUserSessionView[]> {
+  return adminFetch<AdminUserSessionView[]>(`/admin/users/${userId}/sessions`);
+}
+
+export async function revokeAdminUserSession(
+  userId: string,
+  sessionId: string,
+): Promise<{ id: string; revoked: boolean }> {
+  return adminFetch<{ id: string; revoked: boolean }>(
+    `/admin/users/${userId}/sessions/${sessionId}`,
+    { method: 'DELETE' },
+  );
+}
+
+export async function revokeAllAdminUserSessions(
+  userId: string,
+): Promise<{ userId: string; revokedSessionsCount: number }> {
+  return adminFetch<{ userId: string; revokedSessionsCount: number }>(
+    `/admin/users/${userId}/sessions/revoke-all`,
+    { method: 'POST' },
+  );
+}
+
+export async function downloadAdminUserExport(
+  userId: string,
+  retryOnUnauthorized = true,
+): Promise<void> {
+  const fallbackName = `lingoroad-user-${userId}-${new Date().toISOString().slice(0, 10)}.json`;
+  return downloadAuthorizedFile(
+    `/admin/users/${userId}/export`,
+    fallbackName,
+    retryOnUnauthorized,
+  );
 }
 
 export async function deleteAdminUser(
@@ -533,6 +689,16 @@ export async function deleteAdminLesson(
   });
 }
 
+export async function bulkPublishAdminLessons(
+  ids: string[],
+  published: boolean,
+): Promise<BulkPublishResult> {
+  return adminFetch<BulkPublishResult>('/admin/lessons/bulk-publish', {
+    method: 'PATCH',
+    body: JSON.stringify({ ids, published }),
+  });
+}
+
 // ===================== ITEMS & GROUPS =====================
 
 export async function listDescriptors(): Promise<CefrDescriptorItem[]> {
@@ -547,6 +713,7 @@ export async function listAdminAssessmentItems(params: {
   cefrLevel?: CefrLevel | '';
   usageScope?: ItemUsageScope | '';
   type?: ItemType | '';
+  groupId?: string;
 }): Promise<PaginatedData<AdminAssessmentItem, AssessmentItemsSummary>> {
   const qs = new URLSearchParams({
     page: String(params.page),
@@ -557,6 +724,7 @@ export async function listAdminAssessmentItems(params: {
   if (params.cefrLevel) qs.set('cefrLevel', params.cefrLevel);
   if (params.usageScope) qs.set('usageScope', params.usageScope);
   if (params.type) qs.set('type', params.type);
+  if (params.groupId?.trim()) qs.set('groupId', params.groupId.trim());
   return adminFetch<PaginatedData<AdminAssessmentItem, AssessmentItemsSummary>>(
     `/admin/assessment-items?${qs.toString()}`,
   );
@@ -599,11 +767,11 @@ export async function updateAdminAssessmentItem(
     cefrLevel?: CefrLevel;
     type?: ItemType;
     usageScope?: ItemUsageScope;
-    passage?: string;
+    passage?: string | null;
     prompt?: string;
     options?: unknown;
-    correctOption?: string;
-    explanation?: string;
+    correctOption?: string | null;
+    explanation?: string | null;
     audioUrl?: string | null;
     rubricCriteria?: Record<string, unknown> | null;
     irtA?: number;
@@ -987,6 +1155,131 @@ export async function deleteAdminSpeakingPrompt(
   });
 }
 
+export async function bulkPublishAdminSpeakingPrompts(
+  ids: string[],
+  published: boolean,
+): Promise<BulkPublishResult> {
+  return adminFetch<BulkPublishResult>('/admin/speaking-prompts/bulk-publish', {
+    method: 'PATCH',
+    body: JSON.stringify({ ids, published }),
+  });
+}
+
+// ===================== VOICE CONVERSATIONS & SPEAKING OPS =====================
+
+export async function listAdminVoiceConversations(params: {
+  page: number;
+  limit: number;
+  userId?: string;
+  status?: string;
+  assessmentStatus?: string;
+  stuckOnly?: boolean | '' | 'true' | 'false';
+  search?: string;
+}): Promise<
+  PaginatedData<AdminVoiceConversationItem, AdminVoiceConversationsSummary>
+> {
+  const qs = new URLSearchParams({
+    page: String(params.page),
+    limit: String(params.limit),
+  });
+  if (params.userId?.trim()) qs.set('userId', params.userId.trim());
+  if (params.status?.trim()) qs.set('status', params.status.trim());
+  if (params.assessmentStatus?.trim()) {
+    qs.set('assessmentStatus', params.assessmentStatus.trim());
+  }
+  if (params.stuckOnly === true || params.stuckOnly === 'true') {
+    qs.set('stuckOnly', 'true');
+  } else if (params.stuckOnly === 'false') {
+    qs.set('stuckOnly', 'false');
+  }
+  if (params.search?.trim()) qs.set('search', params.search.trim());
+  return adminFetch<
+    PaginatedData<AdminVoiceConversationItem, AdminVoiceConversationsSummary>
+  >(`/admin/voice-conversations?${qs.toString()}`);
+}
+
+export async function getAdminVoiceConversation(
+  id: string,
+): Promise<AdminVoiceConversationDetail> {
+  return adminFetch<AdminVoiceConversationDetail>(
+    `/admin/voice-conversations/${id}`,
+  );
+}
+
+export async function releaseAdminVoiceConversationLock(
+  id: string,
+): Promise<ReleaseVoiceConversationLockResult> {
+  return adminFetch<ReleaseVoiceConversationLockResult>(
+    `/admin/voice-conversations/${id}/release-lock`,
+    { method: 'POST' },
+  );
+}
+
+export async function retryAdminVoiceConversationContent(
+  id: string,
+): Promise<unknown> {
+  return adminFetch<unknown>(
+    `/admin/voice-conversations/${id}/retry-content`,
+    { method: 'POST' },
+  );
+}
+
+export async function listAdminSpeakingSubmissions(params: {
+  page: number;
+  limit: number;
+  status?: SpeakingStatus | '';
+  mode?: SpeakingMode | '';
+  errorCode?: string;
+  userId?: string;
+  search?: string;
+}): Promise<
+  PaginatedData<AdminSpeakingSubmissionItem, AdminSpeakingSubmissionsSummary>
+> {
+  const qs = new URLSearchParams({
+    page: String(params.page),
+    limit: String(params.limit),
+  });
+  if (params.status) qs.set('status', params.status);
+  if (params.mode) qs.set('mode', params.mode);
+  if (params.errorCode?.trim()) qs.set('errorCode', params.errorCode.trim());
+  if (params.userId?.trim()) qs.set('userId', params.userId.trim());
+  if (params.search?.trim()) qs.set('search', params.search.trim());
+  return adminFetch<
+    PaginatedData<AdminSpeakingSubmissionItem, AdminSpeakingSubmissionsSummary>
+  >(`/admin/speaking-submissions?${qs.toString()}`);
+}
+
+export async function getAdminSpeakingSubmission(
+  id: string,
+): Promise<AdminSpeakingSubmissionDetail> {
+  return adminFetch<AdminSpeakingSubmissionDetail>(
+    `/admin/speaking-submissions/${id}`,
+  );
+}
+
+export async function retryAdminSpeakingSubmissionContent(
+  id: string,
+): Promise<unknown> {
+  return adminFetch<unknown>(
+    `/admin/speaking-submissions/${id}/retry-content`,
+    { method: 'POST' },
+  );
+}
+
+export async function expireAdminSpeakingSubmission(
+  id: string,
+): Promise<unknown> {
+  return adminFetch<unknown>(`/admin/speaking-submissions/${id}/expire`, {
+    method: 'POST',
+  });
+}
+
+// ===================== SYSTEM & ML READINESS =====================
+
+export async function getAdminSystemReadiness(): Promise<AdminSystemReadinessView> {
+  return adminFetch<AdminSystemReadinessView>('/admin/system/readiness');
+}
+
 // ===================== AUDIT LOGS & EXPORTS =====================
 
 export async function listAdminAuditLogs(params: {
@@ -1012,9 +1305,9 @@ export async function listAdminAuditLogs(params: {
   );
 }
 
-export async function downloadAdminExport(
-  entity: AdminExportEntity,
-  format: 'json' | 'csv' = 'json',
+async function downloadAuthorizedFile(
+  path: string,
+  fallbackFilename: string,
   retryOnUnauthorized = true,
 ): Promise<void> {
   const session = getStoredAdminSession();
@@ -1022,29 +1315,29 @@ export async function downloadAdminExport(
   if (session?.accessToken) {
     headers.set('Authorization', `Bearer ${session.accessToken}`);
   }
-  const response = await fetch(
-    `${apiBaseUrl()}/admin/exports/${entity}?format=${format}`,
-    { method: 'GET', headers },
-  );
+  const response = await fetch(`${apiBaseUrl()}${path}`, {
+    method: 'GET',
+    headers,
+  });
   if (response.status === 401 && retryOnUnauthorized && session?.refreshToken) {
-    const refreshed = await refreshAdminSession();
+    const refreshed = await refreshAdminSession(session.accessToken);
     if (refreshed) {
-      return downloadAdminExport(entity, format, false);
+      return downloadAuthorizedFile(path, fallbackFilename, false);
     }
     clearAdminSession();
   }
   if (!response.ok) {
-    throw new AdminApiError(
-      `Xuất dữ liệu thất bại (HTTP ${response.status})`,
-      response.status,
-    );
+    const payload = await parseJsonSafe<unknown>(response);
+    const errMessage =
+      payload?.error?.message ||
+      payload?.message ||
+      `Xuất dữ liệu thất bại (HTTP ${response.status})`;
+    throw new AdminApiError(errMessage, response.status, payload?.error?.code);
   }
   const blob = await response.blob();
   const disposition = response.headers.get('Content-Disposition') ?? '';
   const match = disposition.match(/filename="([^"]+)"/);
-  const filename =
-    match?.[1] ??
-    `lingoroad-${entity}-${new Date().toISOString().slice(0, 10)}.${format}`;
+  const filename = match?.[1] ?? fallbackFilename;
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -1053,6 +1346,18 @@ export async function downloadAdminExport(
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function downloadAdminExport(
+  entity: AdminExportEntity,
+  format: 'json' | 'csv' = 'json',
+  retryOnUnauthorized = true,
+): Promise<void> {
+  return downloadAuthorizedFile(
+    `/admin/exports/${entity}?format=${format}`,
+    `lingoroad-${entity}-${new Date().toISOString().slice(0, 10)}.${format}`,
+    retryOnUnauthorized,
+  );
 }
 
 // ===================== IMPORT =====================

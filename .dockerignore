@@ -5,6 +5,7 @@
 .cursor
 .agent
 .agents
+.demo
 **/node_modules
 **/.next
 **/dist
@@ -13,7 +14,6 @@
 **/.env
 **/.env.*
 config
-apps/backend
 apps/ml
 apps/mobile
 docs
@@ -21,6 +21,7 @@ plans
 *.log
 *.dump
 *.sql
+!apps/backend/prisma/migrations/**/*.sql
 *.pem
 *.key
 *-firebase-adminsdk-*.json

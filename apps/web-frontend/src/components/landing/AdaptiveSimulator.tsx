@@ -4,6 +4,43 @@ import React, { useState } from 'react';
 import { Sparkles, Brain, CheckCircle, XCircle, ArrowRight, Lightbulb } from 'lucide-react';
 import { SIMULATION_QUESTIONS } from '@/data/landing-content';
 
+type FsrsRating = 'again' | 'hard' | 'good' | 'easy';
+
+const FSRS_RATINGS: Record<
+  FsrsRating,
+  {
+    title: string;
+    buttonInterval: string;
+    resultInterval: string;
+    difficultyDelta: number;
+  }
+> = {
+  again: {
+    title: '1. Quên mất rồi',
+    buttonInterval: 'Ôn lại: ~10 phút nữa',
+    resultInterval: '~10 phút',
+    difficultyDelta: 1.2,
+  },
+  hard: {
+    title: '2. Hơi khó nhớ',
+    buttonInterval: 'Ôn lại: sau 1.5 ngày',
+    resultInterval: '1.5 ngày',
+    difficultyDelta: 0.5,
+  },
+  good: {
+    title: '3. Nhớ tốt',
+    buttonInterval: 'Ôn lại: sau 4.8 ngày',
+    resultInterval: '4.8 ngày',
+    difficultyDelta: -0.2,
+  },
+  easy: {
+    title: '4. Rất dễ nhớ',
+    buttonInterval: 'Ôn lại: sau 11.4 ngày',
+    resultInterval: '11.4 ngày',
+    difficultyDelta: -0.8,
+  },
+};
+
 export const AdaptiveSimulator: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'cat' | 'fsrs'>('cat');
 
@@ -16,11 +53,14 @@ export const AdaptiveSimulator: React.FC = () => {
   const [historyAnswers, setHistoryAnswers] = useState<boolean[]>([]);
 
   // FSRS simulation state
-  const [fsrsRating, setFsrsRating] = useState<'again' | 'hard' | 'good' | 'easy' | null>(null);
-  const [stabilityDays, setStabilityDays] = useState<number>(3.2);
+  const [fsrsRating, setFsrsRating] = useState<FsrsRating | null>(null);
+  const [nextReviewLabel, setNextReviewLabel] = useState<string>('3.2 ngày');
   const [difficultyScore, setDifficultyScore] = useState<number>(4.8);
 
   const currentQuestion = SIMULATION_QUESTIONS[questionIndex];
+  const currentQuestionNumber = isAnswerSubmitted
+    ? historyAnswers.length
+    : historyAnswers.length + 1;
 
   const handleSelectOption = (index: number): void => {
     if (isAnswerSubmitted) return;
@@ -58,26 +98,13 @@ export const AdaptiveSimulator: React.FC = () => {
     }
   };
 
-  const handleFsrsReview = (rating: 'again' | 'hard' | 'good' | 'easy'): void => {
+  const handleFsrsReview = (rating: FsrsRating): void => {
+    const config = FSRS_RATINGS[rating];
     setFsrsRating(rating);
-    switch (rating) {
-      case 'again':
-        setStabilityDays(0.2); // ~5 hours
-        setDifficultyScore((prev: number) => Math.min(10, prev + 1.2));
-        break;
-      case 'hard':
-        setStabilityDays(1.5);
-        setDifficultyScore((prev: number) => Math.min(10, prev + 0.5));
-        break;
-      case 'good':
-        setStabilityDays(4.8);
-        setDifficultyScore((prev: number) => Math.max(1, prev - 0.2));
-        break;
-      case 'easy':
-        setStabilityDays(11.4);
-        setDifficultyScore((prev: number) => Math.max(1, prev - 0.8));
-        break;
-    }
+    setNextReviewLabel(config.resultInterval);
+    setDifficultyScore((prev: number) =>
+      Math.min(10, Math.max(1, prev + config.difficultyDelta))
+    );
   };
 
   const getCefrBadge = (theta: number): string => {
@@ -161,7 +188,7 @@ export const AdaptiveSimulator: React.FC = () => {
                   </span>
                 </div>
                 <div className="text-xs font-medium text-slateDark-500">
-                  Câu hỏi {historyAnswers.length + 1}
+                  Câu hỏi {currentQuestionNumber} / 2
                 </div>
               </div>
 
@@ -349,8 +376,8 @@ export const AdaptiveSimulator: React.FC = () => {
                       : 'border-slateDark-200 bg-white hover:border-rose-300 text-slateDark-800'
                   }`}
                 >
-                  <div className="text-sm font-bold">1. Quên mất rồi</div>
-                  <div className="text-xs text-slateDark-500 mt-1">Ôn lại: ~10 phút nữa</div>
+                  <div className="text-sm font-bold">{FSRS_RATINGS.again.title}</div>
+                  <div className="text-xs text-slateDark-500 mt-1">{FSRS_RATINGS.again.buttonInterval}</div>
                 </button>
 
                 <button
@@ -362,8 +389,8 @@ export const AdaptiveSimulator: React.FC = () => {
                       : 'border-slateDark-200 bg-white hover:border-amber-300 text-slateDark-800'
                   }`}
                 >
-                  <div className="text-sm font-bold">2. Hơi khó nhớ</div>
-                  <div className="text-xs text-slateDark-500 mt-1">Ôn lại: sau 1.5 ngày</div>
+                  <div className="text-sm font-bold">{FSRS_RATINGS.hard.title}</div>
+                  <div className="text-xs text-slateDark-500 mt-1">{FSRS_RATINGS.hard.buttonInterval}</div>
                 </button>
 
                 <button
@@ -375,8 +402,8 @@ export const AdaptiveSimulator: React.FC = () => {
                       : 'border-slateDark-200 bg-white hover:border-brand-300 text-slateDark-800'
                   }`}
                 >
-                  <div className="text-sm font-bold">3. Nhớ tốt</div>
-                  <div className="text-xs text-slateDark-500 mt-1">Ôn lại: sau 4.8 ngày</div>
+                  <div className="text-sm font-bold">{FSRS_RATINGS.good.title}</div>
+                  <div className="text-xs text-slateDark-500 mt-1">{FSRS_RATINGS.good.buttonInterval}</div>
                 </button>
 
                 <button
@@ -388,8 +415,8 @@ export const AdaptiveSimulator: React.FC = () => {
                       : 'border-slateDark-200 bg-white hover:border-emerald-300 text-slateDark-800'
                   }`}
                 >
-                  <div className="text-sm font-bold">4. Rất dễ nhớ</div>
-                  <div className="text-xs text-slateDark-500 mt-1">Ôn lại: sau 11.4 ngày</div>
+                  <div className="text-sm font-bold">{FSRS_RATINGS.easy.title}</div>
+                  <div className="text-xs text-slateDark-500 mt-1">{FSRS_RATINGS.easy.buttonInterval}</div>
                 </button>
               </div>
             </div>
@@ -398,8 +425,8 @@ export const AdaptiveSimulator: React.FC = () => {
             <div className="mt-8 rounded-xl border border-slateDark-200 bg-white p-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
                 <div className="rounded-lg bg-slateDark-50 p-3">
-                  <div className="text-xs text-slateDark-500">Thời gian duy trì trí nhớ</div>
-                  <div className="text-xl font-bold text-brand-600 mt-1">{stabilityDays} ngày</div>
+                  <div className="text-xs text-slateDark-500">Lịch ôn lại tiếp theo</div>
+                  <div className="text-xl font-bold text-brand-600 mt-1">{nextReviewLabel}</div>
                 </div>
                 <div className="rounded-lg bg-slateDark-50 p-3">
                   <div className="text-xs text-slateDark-500">Mức độ khó của từ</div>

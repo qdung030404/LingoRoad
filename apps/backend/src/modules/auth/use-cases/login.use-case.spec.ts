@@ -68,6 +68,7 @@ describe('LoginUseCase', () => {
       provider: 'LOCAL',
       role: UserRole.LEARNER,
       status: UserStatus.ACTIVE,
+      tokenVersion: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
       profile: {
@@ -130,6 +131,7 @@ describe('LoginUseCase', () => {
       provider: 'LOCAL',
       role: UserRole.LEARNER,
       status: UserStatus.ACTIVE,
+      tokenVersion: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
       profile: null,
@@ -157,6 +159,7 @@ describe('LoginUseCase', () => {
       provider: 'LOCAL',
       role: UserRole.LEARNER,
       status: UserStatus.SUSPENDED,
+      tokenVersion: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
       profile: null,

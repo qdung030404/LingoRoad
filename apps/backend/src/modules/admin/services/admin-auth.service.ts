@@ -1,14 +1,30 @@
 import {
+  BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { createHash } from 'node:crypto';
 import { UserRole, UserStatus } from '@prisma/client';
+import { Request } from 'express';
+import { normalizeClientIp } from '../../../common/guards/client-ip-throttler.guard';
+import { JwtPayload } from '../../../common/interfaces/jwt-payload.interface';
+import { AssessmentCacheService } from '../../assessment/services/assessment-cache.service';
+import { FirebaseTokenService } from '../../auth/firebase/firebase-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PasswordService } from '../../security/password.service';
 import { TokenService } from '../../security/token.service';
-import { AdminLoginDto, AdminLogoutDto, AdminRefreshDto } from '../dto/admin-auth.dto';
+import {
+  AdminChangePasswordDto,
+  AdminLoginDto,
+  AdminLogoutDto,
+  AdminRefreshDto,
+} from '../dto/admin-auth.dto';
 
 export interface AdminUserView {
   id: string;
@@ -25,23 +41,128 @@ export interface AdminAuthResult {
   user: AdminUserView;
 }
 
+export interface AdminAuditActor {
+  userId: string;
+  email: string;
+}
+
+export type AdminAuditRequest = Request & {
+  user?: JwtPayload;
+  __auditActor?: AdminAuditActor;
+};
+
+interface LoginFailRecord {
+  count: number;
+  firstFailedAt: number;
+  lockedUntil?: number;
+}
+
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_WINDOW_SECONDS = 15 * 60;
+const LOCKOUT_DURATION_SECONDS = 15 * 60;
+
+export function buildAdminLoginFailKey(normalizedEmail: string): string {
+  const hash = createHash('sha256').update(normalizedEmail).digest('hex');
+  return `lingoroad:admin:login_fail:${hash}`;
+}
+
+function sanitizeSessionIp(ip?: string): string | undefined {
+  const normalized = normalizeClientIp(ip);
+  return normalized ? normalized.slice(0, 45) : undefined;
+}
+
 @Injectable()
 export class AdminAuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly passwordService: PasswordService,
     private readonly tokenService: TokenService,
+    @Optional() private readonly cacheService?: AssessmentCacheService,
+    @Optional() private readonly firebase?: FirebaseTokenService,
+    @Optional() private readonly jwtService?: JwtService,
   ) {}
+
+  private async assertNotLockedOut(normalizedEmail: string): Promise<void> {
+    if (!this.cacheService) return;
+    const key = buildAdminLoginFailKey(normalizedEmail);
+    const record = await this.cacheService.get<LoginFailRecord>(key);
+    const now = Date.now();
+    if (record?.lockedUntil && record.lockedUntil > now) {
+      const retryAfterSeconds = Math.max(
+        1,
+        Math.ceil((record.lockedUntil - now) / 1000),
+      );
+      throw new HttpException(
+        {
+          code: 'AUTH_ACCOUNT_LOCKED',
+          retryAfterSeconds,
+          message: `Tài khoản tạm thời bị khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau ${Math.ceil(retryAfterSeconds / 60)} phút.`,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  private async recordFailedLogin(normalizedEmail: string): Promise<void> {
+    if (!this.cacheService) return;
+    const key = buildAdminLoginFailKey(normalizedEmail);
+    const now = Date.now();
+    const windowMs = LOCKOUT_WINDOW_SECONDS * 1000;
+    const existing = await this.cacheService.get<LoginFailRecord>(key);
+
+    const nextCount =
+      existing && now - existing.firstFailedAt <= windowMs
+        ? existing.count + 1
+        : 1;
+    const firstFailedAt =
+      existing && now - existing.firstFailedAt <= windowMs
+        ? existing.firstFailedAt
+        : now;
+
+    if (nextCount >= MAX_FAILED_LOGIN_ATTEMPTS) {
+      await this.cacheService.set<LoginFailRecord>(
+        key,
+        {
+          count: nextCount,
+          firstFailedAt,
+          lockedUntil: now + LOCKOUT_DURATION_SECONDS * 1000,
+        },
+        LOCKOUT_DURATION_SECONDS,
+      );
+      return;
+    }
+
+    const remainingTtl = Math.max(
+      1,
+      Math.ceil((firstFailedAt + windowMs - now) / 1000),
+    );
+    await this.cacheService.set<LoginFailRecord>(
+      key,
+      {
+        count: nextCount,
+        firstFailedAt,
+      },
+      remainingTtl,
+    );
+  }
+
+  private async clearFailedLogins(normalizedEmail: string): Promise<void> {
+    if (!this.cacheService) return;
+    await this.cacheService.del(buildAdminLoginFailKey(normalizedEmail));
+  }
 
   async login(
     dto: AdminLoginDto,
     context?: { ipAddress?: string; deviceIdentifier?: string },
   ): Promise<AdminAuthResult> {
     const email = dto.email.trim().toLowerCase();
+    await this.assertNotLockedOut(email);
+
     const user = await this.prisma.user.findUnique({ where: { email } });
 
     if (!user || !user.passwordHash) {
       await this.passwordService.dummyVerify(dto.password);
+      await this.recordFailedLogin(email);
       throw new UnauthorizedException({
         code: 'AUTH_INVALID_CREDENTIALS',
         message: 'Email hoặc mật khẩu không chính xác.',
@@ -53,6 +174,7 @@ export class AdminAuthService {
       dto.password,
     );
     if (!isMatch) {
+      await this.recordFailedLogin(email);
       throw new UnauthorizedException({
         code: 'AUTH_INVALID_CREDENTIALS',
         message: 'Email hoặc mật khẩu không chính xác.',
@@ -77,10 +199,13 @@ export class AdminAuthService {
       });
     }
 
+    await this.clearFailedLogins(email);
+
     const tokens = await this.tokenService.generateTokenPair({
       id: user.id,
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion ?? 0,
     });
 
     await this.prisma.refreshSession.create({
@@ -88,7 +213,7 @@ export class AdminAuthService {
         userId: user.id,
         tokenHash: tokens.tokenHash,
         deviceIdentifier: context?.deviceIdentifier,
-        ipAddress: context?.ipAddress,
+        ipAddress: sanitizeSessionIp(context?.ipAddress),
         expiresAt: tokens.expiresAt,
         isRevoked: false,
       },
@@ -166,6 +291,7 @@ export class AdminAuthService {
       id: user.id,
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion ?? 0,
     });
 
     await this.prisma.$transaction(async (tx) => {
@@ -189,7 +315,7 @@ export class AdminAuthService {
           userId: user.id,
           tokenHash: tokens.tokenHash,
           deviceIdentifier: context?.deviceIdentifier,
-          ipAddress: context?.ipAddress,
+          ipAddress: sanitizeSessionIp(context?.ipAddress),
           expiresAt: tokens.expiresAt,
           isRevoked: false,
         },
@@ -210,12 +336,227 @@ export class AdminAuthService {
     };
   }
 
-  async logout(dto: AdminLogoutDto): Promise<void> {
+  async changePassword(
+    userId: string,
+    dto: AdminChangePasswordDto,
+    context?: { ipAddress?: string; deviceIdentifier?: string },
+  ): Promise<AdminAuthResult> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        avatarUrl: true,
+        passwordHash: true,
+        firebaseUid: true,
+        tokenVersion: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException({
+        code: 'ADMIN_USER_NOT_FOUND',
+        message: 'Không tìm thấy tài khoản quản trị.',
+      });
+    }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new ForbiddenException({
+        code:
+          user.status === UserStatus.DELETED
+            ? 'AUTH_USER_DELETED'
+            : 'AUTH_USER_SUSPENDED',
+        message: 'Tài khoản đã bị khóa hoặc ngừng hoạt động.',
+      });
+    }
+
+    if (user.role !== UserRole.ADMIN) {
+      throw new ForbiddenException({
+        code: 'AUTH_INSUFFICIENT_PERMISSIONS',
+        message: 'Tài khoản không có quyền Quản trị viên.',
+      });
+    }
+
+    if (!user.passwordHash) {
+      throw new UnauthorizedException({
+        code: 'AUTH_INVALID_CURRENT_PASSWORD',
+        message: 'Mật khẩu hiện tại không chính xác.',
+      });
+    }
+
+    const isCurrentValid = await this.passwordService.verify(
+      user.passwordHash,
+      dto.currentPassword,
+    );
+    if (!isCurrentValid) {
+      throw new UnauthorizedException({
+        code: 'AUTH_INVALID_CURRENT_PASSWORD',
+        message: 'Mật khẩu hiện tại không chính xác.',
+      });
+    }
+
+    if (dto.newPassword === dto.currentPassword) {
+      throw new BadRequestException({
+        code: 'AUTH_PASSWORD_UNCHANGED',
+        message: 'Mật khẩu mới phải khác mật khẩu hiện tại.',
+      });
+    }
+
+    const newPasswordHash = await this.passwordService.hash(dto.newPassword);
+
+    if (this.firebase?.enabled && user.firebaseUid) {
+      await this.firebase.resetPassword(user.firebaseUid, dto.newPassword);
+    }
+
+    const { updatedUser, tokens } = await this.prisma.$transaction(async (tx) => {
+      const savedUser = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          passwordHash: newPasswordHash,
+          tokenVersion: { increment: 1 },
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          avatarUrl: true,
+          tokenVersion: true,
+        },
+      });
+
+      await tx.refreshSession.updateMany({
+        where: { userId: user.id, isRevoked: false },
+        data: { isRevoked: true },
+      });
+
+      const nextTokens = await this.tokenService.generateTokenPair({
+        id: savedUser.id,
+        email: savedUser.email,
+        role: savedUser.role,
+        tokenVersion: savedUser.tokenVersion,
+      });
+
+      await tx.refreshSession.create({
+        data: {
+          userId: savedUser.id,
+          tokenHash: nextTokens.tokenHash,
+          deviceIdentifier: context?.deviceIdentifier,
+          ipAddress: sanitizeSessionIp(context?.ipAddress),
+          expiresAt: nextTokens.expiresAt,
+          isRevoked: false,
+        },
+      });
+
+      return { updatedUser: savedUser, tokens: nextTokens };
+    });
+
+    await this.clearFailedLogins(user.email.trim().toLowerCase());
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        status: updatedUser.status,
+        avatarUrl: updatedUser.avatarUrl,
+      },
+    };
+  }
+
+  async logoutAll(userId: string): Promise<{ revokedSessionsCount: number }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, firebaseUid: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException({
+        code: 'ADMIN_USER_NOT_FOUND',
+        message: 'Không tìm thấy tài khoản quản trị.',
+      });
+    }
+
+    const revokedSessionsCount = await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: { tokenVersion: { increment: 1 } },
+      });
+      const revoked = await tx.refreshSession.updateMany({
+        where: { userId: user.id, isRevoked: false },
+        data: { isRevoked: true },
+      });
+      return revoked.count;
+    });
+
+    if (this.firebase?.enabled && user.firebaseUid) {
+      await this.firebase.revoke(user.firebaseUid);
+    }
+
+    return { revokedSessionsCount };
+  }
+
+  async logout(dto: AdminLogoutDto, req?: AdminAuditRequest): Promise<void> {
     const tokenHash = this.tokenService.hashToken(dto.refreshToken);
+    const session = this.prisma.refreshSession.findUnique
+      ? await this.prisma.refreshSession.findUnique({
+          where: { tokenHash },
+          select: {
+            user: {
+              select: { id: true, email: true },
+            },
+          },
+        })
+      : null;
+
     await this.prisma.refreshSession.updateMany({
       where: { tokenHash, isRevoked: false },
       data: { isRevoked: true },
     });
+
+    if (!req) return;
+
+    if (session?.user?.id && session.user.email) {
+      req.__auditActor = {
+        userId: session.user.id,
+        email: session.user.email,
+      };
+      return;
+    }
+
+    if (req.user?.sub && req.user?.email) {
+      req.__auditActor = {
+        userId: req.user.sub,
+        email: req.user.email,
+      };
+      return;
+    }
+
+    const authHeader = req.headers?.authorization;
+    const bearerMatch =
+      typeof authHeader === 'string' ? /^Bearer (\S+)$/i.exec(authHeader) : null;
+    if (bearerMatch && bearerMatch[1].length <= 4096 && this.jwtService) {
+      try {
+        const payload = await this.jwtService.verifyAsync<JwtPayload>(
+          bearerMatch[1],
+        );
+        if (payload?.sub && payload?.email) {
+          req.__auditActor = {
+            userId: payload.sub,
+            email: payload.email,
+          };
+        }
+      } catch {
+        // Ignore invalid/expired token on public logout fallback
+      }
+    }
   }
 
   async me(userId: string): Promise<AdminUserView> {

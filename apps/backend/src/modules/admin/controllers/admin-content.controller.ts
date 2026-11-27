@@ -14,13 +14,16 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
+import { ClientIpThrottlerGuard } from '../../../common/guards/client-ip-throttler.guard';
 import { ApiResponse } from '../../../common/interfaces/api-response.interface';
 import { CanDoDescriptor } from '../../assessment/constants/cefr-can-do-matrix.constant';
 import {
   AdminAssessmentGroupsQueryDto,
   AdminAssessmentItemsQueryDto,
   AdminLessonsQueryDto,
+  BulkPublishDto,
   CreateAdminAssessmentItemDto,
   CreateAdminLessonDto,
   CreateAssessmentItemGroupDto,
@@ -96,6 +99,8 @@ export class AdminContentController {
   ) {}
 
   @Get('analytics/dashboard')
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   async getDashboard(
     @Query('timeframe') timeframe?: string,
     @Query('forceRefresh') forceRefresh?: string,
@@ -196,6 +201,20 @@ export class AdminContentController {
     return {
       success: true,
       message: 'Tạo bài tập mới thành công',
+      data,
+    };
+  }
+
+  @Patch('lessons/bulk-publish')
+  async bulkPublishLessons(
+    @Body() dto: BulkPublishDto,
+  ): Promise<ApiResponse<{ updatedCount: number; published: boolean; ids: string[] }>> {
+    const data = await this.adminContentService.bulkPublishLessons(dto);
+    return {
+      success: true,
+      message: dto.published
+        ? `Đã xuất bản ${data.updatedCount} bài tập`
+        : `Đã ngừng xuất bản ${data.updatedCount} bài tập`,
       data,
     };
   }
@@ -493,6 +512,20 @@ export class AdminContentController {
     };
   }
 
+  @Patch('speaking-prompts/bulk-publish')
+  async bulkPublishSpeakingPrompts(
+    @Body() dto: BulkPublishDto,
+  ): Promise<ApiResponse<{ updatedCount: number; published: boolean; ids: string[] }>> {
+    const data = await this.adminSpeakingService.bulkPublishPrompts(dto);
+    return {
+      success: true,
+      message: dto.published
+        ? `Đã xuất bản ${data.updatedCount} đề luyện nói`
+        : `Đã ngừng xuất bản ${data.updatedCount} đề luyện nói`,
+      data,
+    };
+  }
+
   @Patch('speaking-prompts/:id')
   async updateSpeakingPrompt(
     @Param('id', ParseUUIDPipe) id: string,
@@ -557,6 +590,8 @@ export class AdminContentController {
   }
 
   @Get('exports/:entity')
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async exportEntity(
     @Param('entity') entity: string,
     @Query('format') format: string | undefined,
@@ -570,12 +605,16 @@ export class AdminContentController {
       `attachment; filename="${result.filename}"`,
     );
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Export-Count', String(result.count));
+    res.setHeader('X-Export-Truncated', String(result.truncated));
     return result.body;
   }
 
   // ===================== BATCH IMPORT =====================
 
   @Post('imports/validate')
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async validateImport(
     @Body() dto: ContentImportRequestDto,
@@ -590,6 +629,8 @@ export class AdminContentController {
   }
 
   @Post('imports/apply')
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async applyImport(
     @Body() dto: ContentImportRequestDto,

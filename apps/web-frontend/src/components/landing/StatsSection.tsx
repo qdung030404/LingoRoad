@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import { StatItem } from '@/types/landing';
 import { STATS_DATA } from '@/data/landing-content';

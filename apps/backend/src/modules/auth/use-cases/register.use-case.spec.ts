@@ -75,6 +75,7 @@ describe('RegisterUseCase', () => {
       provider: 'LOCAL',
       role: UserRole.LEARNER,
       status: UserStatus.ACTIVE,
+      tokenVersion: 0,
       createdAt: new Date('2026-10-08T00:00:00Z'),
       updatedAt: new Date('2026-10-08T00:00:00Z'),
       profile: {
@@ -124,6 +125,7 @@ describe('RegisterUseCase', () => {
       provider: 'LOCAL',
       role: UserRole.LEARNER,
       status: UserStatus.ACTIVE,
+      tokenVersion: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
       profile: null,

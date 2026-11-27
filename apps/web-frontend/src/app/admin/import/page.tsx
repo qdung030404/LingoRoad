@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertCircle,
@@ -15,6 +15,11 @@ import {
   Tags,
 } from 'lucide-react';
 import { AdminShell } from '@/components/admin/AdminShell';
+import {
+  NOOP_ADMIN_TOAST,
+  useAdminToast,
+  type AdminToastApi,
+} from '@/components/admin/AdminToast';
 import { LegacyStatCard } from '@/components/admin/LegacyStatCard';
 import {
   applyAdminImport,
@@ -159,6 +164,64 @@ const SAMPLE_BUNDLE_ALL = JSON.stringify(
         published: true,
       },
     ],
+    grammarTopics: [
+      {
+        code: 'grammar.office_basics',
+        cefrLevel: 'A1',
+        isLeaf: false,
+        titleEn: 'Office Grammar Basics',
+        titleVi: 'Ngữ pháp công sở cơ bản',
+        summaryVi: 'Nhóm chủ điểm ngữ pháp nền tảng trong giao tiếp văn phòng.',
+        orderIndex: 1,
+        published: true,
+        formulas: [],
+        usageNotes: [],
+        examples: [],
+      },
+      {
+        code: 'grammar.office_basics.to_be_roles',
+        parentCode: 'grammar.office_basics',
+        cefrLevel: 'A1',
+        isLeaf: true,
+        titleEn: 'Verb To Be for Roles',
+        titleVi: 'Động từ To Be giới thiệu vai trò',
+        summaryVi: 'Dùng am / is / are để giới thiệu chức danh và phòng ban.',
+        orderIndex: 2,
+        published: true,
+        formulas: [
+          {
+            form: 'AFFIRMATIVE',
+            labelVi: 'Khẳng định',
+            structure: 'S + am / is / are + N / Adj',
+          },
+        ],
+        usageNotes: [
+          {
+            useCaseVi: 'Giới thiệu nghề nghiệp, vai trò và trạng thái tại văn phòng.',
+            signalWords: ['am', 'is', 'are'],
+          },
+        ],
+        examples: [
+          {
+            sentenceEn: 'Lan is the new marketing coordinator.',
+            translationVi: 'Lan là điều phối viên marketing mới.',
+            highlight: 'is',
+          },
+        ],
+      },
+    ],
+    assessmentGroups: [
+      {
+        id: '11111111-1111-4111-8111-111111111101',
+        skill: 'READING',
+        cefrLevel: 'A1',
+        partNumber: 1,
+        usageScope: 'MOCK_EXAM',
+        title: 'Reading Part 1 — Thông báo nội bộ',
+        passage:
+          'Welcome to Room 204. The weekly team briefing starts at 9:30 AM every Tuesday.',
+      },
+    ],
   },
   null,
   2,
@@ -230,6 +293,7 @@ const EXPORT_ENTITIES: Array<{ entity: AdminExportEntity; label: string }> = [
   { entity: 'units', label: 'Chương học (Units)' },
   { entity: 'lessons', label: 'Bài học (Lessons)' },
   { entity: 'items', label: 'Ngân hàng đề (Items)' },
+  { entity: 'assessment-groups', label: 'Nhóm câu hỏi (Groups)' },
   { entity: 'topics', label: 'Từ vựng (Topics & Words)' },
   { entity: 'speaking', label: 'Đề luyện nói (Speaking)' },
   { entity: 'grammar', label: 'Ngữ pháp (Grammar DAG)' },
@@ -244,9 +308,22 @@ const STEP_LABELS: Array<{ step: ImportStep; label: string }> = [
   { step: 4, label: 'Apply' },
 ];
 
+function AdminToastBridge({
+  toastRef,
+}: {
+  toastRef: React.MutableRefObject<AdminToastApi>;
+}): null {
+  const toast = useAdminToast();
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast, toastRef]);
+  return null;
+}
+
 export default function AdminImportPage(): React.ReactElement {
+  const toastRef = useRef<AdminToastApi>(NOOP_ADMIN_TOAST);
   const revision = useRef(0);
-  const validatedJson = useRef<string | null>(null);
+  const validatedSignature = useRef<string | null>(null);
   const applyInFlight = useRef(false);
   const [step, setStep] = useState<ImportStep>(1);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
@@ -269,7 +346,7 @@ export default function AdminImportPage(): React.ReactElement {
 
   const resetProgress = (): void => {
     revision.current += 1;
-    validatedJson.current = null;
+    validatedSignature.current = null;
     setValidating(false);
     setStep(1);
     setParsedBundle(null);
@@ -304,7 +381,8 @@ export default function AdminImportPage(): React.ReactElement {
 
   const handleValidate = async (): Promise<void> => {
     const requestRevision = ++revision.current;
-    validatedJson.current = null;
+    const signature = `${topicWordsMode}::${rawJson}`;
+    validatedSignature.current = null;
     setParsedBundle(null);
     setValidationResult(null);
     setStep(1);
@@ -317,13 +395,14 @@ export default function AdminImportPage(): React.ReactElement {
     try {
       parsed = JSON.parse(rawJson);
     } catch (err) {
-      setValidationResult(null);
-      setStep(1);
-      setSyntaxError(
+      const msg =
         err instanceof Error
           ? `Lỗi cú pháp JSON: ${err.message}`
-          : 'Không thể phân tích chuỗi JSON.',
-      );
+          : 'Không thể phân tích chuỗi JSON.';
+      setValidationResult(null);
+      setStep(1);
+      setSyntaxError(msg);
+      toastRef.current.error(msg);
       return;
     }
 
@@ -331,30 +410,41 @@ export default function AdminImportPage(): React.ReactElement {
     try {
       const result = await validateAdminImport(parsed, topicWordsMode);
       if (requestRevision !== revision.current) return;
-      validatedJson.current = result.isValid ? rawJson : null;
+      validatedSignature.current = result.isValid ? signature : null;
       setParsedBundle(parsed);
       setValidationResult(result);
       setStep(result.isValid ? 2 : 1);
+      if (result.isValid) {
+        toastRef.current.success(
+          `Kiểm tra hợp lệ: ${result.preview.totalRecords} bản ghi sẵn sàng nạp.`,
+        );
+      } else {
+        toastRef.current.error(
+          `Phát hiện ${result.errors.length} lỗi trong gói JSON.`,
+        );
+      }
     } catch (err) {
       if (requestRevision !== revision.current) return;
-      setValidationResult(null);
-      setStep(1);
-      setSyntaxError(
+      const msg =
         err instanceof Error
           ? err.message
-          : 'Không thể kiểm tra gói JSON với máy chủ.',
-      );
+          : 'Không thể kiểm tra gói JSON với máy chủ.';
+      setValidationResult(null);
+      setStep(1);
+      setSyntaxError(msg);
+      toastRef.current.error(msg);
     } finally {
       if (requestRevision === revision.current) setValidating(false);
     }
   };
 
   const handleApply = async (): Promise<void> => {
+    const currentSignature = `${topicWordsMode}::${rawJson}`;
     if (
       !parsedBundle ||
       !validationResult?.isValid ||
       !confirmedAtomic ||
-      validatedJson.current !== rawJson ||
+      validatedSignature.current !== currentSignature ||
       applyInFlight.current
     ) {
       return;
@@ -366,12 +456,16 @@ export default function AdminImportPage(): React.ReactElement {
       const res = await applyAdminImport(parsedBundle, topicWordsMode);
       setApplyResult(res);
       setStep(4);
+      toastRef.current.success(
+        `Import thành công ${res.preview.totalRecords} bản ghi!`,
+      );
     } catch (err) {
-      setApplyError(
+      const msg =
         err instanceof Error
           ? err.message
-          : 'Áp dụng gói JSON thất bại. Toàn bộ giao dịch đã được hoàn tác.',
-      );
+          : 'Áp dụng gói JSON thất bại. Toàn bộ giao dịch đã được hoàn tác.';
+      setApplyError(msg);
+      toastRef.current.error(msg);
     } finally {
       applyInFlight.current = false;
       setApplying(false);
@@ -386,8 +480,16 @@ export default function AdminImportPage(): React.ReactElement {
     setExportingKey(key);
     try {
       await downloadAdminExport(entity, format);
+      const label =
+        EXPORT_ENTITIES.find((item) => item.entity === entity)?.label ?? entity;
+      toastRef.current.success(
+        `Đã xuất dữ liệu ${label} (${format.toUpperCase()}).`,
+      );
     } catch (err) {
-      setSyntaxError(err instanceof Error ? err.message : 'Xuất dữ liệu thất bại.');
+      const msg =
+        err instanceof Error ? err.message : 'Xuất dữ liệu thất bại.';
+      setSyntaxError(msg);
+      toastRef.current.error(msg);
     } finally {
       setExportingKey(null);
     }
@@ -401,6 +503,8 @@ export default function AdminImportPage(): React.ReactElement {
     >
       {() => (
         <div className="space-y-6">
+          <AdminToastBridge toastRef={toastRef} />
+
           {/* Thanh 4 bước */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {STEP_LABELS.map((item) => {
@@ -507,10 +611,13 @@ export default function AdminImportPage(): React.ReactElement {
                 </span>
                 <select
                   value={topicWordsMode}
-                  onChange={(e) =>
-                    setTopicWordsMode(e.target.value as 'merge' | 'replace')
-                  }
-                  className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1 text-xs font-semibold text-slateDark-900"
+                  disabled={applying}
+                  onChange={(e) => {
+                    if (applying) return;
+                    setTopicWordsMode(e.target.value as 'merge' | 'replace');
+                    resetProgress();
+                  }}
+                  className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1 text-xs font-semibold text-slateDark-900 disabled:opacity-50"
                 >
                   <option value="merge">Merge (chỉ thêm từ mới, giữ từ cũ)</option>
                   <option value="replace">Replace (thay thế toàn bộ từ của chủ đề)</option>
