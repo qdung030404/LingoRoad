@@ -52,10 +52,10 @@ export class MlClientService {
       'ML_SERVICE_URL',
       'http://localhost:8001',
     );
-    this.internalToken = this.configService.get<string>(
-      'ML_INTERNAL_TOKEN',
-      '',
-    );
+    this.internalToken =
+      this.configService.get<string>('ML_INTERNAL_TOKEN')?.trim() ||
+      this.configService.get<string>('LINGOROAD_ML_INTERNAL_TOKEN')?.trim() ||
+      '';
     this.defaultTimeoutMs = this.configService.get<number>(
       'ML_SERVICE_TIMEOUT_MS',
       15000,
@@ -77,7 +77,7 @@ export class MlClientService {
     try {
       const res = await firstValueFrom(
         this.httpService.get(`${this.baseUrl}/health`, {
-          timeout: 3000,
+          timeout: 5000,
         }),
       );
       return res.status === 200 && res.data?.status === 'ok';
@@ -93,7 +93,7 @@ export class MlClientService {
     try {
       const res = await firstValueFrom(
         this.httpService.get(`${this.baseUrl}/ready`, {
-          timeout: 5000,
+          timeout: 10000,
           validateStatus: (s) => s === 200 || s === 503,
         }),
       );

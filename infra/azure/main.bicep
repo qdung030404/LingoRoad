@@ -21,6 +21,15 @@ param backendAppName string = 'lingoroad-api-${nameSuffix}'
 @description('Tên ứng dụng App Service cho Next.js Web Admin.')
 param frontendAppName string = 'lingoroad-admin-${nameSuffix}'
 
+@description('Tên Azure Container App cho dịch vụ ML FastAPI.')
+param mlAppName string = 'lingoroad-ml-${nameSuffix}'
+
+@description('Vùng triển khai cho ML Container App (phải khớp vùng của Container Apps Environment).')
+param mlLocation string = location
+
+@description('Resource ID của Container Apps Environment hiện hữu nếu muốn tái sử dụng (giới hạn 1 environment trên Azure for Students).')
+param existingContainerAppsEnvId string = ''
+
 @description('Tên Azure Storage Account cho media (chữ thường, chữ số, tối đa 24 ký tự).')
 @minLength(3)
 @maxLength(24)
@@ -34,6 +43,19 @@ param backendImageReference string = 'lingoroad6e9f265b.azurecr.io/lingoroad-bac
 
 @description('Định danh image Web Admin (ưu tiên truyền theo digest: repo@sha256:...).')
 param frontendImageReference string = 'lingoroad6e9f265b.azurecr.io/lingoroad-web-admin:bootstrap'
+
+@description('Định danh image ML Service (ưu tiên truyền theo digest: repo@sha256:...).')
+param mlImageReference string = 'lingoroad6e9f265b.azurecr.io/lingoroad-ml:bootstrap'
+
+@description('Số replica tối thiểu cho ML Container App (1 để giữ ấm không cold-start).')
+@minValue(0)
+@maxValue(2)
+param mlMinReplicas int = 1
+
+@description('Số replica tối đa cho ML Container App (khóa trần 1 để kiểm soát chi phí).')
+@minValue(1)
+@maxValue(2)
+param mlMaxReplicas int = 1
 
 @description('Mã phiên bản/SHA hiển thị trên endpoint /health.')
 param appVersion string = 'bootstrap'
@@ -58,12 +80,153 @@ param firebaseClientEmail string = ''
 @description('Firebase Private Key (truyền khi cần bảo toàn hoặc cập nhật bí mật ngay trong triển khai).')
 param firebasePrivateKey string = ''
 
+@secure()
+@description('Token xác thực nội bộ Backend <-> ML (>= 32 ký tự ở production).')
+param mlInternalToken string = ''
+
+@secure()
+@description('Azure Speech Key cho chấm phát âm Speaking (lingoroad-speech).')
+param azureSpeechKey string = ''
+
+@description('Vùng Azure Speech (ví dụ: eastasia).')
+param azureSpeechRegion string = 'eastasia'
+
+@secure()
+@description('Azure OpenAI API Key cho dịch vụ LLM & Speaking Content.')
+param azureOpenAiApiKey string = ''
+
+@description('Azure OpenAI Endpoint (ví dụ: https://hunganroiy123-5448-resource.cognitiveservices.azure.com/).')
+param azureOpenAiEndpoint string = ''
+
+@description('Tên deployment Azure OpenAI (ví dụ: gpt-5.4-mini).')
+param azureOpenAiDeploymentName string = 'gpt-5.4-mini'
+
+@description('Phiên bản API Azure OpenAI.')
+param azureOpenAiApiVersion string = '2025-01-01-preview'
+
+@description('Tên model LLM hiển thị và truyền cho các tác vụ chat/AWE/explain.')
+param llmModelVersion string = 'gpt-5.4-mini'
+
+@description('Tên model chấm nội dung Speaking Content.')
+param speakingContentModel string = 'gpt-5.4-mini'
+
+@secure()
+@description('OpenAI API Key dự phòng (tùy chọn nếu không dùng Azure OpenAI).')
+param openaiApiKey string = ''
+
+@secure()
+@description('Gemini API Key dự phòng (tùy chọn nếu không dùng Azure OpenAI).')
+param geminiApiKey string = ''
+
 var acrLoginServer = '${acrName}.azurecr.io'
 var backendHttpsUrl = 'https://${backendAppName}.azurewebsites.net'
 var frontendHttpsUrl = 'https://${frontendAppName}.azurewebsites.net'
+var mlHttpsUrl = 'https://${mlContainerApp.properties.configuration.ingress.fqdn}'
 var storageBlobDataContributorRoleDefinitionId = subscriptionResourceId(
   'Microsoft.Authorization/roleDefinitions',
   'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+)
+
+var mlSecrets = concat(
+  empty(mlInternalToken) ? [] : [
+    {
+      name: 'ml-internal-token'
+      value: mlInternalToken
+    }
+  ],
+  empty(azureSpeechKey) ? [] : [
+    {
+      name: 'azure-speech-key'
+      value: azureSpeechKey
+    }
+  ],
+  empty(azureOpenAiApiKey) ? [] : [
+    {
+      name: 'azure-openai-api-key'
+      value: azureOpenAiApiKey
+    }
+  ],
+  empty(openaiApiKey) ? [] : [
+    {
+      name: 'openai-api-key'
+      value: openaiApiKey
+    }
+  ],
+  empty(geminiApiKey) ? [] : [
+    {
+      name: 'gemini-api-key'
+      value: geminiApiKey
+    }
+  ]
+)
+
+var mlEnvVars = concat(
+  [
+    {
+      name: 'LINGOROAD_ENVIRONMENT'
+      value: 'production'
+    }
+    {
+      name: 'LINGOROAD_ML_REQUIRED_MODELS'
+      value: 'cat'
+    }
+    {
+      name: 'AZURE_SPEECH_REGION'
+      value: azureSpeechRegion
+    }
+    {
+      name: 'AZURE_OPENAI_DEPLOYMENT_NAME'
+      value: azureOpenAiDeploymentName
+    }
+    {
+      name: 'AZURE_OPENAI_API_VERSION'
+      value: azureOpenAiApiVersion
+    }
+    {
+      name: 'LINGOROAD_LLM_MODEL_VERSION'
+      value: llmModelVersion
+    }
+    {
+      name: 'SPEAKING_CONTENT_MODEL'
+      value: speakingContentModel
+    }
+  ],
+  empty(azureOpenAiEndpoint) ? [] : [
+    {
+      name: 'AZURE_OPENAI_ENDPOINT'
+      value: azureOpenAiEndpoint
+    }
+  ],
+  empty(mlInternalToken) ? [] : [
+    {
+      name: 'LINGOROAD_ML_INTERNAL_TOKEN'
+      secretRef: 'ml-internal-token'
+    }
+  ],
+  empty(azureSpeechKey) ? [] : [
+    {
+      name: 'AZURE_SPEECH_KEY'
+      secretRef: 'azure-speech-key'
+    }
+  ],
+  empty(azureOpenAiApiKey) ? [] : [
+    {
+      name: 'AZURE_OPENAI_API_KEY'
+      secretRef: 'azure-openai-api-key'
+    }
+  ],
+  empty(openaiApiKey) ? [] : [
+    {
+      name: 'OPENAI_API_KEY'
+      secretRef: 'openai-api-key'
+    }
+  ],
+  empty(geminiApiKey) ? [] : [
+    {
+      name: 'GEMINI_API_KEY'
+      secretRef: 'gemini-api-key'
+    }
+  ]
 )
 
 var backendBaseAppSettings = [
@@ -112,8 +275,36 @@ var backendBaseAppSettings = [
     value: 'firebase'
   }
   {
+    name: 'ML_SERVICE_URL'
+    value: mlHttpsUrl
+  }
+  {
+    name: 'ML_SERVICE_TIMEOUT_MS'
+    value: '25000'
+  }
+  {
     name: 'SPEAKING_ENABLED'
-    value: 'false'
+    value: 'true'
+  }
+  {
+    name: 'SPEAKING_SCORING_PROFILE'
+    value: 'read-aloud-v2'
+  }
+  {
+    name: 'SPEAKING_READ_ALOUD_ENABLED'
+    value: 'true'
+  }
+  {
+    name: 'SPEAKING_GAME_ENABLED'
+    value: 'true'
+  }
+  {
+    name: 'SPEAKING_TOPIC_ENABLED'
+    value: 'true'
+  }
+  {
+    name: 'SPEAKING_PICTURE_ENABLED'
+    value: 'true'
   }
   {
     name: 'VOICE_LIVE_ENABLED'
@@ -175,6 +366,12 @@ var backendSecretAppSettings = concat(
       name: 'FIREBASE_PRIVATE_KEY'
       value: firebasePrivateKey
     }
+  ],
+  empty(mlInternalToken) ? [] : [
+    {
+      name: 'ML_INTERNAL_TOKEN'
+      value: mlInternalToken
+    }
   ]
 )
 
@@ -213,6 +410,136 @@ resource mediaContainer 'Microsoft.Storage/storageAccounts/blobServices/containe
   name: mediaContainerName
   properties: {
     publicAccess: 'None'
+  }
+}
+
+// =============================================================
+// Azure Container Apps cho ML Service (Consumption Plan, cô lập RAM khỏi B1)
+// =============================================================
+resource mlIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-lingoroad-ml-${nameSuffix}'
+  location: mlLocation
+}
+
+module mlAcrPullRoleAssignment './acr-pull-role.bicep' = {
+  name: 'assign-acrpull-ml-${nameSuffix}'
+  scope: resourceGroup(acrResourceGroupName)
+  params: {
+    acrName: acrName
+    mlPrincipalId: mlIdentity.properties.principalId
+  }
+}
+
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = if (empty(existingContainerAppsEnvId)) {
+  name: 'log-lingoroad-demo-${nameSuffix}'
+  location: mlLocation
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+    workspaceCapping: {
+      dailyQuotaGb: json('0.2')
+    }
+  }
+}
+
+resource containerAppsEnv 'Microsoft.App/managedEnvironments@2024-03-01' = if (empty(existingContainerAppsEnvId)) {
+  name: 'cae-lingoroad-demo-${nameSuffix}'
+  location: mlLocation
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        #disable-next-line BCP318
+        customerId: logAnalytics.properties.customerId
+        #disable-next-line BCP422
+        sharedKey: logAnalytics.listKeys().primarySharedKey
+      }
+    }
+  }
+}
+
+resource mlContainerApp 'Microsoft.App/containerApps@2024-03-01' = {
+  name: mlAppName
+  location: mlLocation
+  dependsOn: [
+    mlAcrPullRoleAssignment
+  ]
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${mlIdentity.id}': {}
+    }
+  }
+  properties: {
+    managedEnvironmentId: empty(existingContainerAppsEnvId) ? containerAppsEnv.id : existingContainerAppsEnvId
+    configuration: {
+      activeRevisionsMode: 'Single'
+      ingress: {
+        external: true
+        targetPort: 8001
+        transport: 'auto'
+        allowInsecure: false
+      }
+      registries: [
+        {
+          server: acrLoginServer
+          identity: mlIdentity.id
+        }
+      ]
+      secrets: mlSecrets
+    }
+    template: {
+      containers: [
+        {
+          name: 'lingoroad-ml'
+          image: mlImageReference
+          resources: {
+            cpu: json('1.0')
+            memory: '2.0Gi'
+          }
+          env: mlEnvVars
+          probes: [
+            {
+              type: 'Startup'
+              httpGet: {
+                path: '/health'
+                port: 8001
+              }
+              initialDelaySeconds: 5
+              periodSeconds: 5
+              timeoutSeconds: 5
+              failureThreshold: 24
+            }
+            {
+              type: 'Liveness'
+              httpGet: {
+                path: '/health'
+                port: 8001
+              }
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 3
+            }
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/health'
+                port: 8001
+              }
+              periodSeconds: 15
+              timeoutSeconds: 5
+              failureThreshold: 3
+            }
+          ]
+        }
+      ]
+      scale: {
+        minReplicas: mlMinReplicas
+        maxReplicas: mlMaxReplicas
+      }
+    }
   }
 }
 
@@ -419,6 +746,8 @@ resource backendStorageBlobContributor 'Microsoft.Authorization/roleAssignments@
 output deterministicSuffix string = nameSuffix
 output appServicePlanName string = appServicePlan.name
 output storageAccountName string = storageAccount.name
+output mlAppName string = mlContainerApp.name
+output mlHttpsUrl string = mlHttpsUrl
 output backendAppName string = backendApp.name
 output backendHttpsUrl string = backendHttpsUrl
 output backendPrincipalId string = backendApp.identity.principalId

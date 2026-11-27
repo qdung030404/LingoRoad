@@ -86,8 +86,13 @@ def evaluate(topic, hints, transcript, duration, *, conversation=None, visual_co
             **({"conversation": conversation} if conversation is not None else {}),
             **({"visualContext": visual_context} if visual_context else {}),
         }
+        token_limit_param = (
+            {"max_completion_tokens": 4096}
+            if re.match(r"^(gpt-5|o1|o3|o4)", model.lower())
+            else {"max_tokens": 4096}
+        )
         response = client.with_options(timeout=25, max_retries=0).chat.completions.create(
-            model=model, temperature=0, max_tokens=4096,
+            model=model, temperature=0, **token_limit_param,
             response_format={"type": "json_object"},
             messages=[{"role": "system", "content": _system_prompt(conversation=conversation, visual_context=visual_context)},
                       {"role": "user", "content": json.dumps(payload)}])

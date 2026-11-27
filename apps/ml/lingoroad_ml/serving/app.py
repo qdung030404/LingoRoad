@@ -23,6 +23,17 @@ def _required_models() -> set[str]:
     return {value.strip().lower() for value in raw.split(",") if value.strip()}
 
 
+def _llm_configured() -> bool:
+    return bool(
+        os.environ.get("OPENAI_API_KEY")
+        or os.environ.get("GEMINI_API_KEY")
+        or (
+            os.environ.get("AZURE_OPENAI_API_KEY")
+            and os.environ.get("AZURE_OPENAI_ENDPOINT")
+        )
+    )
+
+
 def _production_config_is_valid() -> None:
     environment = os.environ.get("LINGOROAD_ENVIRONMENT", "development").lower()
     token = os.environ.get("LINGOROAD_ML_INTERNAL_TOKEN", "")
@@ -109,9 +120,10 @@ def ready():
         topic_sdk = importlib.util.find_spec("azure.cognitiveservices.speech") is not None
     except ModuleNotFoundError:
         topic_sdk = False
+    llm_ready = _llm_configured()
     components = {
         "cat": "ready",
-        "llm": "ready" if (os.environ.get("OPENAI_API_KEY") or os.environ.get("GEMINI_API_KEY")) else "missing_config",
+        "llm": "ready" if llm_ready else "missing_config",
         "rag": "ready" if rag_index.exists() else "missing_artifact",
         "speech": (
             "ready"
@@ -120,8 +132,7 @@ def ready():
         ),
         "speech_azure": azure.readiness(),
         "speech_topic": "ready" if topic_sdk and azure.readiness() == "ready" else "missing_config",
-        "speaking_content": "ready" if os.environ.get("SPEAKING_CONTENT_MODEL") and
-            (os.environ.get("GEMINI_API_KEY") or os.environ.get("OPENAI_API_KEY")) else "missing_config",
+        "speaking_content": "ready" if os.environ.get("SPEAKING_CONTENT_MODEL") and llm_ready else "missing_config",
         "kt": "ready" if kt_checkpoint.exists() else "missing_artifact",
     }
     acceptable = {"ready", "cold"}

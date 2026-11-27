@@ -28,6 +28,10 @@ RUN --mount=type=bind,from=wheels,source=/wheels,target=/wheels \
     && chown -R lingoroad:lingoroad /opt/nltk_data
 COPY --chown=lingoroad:lingoroad lingoroad_ml ./lingoroad_ml
 COPY --chown=lingoroad:lingoroad models ./models
+COPY --chown=lingoroad:lingoroad checkpoints ./checkpoints
+COPY --chown=lingoroad:lingoroad data ./data
 USER 10001:10001
 EXPOSE 8001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
 CMD ["uvicorn", "lingoroad_ml.serving.app:app", "--host", "0.0.0.0", "--port", "8001", "--proxy-headers", "--no-server-header"]

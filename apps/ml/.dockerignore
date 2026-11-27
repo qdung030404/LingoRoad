@@ -6,8 +6,14 @@ temp
 tests
 research
 reports
-checkpoints
-data
-*.pt
+checkpoints/*
+!checkpoints/saint_plus.pt
+data/*
+!data/items.json
+!data/skills.json
+!data/ednet/
+data/ednet/*
+!data/ednet/meta.json
+!data/ednet/q_map.json
 *.npz
 .env*

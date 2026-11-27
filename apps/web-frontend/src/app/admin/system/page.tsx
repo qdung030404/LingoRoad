@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Copy,
   Cpu,
   Database,
   HardDrive,
@@ -24,6 +25,7 @@ import {
   type AdminToastApi,
 } from '@/components/admin/AdminToast';
 import { getAdminSystemReadiness } from '@/lib/admin-api';
+import { formatAppVersion } from '@/lib/admin-validation';
 import type { AdminSystemReadinessView, SpeakingMode } from '@/types/admin';
 
 const CANONICAL_ML_SUBSYSTEMS: ReadonlyArray<{
@@ -303,6 +305,17 @@ export default function AdminSystemReadinessPage(): React.ReactElement {
         (key) => !CANONICAL_ML_SUBSYSTEMS.some((sub) => sub.key === key),
       )
     : [];
+  const versionInfo = data ? formatAppVersion(data.appVersion) : null;
+
+  const handleCopyVersion = useCallback(async (): Promise<void> => {
+    if (!versionInfo) return;
+    try {
+      await navigator.clipboard.writeText(versionInfo.fullText);
+      toastRef.current.success('Đã sao chép mã phiên bản Backend.');
+    } catch {
+      toastRef.current.error('Không thể sao chép mã phiên bản.');
+    }
+  }, [versionInfo]);
 
   return (
     <AdminShell
@@ -355,8 +368,11 @@ export default function AdminSystemReadinessPage(): React.ReactElement {
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-slateDark-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-slateDark-800">
-                    v{data.appVersion}
+                  <span
+                    title={versionInfo?.fullText}
+                    className="max-w-[180px] truncate rounded-full bg-slateDark-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-slateDark-800"
+                  >
+                    {versionInfo?.pillText ?? `v${data.appVersion}`}
                   </span>
                   <span className="rounded-full bg-brand-50 px-2.5 py-1 font-mono text-[11px] font-semibold text-brand-800">
                     Auth: {data.authProvider}
@@ -555,13 +571,27 @@ export default function AdminSystemReadinessPage(): React.ReactElement {
                     </p>
                   </div>
 
-                  <div className="rounded-xl border border-slateDark-100 bg-slateDark-25 p-3.5">
+                  <div className="min-w-0 rounded-xl border border-slateDark-100 bg-slateDark-25 p-3.5">
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-slateDark-600">
                       Phiên bản Backend
                     </p>
-                    <p className="mt-1 font-mono text-lg font-extrabold text-slateDark-900">
-                      {data.appVersion}
-                    </p>
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p
+                        title={versionInfo?.fullText ?? data.appVersion}
+                        className="min-w-0 truncate font-mono text-lg font-extrabold text-slateDark-900"
+                      >
+                        {versionInfo?.shortText ?? data.appVersion}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void handleCopyVersion()}
+                        title={`Sao chép mã đầy đủ: ${versionInfo?.fullText ?? data.appVersion}`}
+                        aria-label="Sao chép mã phiên bản Backend"
+                        className="shrink-0 rounded-lg border border-slateDark-200 bg-white p-1.5 text-slateDark-600 transition hover:border-brand-300 hover:text-brand-700"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="rounded-xl border border-slateDark-100 bg-slateDark-25 p-3.5">

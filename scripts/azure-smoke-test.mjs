@@ -17,6 +17,7 @@ function parseArgs(argv) {
   const args = {
     backendUrl: process.env.BACKEND_URL || '',
     frontendUrl: process.env.FRONTEND_URL || '',
+    mlUrl: process.env.ML_URL || '',
     expectedVersion: process.env.EXPECTED_VERSION || '',
   };
 
@@ -26,6 +27,8 @@ function parseArgs(argv) {
       args.backendUrl = argv[++i];
     } else if (token === '--frontend-url' && argv[i + 1]) {
       args.frontendUrl = argv[++i];
+    } else if (token === '--ml-url' && argv[i + 1]) {
+      args.mlUrl = argv[++i];
     } else if (token === '--expected-version' && argv[i + 1]) {
       args.expectedVersion = argv[++i];
     }
@@ -33,6 +36,7 @@ function parseArgs(argv) {
 
   args.backendUrl = args.backendUrl.trim().replace(/\/+$/, '');
   args.frontendUrl = args.frontendUrl.trim().replace(/\/+$/, '');
+  args.mlUrl = args.mlUrl.trim().replace(/\/+$/, '');
   return args;
 }
 
@@ -56,7 +60,7 @@ async function fetchWithRetry(url, options = {}, retries = 12, delayMs = 5000) {
 }
 
 async function main() {
-  const { backendUrl, frontendUrl, expectedVersion } = parseArgs(process.argv);
+  const { backendUrl, frontendUrl, mlUrl, expectedVersion } = parseArgs(process.argv);
   assert.ok(backendUrl, 'Thiếu --backend-url hoặc biến môi trường BACKEND_URL.');
   assert.ok(frontendUrl, 'Thiếu --frontend-url hoặc biến môi trường FRONTEND_URL.');
 
@@ -64,6 +68,7 @@ async function main() {
     checkedAt: new Date().toISOString(),
     backendUrl,
     frontendUrl,
+    mlUrl: mlUrl || null,
     expectedVersion: expectedVersion || null,
     checks: [],
   };
@@ -267,6 +272,45 @@ async function main() {
   const oversizedBody = await oversizedRes.json();
   assert.equal(oversizedBody?.error?.code, 'REQUEST_BODY_TOO_LARGE');
   report.checks.push({ name: 'backend_payload_5mb_limit', status: 'passed' });
+
+  // 7. Kiểm tra ML Service (/health, /ready và chặn /cat/select không có x-internal-token) nếu có --ml-url
+  if (mlUrl) {
+    const mlHealthRes = await fetchWithRetry(`${mlUrl}/health`, {}, 12, 5000);
+    assert.equal(
+      mlHealthRes.status,
+      200,
+      `ML /health phải trả 200, nhận được ${mlHealthRes.status}`,
+    );
+    const mlHealthBody = await mlHealthRes.json();
+    assert.equal(mlHealthBody?.status, 'ok');
+
+    const mlReadyRes = await fetchWithRetry(`${mlUrl}/ready`, {}, 6, 3000);
+    assert.ok(
+      mlReadyRes.status === 200 || mlReadyRes.status === 503,
+      `ML /ready phải trả 200 hoặc 503, nhận được ${mlReadyRes.status}`,
+    );
+    const mlReadyBody = await mlReadyRes.json();
+    assert.equal(mlReadyBody?.components?.cat, 'ready');
+
+    const mlUnauthRes = await fetch(`${mlUrl}/cat/select`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ history: [], candidates: [] }),
+    });
+    assert.equal(
+      mlUnauthRes.status,
+      401,
+      `ML /cat/select không có x-internal-token phải trả 401, nhận được ${mlUnauthRes.status}`,
+    );
+
+    report.checks.push({
+      name: 'ml_service_readiness_and_auth',
+      status: 'passed',
+      httpStatus: mlReadyRes.status,
+      mlStatus: mlReadyBody?.status ?? null,
+      components: mlReadyBody?.components ?? {},
+    });
+  }
 
   console.log(JSON.stringify(report, null, 2));
 }

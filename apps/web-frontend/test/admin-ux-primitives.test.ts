@@ -25,6 +25,7 @@ import {
   canDismissConfirmDialog,
   getConfirmDialogToneConfig,
 } from '../src/components/admin/ConfirmDialog';
+import { formatAppVersion } from '../src/lib/admin-validation';
 
 function loadClientModule(file: string, mocks: Record<string, unknown>) {
   const filename = resolve(__dirname, '../src', file);
@@ -640,5 +641,51 @@ describe('ConfirmDialog helpers & modal behavior', () => {
         (globalThis as Record<string, unknown>).window = origWindow;
       }
     }
+  });
+});
+
+describe('formatAppVersion helper (/admin/system SHA overflow fix)', () => {
+  test('shortens 40-char and 12-char commit SHAs cleanly while preserving fullText', () => {
+    const sha40 = '42bf8cc2573be3e7e81abe70ad2c7acd50a0e63d';
+    assert.deepEqual(formatAppVersion(sha40), {
+      shortText: '42bf8cc2',
+      pillText: '#42bf8cc2',
+      fullText: sha40,
+      isCommitSha: true,
+    });
+
+    assert.deepEqual(formatAppVersion('abcdef123456'), {
+      shortText: 'abcdef12',
+      pillText: '#abcdef12',
+      fullText: 'abcdef123456',
+      isCommitSha: true,
+    });
+  });
+
+  test('preserves semver, prefixed versions, bootstrap, and empty fallbacks', () => {
+    assert.deepEqual(formatAppVersion('1.0.0'), {
+      shortText: '1.0.0',
+      pillText: 'v1.0.0',
+      fullText: '1.0.0',
+      isCommitSha: false,
+    });
+    assert.deepEqual(formatAppVersion('v2.3.1'), {
+      shortText: 'v2.3.1',
+      pillText: 'v2.3.1',
+      fullText: 'v2.3.1',
+      isCommitSha: false,
+    });
+    assert.deepEqual(formatAppVersion('bootstrap'), {
+      shortText: 'bootstrap',
+      pillText: 'vbootstrap',
+      fullText: 'bootstrap',
+      isCommitSha: false,
+    });
+    assert.deepEqual(formatAppVersion(''), {
+      shortText: 'unknown',
+      pillText: 'vunknown',
+      fullText: 'unknown',
+      isCommitSha: false,
+    });
   });
 });

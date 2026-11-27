@@ -288,3 +288,36 @@ def test_llm_reading_explain_timeout_raises_504(monkeypatch):
     with pytest.raises(HTTPException) as excinfo:
         llm_routes.llm_reading_explain(req)
     assert excinfo.value.status_code == 504
+
+
+def test_ready_recognizes_azure_openai_for_llm_and_speaking_content(monkeypatch):
+    import json
+    from lingoroad_ml.serving import app as serving_app
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "azure-ready-key")
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://mock-openai.cognitiveservices.azure.com/")
+    monkeypatch.setenv("SPEAKING_CONTENT_MODEL", "gpt-4o-mini")
+
+    resp = serving_app.ready()
+    body = json.loads(resp.body.decode("utf-8"))
+    assert resp.status_code == 200
+    assert body["components"]["llm"] == "ready"
+    assert body["components"]["speaking_content"] == "ready"
+
+
+def test_rag_embedding_client_uses_azure_openai_when_configured(monkeypatch):
+    from lingoroad_ml.llm import rag
+
+    rag._embedding_client.cache_clear()
+    monkeypatch.delenv("EMBEDDING_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "azure-embed-key")
+    monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://mock-embed.cognitiveservices.azure.com/")
+
+    client = rag._embedding_client()
+    assert client.api_key == "azure-embed-key"
+    assert "mock-embed.cognitiveservices.azure.com" in str(client.base_url)
+    rag._embedding_client.cache_clear()
