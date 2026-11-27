@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  IsArray,
   IsBoolean,
   IsEnum,
   IsIn,
@@ -21,6 +22,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class AdminLessonsQueryDto {
@@ -81,6 +83,37 @@ export class CreateLearningUnitDto {
   description!: string;
 }
 
+export class UpdateLearningUnitDto {
+  @IsOptional()
+  @IsString()
+  @Matches(/^[a-z0-9-]+$/, {
+    message: 'Mã chương chỉ được chứa chữ thường, số và dấu gạch ngang.',
+  })
+  @MaxLength(100)
+  code?: string;
+
+  @IsOptional()
+  @IsEnum(CefrLevel)
+  cefrLevel?: CefrLevel;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  orderIndex?: number;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1, { message: 'Tiêu đề chương không được để trống.' })
+  @MaxLength(200)
+  title?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1, { message: 'Mô tả chương không được để trống.' })
+  description?: string;
+}
+
 export class CreateAdminLessonDto {
   @IsString()
   @Matches(/^[a-z0-9-]+$/, {
@@ -118,8 +151,14 @@ export class CreateAdminLessonDto {
   published?: boolean;
 
   @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
   @IsUUID()
   unitId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsUUID()
+  grammarTopicId?: string | null;
 
   @IsObject({ message: 'Nội dung bài học phải là đối tượng JSON hợp lệ.' })
   content!: Record<string, unknown>;
@@ -167,8 +206,14 @@ export class UpdateAdminLessonDto {
   published?: boolean;
 
   @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
   @IsUUID()
   unitId?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsUUID()
+  grammarTopicId?: string | null;
 
   @IsOptional()
   @IsObject({ message: 'Nội dung bài học phải là đối tượng JSON hợp lệ.' })
@@ -209,9 +254,18 @@ export class AdminAssessmentItemsQueryDto {
   @IsOptional()
   @IsEnum(ItemType)
   type?: ItemType;
+
+  @IsOptional()
+  @IsUUID()
+  groupId?: string;
 }
 
 export class CreateAdminAssessmentItemDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  externalId?: string;
+
   @IsEnum(AssessmentSkill)
   skill!: AssessmentSkill;
 
@@ -230,6 +284,17 @@ export class CreateAdminAssessmentItemDto {
   @IsOptional()
   @IsEnum(ItemUsageScope)
   usageScope?: ItemUsageScope;
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsUUID()
+  groupId?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  itemOrder?: number;
 
   @IsOptional()
   @IsString()
@@ -256,6 +321,11 @@ export class CreateAdminAssessmentItemDto {
   audioUrl?: string;
 
   @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsObject()
+  rubricCriteria?: Record<string, unknown> | null;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   irtA?: number;
@@ -272,6 +342,12 @@ export class CreateAdminAssessmentItemDto {
 }
 
 export class UpdateAdminAssessmentItemDto {
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsString()
+  @MaxLength(100)
+  externalId?: string | null;
+
   @IsOptional()
   @IsEnum(AssessmentSkill)
   skill?: AssessmentSkill;
@@ -293,6 +369,17 @@ export class UpdateAdminAssessmentItemDto {
   @IsOptional()
   @IsEnum(ItemUsageScope)
   usageScope?: ItemUsageScope;
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsUUID()
+  groupId?: string | null;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  itemOrder?: number;
 
   @IsOptional()
   @IsString()
@@ -320,6 +407,11 @@ export class UpdateAdminAssessmentItemDto {
   audioUrl?: string;
 
   @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsObject()
+  rubricCriteria?: Record<string, unknown> | null;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   irtA?: number;
@@ -333,4 +425,125 @@ export class UpdateAdminAssessmentItemDto {
   @Type(() => Number)
   @IsNumber()
   irtC?: number;
+}
+
+export class AdminAssessmentGroupsQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(AssessmentSkill)
+  skill?: AssessmentSkill;
+
+  @IsOptional()
+  @IsEnum(CefrLevel)
+  cefrLevel?: CefrLevel;
+
+  @IsOptional()
+  @IsEnum(ItemUsageScope)
+  usageScope?: ItemUsageScope;
+}
+
+export class CreateAssessmentItemGroupDto {
+  @IsEnum(AssessmentSkill)
+  skill!: AssessmentSkill;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  title?: string;
+
+  @IsEnum(CefrLevel)
+  cefrLevel!: CefrLevel;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  partNumber!: number;
+
+  @IsOptional()
+  @IsString()
+  passage?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  audioUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  transcript?: string;
+
+  @IsOptional()
+  @IsEnum(ItemUsageScope)
+  usageScope?: ItemUsageScope;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  itemIds?: string[];
+}
+
+export class UpdateAssessmentItemGroupDto {
+  @IsOptional()
+  @IsEnum(AssessmentSkill)
+  skill?: AssessmentSkill;
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsString()
+  @MaxLength(200)
+  title?: string | null;
+
+  @IsOptional()
+  @IsEnum(CefrLevel)
+  cefrLevel?: CefrLevel;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  partNumber?: number;
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsString()
+  passage?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsString()
+  @MaxLength(500)
+  audioUrl?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsString()
+  transcript?: string | null;
+
+  @IsOptional()
+  @IsEnum(ItemUsageScope)
+  usageScope?: ItemUsageScope;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  itemIds?: string[];
 }

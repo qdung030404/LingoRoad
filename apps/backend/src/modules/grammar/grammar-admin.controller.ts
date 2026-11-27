@@ -2,18 +2,20 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { CefrLevel } from '@prisma/client';
+import { AdminJwtGuard } from '../admin/guards/admin-jwt.guard';
+import { AdminAuditInterceptor } from '../admin/interceptors/admin-audit.interceptor';
 import {
   CreateGrammarTopicDto,
   GrammarPrerequisiteEdgeDto,
@@ -22,10 +24,29 @@ import {
 import { GrammarDagService } from './services/grammar-dag.service';
 
 @Controller(['api/v1/admin/grammar', 'admin/grammar'])
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN)
+@UseGuards(AdminJwtGuard)
+@UseInterceptors(AdminAuditInterceptor)
 export class GrammarAdminController {
   constructor(private readonly dagService: GrammarDagService) {}
+
+  @Get('topics')
+  @HttpCode(HttpStatus.OK)
+  async listTopics(
+    @Query('cefrLevel') cefrLevel?: CefrLevel,
+    @Query('search') search?: string,
+    @Query('published') published?: string,
+    @Query('isLeaf') isLeaf?: string,
+  ) {
+    return {
+      success: true,
+      data: await this.dagService.listAdminTopics({
+        cefrLevel: cefrLevel && Object.values(CefrLevel).includes(cefrLevel) ? cefrLevel : undefined,
+        search,
+        published,
+        isLeaf,
+      }),
+    };
+  }
 
   @Post('topics')
   @HttpCode(HttpStatus.CREATED)

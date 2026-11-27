@@ -11,6 +11,7 @@ import {
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { ApiResponse } from '../../../common/interfaces/api-response.interface';
@@ -20,7 +21,9 @@ import {
   UpdateAdminUserDto,
 } from '../dto/admin-users.dto';
 import { AdminJwtGuard } from '../guards/admin-jwt.guard';
+import { AdminAuditInterceptor } from '../interceptors/admin-audit.interceptor';
 import {
+  AdminUserDetail,
   AdminUserListItem,
   AdminUsersService,
   PaginatedResult,
@@ -29,6 +32,7 @@ import {
 
 @Controller(['admin/users', 'api/v1/admin/users'])
 @UseGuards(AdminJwtGuard)
+@UseInterceptors(AdminAuditInterceptor)
 export class AdminUsersController {
   constructor(private readonly adminUsersService: AdminUsersService) {}
 
@@ -39,6 +43,17 @@ export class AdminUsersController {
     ApiResponse<PaginatedResult<AdminUserListItem, UsersListSummary>>
   > {
     const data = await this.adminUsersService.listUsers(query);
+    return {
+      success: true,
+      data,
+    };
+  }
+
+  @Get(':id')
+  async getUserDetail(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ApiResponse<AdminUserDetail>> {
+    const data = await this.adminUsersService.getUserDetail(id);
     return {
       success: true,
       data,

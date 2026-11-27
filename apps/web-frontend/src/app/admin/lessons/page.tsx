@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   BookOpen,
   CheckCircle2,
+  Download,
   FileText,
   FileUp,
   ListChecks,
@@ -17,12 +18,15 @@ import { LegacyStatCard } from '@/components/admin/LegacyStatCard';
 import { LessonComposerModal } from '@/components/admin/LessonComposerModal';
 import {
   deleteAdminLesson,
+  downloadAdminExport,
   getAdminLesson,
+  listAdminGrammarTopics,
   listAdminLessons,
   listLearningUnits,
   updateAdminLesson,
 } from '@/lib/admin-api';
 import type {
+  AdminGrammarTopic,
   AdminLessonItem,
   CefrLevel,
   LearningKind,
@@ -33,6 +37,7 @@ import type {
 
 export default function AdminLessonsPage(): React.ReactElement {
   const [units, setUnits] = useState<LearningUnitItem[]>([]);
+  const [grammarTopics, setGrammarTopics] = useState<AdminGrammarTopic[]>([]);
   const [lessons, setLessons] = useState<AdminLessonItem[]>([]);
   const [summary, setSummary] = useState<LessonsListSummary>({
     total: 0,
@@ -72,10 +77,14 @@ export default function AdminLessonsPage(): React.ReactElement {
 
   const loadUnits = useCallback(async () => {
     try {
-      const rows = await listLearningUnits();
+      const [rows, topics] = await Promise.all([
+        listLearningUnits(),
+        listAdminGrammarTopics({ isLeaf: 'true' }),
+      ]);
       setUnits(rows);
+      setGrammarTopics(topics);
     } catch {
-      // Bỏ qua lỗi phụ khi tải chương học
+      // Bỏ qua lỗi phụ khi tải chương học / ngữ pháp
     }
   }, []);
 
@@ -177,6 +186,14 @@ export default function AdminLessonsPage(): React.ReactElement {
       subtitle="Quản lý catalog bài học, trạng thái publish và liên kết item."
       actions={
         <>
+          <button
+            type="button"
+            onClick={() => void downloadAdminExport('lessons', 'json')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Export JSON</span>
+          </button>
           <Link
             href="/admin/import"
             className="inline-flex items-center gap-2 rounded-xl border border-slateDark-200 bg-white px-4 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
@@ -398,7 +415,10 @@ export default function AdminLessonsPage(): React.ReactElement {
                                 {lesson.title}
                               </p>
                               <p className="truncate font-mono text-xs text-slateDark-700">
-                                {lesson.code} · {lesson.questionsCount} items
+                                {lesson.code} · {lesson.questionsCount} items · #{lesson.sortOrder}
+                                {lesson.grammarTopic
+                                  ? ` · ${lesson.grammarTopic.titleVi}`
+                                  : ''}
                               </p>
                             </div>
                           </div>
@@ -473,6 +493,7 @@ export default function AdminLessonsPage(): React.ReactElement {
           {showComposer && (
             <LessonComposerModal
               units={units}
+              grammarTopics={grammarTopics}
               editingLesson={editingLesson}
               onClose={() => {
                 setShowComposer(false);

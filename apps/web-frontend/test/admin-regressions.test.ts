@@ -69,8 +69,15 @@ test('lesson editor preserves media and vocabulary through JSON → form → JSO
   const hooks = hookHarness();
   let saved: any;
   const { LessonComposerModal } = loadComponent('components/admin/LessonComposerModal.tsx', {
-    react: hooks.react, 'lucide-react': {}, '@/lib/admin-validation': helpers,
-    '@/lib/admin-api': { updateAdminLesson: async (_id: string, payload: any) => { saved = payload; } },
+    react: hooks.react,
+    'lucide-react': {},
+    '@/lib/admin-validation': helpers,
+    './MediaUploadField': { MediaUploadField: () => null },
+    './ListeningLessonForm': { ListeningLessonForm: () => null },
+    '@/lib/admin-api': {
+      updateAdminLesson: async (_id: string, payload: any) => { saved = payload; },
+      resolveAdminMediaUrl: (u: string) => u,
+    },
   });
   const original = content();
   const props = { units: [], editingLesson: { id: 'l1', code: 'reading', kind: 'READING', title: 'Reading', description: 'Description', estimatedMinutes: 5, content: original }, onClose() {}, onSaved() {}, onUnitCreated() {} };
@@ -107,7 +114,10 @@ test('form content retains step audio and question metadata', () => {
 test('item editor keeps ID-based correct answer and every option without truncation', async () => {
   const hooks = hookHarness(); let saved: any;
   const { AssessmentItemModal } = loadComponent('components/admin/AssessmentItemModal.tsx', {
-    react: hooks.react, 'lucide-react': {}, '@/lib/admin-validation': helpers,
+    react: hooks.react,
+    'lucide-react': {},
+    '@/lib/admin-validation': helpers,
+    './MediaUploadField': { MediaUploadField: () => null },
     '@/lib/admin-api': { updateAdminAssessmentItem: async (_id: string, payload: any) => { saved = payload; } },
   });
   const options = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'].map((label, i) => ({ id: String(i), text: label }));
@@ -119,7 +129,10 @@ test('item editor keeps ID-based correct answer and every option without truncat
 test('item editor rejects invalid PLACEMENT drafts client-side before calling the API', async () => {
   const hooks = hookHarness(); let apiCalls = 0;
   const { AssessmentItemModal } = loadComponent('components/admin/AssessmentItemModal.tsx', {
-    react: hooks.react, 'lucide-react': {}, '@/lib/admin-validation': helpers,
+    react: hooks.react,
+    'lucide-react': {},
+    '@/lib/admin-validation': helpers,
+    './MediaUploadField': { MediaUploadField: () => null },
     '@/lib/admin-api': {
       createAdminAssessmentItem: async () => { apiCalls++; },
       updateAdminAssessmentItem: async () => { apiCalls++; },
@@ -167,8 +180,16 @@ test('item editor rejects invalid PLACEMENT drafts client-side before calling th
 test('import ignores late validation for an edited draft and cannot apply it', async () => {
   const hooks = hookHarness(); let resolveValidation: (value: any) => void = () => {}; let applyCount = 0;
   const Page = loadComponent('app/admin/import/page.tsx', {
-    react: hooks.react, 'next/link': () => null, 'lucide-react': {}, '@/components/admin/AdminShell': {}, '@/components/admin/LegacyStatCard': {},
-    '@/lib/admin-api': { validateAdminImport: () => new Promise(resolveResponse => { resolveValidation = resolveResponse; }), applyAdminImport: async () => { applyCount++; } },
+    react: hooks.react,
+    'next/link': () => null,
+    'lucide-react': {},
+    '@/components/admin/AdminShell': {},
+    '@/components/admin/LegacyStatCard': {},
+    '@/lib/admin-api': {
+      validateAdminImport: () => new Promise(resolveResponse => { resolveValidation = resolveResponse; }),
+      applyAdminImport: async () => { applyCount++; },
+      downloadAdminExport: async () => undefined,
+    },
   }).default;
   const render = () => hooks.render(Page).props.children[0]();
   let tree = render();

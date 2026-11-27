@@ -110,9 +110,14 @@ async function main() {
   const adminRoutes = [
     '/admin/login',
     '/admin/users',
+    '/admin/units',
     '/admin/lessons',
+    '/admin/grammar',
+    '/admin/vocabulary',
+    '/admin/speaking',
     '/admin/items',
     '/admin/import',
+    '/admin/audit-logs',
   ];
   for (const route of adminRoutes) {
     const pageRes = await fetchWithRetry(`${frontendUrl}${route}`, {}, 3, 2000);

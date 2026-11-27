@@ -7,6 +7,7 @@ import {
   BookOpen,
   CheckCircle2,
   ClipboardList,
+  Download,
   FileUp,
   Layers,
   RefreshCw,
@@ -15,9 +16,15 @@ import {
 } from 'lucide-react';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { LegacyStatCard } from '@/components/admin/LegacyStatCard';
-import { applyAdminImport, validateAdminImport } from '@/lib/admin-api';
+import {
+  applyAdminImport,
+  downloadAdminExport,
+  validateAdminImport,
+} from '@/lib/admin-api';
 import type {
+  AdminExportEntity,
   ImportApplyResponse,
+  ImportPreviewRecord,
   ImportValidationResponse,
 } from '@/types/admin';
 
@@ -25,7 +32,7 @@ type ImportStep = 1 | 2 | 3 | 4;
 
 const SAMPLE_BUNDLE_ALL = JSON.stringify(
   {
-    version: '2026.11.26-admin-v1',
+    version: '2026.11.27-admin-v2',
     source: 'LingoRoad Admin CMS',
     units: [
       {
@@ -141,6 +148,17 @@ const SAMPLE_BUNDLE_ALL = JSON.stringify(
         ],
       },
     ],
+    speakingPrompts: [
+      {
+        code: 'read-aloud-office-intro',
+        mode: 'READ_ALOUD',
+        title: 'Giới thiệu bản thân nơi làm việc',
+        text: 'Good morning everyone. I am excited to join the product team this week.',
+        difficulty: 1,
+        maxDurationSeconds: 30,
+        published: true,
+      },
+    ],
   },
   null,
   2,
@@ -198,12 +216,26 @@ const SAMPLE_TOPICS_ONLY = JSON.stringify(
   2,
 );
 
-const ENTITY_LABELS: Record<'unit' | 'lesson' | 'item' | 'topic', string> = {
+const ENTITY_LABELS: Record<ImportPreviewRecord['entity'], string> = {
   unit: 'Chương học',
   lesson: 'Bài học',
   item: 'Câu hỏi Item',
   topic: 'Chủ đề từ vựng',
+  speakingPrompt: 'Đề luyện nói',
+  grammarTopic: 'Ngữ pháp DAG',
+  assessmentGroup: 'Nhóm đề',
 };
+
+const EXPORT_ENTITIES: Array<{ entity: AdminExportEntity; label: string }> = [
+  { entity: 'units', label: 'Chương học (Units)' },
+  { entity: 'lessons', label: 'Bài học (Lessons)' },
+  { entity: 'items', label: 'Ngân hàng đề (Items)' },
+  { entity: 'topics', label: 'Từ vựng (Topics & Words)' },
+  { entity: 'speaking', label: 'Đề luyện nói (Speaking)' },
+  { entity: 'grammar', label: 'Ngữ pháp (Grammar DAG)' },
+  { entity: 'users', label: 'Người dùng (Users)' },
+  { entity: 'audit-logs', label: 'Nhật ký hệ thống (Audit Logs)' },
+];
 
 const STEP_LABELS: Array<{ step: ImportStep; label: string }> = [
   { step: 1, label: 'Validate' },
@@ -219,11 +251,13 @@ export default function AdminImportPage(): React.ReactElement {
   const [step, setStep] = useState<ImportStep>(1);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [rawJson, setRawJson] = useState<string>(SAMPLE_BUNDLE_ALL);
+  const [topicWordsMode, setTopicWordsMode] = useState<'merge' | 'replace'>('merge');
   const [parsedBundle, setParsedBundle] = useState<unknown>(null);
 
   const [validating, setValidating] = useState(false);
   const [applying, setApplying] = useState(false);
   const [confirmedAtomic, setConfirmedAtomic] = useState(false);
+  const [exportingKey, setExportingKey] = useState<string | null>(null);
 
   const [syntaxError, setSyntaxError] = useState<string | null>(null);
   const [validationResult, setValidationResult] =
@@ -295,7 +329,7 @@ export default function AdminImportPage(): React.ReactElement {
 
     setValidating(true);
     try {
-      const result = await validateAdminImport(parsed);
+      const result = await validateAdminImport(parsed, topicWordsMode);
       if (requestRevision !== revision.current) return;
       validatedJson.current = result.isValid ? rawJson : null;
       setParsedBundle(parsed);
@@ -316,12 +350,20 @@ export default function AdminImportPage(): React.ReactElement {
   };
 
   const handleApply = async (): Promise<void> => {
-    if (!parsedBundle || !validationResult?.isValid || !confirmedAtomic || validatedJson.current !== rawJson || applyInFlight.current) return;
+    if (
+      !parsedBundle ||
+      !validationResult?.isValid ||
+      !confirmedAtomic ||
+      validatedJson.current !== rawJson ||
+      applyInFlight.current
+    ) {
+      return;
+    }
     applyInFlight.current = true;
     setApplyError(null);
     setApplying(true);
     try {
-      const res = await applyAdminImport(parsedBundle);
+      const res = await applyAdminImport(parsedBundle, topicWordsMode);
       setApplyResult(res);
       setStep(4);
     } catch (err) {
@@ -336,15 +378,30 @@ export default function AdminImportPage(): React.ReactElement {
     }
   };
 
+  const handleExport = async (
+    entity: AdminExportEntity,
+    format: 'json' | 'csv',
+  ): Promise<void> => {
+    const key = `${entity}-${format}`;
+    setExportingKey(key);
+    try {
+      await downloadAdminExport(entity, format);
+    } catch (err) {
+      setSyntaxError(err instanceof Error ? err.message : 'Xuất dữ liệu thất bại.');
+    } finally {
+      setExportingKey(null);
+    }
+  };
+
   return (
     <AdminShell
-      breadcrumbTitle="Import"
-      title="Content Import"
-      subtitle="Validate, xem trước và áp dụng gói nội dung JSON cho ứng dụng LingoRoad bằng giao dịch nguyên tử."
+      breadcrumbTitle="Import & Export"
+      title="Content Import & Backup Export"
+      subtitle="Nạp dữ liệu JSON nguyên tử (Units, Lessons, Items, Topics, Speaking, Grammar, Groups) và sao lưu JSON/CSV an toàn."
     >
       {() => (
         <div className="space-y-6">
-          {/* Thanh 4 bước chuẩn Legacy */}
+          {/* Thanh 4 bước */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {STEP_LABELS.map((item) => {
               const isCurrent = step === item.step;
@@ -391,8 +448,8 @@ export default function AdminImportPage(): React.ReactElement {
                   Content bundle JSON
                 </h2>
                 <p className="mt-0.5 text-xs text-slateDark-700">
-                  Mọi thay đổi nội dung hoặc định dạng đều yêu cầu Validate lại
-                  trước khi nạp vào cơ sở dữ liệu.
+                  Mọi thay đổi nội dung đều yêu cầu Validate lại trước khi nạp vào
+                  cơ sở dữ liệu.
                 </p>
               </div>
 
@@ -424,30 +481,43 @@ export default function AdminImportPage(): React.ReactElement {
               </div>
             </div>
 
-            {/* Ô chọn tệp chuẩn Legacy */}
-            <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-slateDark-300 bg-slateDark-25 px-4 py-3">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slateDark-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slateDark-900 shadow-sm hover:bg-slateDark-50">
-                <FileUp className="h-3.5 w-3.5 text-brand-700" />
-                <span>Chọn tệp</span>
-                <input
-                  type="file"
-                  accept=".json,application/json"
-                  disabled={applying}
-                  onChange={(e) => void handleFileChange(e)}
-                  className="hidden"
-                />
-              </label>
-              <span className="text-xs font-medium text-slateDark-800">
-                {selectedFileName
-                  ? `Đã nạp tệp: ${selectedFileName}`
-                  : 'Không có tệp nào được chọn'}
-              </span>
-              <span className="text-xs text-slateDark-700">
-                Hoặc dán trực tiếp nội dung .json vào vùng bên dưới.
-              </span>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-slateDark-300 bg-slateDark-25 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slateDark-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slateDark-900 shadow-sm hover:bg-slateDark-50">
+                  <FileUp className="h-3.5 w-3.5 text-brand-700" />
+                  <span>Chọn tệp</span>
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    disabled={applying}
+                    onChange={(e) => void handleFileChange(e)}
+                    className="hidden"
+                  />
+                </label>
+                <span className="text-xs font-medium text-slateDark-800">
+                  {selectedFileName
+                    ? `Đã nạp tệp: ${selectedFileName}`
+                    : 'Không có tệp nào được chọn'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-semibold text-slateDark-800">
+                  Chế độ từ vựng chủ đề:
+                </span>
+                <select
+                  value={topicWordsMode}
+                  onChange={(e) =>
+                    setTopicWordsMode(e.target.value as 'merge' | 'replace')
+                  }
+                  className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1 text-xs font-semibold text-slateDark-900"
+                >
+                  <option value="merge">Merge (chỉ thêm từ mới, giữ từ cũ)</option>
+                  <option value="replace">Replace (thay thế toàn bộ từ của chủ đề)</option>
+                </select>
+              </div>
             </div>
 
-            {/* Trình soạn thảo JSON nền tối chuẩn Legacy */}
             <div className="mt-4">
               <textarea
                 rows={16}
@@ -488,9 +558,13 @@ export default function AdminImportPage(): React.ReactElement {
 
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-slateDark-700">
-                Hỗ trợ đồng thời cấu trúc bundle tổng hợp{' '}
-                <code>{'{ units, lessons, items, topics }'}</code> hoặc mảng rời
-                từ <code>demo-content</code>.
+                Hỗ trợ{' '}
+                <code>
+                  {
+                    '{ units, lessons, items, topics, speakingPrompts, grammarTopics, assessmentGroups }'
+                  }
+                </code>
+                .
               </p>
 
               <button
@@ -544,12 +618,18 @@ export default function AdminImportPage(): React.ReactElement {
                   tone="amber"
                 />
                 <LegacyStatCard
-                  label="Chủ đề từ vựng"
+                  label="Từ vựng & Mở rộng"
                   value={
                     validationResult.preview.counts.topics.create +
-                    validationResult.preview.counts.topics.update
+                    validationResult.preview.counts.topics.update +
+                    (validationResult.preview.counts.speakingPrompts?.create ?? 0) +
+                    (validationResult.preview.counts.speakingPrompts?.update ?? 0) +
+                    (validationResult.preview.counts.grammarTopics?.create ?? 0) +
+                    (validationResult.preview.counts.grammarTopics?.update ?? 0) +
+                    (validationResult.preview.counts.assessmentGroups?.create ?? 0) +
+                    (validationResult.preview.counts.assessmentGroups?.update ?? 0)
                   }
-                  subtitle={`${validationResult.preview.counts.topics.create} tạo mới · ${validationResult.preview.counts.topics.update} cập nhật`}
+                  subtitle="Topics, Speaking, Grammar, Groups"
                   icon={<Tags className="h-4 w-4" />}
                   tone="slate"
                 />
@@ -628,9 +708,7 @@ export default function AdminImportPage(): React.ReactElement {
                       </h3>
                       <p className="mt-1 text-xs text-slateDark-800">
                         Toàn bộ {validationResult.preview.totalRecords} bản ghi
-                        sẽ được ghi trong một Prisma Transaction duy nhất. Nếu
-                        phát sinh bất kỳ lỗi nào, toàn bộ giao dịch sẽ tự động
-                        hoàn tác.
+                        sẽ được ghi trong một Prisma Transaction duy nhất.
                       </p>
                     </div>
                   </div>
@@ -720,6 +798,47 @@ export default function AdminImportPage(): React.ReactElement {
               </div>
             </div>
           )}
+
+          {/* Khối Sao lưu & Export Dữ liệu an toàn (P2.2) */}
+          <div className="rounded-2xl border border-slateDark-100 bg-white p-6 shadow-sm">
+            <h2 className="text-base font-extrabold text-slateDark-900">
+              Xuất dữ liệu & Sao lưu (Export JSON / CSV)
+            </h2>
+            <p className="mt-0.5 text-xs text-slateDark-700">
+              JSON giữ nguyên định dạng tương thích Import; CSV có UTF-8 BOM và tự
+              động chống OWASP CSV/Formula Injection.
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {EXPORT_ENTITIES.map(({ entity, label }) => (
+                <div
+                  key={entity}
+                  className="flex flex-col justify-between gap-3 rounded-xl border border-slateDark-100 bg-slateDark-25 p-3.5"
+                >
+                  <p className="text-xs font-bold text-slateDark-900">{label}</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={exportingKey === `${entity}-json`}
+                      onClick={() => void handleExport(entity, 'json')}
+                      className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-slateDark-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slateDark-900 hover:bg-slateDark-50 disabled:opacity-50"
+                    >
+                      <Download className="h-3 w-3" />
+                      <span>JSON</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={exportingKey === `${entity}-csv`}
+                      onClick={() => void handleExport(entity, 'csv')}
+                      className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-brand-200 bg-brand-25 px-2.5 py-1.5 text-[11px] font-semibold text-brand-800 hover:bg-brand-50 disabled:opacity-50"
+                    >
+                      <Download className="h-3 w-3" />
+                      <span>CSV</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </AdminShell>

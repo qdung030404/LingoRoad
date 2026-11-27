@@ -8,10 +8,15 @@ import {
   ClipboardList,
   ExternalLink,
   FileUp,
+  GitBranch,
+  History,
+  Layers,
   LayoutGrid,
   LogOut,
   Menu,
+  Mic,
   ShieldCheck,
+  Tags,
   Users,
   X,
 } from 'lucide-react';
@@ -46,9 +51,21 @@ const PRIMARY_NAV = [
     icon: Users,
     exact: false,
   },
+  {
+    href: '/admin/audit-logs',
+    label: 'Nhật ký hệ thống',
+    icon: History,
+    exact: false,
+  },
 ] as const;
 
 const CONTENT_NAV = [
+  {
+    href: '/admin/units',
+    label: 'Chương học',
+    icon: Layers,
+    exact: false,
+  },
   {
     href: '/admin/lessons',
     label: 'Bài học',
@@ -56,18 +73,44 @@ const CONTENT_NAV = [
     exact: false,
   },
   {
-    href: '/admin/items',
-    label: 'Items',
-    icon: ClipboardList,
+    href: '/admin/grammar',
+    label: 'Ngữ pháp',
+    icon: GitBranch,
     exact: false,
   },
   {
+    href: '/admin/vocabulary',
+    label: 'Từ vựng',
+    icon: Tags,
+    exact: false,
+  },
+  {
+    href: '/admin/speaking',
+    label: 'Luyện nói',
+    icon: Mic,
+    exact: false,
+  },
+  {
+    href: '/admin/items',
+    label: 'Ngân hàng đề',
+    icon: ClipboardList,
+    exact: false,
+  },
+] as const;
+
+const DATA_OPS_NAV = [
+  {
     href: '/admin/import',
-    label: 'Import',
+    label: 'Import & Export',
     icon: FileUp,
     exact: false,
   },
 ] as const;
+
+type NavItem =
+  | (typeof PRIMARY_NAV)[number]
+  | (typeof CONTENT_NAV)[number]
+  | (typeof DATA_OPS_NAV)[number];
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -146,7 +189,7 @@ export function AdminShell({
   }
 
   const renderNavItem = (
-    item: (typeof PRIMARY_NAV)[number] | (typeof CONTENT_NAV)[number],
+    item: NavItem,
     onNavigate?: () => void,
   ): React.ReactElement => {
     const isActive = item.exact
@@ -184,7 +227,7 @@ export function AdminShell({
         </Link>
       </div>
 
-      <div className="flex-1 space-y-4 px-3 py-2">
+      <div className="flex-1 space-y-4 overflow-y-auto px-3 py-2">
         <div>
           <p className="px-3.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slateDark-600">
             Quản trị
@@ -196,10 +239,19 @@ export function AdminShell({
 
         <div>
           <p className="px-3.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slateDark-600">
-            Nội dung & Vận hành
+            Kho Học liệu
           </p>
           <div className="space-y-1">
             {CONTENT_NAV.map((item) => renderNavItem(item, onNavigate))}
+          </div>
+        </div>
+
+        <div>
+          <p className="px-3.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slateDark-600">
+            Vận hành Dữ liệu
+          </p>
+          <div className="space-y-1">
+            {DATA_OPS_NAV.map((item) => renderNavItem(item, onNavigate))}
           </div>
         </div>
       </div>
@@ -237,12 +289,10 @@ export function AdminShell({
 
   return (
     <div className="min-h-screen bg-slateDark-25 text-slateDark-900">
-      {/* Sidebar Desktop cố định tuyệt đối bên trái */}
       <aside className="hidden w-60 flex-col border-r border-slateDark-100 bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:flex">
         {renderSidebarBody()}
       </aside>
 
-      {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
           <div
@@ -263,9 +313,7 @@ export function AdminShell({
         </div>
       )}
 
-      {/* Main Content */}
       <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-60">
-        {/* Topbar kiểu Legacy */}
         <header className="flex h-16 items-center justify-between border-b border-slateDark-100 bg-white px-4 sm:px-8">
           <div className="flex items-center gap-3">
             <button

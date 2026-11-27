@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { GrammarTopic, Prisma } from '@prisma/client';
+import { CefrLevel, GrammarTopic, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   CreateGrammarTopicDto,
@@ -18,9 +18,105 @@ import {
   validateGrammarTopicPayload,
 } from '../grammar.types';
 
+export interface AdminGrammarTopicView {
+  id: string;
+  code: string;
+  parentId: string | null;
+  parentCode: string | null;
+  cefrLevel: CefrLevel;
+  isLeaf: boolean;
+  titleEn: string;
+  titleVi: string;
+  summaryVi: string;
+  formulas: Prisma.JsonValue;
+  usageNotes: Prisma.JsonValue;
+  examples: Prisma.JsonValue;
+  orderIndex: number;
+  published: boolean;
+  contentVersion: number;
+  prerequisiteIds: string[];
+  prerequisiteCodes: string[];
+  dependentCodes: string[];
+  lessonsCount: number;
+  childrenCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AdminGrammarTopicsQuery {
+  cefrLevel?: CefrLevel;
+  search?: string;
+  published?: string;
+  isLeaf?: string;
+}
+
 @Injectable()
 export class GrammarDagService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listAdminTopics(
+    query?: AdminGrammarTopicsQuery,
+  ): Promise<AdminGrammarTopicView[]> {
+    const search = query?.search?.trim();
+    const where: Prisma.GrammarTopicWhereInput = {
+      ...(query?.cefrLevel ? { cefrLevel: query.cefrLevel } : {}),
+      ...(query?.published === 'true' || query?.published === 'false'
+        ? { published: query.published === 'true' }
+        : {}),
+      ...(query?.isLeaf === 'true' || query?.isLeaf === 'false'
+        ? { isLeaf: query.isLeaf === 'true' }
+        : {}),
+      ...(search
+        ? {
+            OR: [
+              { code: { contains: search, mode: 'insensitive' } },
+              { titleEn: { contains: search, mode: 'insensitive' } },
+              { titleVi: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const rows = await this.prisma.grammarTopic.findMany({
+      where,
+      orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }, { code: 'asc' }],
+      include: {
+        parent: { select: { code: true } },
+        prerequisites: {
+          include: { prerequisite: { select: { id: true, code: true } } },
+        },
+        dependents: {
+          include: { target: { select: { code: true } } },
+        },
+        _count: { select: { lessons: true, children: true } },
+      },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      code: row.code,
+      parentId: row.parentId,
+      parentCode: row.parent?.code ?? null,
+      cefrLevel: row.cefrLevel,
+      isLeaf: row.isLeaf,
+      titleEn: row.titleEn,
+      titleVi: row.titleVi,
+      summaryVi: row.summaryVi,
+      formulas: row.formulas,
+      usageNotes: row.usageNotes,
+      examples: row.examples,
+      orderIndex: row.orderIndex,
+      published: row.published,
+      contentVersion: row.contentVersion,
+      prerequisiteIds: row.prerequisites.map((p) => p.prerequisite.id),
+      prerequisiteCodes: row.prerequisites.map((p) => p.prerequisite.code),
+      dependentCodes: row.dependents.map((d) => d.target.code),
+      lessonsCount: row._count.lessons,
+      childrenCount: row._count.children,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
+  }
 
   async assertValidHierarchyParent(
     topicId: string | null,

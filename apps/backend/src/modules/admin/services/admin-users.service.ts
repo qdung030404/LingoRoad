@@ -7,7 +7,14 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { AuthProvider, CefrLevel, Prisma, UserRole, UserStatus } from '@prisma/client';
+import {
+  AuthProvider,
+  CefrLevel,
+  LearningPurpose,
+  Prisma,
+  UserRole,
+  UserStatus,
+} from '@prisma/client';
 import { FirebaseTokenService } from '../../auth/firebase/firebase-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PasswordService } from '../../security/password.service';
@@ -31,6 +38,7 @@ const ADMIN_USER_SELECT = {
     select: {
       targetCefr: true,
       dailyGoalMinutes: true,
+      learningPurpose: true,
     },
   },
   _count: {
@@ -60,6 +68,7 @@ export interface AdminUserListItem {
   profile: {
     targetCefr: CefrLevel;
     dailyGoalMinutes: number;
+    learningPurpose?: LearningPurpose | null;
   } | null;
   stats: {
     learningAttempts: number;
@@ -67,6 +76,34 @@ export interface AdminUserListItem {
     vocabularyDecks: number;
     speakingSubmissions: number;
   };
+}
+
+export interface AdminUserDetail extends AdminUserListItem {
+  recentAttempts: Array<{
+    id: string;
+    lessonTitle: string;
+    status: string;
+    correctCount: number | null;
+    totalQuestions: number;
+    startedAt: Date;
+    submittedAt: Date | null;
+  }>;
+  recentPlacements: Array<{
+    id: string;
+    status: string;
+    estimatedCefr: CefrLevel | null;
+    correctCount: number;
+    totalItems: number;
+    startedAt: Date;
+    completedAt: Date | null;
+  }>;
+  recentSpeaking: Array<{
+    id: string;
+    promptTitle: string;
+    status: string;
+    overallScore: number | null;
+    createdAt: Date;
+  }>;
 }
 
 export interface UsersListSummary {
@@ -105,6 +142,9 @@ function mapUserItem(user: SelectedAdminUser): AdminUserListItem {
       ? {
           targetCefr: user.profile.targetCefr,
           dailyGoalMinutes: user.profile.dailyGoalMinutes,
+          ...(user.profile.learningPurpose !== undefined
+            ? { learningPurpose: user.profile.learningPurpose }
+            : {}),
         }
       : null,
     stats: {
@@ -271,6 +311,91 @@ export class AdminUsersService {
     return mapUserItem(created);
   }
 
+  async getUserDetail(id: string): Promise<AdminUserDetail> {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: ADMIN_USER_SELECT,
+    });
+    if (!user) {
+      throw new NotFoundException({
+        code: 'ADMIN_USER_NOT_FOUND',
+        message: 'Không tìm thấy người dùng.',
+      });
+    }
+
+    const [attempts, placements, speakings] = await Promise.all([
+      this.prisma.learningAttempt.findMany({
+        where: { userId: id },
+        orderBy: [{ startedAt: 'desc' }],
+        take: 5,
+        select: {
+          id: true,
+          status: true,
+          correctCount: true,
+          totalQuestions: true,
+          lessonSnapshot: true,
+          startedAt: true,
+          submittedAt: true,
+        },
+      }),
+      this.prisma.placementSession.findMany({
+        where: { userId: id },
+        orderBy: [{ startedAt: 'desc' }],
+        take: 5,
+        select: {
+          id: true,
+          status: true,
+          estimatedCefr: true,
+          correctCount: true,
+          totalItems: true,
+          startedAt: true,
+          completedAt: true,
+        },
+      }),
+      this.prisma.speakingSubmission.findMany({
+        where: { userId: id },
+        orderBy: [{ createdAt: 'desc' }],
+        take: 5,
+        select: {
+          id: true,
+          status: true,
+          promptSnapshot: true,
+          result: true,
+          createdAt: true,
+        },
+      }),
+    ]);
+
+    return {
+      ...mapUserItem(user),
+      recentAttempts: attempts.map((a) => ({
+        id: a.id,
+        lessonTitle:
+          ((a.lessonSnapshot as { title?: string } | null)?.title ?? 'Bài học'),
+        status: a.status,
+        correctCount: a.correctCount,
+        totalQuestions: a.totalQuestions,
+        startedAt: a.startedAt,
+        submittedAt: a.submittedAt,
+      })),
+      recentPlacements: placements,
+      recentSpeaking: speakings.map((s) => {
+        const resObj = (s.result && typeof s.result === 'object' ? s.result : null) as
+          | { overallScore?: unknown; score?: unknown }
+          | null;
+        const rawScore = resObj?.overallScore ?? resObj?.score;
+        return {
+          id: s.id,
+          promptTitle:
+            ((s.promptSnapshot as { title?: string } | null)?.title ?? 'Luyện nói'),
+          status: s.status,
+          overallScore: typeof rawScore === 'number' ? rawScore : null,
+          createdAt: s.createdAt,
+        };
+      }),
+    };
+  }
+
   async updateUser(
     adminId: string,
     targetId: string,
@@ -312,7 +437,35 @@ export class AdminUsersService {
       dto.role !== undefined ||
       Boolean(passwordHash);
 
+    const hasProfileChanges =
+      dto.targetCefr !== undefined ||
+      dto.dailyGoalMinutes !== undefined ||
+      dto.learningPurpose !== undefined;
+
     const updated = await this.prisma.$transaction(async (tx) => {
+      if (hasProfileChanges) {
+        await tx.userProfile.upsert({
+          where: { userId: targetId },
+          create: {
+            userId: targetId,
+            targetCefr: dto.targetCefr ?? CefrLevel.B1,
+            dailyGoalMinutes: dto.dailyGoalMinutes ?? 10,
+            learningPurpose: dto.learningPurpose ?? null,
+            reminderEnabled: true,
+          },
+          update: {
+            ...(dto.targetCefr !== undefined ? { targetCefr: dto.targetCefr } : {}),
+            ...(dto.dailyGoalMinutes !== undefined
+              ? { dailyGoalMinutes: dto.dailyGoalMinutes }
+              : {}),
+            ...(dto.learningPurpose !== undefined
+              ? { learningPurpose: dto.learningPurpose }
+              : {}),
+            preferencesVersion: { increment: 1 },
+          },
+        });
+      }
+
       const user = await tx.user.update({
         where: { id: targetId },
         data: {

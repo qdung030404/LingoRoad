@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { X } from 'lucide-react';
+import { Plus, Trash2, X } from 'lucide-react';
 import {
   assessmentChoiceDraft,
   buildAssessmentChoices,
@@ -12,6 +12,7 @@ import {
   updateAdminAssessmentItem,
 } from '@/lib/admin-api';
 import type {
+  AdminAssessmentGroup,
   AdminAssessmentItem,
   AssessmentSkill,
   CefrDescriptorItem,
@@ -19,9 +20,11 @@ import type {
   ItemType,
   ItemUsageScope,
 } from '@/types/admin';
+import { MediaUploadField } from './MediaUploadField';
 
 interface AssessmentItemModalProps {
   descriptors: CefrDescriptorItem[];
+  groups?: AdminAssessmentGroup[];
   editingItem?: AdminAssessmentItem | null;
   onClose: () => void;
   onSaved: () => void;
@@ -29,8 +32,35 @@ interface AssessmentItemModalProps {
 
 const LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
 
+function extractMatchingPairs(raw: unknown): Array<{ left: string; right: string }> {
+  if (Array.isArray(raw)) {
+    const pairs = raw
+      .filter((entry): entry is { left?: unknown; right?: unknown } =>
+        Boolean(entry && typeof entry === 'object'),
+      )
+      .map((entry) => ({
+        left: String(entry.left ?? ''),
+        right: String(entry.right ?? ''),
+      }));
+    if (pairs.length >= 2) return pairs;
+  }
+  return [
+    { left: '', right: '' },
+    { left: '', right: '' },
+    { left: '', right: '' },
+  ];
+}
+
+function extractReorderTokens(raw: unknown): string {
+  if (Array.isArray(raw)) {
+    return raw.map((t) => (typeof t === 'string' ? t : String(t))).join(' | ');
+  }
+  return '';
+}
+
 export function AssessmentItemModal({
   descriptors,
+  groups = [],
   editingItem = null,
   onClose,
   onSaved,
@@ -39,6 +69,7 @@ export function AssessmentItemModal({
   const initialSkill: AssessmentSkill = editingItem?.skill ?? 'READING';
   const initialLevel: CefrLevel = editingItem?.cefrLevel ?? 'B1';
 
+  const [externalId, setExternalId] = useState(editingItem?.externalId ?? '');
   const [skill, setSkill] = useState<AssessmentSkill>(initialSkill);
   const [cefrLevel, setCefrLevel] = useState<CefrLevel>(initialLevel);
   const [usageScope, setUsageScope] = useState<ItemUsageScope>(
@@ -47,6 +78,8 @@ export function AssessmentItemModal({
   const [type, setType] = useState<ItemType>(
     editingItem?.type ?? 'MULTIPLE_CHOICE',
   );
+  const [groupId, setGroupId] = useState(editingItem?.groupId ?? '');
+  const [itemOrder, setItemOrder] = useState(editingItem?.itemOrder ?? 1);
 
   const matchingDescriptors = useMemo(
     () =>
@@ -61,17 +94,80 @@ export function AssessmentItemModal({
       matchingDescriptors[0]?.skillCode ??
       'reading.skimming',
   );
+  const [irtA, setIrtA] = useState<number>(editingItem?.irtA ?? 1.0);
   const [irtB, setIrtB] = useState<number>(
     editingItem?.irtB ?? matchingDescriptors[0]?.defaultIrtB ?? 0,
   );
+  const [irtC, setIrtC] = useState<number>(editingItem?.irtC ?? 0.25);
   const [passage, setPassage] = useState(editingItem?.passage ?? '');
+  const [audioUrl, setAudioUrl] = useState(editingItem?.audioUrl ?? '');
   const [prompt, setPrompt] = useState(editingItem?.prompt ?? '');
 
-  const initialChoices = assessmentChoiceDraft(editingItem?.options, editingItem?.correctOption);
+  const initialChoices = assessmentChoiceDraft(
+    editingItem?.options,
+    editingItem?.correctOption,
+  );
 
-  const [options, setOptions] =
-    useState<string[]>(initialChoices.options);
-  const [correctIndex, setCorrectIndex] = useState<number>(initialChoices.correctIndex);
+  const [options, setOptions] = useState<string[]>(initialChoices.options);
+  const [correctIndex, setCorrectIndex] = useState<number>(
+    initialChoices.correctIndex,
+  );
+  const [reorderTokensText, setReorderTokensText] = useState<string>(
+    editingItem?.type === 'SENTENCE_REORDER'
+      ? extractReorderTokens(editingItem.options)
+      : '',
+  );
+  const [matchingPairs, setMatchingPairs] = useState<
+    Array<{ left: string; right: string }>
+  >(
+    editingItem?.type === 'MATCHING'
+      ? extractMatchingPairs(editingItem.options)
+      : [
+          { left: '', right: '' },
+          { left: '', right: '' },
+          { left: '', right: '' },
+        ],
+  );
+
+  // Rubric fields for ESSAY / SPEAKING_PROMPT
+  const existingRubric = (editingItem?.rubricCriteria ?? {}) as {
+    targetGrammars?: string[];
+    wordCount?: { min?: number; max?: number };
+    timeLimitSeconds?: number;
+    minSpeakingSeconds?: number;
+    maxSpeakingSeconds?: number;
+  };
+  const [targetGrammarsText, setTargetGrammarsText] = useState(
+    Array.isArray(existingRubric.targetGrammars)
+      ? existingRubric.targetGrammars.join(', ')
+      : '',
+  );
+  const [wordCountMin, setWordCountMin] = useState<string>(
+    existingRubric.wordCount?.min !== undefined
+      ? String(existingRubric.wordCount.min)
+      : '',
+  );
+  const [wordCountMax, setWordCountMax] = useState<string>(
+    existingRubric.wordCount?.max !== undefined
+      ? String(existingRubric.wordCount.max)
+      : '',
+  );
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState<string>(
+    existingRubric.timeLimitSeconds !== undefined
+      ? String(existingRubric.timeLimitSeconds)
+      : '',
+  );
+  const [minSpeakingSeconds, setMinSpeakingSeconds] = useState<string>(
+    existingRubric.minSpeakingSeconds !== undefined
+      ? String(existingRubric.minSpeakingSeconds)
+      : '',
+  );
+  const [maxSpeakingSeconds, setMaxSpeakingSeconds] = useState<string>(
+    existingRubric.maxSpeakingSeconds !== undefined
+      ? String(existingRubric.maxSpeakingSeconds)
+      : '',
+  );
+
   const [explanation, setExplanation] = useState(
     editingItem?.explanation ?? '',
   );
@@ -93,6 +189,7 @@ export function AssessmentItemModal({
 
   const usesChoiceOptions =
     type === 'MULTIPLE_CHOICE' || type === 'CLOZE' || type === 'GAP_FILL';
+  const usesRubric = type === 'ESSAY' || type === 'SPEAKING_PROMPT';
 
   const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -105,6 +202,7 @@ export function AssessmentItemModal({
       type,
       usageScope,
       passage,
+      audioUrl: skill === 'LISTENING' ? audioUrl : undefined,
       prompt,
       options,
       correctIndex,
@@ -117,25 +215,93 @@ export function AssessmentItemModal({
 
     const cleanOptions = options.map((opt) => opt.trim());
 
+    let structuredOptions: unknown;
+    let structuredCorrectOption: string | undefined;
+
+    if (usesChoiceOptions) {
+      const built = buildAssessmentChoices(
+        cleanOptions,
+        correctIndex,
+        editingItem?.options,
+      );
+      structuredOptions = built.options;
+      structuredCorrectOption = built.correctOption;
+    } else if (type === 'SENTENCE_REORDER') {
+      const tokens = reorderTokensText
+        .split('|')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      if (tokens.length < 2) {
+        setErrorMessage('SENTENCE_REORDER cần tối thiểu 2 mảnh câu cách nhau bởi dấu |.');
+        return;
+      }
+      structuredOptions = tokens;
+      structuredCorrectOption = tokens.join(' ');
+    } else if (type === 'MATCHING') {
+      const cleanPairs = matchingPairs.filter(
+        (p) => p.left.trim() && p.right.trim(),
+      );
+      if (cleanPairs.length < 2) {
+        setErrorMessage('MATCHING cần tối thiểu 2 cặp ghép đầy đủ trái – phải.');
+        return;
+      }
+      structuredOptions = cleanPairs.map((p) => ({
+        left: p.left.trim(),
+        right: p.right.trim(),
+      }));
+      structuredCorrectOption = JSON.stringify(structuredOptions);
+    }
+
+    let rubricCriteria: Record<string, unknown> | undefined;
+    if (usesRubric) {
+      const grammars = targetGrammarsText
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const nextRubric: Record<string, unknown> = {};
+      if (grammars.length > 0) nextRubric.targetGrammars = grammars;
+      if (wordCountMin.trim() || wordCountMax.trim()) {
+        nextRubric.wordCount = {
+          ...(wordCountMin.trim() ? { min: Number(wordCountMin) } : {}),
+          ...(wordCountMax.trim() ? { max: Number(wordCountMax) } : {}),
+        };
+      }
+      if (timeLimitSeconds.trim()) {
+        nextRubric.timeLimitSeconds = Number(timeLimitSeconds);
+      }
+      if (minSpeakingSeconds.trim()) {
+        nextRubric.minSpeakingSeconds = Number(minSpeakingSeconds);
+      }
+      if (maxSpeakingSeconds.trim()) {
+        nextRubric.maxSpeakingSeconds = Number(maxSpeakingSeconds);
+      }
+      if (Object.keys(nextRubric).length > 0) {
+        rubricCriteria = nextRubric;
+      }
+    }
+
     setSubmitting(true);
     try {
       const payload = {
+        ...(externalId.trim() ? { externalId: externalId.trim() } : {}),
+        ...(groupId ? { groupId, itemOrder } : isEditing ? { groupId: null } : {}),
         skill,
         skillCode: skillCode.trim(),
         cefrLevel,
         type,
         usageScope,
         passage: passage.trim() || undefined,
+        audioUrl: audioUrl.trim() || undefined,
         prompt: prompt.trim(),
-        ...(usesChoiceOptions
-          ? {
-              ...buildAssessmentChoices(cleanOptions, correctIndex, editingItem?.options),
-            }
+        ...(structuredOptions !== undefined ? { options: structuredOptions } : {}),
+        ...(structuredCorrectOption !== undefined
+          ? { correctOption: structuredCorrectOption }
           : {}),
+        ...(rubricCriteria !== undefined ? { rubricCriteria } : {}),
         explanation: explanation.trim() || undefined,
-        irtA: editingItem?.irtA ?? 1.0,
+        irtA,
         irtB,
-        irtC: editingItem?.irtC ?? 0.25,
+        irtC,
       };
 
       if (editingItem) {
@@ -188,6 +354,38 @@ export function AssessmentItemModal({
           )}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
+                Stable External ID (tuỳ chọn)
+              </label>
+              <input
+                type="text"
+                value={externalId}
+                onChange={(e) => setExternalId(e.target.value)}
+                placeholder="vd: placement-reading-b1-05"
+                className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-4 py-2.5 font-mono text-xs text-slateDark-900 focus:border-brand-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
+                Loại câu hỏi *
+              </label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as ItemType)}
+                className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-4 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
+              >
+                <option value="MULTIPLE_CHOICE">MULTIPLE_CHOICE</option>
+                <option value="CLOZE">CLOZE</option>
+                <option value="GAP_FILL">GAP_FILL</option>
+                <option value="SENTENCE_REORDER">SENTENCE_REORDER</option>
+                <option value="MATCHING">MATCHING</option>
+                <option value="ESSAY">ESSAY (Viết tự luận)</option>
+                <option value="SPEAKING_PROMPT">SPEAKING_PROMPT</option>
+              </select>
+            </div>
+
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
                 Kỹ năng *
@@ -267,57 +465,114 @@ export function AssessmentItemModal({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
-                  Phạm vi sử dụng
-                </label>
-                <select
-                  value={usageScope}
-                  onChange={(e) =>
-                    setUsageScope(e.target.value as ItemUsageScope)
-                  }
-                  className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
-                >
-                  <option value="ALL">ALL</option>
-                  <option value="PLACEMENT">PLACEMENT</option>
-                  <option value="PRACTICE">PRACTICE</option>
-                  <option value="MOCK_EXAM">MOCK_EXAM</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
-                  Độ khó IRT (b)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={irtB}
-                  onChange={(e) => setIrtB(Number(e.target.value))}
-                  className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
-                />
-              </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
+                Phạm vi sử dụng
+              </label>
+              <select
+                value={usageScope}
+                onChange={(e) =>
+                  setUsageScope(e.target.value as ItemUsageScope)
+                }
+                className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
+              >
+                <option value="ALL">ALL</option>
+                <option value="PLACEMENT">PLACEMENT</option>
+                <option value="PRACTICE">PRACTICE</option>
+                <option value="MOCK_EXAM">MOCK_EXAM</option>
+              </select>
             </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
-              Loại câu hỏi
-            </label>
-            <select
-              value={type}
-              onChange={(e) => setType(e.target.value as ItemType)}
-              className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-4 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
-            >
-              <option value="MULTIPLE_CHOICE">MULTIPLE_CHOICE</option>
-              <option value="CLOZE">CLOZE</option>
-              <option value="GAP_FILL">GAP_FILL</option>
-              <option value="SENTENCE_REORDER">SENTENCE_REORDER</option>
-              <option value="MATCHING">MATCHING</option>
-              <option value="ESSAY">ESSAY (Viết tự luận)</option>
-              <option value="SPEAKING_PROMPT">SPEAKING_PROMPT</option>
-            </select>
+          {/* Tham số IRT 3PL & Nhóm đề */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                IRT a (phân biệt)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                min={0.1}
+                max={5}
+                value={irtA}
+                onChange={(e) => setIrtA(Number(e.target.value))}
+                className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                IRT b (độ khó)
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                value={irtB}
+                onChange={(e) => setIrtB(Number(e.target.value))}
+                className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                IRT c (đoán mò)
+              </label>
+              <input
+                type="number"
+                step="0.05"
+                min={0}
+                max={0.5}
+                value={irtC}
+                onChange={(e) => setIrtC(Number(e.target.value))}
+                className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2 text-sm"
+              />
+            </div>
+            {groups.length > 0 && (
+              <>
+                <div className="sm:col-span-2">
+                  <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                    Thuộc nhóm đề (Group)
+                  </label>
+                  <div className="flex gap-1.5">
+                    <select
+                      value={groupId}
+                      onChange={(e) => setGroupId(e.target.value)}
+                      className="min-w-0 flex-1 rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-2.5 py-2 text-xs"
+                    >
+                      <option value="">-- Độc lập --</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          [{g.skill} {g.cefrLevel} P{g.partNumber}]{' '}
+                          {g.title ?? g.id.slice(0, 8)}
+                        </option>
+                      ))}
+                    </select>
+                    {groupId && (
+                      <input
+                        type="number"
+                        min={1}
+                        value={itemOrder}
+                        onChange={(e) => setItemOrder(Number(e.target.value))}
+                        title="Thứ tự trong nhóm"
+                        className="w-16 rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-2 py-2 text-xs"
+                      />
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
+
+          {skill === 'LISTENING' && (
+            <MediaUploadField
+              kind="audio"
+              audioScope="placement"
+              slug={externalId || 'placement-audio'}
+              label={`Âm thanh nghe hiểu WAV ${usageScope === 'PLACEMENT' ? '*' : '(tuỳ chọn)'}`}
+              value={audioUrl}
+              onChange={(url) => setAudioUrl(url)}
+              placeholder="/media/placement/..."
+            />
+          )}
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
@@ -379,6 +634,177 @@ export function AssessmentItemModal({
                   />
                 </div>
               ))}
+            </div>
+          )}
+
+          {type === 'SENTENCE_REORDER' && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
+                Các mảnh câu theo đúng thứ tự (ngăn cách bởi dấu |) *
+              </label>
+              <input
+                type="text"
+                value={reorderTokensText}
+                onChange={(e) => setReorderTokensText(e.target.value)}
+                placeholder="She | goes | to school | every morning"
+                className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-4 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
+              />
+            </div>
+          )}
+
+          {type === 'MATCHING' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slateDark-800">
+                  Các cặp ghép nối (Trái – Phải) *
+                </label>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setMatchingPairs((prev) => [...prev, { left: '', right: '' }])
+                  }
+                  className="inline-flex items-center gap-1 rounded-lg border border-slateDark-200 px-2.5 py-1 text-xs font-semibold"
+                >
+                  <Plus className="h-3 w-3" />
+                  Thêm cặp
+                </button>
+              </div>
+              {matchingPairs.map((pair, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={pair.left}
+                    onChange={(e) =>
+                      setMatchingPairs((prev) =>
+                        prev.map((p, i) =>
+                          i === idx ? { ...p, left: e.target.value } : p,
+                        ),
+                      )
+                    }
+                    placeholder={`Vế trái #${idx + 1}`}
+                    className="flex-1 rounded-xl border border-slateDark-200 bg-slateDark-50 px-3 py-2 text-xs"
+                  />
+                  <span className="text-xs text-slateDark-600">↔</span>
+                  <input
+                    type="text"
+                    value={pair.right}
+                    onChange={(e) =>
+                      setMatchingPairs((prev) =>
+                        prev.map((p, i) =>
+                          i === idx ? { ...p, right: e.target.value } : p,
+                        ),
+                      )
+                    }
+                    placeholder={`Vế phải #${idx + 1}`}
+                    className="flex-1 rounded-xl border border-slateDark-200 bg-slateDark-50 px-3 py-2 text-xs"
+                  />
+                  {matchingPairs.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setMatchingPairs((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      className="rounded-lg p-1.5 text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {usesRubric && (
+            <div className="space-y-3 rounded-2xl border border-brand-100 bg-brand-25/50 p-4">
+              <p className="text-xs font-bold text-slateDark-900">
+                Tiêu chí chấm điểm AI (rubricCriteria)
+              </p>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                  Cấu trúc ngữ pháp mục tiêu (cách nhau dấu phẩy)
+                </label>
+                <input
+                  type="text"
+                  value={targetGrammarsText}
+                  onChange={(e) => setTargetGrammarsText(e.target.value)}
+                  placeholder="present perfect, passive voice, conditionals"
+                  className="w-full rounded-xl border border-slateDark-200 bg-white px-3 py-2 text-xs"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {type === 'ESSAY' ? (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                        Số từ tối thiểu
+                      </label>
+                      <input
+                        type="number"
+                        min={10}
+                        value={wordCountMin}
+                        onChange={(e) => setWordCountMin(e.target.value)}
+                        placeholder="100"
+                        className="w-full rounded-xl border border-slateDark-200 bg-white px-3 py-2 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                        Số từ tối đa
+                      </label>
+                      <input
+                        type="number"
+                        min={20}
+                        value={wordCountMax}
+                        onChange={(e) => setWordCountMax(e.target.value)}
+                        placeholder="250"
+                        className="w-full rounded-xl border border-slateDark-200 bg-white px-3 py-2 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                        Giới hạn giây
+                      </label>
+                      <input
+                        type="number"
+                        min={60}
+                        value={timeLimitSeconds}
+                        onChange={(e) => setTimeLimitSeconds(e.target.value)}
+                        placeholder="1200"
+                        className="w-full rounded-xl border border-slateDark-200 bg-white px-3 py-2 text-xs"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                        Nói tối thiểu (giây)
+                      </label>
+                      <input
+                        type="number"
+                        min={5}
+                        value={minSpeakingSeconds}
+                        onChange={(e) => setMinSpeakingSeconds(e.target.value)}
+                        placeholder="20"
+                        className="w-full rounded-xl border border-slateDark-200 bg-white px-3 py-2 text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                        Nói tối đa (giây)
+                      </label>
+                      <input
+                        type="number"
+                        min={10}
+                        value={maxSpeakingSeconds}
+                        onChange={(e) => setMaxSpeakingSeconds(e.target.value)}
+                        placeholder="90"
+                        className="w-full rounded-xl border border-slateDark-200 bg-white px-3 py-2 text-xs"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
 

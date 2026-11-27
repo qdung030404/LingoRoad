@@ -1,11 +1,14 @@
-import { ExecutionContext, UnauthorizedException, ValidationPipe } from '@nestjs/common';
+import { ExecutionContext, ForbiddenException, UnauthorizedException, ValidationPipe } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { UserRole, UserStatus } from '@prisma/client';
+import { AdminJwtGuard } from '../admin/guards/admin-jwt.guard';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { FirebaseTokenService } from '../auth/firebase/firebase-token.service';
 import { FirebaseUserService } from '../auth/firebase/firebase-user.service';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateGrammarTopicDto } from './dto/grammar-admin.dto';
 import { GrammarTreeQueryDto } from './dto/grammar-query.dto';
 import { GrammarAdminController } from './grammar-admin.controller';
@@ -50,6 +53,13 @@ describe('GrammarController, GrammarAdminController & Guards', () => {
   };
 
   const dagMock = {
+    listAdminTopics: jest.fn().mockResolvedValue([
+      {
+        id: '00000000-0000-4000-8000-000000000010',
+        code: 'grammar.custom_group',
+        published: false,
+      },
+    ]),
     createTopic: jest.fn().mockImplementation(async (dto: CreateGrammarTopicDto) => ({
       id: '00000000-0000-4000-8000-000000000010',
       ...dto,
@@ -65,7 +75,6 @@ describe('GrammarController, GrammarAdminController & Guards', () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       controllers: [GrammarController, GrammarAdminController],
       providers: [
-        RolesGuard,
         { provide: GrammarCatalogService, useValue: catalogMock },
         { provide: GrammarDagService, useValue: dagMock },
       ],
@@ -75,6 +84,8 @@ describe('GrammarController, GrammarAdminController & Guards', () => {
       .overrideGuard(OptionalJwtAuthGuard)
       .useValue({ canActivate: () => true })
       .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(AdminJwtGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -108,6 +119,16 @@ describe('GrammarController, GrammarAdminController & Guards', () => {
       offset: 0,
     });
     expect(practiceRes.data.topicCode).toBe('grammar.tenses.present_simple');
+
+    const adminList = await adminController.listTopics(undefined, undefined, 'false', undefined);
+    expect(adminList.success).toBe(true);
+    expect(adminList.data).toHaveLength(1);
+    expect(dagMock.listAdminTopics).toHaveBeenCalledWith({
+      cefrLevel: undefined,
+      search: undefined,
+      published: 'false',
+      isLeaf: undefined,
+    });
   });
 
   it('validates query and admin DTOs strictly via ValidationPipe', async () => {
@@ -138,7 +159,7 @@ describe('GrammarController, GrammarAdminController & Guards', () => {
     expect(created.data.code).toBe('grammar.custom_group');
   });
 
-  it('enforces OptionalJwtAuthGuard for anonymous vs malformed vs valid Firebase tokens and RolesGuard for ADMIN', async () => {
+  it('enforces OptionalJwtAuthGuard for anonymous vs malformed vs valid Firebase tokens and AdminJwtGuard for ADMIN', async () => {
     const firebaseToken = {
       enabled: true,
       verify: jest.fn().mockResolvedValue({ uid: 'fb-1' }),
@@ -148,10 +169,9 @@ describe('GrammarController, GrammarAdminController & Guards', () => {
     } as unknown as FirebaseUserService;
 
     const optionalGuard = new OptionalJwtAuthGuard(firebaseToken, firebaseUsers);
-    const makeCtx = (authorization?: string, role?: string) => {
+    const makeCtx = (authorization?: string) => {
       const req: { headers: { authorization?: string }; user?: { sub: string; role?: string } } = {
         headers: { ...(authorization ? { authorization } : {}) },
-        ...(role ? { user: { sub: 'u-1', role } } : {}),
       };
       return {
         req,
@@ -176,9 +196,40 @@ describe('GrammarController, GrammarAdminController & Guards', () => {
     await expect(optionalGuard.canActivate(auth.ctx)).resolves.toBe(true);
     expect(auth.req.user).toEqual({ sub: 'user-1', role: 'LEARNER' });
 
-    // RolesGuard blocks LEARNER and allows ADMIN on GrammarAdminController
-    const rolesGuard = new RolesGuard(new Reflector());
-    expect(() => rolesGuard.canActivate(makeCtx(undefined, 'LEARNER').ctx)).toThrow();
-    expect(rolesGuard.canActivate(makeCtx(undefined, 'ADMIN').ctx)).toBe(true);
+    // AdminJwtGuard blocks LEARNER and allows ADMIN with internal Admin JWT
+    const jwtMock = {
+      verifyAsync: jest.fn().mockResolvedValue({ sub: 'u-1', email: 'u@test.local', role: UserRole.ADMIN }),
+    } as unknown as JwtService;
+    const prismaMock = {
+      user: {
+        findUnique: jest
+          .fn()
+          .mockResolvedValueOnce({
+            id: 'u-1',
+            email: 'learner@test.local',
+            role: UserRole.LEARNER,
+            status: UserStatus.ACTIVE,
+            firebaseUid: null,
+          })
+          .mockResolvedValueOnce({
+            id: 'u-1',
+            email: 'admin@test.local',
+            role: UserRole.ADMIN,
+            status: UserStatus.ACTIVE,
+            firebaseUid: null,
+          }),
+      },
+    } as unknown as PrismaService;
+    const adminGuard = new AdminJwtGuard(
+      new Reflector(),
+      jwtMock,
+      prismaMock,
+      firebaseToken,
+      firebaseUsers,
+    );
+    await expect(adminGuard.canActivate(makeCtx('Bearer admin-jwt').ctx)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    await expect(adminGuard.canActivate(makeCtx('Bearer admin-jwt').ctx)).resolves.toBe(true);
   });
 });

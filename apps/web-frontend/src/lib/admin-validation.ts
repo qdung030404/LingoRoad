@@ -3,9 +3,11 @@ import type {
   ItemType,
   ItemUsageScope,
   LearningContentPayload,
+  LearningKeyVocabInput,
   LearningKind,
   LearningQuestionInput,
   LearningStepInput,
+  ListeningSegmentInput,
 } from '../types/admin';
 
 export interface LessonDraftInput {
@@ -15,12 +17,33 @@ export interface LessonDraftInput {
   description: string;
   estimatedMinutes: number;
   passage?: string;
+  coverImageUrl?: string;
+  keyVocabulary?: LearningKeyVocabInput[];
+  audioUrl?: string;
+  audioDurationMs?: number;
+  preparation?: {
+    situation: string;
+    objective: string;
+  };
+  transcriptSegments?: ListeningSegmentInput[];
   steps: LearningStepInput[];
   questions: LearningQuestionInput[];
 }
 
 export function buildLessonContentFromForm(
-  draft: Pick<LessonDraftInput, 'kind' | 'passage' | 'steps' | 'questions'>,
+  draft: Pick<
+    LessonDraftInput,
+    | 'kind'
+    | 'passage'
+    | 'coverImageUrl'
+    | 'keyVocabulary'
+    | 'audioUrl'
+    | 'audioDurationMs'
+    | 'preparation'
+    | 'transcriptSegments'
+    | 'steps'
+    | 'questions'
+  >,
   original?: LearningContentPayload,
 ): LearningContentPayload {
   const cleanSteps = draft.steps.map((step, index) => ({
@@ -32,6 +55,7 @@ export function buildLessonContentFromForm(
     ...(step.phonetic?.trim() ? { phonetic: step.phonetic.trim() } : {}),
     ...(step.meaning?.trim() ? { meaning: step.meaning.trim() } : {}),
     ...(step.example?.trim() ? { example: step.example.trim() } : {}),
+    ...(step.audioUrl?.trim() ? { audioUrl: step.audioUrl.trim() } : {}),
   }));
 
   const cleanQuestions = draft.questions.map((question, qIndex) => {
@@ -47,6 +71,7 @@ export function buildLessonContentFromForm(
             ...opt,
             id: opt.id.trim() || String.fromCharCode(65 + optIndex),
             text: opt.text.trim(),
+            ...(opt.imageUrl?.trim() ? { imageUrl: opt.imageUrl.trim() } : {}),
           }));
 
     return {
@@ -61,37 +86,134 @@ export function buildLessonContentFromForm(
       ...(question.skillCode?.trim()
         ? { skillCode: question.skillCode.trim() }
         : {}),
+      ...(question.evidenceSegmentIds?.length
+        ? {
+            evidenceSegmentIds: question.evidenceSegmentIds
+              .map((s) => s.trim())
+              .filter(Boolean),
+          }
+        : {}),
     };
   });
 
   const cleanPassage = draft.passage?.trim();
-  return {
+  const nextCoverImage =
+    draft.coverImageUrl !== undefined
+      ? draft.coverImageUrl.trim() || undefined
+      : original?.coverImageUrl;
+
+  const nextKeyVocab =
+    draft.keyVocabulary !== undefined
+      ? draft.keyVocabulary
+          .filter((item) => item.word.trim() || item.meaning.trim())
+          .map((item, idx) => ({
+            ...item,
+            id: item.id.trim() || `v-${idx + 1}`,
+            word: item.word.trim(),
+            meaning: item.meaning.trim(),
+            ...(item.phonetic?.trim() ? { phonetic: item.phonetic.trim() } : {}),
+            ...(item.example?.trim() ? { example: item.example.trim() } : {}),
+            ...(item.translation?.trim()
+              ? { translation: item.translation.trim() }
+              : {}),
+            ...(item.imageUrl?.trim() ? { imageUrl: item.imageUrl.trim() } : {}),
+          }))
+      : original?.keyVocabulary;
+
+  if (draft.kind === 'LISTENING') {
+    const cleanSegments = (draft.transcriptSegments ?? []).map((seg, idx) => ({
+      ...seg,
+      id: seg.id.trim() || `seg-${idx + 1}`,
+      speaker: seg.speaker.trim() || `Speaker ${idx + 1}`,
+      startMs: Math.max(0, Math.round(Number(seg.startMs) || 0)),
+      endMs: Math.max(0, Math.round(Number(seg.endMs) || 0)),
+      text: seg.text.trim(),
+      translationVi: seg.translationVi.trim(),
+      ...(seg.speakerAvatar?.trim()
+        ? { speakerAvatar: seg.speakerAvatar.trim() }
+        : {}),
+    }));
+    const syncedTranscript = cleanSegments
+      .map((seg) => `${seg.speaker}: ${seg.text}`)
+      .join('\n');
+
+    return {
+      ...original,
+      listeningVersion: 1,
+      steps: cleanSteps,
+      questions: cleanQuestions,
+      audioUrl: draft.audioUrl?.trim() || original?.audioUrl || '',
+      audioDurationMs: draft.audioDurationMs ?? original?.audioDurationMs ?? 30000,
+      transcript: syncedTranscript || original?.transcript || '',
+      preparation: {
+        situation: draft.preparation?.situation?.trim() ?? original?.preparation?.situation ?? '',
+        objective: draft.preparation?.objective?.trim() ?? original?.preparation?.objective ?? '',
+      },
+      keyVocabulary: nextKeyVocab ?? [],
+      transcriptSegments: cleanSegments,
+      ...(nextCoverImage ? { coverImageUrl: nextCoverImage } : {}),
+    };
+  }
+
+  const result: LearningContentPayload = {
     ...original,
     steps: cleanSteps,
     questions: cleanQuestions,
     ...(draft.kind === 'READING' ? { passage: cleanPassage } : {}),
   };
+
+  if (nextCoverImage) {
+    result.coverImageUrl = nextCoverImage;
+  } else if (draft.coverImageUrl !== undefined) {
+    delete result.coverImageUrl;
+  }
+
+  if (nextKeyVocab && nextKeyVocab.length > 0) {
+    result.keyVocabulary = nextKeyVocab;
+  } else if (draft.keyVocabulary !== undefined) {
+    delete result.keyVocabulary;
+  }
+
+  return result;
 }
 
-export function assessmentChoiceDraft(raw: unknown, correctOption?: string | null): {
-  options: string[]; correctIndex: number;
+export function assessmentChoiceDraft(
+  raw: unknown,
+  correctOption?: string | null,
+): {
+  options: string[];
+  correctIndex: number;
 } {
   if (!Array.isArray(raw)) return { options: ['', '', '', ''], correctIndex: -1 };
   return {
-    options: raw.map(entry => typeof entry === 'string' ? entry : String(entry?.text ?? entry?.id ?? '')),
-    correctIndex: raw.findIndex(entry => typeof entry === 'string'
-      ? entry.trim() === correctOption?.trim()
-      : entry && (entry.id === correctOption || entry.text === correctOption)),
+    options: raw.map((entry) =>
+      typeof entry === 'string' ? entry : String(entry?.text ?? entry?.id ?? ''),
+    ),
+    correctIndex: raw.findIndex((entry) =>
+      typeof entry === 'string'
+        ? entry.trim() === correctOption?.trim()
+        : entry && (entry.id === correctOption || entry.text === correctOption),
+    ),
   };
 }
 
-export function buildAssessmentChoices(options: string[], correctIndex: number, original: unknown) {
+export function buildAssessmentChoices(
+  options: string[],
+  correctIndex: number,
+  original: unknown,
+) {
   const saved = options.map((text, index) => {
     const previous = Array.isArray(original) ? original[index] : undefined;
-    return previous && typeof previous === 'object' ? { ...previous, text: text.trim() } : text.trim();
+    return previous && typeof previous === 'object'
+      ? { ...previous, text: text.trim() }
+      : text.trim();
   });
   const selected = saved[correctIndex];
-  return { options: saved, correctOption: typeof selected === 'string' ? selected : selected?.id ?? selected?.text };
+  return {
+    options: saved,
+    correctOption:
+      typeof selected === 'string' ? selected : selected?.id ?? selected?.text,
+  };
 }
 
 export interface AssessmentItemDraftInput {
@@ -99,6 +221,7 @@ export interface AssessmentItemDraftInput {
   type: ItemType;
   usageScope: ItemUsageScope;
   passage: string;
+  audioUrl?: string;
   prompt: string;
   options: string[];
   correctIndex: number;
@@ -126,6 +249,9 @@ export function validateAssessmentItemDraft(
     }
     if (draft.skill === 'READING' && !draft.passage.trim()) {
       return 'Câu hỏi READING phạm vi PLACEMENT bắt buộc phải có đoạn văn đính kèm.';
+    }
+    if (draft.skill === 'LISTENING' && draft.audioUrl !== undefined && !draft.audioUrl.trim()) {
+      return 'Câu hỏi LISTENING phạm vi PLACEMENT bắt buộc phải có tệp âm thanh WAV (/media/placement/...).';
     }
   }
 
@@ -174,7 +300,11 @@ export function validateLessonDraft(draft: LessonDraftInput): string | null {
   if (!draft.description.trim()) {
     return 'Mô tả ngắn không được để trống.';
   }
-  if (!Number.isInteger(draft.estimatedMinutes) || draft.estimatedMinutes < 1 || draft.estimatedMinutes > 120) {
+  if (
+    !Number.isInteger(draft.estimatedMinutes) ||
+    draft.estimatedMinutes < 1 ||
+    draft.estimatedMinutes > 120
+  ) {
     return 'Thời lượng dự kiến phải từ 1 đến 120 phút.';
   }
 
@@ -182,6 +312,56 @@ export function validateLessonDraft(draft: LessonDraftInput): string | null {
     const step = draft.steps[i];
     if (!step.title.trim() || !step.body.trim()) {
       return `Bước học #${i + 1} cần có đủ tiêu đề và nội dung.`;
+    }
+  }
+
+  if (draft.kind === 'LISTENING') {
+    if (!draft.audioUrl?.trim()) {
+      return 'Bài nghe hiểu (LISTENING) bắt buộc phải có tệp âm thanh WAV (/media/learning/v1/...).';
+    }
+    const dur = Number(draft.audioDurationMs);
+    if (!Number.isFinite(dur) || dur < 30000 || dur > 90000) {
+      return 'Thời lượng audio bài Nghe hiểu phải nằm trong khoảng 30.000ms – 90.000ms (30–90 giây).';
+    }
+    if (!draft.preparation?.situation?.trim() || !draft.preparation?.objective?.trim()) {
+      return 'Bài Nghe hiểu cần nhập đủ tình huống (situation) và mục tiêu (objective) trong phần Chuẩn bị.';
+    }
+    const vocabCount = (draft.keyVocabulary ?? []).filter(
+      (v) => v.word.trim() && v.meaning.trim(),
+    ).length;
+    if (vocabCount < 3 || vocabCount > 5) {
+      return 'Bài Nghe hiểu chuẩn v1 cần từ 3 đến 5 từ vựng trọng tâm (keyVocabulary).';
+    }
+    const segs = draft.transcriptSegments ?? [];
+    if (segs.length < 2) {
+      return 'Bài Nghe hiểu cần tối thiểu 2 đoạn hội thoại (transcriptSegments).';
+    }
+    const segmentIds = new Set<string>();
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i];
+      const segId = seg.id.trim() || `seg-${i + 1}`;
+      if (segmentIds.has(segId)) {
+        return `Trùng mã đoạn transcript: ${segId}.`;
+      }
+      segmentIds.add(segId);
+      if (!seg.speaker.trim() || !seg.text.trim() || !seg.translationVi.trim()) {
+        return `Đoạn transcript #${i + 1} cần đầy đủ người nói, nội dung tiếng Anh và bản dịch tiếng Việt.`;
+      }
+      if (seg.endMs <= seg.startMs) {
+        return `Đoạn transcript #${i + 1} có mốc kết thúc (endMs) phải lớn hơn bắt đầu (startMs).`;
+      }
+    }
+    if (draft.questions.length !== 5) {
+      return 'Bài Nghe hiểu chuẩn v1 yêu cầu đúng 5 câu hỏi.';
+    }
+    for (let i = 0; i < draft.questions.length; i++) {
+      const q = draft.questions[i];
+      if (!q.skillCode?.trim()) {
+        return `Câu hỏi Nghe hiểu #${i + 1} bắt buộc phải chọn skillCode.`;
+      }
+      if (!q.evidenceSegmentIds || q.evidenceSegmentIds.length === 0) {
+        return `Câu hỏi Nghe hiểu #${i + 1} cần gắn ít nhất 1 đoạn transcript dẫn chứng.`;
+      }
     }
   }
 
@@ -267,17 +447,31 @@ export function parseLessonJsonDraft(rawJson: string): {
     const isRecord = (value: unknown): value is Record<string, unknown> =>
       value !== null && typeof value === 'object' && !Array.isArray(value);
     const hasStrings = (value: Record<string, unknown>, keys: string[]) =>
-      keys.every(key => typeof value[key] === 'string');
+      keys.every((key) => typeof value[key] === 'string');
     const optionalStrings = (value: Record<string, unknown>, keys: string[]) =>
-      keys.every(key => value[key] === undefined || typeof value[key] === 'string');
-    if (obj.steps.some(step => !isRecord(step) || !hasStrings(step, ['id', 'title', 'body'])
-      || !optionalStrings(step, ['word', 'phonetic', 'meaning', 'example']))
-      || obj.questions.some(question => !isRecord(question)
-        || !hasStrings(question, ['id', 'prompt', 'correctOptionId', 'explanation'])
-        || !optionalStrings(question, ['evidence', 'skillCode'])
-        || !Array.isArray(question.options)
-        || question.options.some(option => !isRecord(option) || !hasStrings(option, ['id', 'text'])))) {
-      return { content: null, error: 'Các bước học, câu hỏi và phương án trong JSON không đúng cấu trúc.' };
+      keys.every((key) => value[key] === undefined || typeof value[key] === 'string');
+    if (
+      obj.steps.some(
+        (step) =>
+          !isRecord(step) ||
+          !hasStrings(step, ['id', 'title', 'body']) ||
+          !optionalStrings(step, ['word', 'phonetic', 'meaning', 'example']),
+      ) ||
+      obj.questions.some(
+        (question) =>
+          !isRecord(question) ||
+          !hasStrings(question, ['id', 'prompt', 'correctOptionId', 'explanation']) ||
+          !optionalStrings(question, ['evidence', 'skillCode']) ||
+          !Array.isArray(question.options) ||
+          question.options.some(
+            (option) => !isRecord(option) || !hasStrings(option, ['id', 'text']),
+          ),
+      )
+    ) {
+      return {
+        content: null,
+        error: 'Các bước học, câu hỏi và phương án trong JSON không đúng cấu trúc.',
+      };
     }
 
     return {
