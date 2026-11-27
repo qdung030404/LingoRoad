@@ -296,9 +296,19 @@ class _LearningPreviewState extends State<LearningPreview>
   void openProfile() {
     final account = widget.account;
     if (account != null) {
+      final rememberedWords =
+          (vocabularyController?.summary?['totals']
+                  as Map?)?['rememberedWords']
+              as int?;
+      final completedLessons =
+          (learning?.summary['completedLessonCount'] as num?)?.toInt();
       previewPush<void>(
         context,
-        ProfilePage(session: account),
+        ProfilePage(
+          session: account,
+          rememberedWords: rememberedWords,
+          completedLessonCount: completedLessons,
+        ),
       ).then((_) {
         if (mounted) _refreshAfterChange();
       });
