@@ -97,6 +97,7 @@ export class AdminJwtGuard implements CanActivate {
         role: true,
         status: true,
         firebaseUid: true,
+        tokenVersion: true,
       },
     });
 
@@ -121,6 +122,17 @@ export class AdminJwtGuard implements CanActivate {
       throw new ForbiddenException({
         code: 'AUTH_INSUFFICIENT_PERMISSIONS',
         message: 'Bạn không có quyền truy cập khu vực quản trị.',
+      });
+    }
+
+    const currentTokenVersion = user.tokenVersion ?? 0;
+    if (
+      (typeof payload.tv === 'number' && payload.tv !== currentTokenVersion) ||
+      (payload.tv === undefined && currentTokenVersion > 0)
+    ) {
+      throw new UnauthorizedException({
+        code: 'AUTH_SESSION_REVOKED',
+        message: 'Phiên đăng nhập quản trị đã bị thu hồi. Vui lòng đăng nhập lại.',
       });
     }
 

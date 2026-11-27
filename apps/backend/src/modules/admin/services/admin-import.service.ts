@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import {
   AssessmentSkill,
   CefrLevel,
@@ -18,12 +18,13 @@ import {
 import { isSafeImageUrl, validateLearningContent } from '../../learning/learning.types';
 import { validateListeningAudio } from '../../learning/listening-media';
 import { learningMediaRoot } from '../../learning/learning.service';
+import { MediaStorageService } from '../../media/media-storage.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CuratedVocabularyService } from '../../vocabulary/curated-vocabulary.service';
 import {
-  adminPlacementBankVersion,
   assertReferencedItemUnchanged,
   lockAssessmentItem,
+  resolveAdminPlacementBankVersion,
 } from './assessment-item-integrity';
 
 export interface ImportErrorItem {
@@ -172,6 +173,7 @@ interface NormalizedGrammarTopicInput {
   examples: GrammarExampleItem[];
   orderIndex: number;
   published: boolean;
+  prerequisiteCodes?: string[];
 }
 
 interface NormalizedAssessmentGroupInput {
@@ -187,7 +189,7 @@ interface NormalizedAssessmentGroupInput {
 }
 
 const SLUG_REGEX = /^[a-z0-9-]+$/;
-const GRAMMAR_CODE_REGEX = /^grammar\.[a-z0-9._-]+$/;
+const GRAMMAR_CODE_REGEX = /^grammar(\.[a-z_]+)*$/;
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_IMPORT_RECORDS = 500;
@@ -275,6 +277,7 @@ export class AdminImportService {
     private readonly prisma: PrismaService,
     private readonly assessmentMatrixService: AssessmentMatrixService,
     private readonly curatedVocabularyService: CuratedVocabularyService,
+    @Optional() private readonly mediaStorage?: MediaStorageService,
   ) {}
 
   private normalizeBundleShape(rawBundle: unknown): {
@@ -305,6 +308,13 @@ export class AdminImportService {
           bundle.assessmentGroups.push(entry);
         } else if ('prompt' in entry && ('cefrLevel' in entry || 'skill' in entry)) {
           bundle.items.push(entry);
+        } else if (
+          'code' in entry &&
+          'cefrLevel' in entry &&
+          'orderIndex' in entry &&
+          'title' in entry
+        ) {
+          bundle.units.push(entry);
         } else {
           return {
             bundle,
@@ -462,7 +472,13 @@ export class AdminImportService {
         : Promise.resolve([]),
       bundle.grammarTopics.length > 0 || lessonsNeedGrammar
         ? this.prisma.grammarTopic.findMany({
-            select: { id: true, code: true, isLeaf: true },
+            select: {
+              id: true,
+              code: true,
+              isLeaf: true,
+              parentId: true,
+              parent: { select: { code: true } },
+            },
           })
         : Promise.resolve([]),
       bundle.assessmentGroups.length > 0 || itemsNeedGroups
@@ -613,6 +629,7 @@ export class AdminImportService {
     // 2. Grammar Topics (parsed before Lessons so lessons can reference bundled grammarTopicCode)
     const parsedGrammarTopics: NormalizedGrammarTopicInput[] = [];
     const bundleGrammarByCode = new Map<string, NormalizedGrammarTopicInput>();
+    const grammarSourceIdxByCode = new Map<string, number>();
 
     bundle.grammarTopics.forEach((raw, idx) => {
       const path = `grammarTopics[${idx}]`;
@@ -639,7 +656,7 @@ export class AdminImportService {
       if (!code || !GRAMMAR_CODE_REGEX.test(code) || code.length > 100) {
         errors.push({
           path: `${path}.code`,
-          message: 'Mã ngữ pháp phải bắt đầu bằng "grammar." và chỉ gồm chữ thường/số/._- (<= 100 ký tự).',
+          message: 'Mã ngữ pháp phải bắt đầu bằng "grammar", phân tách bằng dấu chấm và chỉ gồm chữ thường a-z hoặc dấu gạch dưới (<= 100 ký tự).',
         });
         itemValid = false;
       } else if (bundleGrammarByCode.has(code)) {
@@ -674,6 +691,36 @@ export class AdminImportService {
         itemValid = false;
       }
 
+      let prerequisiteCodes: string[] | undefined;
+      if (raw.prerequisiteCodes !== undefined) {
+        if (!Array.isArray(raw.prerequisiteCodes)) {
+          errors.push({
+            path: `${path}.prerequisiteCodes`,
+            message: 'prerequisiteCodes phải là một mảng chuỗi mã ngữ pháp.',
+          });
+          itemValid = false;
+        } else {
+          const deduped: string[] = [];
+          const seenPrereqs = new Set<string>();
+          for (const entry of raw.prerequisiteCodes) {
+            if (typeof entry !== 'string' || !entry.trim()) {
+              errors.push({
+                path: `${path}.prerequisiteCodes`,
+                message: 'Mỗi phần tử trong prerequisiteCodes phải là chuỗi mã ngữ pháp hợp lệ.',
+              });
+              itemValid = false;
+              break;
+            }
+            const normalizedPrereq = entry.trim().toLowerCase();
+            if (!seenPrereqs.has(normalizedPrereq)) {
+              seenPrereqs.add(normalizedPrereq);
+              deduped.push(normalizedPrereq);
+            }
+          }
+          prerequisiteCodes = deduped;
+        }
+      }
+
       if (itemValid) {
         try {
           validateGrammarTopicPayload({ formulas, usageNotes, examples }, isLeaf, code);
@@ -704,8 +751,10 @@ export class AdminImportService {
         examples,
         orderIndex,
         published,
+        ...(prerequisiteCodes !== undefined ? { prerequisiteCodes } : {}),
       };
       bundleGrammarByCode.set(code, normalized);
+      grammarSourceIdxByCode.set(code, idx);
       parsedGrammarTopics.push(normalized);
 
       const op: 'CREATE' | 'UPDATE' = existingGrammarByCode.has(code)
@@ -722,8 +771,21 @@ export class AdminImportService {
       });
     });
 
-    // Validate parentCode links across bundle + DB
-    parsedGrammarTopics.forEach((g, idx) => {
+    // Validate parentCode links and hierarchy cycles across bundle + DB
+    const existingGrammarById = new Map(existingGrammarTopics.map((g) => [g.id, g]));
+    const mergedParentByCode = new Map<string, string | null>();
+    for (const g of existingGrammarTopics) {
+      const dbParentCode =
+        g.parent?.code ??
+        (g.parentId ? (existingGrammarById.get(g.parentId)?.code ?? null) : null);
+      mergedParentByCode.set(g.code, dbParentCode);
+    }
+    for (const g of parsedGrammarTopics) {
+      mergedParentByCode.set(g.code, g.parentCode);
+    }
+
+    parsedGrammarTopics.forEach((g) => {
+      const idx = grammarSourceIdxByCode.get(g.code) ?? 0;
       if (!g.parentCode) return;
       if (g.parentCode === g.code) {
         errors.push({
@@ -739,13 +801,135 @@ export class AdminImportService {
           path: `grammarTopics[${idx}].parentCode`,
           message: `Không tìm thấy parentCode "${g.parentCode}" trong DB hoặc gói JSON.`,
         });
-      } else if ((inBundle && inBundle.isLeaf) || (!inBundle && inDb?.isLeaf)) {
+        return;
+      }
+      if ((inBundle && inBundle.isLeaf) || (!inBundle && inDb?.isLeaf)) {
         errors.push({
           path: `grammarTopics[${idx}].parentCode`,
           message: `Nút cha "${g.parentCode}" phải là nhóm (isLeaf = false).`,
         });
+        return;
+      }
+
+      const visited = new Set<string>([g.code]);
+      let cursor: string | null = g.parentCode;
+      while (cursor) {
+        if (visited.has(cursor)) {
+          errors.push({
+            path: `grammarTopics[${idx}].parentCode`,
+            message: `Phát hiện vòng lặp phân cấp Cha – Con (parentCode cycle) liên quan tới "${g.code}".`,
+          });
+          break;
+        }
+        visited.add(cursor);
+        cursor = mergedParentByCode.get(cursor) ?? null;
       }
     });
+
+    // Validate prerequisiteCodes links & full DAG cycle check across merged DB + bundle edges
+    const topicsWithPrereqs = parsedGrammarTopics.filter(
+      (g) => g.prerequisiteCodes !== undefined,
+    );
+    if (topicsWithPrereqs.length > 0) {
+      let hasPrereqLinkError = false;
+      for (const g of topicsWithPrereqs) {
+        const idx = grammarSourceIdxByCode.get(g.code) ?? 0;
+        const prereqs = g.prerequisiteCodes ?? [];
+        if (prereqs.length > 0 && !g.isLeaf) {
+          errors.push({
+            path: `grammarTopics[${idx}].prerequisiteCodes`,
+            message: `Chỉ cấu trúc ngữ pháp lá (isLeaf = true) mới được gắn prerequisiteCodes ("${g.code}").`,
+          });
+          hasPrereqLinkError = true;
+          continue;
+        }
+        for (const prereqCode of prereqs) {
+          if (prereqCode === g.code) {
+            errors.push({
+              path: `grammarTopics[${idx}].prerequisiteCodes`,
+              message: `Cấu trúc ngữ pháp "${g.code}" không thể là điều kiện tiên quyết của chính nó.`,
+            });
+            hasPrereqLinkError = true;
+            continue;
+          }
+          const inBundle = bundleGrammarByCode.get(prereqCode);
+          const inDb = existingGrammarByCode.get(prereqCode);
+          if (!inBundle && !inDb) {
+            errors.push({
+              path: `grammarTopics[${idx}].prerequisiteCodes`,
+              message: `Không tìm thấy prerequisiteCode "${prereqCode}" trong DB hoặc gói JSON.`,
+            });
+            hasPrereqLinkError = true;
+          } else if ((inBundle && !inBundle.isLeaf) || (!inBundle && inDb && !inDb.isLeaf)) {
+            errors.push({
+              path: `grammarTopics[${idx}].prerequisiteCodes`,
+              message: `Điều kiện tiên quyết "${prereqCode}" phải là cấu trúc lá (isLeaf = true).`,
+            });
+            hasPrereqLinkError = true;
+          }
+        }
+      }
+
+      if (!hasPrereqLinkError) {
+        const existingEdges = this.prisma.grammarPrerequisite?.findMany
+          ? await this.prisma.grammarPrerequisite.findMany({
+              select: {
+                prerequisite: { select: { code: true } },
+                target: { select: { code: true } },
+              },
+            })
+          : [];
+        const prereqsByTarget = new Map<string, Set<string>>();
+        for (const edge of existingEdges) {
+          const targetCode = edge.target.code;
+          const prereqCode = edge.prerequisite.code;
+          const set = prereqsByTarget.get(targetCode) ?? new Set<string>();
+          set.add(prereqCode);
+          prereqsByTarget.set(targetCode, set);
+        }
+        for (const g of topicsWithPrereqs) {
+          prereqsByTarget.set(g.code, new Set(g.prerequisiteCodes ?? []));
+        }
+
+        // 3-color DFS on merged graph (target -> prereqs): cycle iff back-edge found
+        const color = new Map<string, 0 | 1 | 2>();
+        const stack: string[] = [];
+        const reportedCycleNodes = new Set<string>();
+
+        const visit = (node: string): void => {
+          color.set(node, 1);
+          stack.push(node);
+          for (const next of prereqsByTarget.get(node) ?? []) {
+            const nextColor = color.get(next) ?? 0;
+            if (nextColor === 1) {
+              const cycleStart = stack.indexOf(next);
+              const cycleNodes = cycleStart >= 0 ? stack.slice(cycleStart) : [node, next];
+              const blameCode =
+                cycleNodes.find((code) => grammarSourceIdxByCode.has(code)) ??
+                topicsWithPrereqs[0].code;
+              if (!reportedCycleNodes.has(blameCode)) {
+                reportedCycleNodes.add(blameCode);
+                const idx = grammarSourceIdxByCode.get(blameCode) ?? 0;
+                errors.push({
+                  path: `grammarTopics[${idx}].prerequisiteCodes`,
+                  message: `Phát hiện chu trình phụ thuộc vòng lặp (DAG cycle) trong prerequisiteCodes: ${[...cycleNodes, next].join(' -> ')}.`,
+                });
+              }
+            } else if (nextColor === 0) {
+              visit(next);
+            }
+          }
+          stack.pop();
+          color.set(node, 2);
+        };
+
+        for (const node of prereqsByTarget.keys()) {
+          if ((color.get(node) ?? 0) === 0) {
+            visit(node);
+          }
+        }
+      }
+    }
 
     // 3. Assessment Groups (parsed before Items so items can reference groupId)
     const parsedGroups: NormalizedAssessmentGroupInput[] = [];
@@ -846,11 +1030,12 @@ export class AdminImportService {
     const parsedLessons: NormalizedLessonInput[] = [];
     const bundleLessonCodes = new Set<string>();
 
-    bundle.lessons.forEach((raw, idx) => {
+    for (let idx = 0; idx < bundle.lessons.length; idx++) {
+      const raw = bundle.lessons[idx];
       const path = `lessons[${idx}]`;
       if (!isPlainObject(raw)) {
         errors.push({ path, message: 'Lesson phải là một đối tượng JSON.' });
-        return;
+        continue;
       }
 
       const code = asTrimmedString(raw.code).toLowerCase();
@@ -967,7 +1152,13 @@ export class AdminImportService {
       if (LEARNING_KIND_VALUES.has(kind)) {
         try {
           validateLearningContent(raw.content, kind as LearningKind);
-          if (published) validateListeningAudio(raw.content, learningMediaRoot());
+          if (published) {
+            if (this.mediaStorage) {
+              await this.mediaStorage.verifyListeningAudio(raw.content, learningMediaRoot());
+            } else {
+              validateListeningAudio(raw.content, learningMediaRoot());
+            }
+          }
         } catch (err) {
           errors.push({
             path: `${path}.content`,
@@ -980,7 +1171,7 @@ export class AdminImportService {
         }
       }
 
-      if (!itemValid) return;
+      if (!itemValid) continue;
 
       bundleLessonCodes.add(code);
       const op: 'CREATE' | 'UPDATE' = existingLessonCodes.has(code)
@@ -1007,17 +1198,18 @@ export class AdminImportService {
         grammarTopicCode,
         content: raw.content,
       });
-    });
+    }
 
     // 5. Assessment Items
     const parsedItems: NormalizedAssessmentItemInput[] = [];
     const bundleItemExternalIds = new Set<string>();
 
-    bundle.items.forEach((raw, idx) => {
+    for (let idx = 0; idx < bundle.items.length; idx++) {
+      const raw = bundle.items[idx];
       const path = `items[${idx}]`;
       if (!isPlainObject(raw)) {
         errors.push({ path, message: 'Item phải là một đối tượng JSON.' });
-        return;
+        continue;
       }
 
       const externalId = asTrimmedString(raw.externalId) || undefined;
@@ -1178,20 +1370,23 @@ export class AdminImportService {
 
       if (itemValid) {
         try {
-          adminPlacementBankVersion({
-            type: type as ItemType,
-            skill: skill as AssessmentSkill,
-            usageScope: usageScope as ItemUsageScope,
-            options: (raw.options ?? null) as Prisma.JsonValue,
-            correctOption,
-            prompt,
-            passage,
-            audioUrl,
-            irtA,
-            irtB,
-            irtC,
-            groupId,
-          });
+          await resolveAdminPlacementBankVersion(
+            {
+              type: type as ItemType,
+              skill: skill as AssessmentSkill,
+              usageScope: usageScope as ItemUsageScope,
+              options: (raw.options ?? null) as Prisma.JsonValue,
+              correctOption,
+              prompt,
+              passage,
+              audioUrl,
+              irtA,
+              irtB,
+              irtC,
+              groupId,
+            },
+            this.mediaStorage,
+          );
         } catch (error) {
           errors.push({
             path,
@@ -1204,7 +1399,7 @@ export class AdminImportService {
         }
       }
 
-      if (!itemValid) return;
+      if (!itemValid) continue;
 
       if (externalId) bundleItemExternalIds.add(externalId);
       const op: 'CREATE' | 'UPDATE' =
@@ -1240,7 +1435,7 @@ export class AdminImportService {
         irtB,
         irtC,
       });
-    });
+    }
 
     // 6. Curated Vocabulary Topics
     const parsedTopics: NormalizedTopicInput[] = [];
@@ -1467,10 +1662,10 @@ export class AdminImportService {
         itemValid = false;
       }
 
-      if (!text || text.length < 2) {
+      if (!text || text.length < 2 || text.length > 1000) {
         errors.push({
           path: `${path}.text`,
-          message: 'Nội dung đề luyện nói (text) không được để trống.',
+          message: 'Nội dung đề luyện nói (text) phải từ 2 đến 1000 ký tự.',
         });
         itemValid = false;
       }
@@ -1483,14 +1678,34 @@ export class AdminImportService {
         itemValid = false;
       }
 
+      const modeMaxDuration =
+        mode === SpeakingMode.TOPIC || mode === SpeakingMode.PICTURE_DESCRIPTION
+          ? 60
+          : 30;
       if (
         !Number.isInteger(maxDurationSeconds) ||
         maxDurationSeconds < 5 ||
-        maxDurationSeconds > 300
+        maxDurationSeconds > modeMaxDuration
       ) {
         errors.push({
           path: `${path}.maxDurationSeconds`,
-          message: 'maxDurationSeconds phải từ 5 đến 300 giây.',
+          message: `maxDurationSeconds cho chế độ ${mode} phải từ 5 đến ${modeMaxDuration} giây.`,
+        });
+        itemValid = false;
+      }
+
+      if (hints.length > 3) {
+        errors.push({
+          path: `${path}.hints`,
+          message: 'Mỗi đề luyện nói chỉ được tối đa 3 gợi ý (hints).',
+        });
+        itemValid = false;
+      }
+
+      if (visualContext && visualContext.length > 2000) {
+        errors.push({
+          path: `${path}.visualContext`,
+          message: 'visualContext tối đa 2000 ký tự.',
         });
         itemValid = false;
       }
@@ -1615,23 +1830,59 @@ export class AdminImportService {
           unitIdByCode.set(saved.code, saved.id);
         }
 
-        // 2. Grammar Topics (upsert groups/roots first, then children)
+        // 2. Grammar Topics (Kahn's topological sort on parentCode for N-level trees)
         const grammarIdByCode = new Map<string, string>();
         if (parsed.grammarTopics.length > 0) {
-          const orderedGrammar = [
-            ...parsed.grammarTopics.filter((g) => !g.parentCode),
-            ...parsed.grammarTopics.filter((g) => Boolean(g.parentCode)),
-          ];
-          const neededParentCodes = [
+          const bundleCodes = new Set(parsed.grammarTopics.map((g) => g.code));
+          const inDegree = new Map<string, number>();
+          const childrenByParent = new Map<string, NormalizedGrammarTopicInput[]>();
+
+          for (const g of parsed.grammarTopics) {
+            const hasBundleParent = Boolean(
+              g.parentCode && bundleCodes.has(g.parentCode),
+            );
+            inDegree.set(g.code, hasBundleParent ? 1 : 0);
+            if (hasBundleParent && g.parentCode) {
+              const list = childrenByParent.get(g.parentCode) ?? [];
+              list.push(g);
+              childrenByParent.set(g.parentCode, list);
+            }
+          }
+
+          const queue: NormalizedGrammarTopicInput[] = parsed.grammarTopics.filter(
+            (g) => (inDegree.get(g.code) ?? 0) === 0,
+          );
+          const orderedGrammar: NormalizedGrammarTopicInput[] = [];
+          let head = 0;
+          while (head < queue.length) {
+            const current = queue[head++];
+            orderedGrammar.push(current);
+            for (const child of childrenByParent.get(current.code) ?? []) {
+              const nextDeg = (inDegree.get(child.code) ?? 0) - 1;
+              inDegree.set(child.code, nextDeg);
+              if (nextDeg === 0) {
+                queue.push(child);
+              }
+            }
+          }
+
+          if (orderedGrammar.length !== parsed.grammarTopics.length) {
+            throw new BadRequestException({
+              code: 'ADMIN_IMPORT_GRAMMAR_HIERARCHY_CYCLE',
+              message: 'Phát hiện vòng lặp phân cấp Cha – Con trong cây ngữ pháp.',
+            });
+          }
+
+          const neededExternalParentCodes = [
             ...new Set(
               orderedGrammar
                 .map((g) => g.parentCode)
-                .filter((c): c is string => Boolean(c)),
+                .filter((c): c is string => Boolean(c) && !bundleCodes.has(c as string)),
             ),
           ];
-          if (neededParentCodes.length > 0) {
+          if (neededExternalParentCodes.length > 0) {
             const existingParents = await tx.grammarTopic.findMany({
-              where: { code: { in: neededParentCodes } },
+              where: { code: { in: neededExternalParentCodes } },
               select: { id: true, code: true },
             });
             for (const p of existingParents) {
@@ -1675,6 +1926,46 @@ export class AdminImportService {
               select: { id: true, code: true },
             });
             grammarIdByCode.set(saved.code, saved.id);
+          }
+
+          const topicsWithPrereqs = orderedGrammar.filter(
+            (g) => g.prerequisiteCodes !== undefined,
+          );
+          if (topicsWithPrereqs.length > 0) {
+            const missingPrereqCodes = [
+              ...new Set(
+                topicsWithPrereqs
+                  .flatMap((g) => g.prerequisiteCodes ?? [])
+                  .filter((code) => !grammarIdByCode.has(code)),
+              ),
+            ];
+            if (missingPrereqCodes.length > 0) {
+              const existingPrereqs = await tx.grammarTopic.findMany({
+                where: { code: { in: missingPrereqCodes } },
+                select: { id: true, code: true },
+              });
+              for (const p of existingPrereqs) {
+                grammarIdByCode.set(p.code, p.id);
+              }
+            }
+
+            for (const g of topicsWithPrereqs) {
+              const targetId = grammarIdByCode.get(g.code);
+              if (!targetId) continue;
+              await tx.grammarPrerequisite.deleteMany({
+                where: { targetId },
+              });
+              const edgeRows = (g.prerequisiteCodes ?? [])
+                .map((prereqCode) => grammarIdByCode.get(prereqCode))
+                .filter((prereqId): prereqId is string => Boolean(prereqId))
+                .map((prerequisiteId) => ({ prerequisiteId, targetId }));
+              if (edgeRows.length > 0) {
+                await tx.grammarPrerequisite.createMany({
+                  data: edgeRows,
+                  skipDuplicates: true,
+                });
+              }
+            }
           }
         }
 
@@ -1852,14 +2143,17 @@ export class AdminImportService {
                 },
               });
             }
-            const bankVersion = adminPlacementBankVersion({
-              ...item,
-              options: (item.options ?? null) as Prisma.JsonValue,
-              correctOption: item.correctOption ?? null,
-              passage: item.passage ?? null,
-              audioUrl: item.audioUrl ?? null,
-              groupId: item.groupId ?? existing?.groupId,
-            });
+            const bankVersion = await resolveAdminPlacementBankVersion(
+              {
+                ...item,
+                options: (item.options ?? null) as Prisma.JsonValue,
+                correctOption: item.correctOption ?? null,
+                passage: item.passage ?? null,
+                audioUrl: item.audioUrl ?? null,
+                groupId: item.groupId ?? existing?.groupId,
+              },
+              this.mediaStorage,
+            );
             if (existing) {
               assertReferencedItemUnchanged(existing, { ...itemData, bankVersion });
             }
@@ -1873,17 +2167,21 @@ export class AdminImportService {
               update: { ...itemData, bankVersion },
             });
           } else {
+            const bankVersion = await resolveAdminPlacementBankVersion(
+              {
+                ...item,
+                options: (item.options ?? null) as Prisma.JsonValue,
+                correctOption: item.correctOption ?? null,
+                passage: item.passage ?? null,
+                audioUrl: item.audioUrl ?? null,
+                groupId: item.groupId ?? null,
+              },
+              this.mediaStorage,
+            );
             await tx.assessmentItem.create({
               data: {
                 ...itemData,
-                bankVersion: adminPlacementBankVersion({
-                  ...item,
-                  options: (item.options ?? null) as Prisma.JsonValue,
-                  correctOption: item.correctOption ?? null,
-                  passage: item.passage ?? null,
-                  audioUrl: item.audioUrl ?? null,
-                  groupId: item.groupId ?? null,
-                }),
+                bankVersion,
               },
             });
           }

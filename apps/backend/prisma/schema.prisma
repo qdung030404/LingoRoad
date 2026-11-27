@@ -57,6 +57,7 @@ model User {
   name         String         @db.VarChar(100)
   role         UserRole       @default(LEARNER)
   status       UserStatus     @default(ACTIVE)
+  tokenVersion Int            @default(0) @map("token_version")
   createdAt    DateTime       @default(now()) @map("created_at")
   updatedAt    DateTime       @updatedAt @map("updated_at")
 

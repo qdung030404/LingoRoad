@@ -1,11 +1,23 @@
-import { CefrLevel, LearningPurpose, UserRole, UserStatus } from '@prisma/client';
+import {
+  CefrLevel,
+  LearningKind,
+  LearningPurpose,
+  UserRole,
+  UserStatus,
+} from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsInt,
   IsOptional,
   IsString,
+  Matches,
   Max,
   MaxLength,
   Min,
@@ -101,4 +113,43 @@ export class UpdateAdminUserDto {
   @ValidateIf((_obj, value) => value !== null)
   @IsEnum(LearningPurpose)
   learningPurpose?: LearningPurpose | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(4)
+  @ArrayUnique()
+  @IsEnum(LearningKind, { each: true })
+  preferredKinds?: LearningKind[];
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsEnum(CefrLevel)
+  selfAssessedCefr?: CefrLevel | null;
+
+  @IsOptional()
+  @IsBoolean()
+  reminderEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, {
+    message: 'reminderTime phải có định dạng HH:mm (00:00 - 23:59).',
+  })
+  reminderTime?: string;
+}
+
+export class OverrideUserSkillLevelDto {
+  @IsEnum(CefrLevel)
+  cefrLevel!: CefrLevel;
+
+  @IsOptional()
+  @IsBoolean()
+  resetExposures?: boolean;
+}
+
+export class ResetPlacementRetakeDto {
+  @IsOptional()
+  @IsBoolean()
+  resetSkillLevels?: boolean;
 }

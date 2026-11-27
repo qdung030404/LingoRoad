@@ -1,9 +1,24 @@
-interface TopicPreparation {
+export interface TopicPreparation {
   goal: string;
   sceneImageUrl: string;
   vocabulary: { word: string; meaningVi: string; example: string; imageUrl?: string }[];
   phrases: { text: string; meaningVi: string }[];
 }
+
+export const readingByTopic: Record<string, readonly string[]> = {
+  'topic-1': ['read-aloud-2', 'read-aloud-3'],
+  'topic-2': ['read-aloud-4'],
+  'topic-3': ['read-aloud-5'],
+  'topic-4': ['topic-read-aloud-1'],
+  'topic-5': ['topic-read-aloud-2'],
+  'topic-6': ['topic-read-aloud-3'],
+  'topic-7': ['read-aloud-7'],
+  'topic-8': ['read-aloud-6'],
+  'topic-9': ['topic-read-aloud-1'],
+  'topic-10': ['read-aloud-8'],
+  'topic-11': ['read-aloud-9'],
+  'topic-12': ['read-aloud-1'],
+};
 
 // Stable seed codes keep guidance independent of database-generated topic IDs.
 export const conversationPreparations: Record<string, TopicPreparation> = {

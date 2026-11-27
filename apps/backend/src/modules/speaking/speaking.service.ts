@@ -137,11 +137,16 @@ export class SpeakingService {
     const hash = createHash('sha256').update(audio).digest('hex');
     if (row.audioHash) { if (row.audioHash !== hash) this.conflict(); return row; }
     this.requireEnabled();
-    const snapshot = row.promptSnapshot as { text: string; mode?: SpeakingMode; hints?: string[]; visualContext?: string; contentVersion?: number; assessmentProfile?: string };
+    const snapshot = row.promptSnapshot as { text: string; mode?: SpeakingMode; hints?: string[]; maxDurationSeconds?: number; visualContext?: string; contentVersion?: number; assessmentProfile?: string };
     const mode = snapshot.mode ?? SpeakingMode.READ_ALOUD;
     if (!this.modeEnabled(mode)) throw new HttpException({ code: 'speaking_disabled' }, 503);
     const isFreeSpeech = mode === SpeakingMode.TOPIC || mode === SpeakingMode.PICTURE_DESCRIPTION;
-    validateSpeakingWav(audio, isFreeSpeech ? 60 : 30);
+    const modeLimit = isFreeSpeech ? 60 : 30;
+    const snapshotLimit =
+      typeof snapshot.maxDurationSeconds === 'number' && Number.isFinite(snapshot.maxDurationSeconds)
+        ? snapshot.maxDurationSeconds
+        : modeLimit;
+    validateSpeakingWav(audio, Math.min(modeLimit, Math.max(5, snapshotLimit)));
     const processingAt = new Date();
     const claimed = await this.prisma.speakingSubmission.updateMany({
       where: { id, userId, status: 'CREATED', audioHash: null },
@@ -237,6 +242,151 @@ export class SpeakingService {
       await this.saveTopicContent(userId, id, snapshot.text, snapshot.hints ?? [], result, processingAt, snapshot.mode, snapshot.visualContext);
     }
     return this.detail(userId, id);
+  }
+
+  async adminRetryContent(id: string) {
+    const row = await this.prisma.speakingSubmission.findUnique({ where: { id } });
+    if (!row) {
+      throw new HttpException(
+        { code: 'ADMIN_SPEAKING_SUBMISSION_NOT_FOUND', message: 'Không tìm thấy bài nộp luyện nói.' },
+        404,
+      );
+    }
+    const snapshot = (row.promptSnapshot ?? {}) as {
+      mode?: SpeakingMode;
+      text?: string;
+      hints?: string[];
+      visualContext?: string;
+    };
+    const result =
+      row.result && typeof row.result === 'object' && !Array.isArray(row.result)
+        ? (row.result as Record<string, any>)
+        : null;
+    const isFreeSpeech =
+      snapshot.mode === SpeakingMode.TOPIC ||
+      snapshot.mode === SpeakingMode.PICTURE_DESCRIPTION;
+    const transcript =
+      typeof result?.transcript === 'string' ? result.transcript.trim() : '';
+
+    if (!isFreeSpeech || !result || !transcript) {
+      throw new HttpException(
+        {
+          code: 'ADMIN_SPEAKING_NO_TRANSCRIPT',
+          message: 'Bài nộp chưa có lời thoại hợp lệ (TOPIC / PICTURE_DESCRIPTION) để chấm lại nội dung.',
+        },
+        422,
+      );
+    }
+    if (row.status === 'PROCESSING') {
+      throw new HttpException(
+        { code: 'ADMIN_SPEAKING_PROCESSING', message: 'Bài nộp đang trong quá trình chấm điểm.' },
+        409,
+      );
+    }
+
+    const processingAt = new Date();
+    const claim = await this.prisma.speakingSubmission.updateMany({
+      where: { id, status: row.status },
+      data: {
+        status: 'PROCESSING',
+        processingAt,
+        errorCode: null,
+        result: { ...result, content: { status: 'processing' } } as Prisma.InputJsonValue,
+      },
+    });
+    if (claim.count) {
+      const durationSeconds =
+        typeof result.durationSeconds === 'number' &&
+        Number.isFinite(result.durationSeconds) &&
+        result.durationSeconds > 0
+          ? result.durationSeconds
+          : 30;
+      await this.saveTopicContent(
+        row.userId,
+        id,
+        snapshot.text ?? '',
+        Array.isArray(snapshot.hints) ? snapshot.hints : [],
+        { ...result, transcript, durationSeconds },
+        processingAt,
+        snapshot.mode,
+        snapshot.visualContext,
+      );
+    }
+    return (await this.prisma.speakingSubmission.findUnique({ where: { id } })) ?? row;
+  }
+
+  async adminExpireStuck(id: string) {
+    const row = await this.prisma.speakingSubmission.findUnique({ where: { id } });
+    if (!row) {
+      throw new HttpException(
+        { code: 'ADMIN_SPEAKING_SUBMISSION_NOT_FOUND', message: 'Không tìm thấy bài nộp luyện nói.' },
+        404,
+      );
+    }
+    if (row.status !== 'PROCESSING') {
+      throw new HttpException(
+        { code: 'ADMIN_SPEAKING_NOT_PROCESSING', message: 'Bài nộp không ở trạng thái PROCESSING.' },
+        409,
+      );
+    }
+    const referenceAt = row.processingAt ?? row.createdAt;
+    if (Date.now() - referenceAt.getTime() <= 180_000) {
+      throw new HttpException(
+        {
+          code: 'ADMIN_SPEAKING_NOT_STUCK',
+          message: 'Bài nộp chưa vượt quá 180 giây ở trạng thái PROCESSING.',
+        },
+        409,
+      );
+    }
+
+    const cutoff = new Date(Date.now() - 180_000);
+    const completedAt = new Date();
+    const result =
+      row.result && typeof row.result === 'object' && !Array.isArray(row.result)
+        ? (row.result as Record<string, any>)
+        : null;
+    const interruptedResult =
+      result?.content?.status === 'processing'
+        ? ({
+            ...result,
+            content: { status: 'unavailable', errorCode: 'admin_expired' },
+          } as Prisma.InputJsonValue)
+        : undefined;
+
+    const updated = await this.prisma.speakingSubmission.updateMany({
+      where: {
+        id,
+        status: 'PROCESSING',
+        OR: [
+          { processingAt: { lt: cutoff } },
+          { processingAt: null, createdAt: { lt: cutoff } },
+        ],
+      },
+      data: {
+        status: 'UNKNOWN',
+        errorCode: 'admin_expired',
+        completedAt,
+        ...(interruptedResult ? { result: interruptedResult } : {}),
+      },
+    });
+    if (!updated.count) {
+      throw new HttpException(
+        {
+          code: 'ADMIN_SPEAKING_NOT_STUCK',
+          message: 'Trạng thái bài nộp đã thay đổi hoặc chưa vượt quá 180 giây.',
+        },
+        409,
+      );
+    }
+    return (
+      (await this.prisma.speakingSubmission.findUnique({ where: { id } })) ?? {
+        ...row,
+        status: 'UNKNOWN' as const,
+        errorCode: 'admin_expired',
+        completedAt,
+      }
+    );
   }
 
   private async processTopic(

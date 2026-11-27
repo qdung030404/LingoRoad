@@ -444,6 +444,64 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
     return this.detail(userId, id);
   }
 
+  async adminReleaseLock(conversationId: string) {
+    const existing = await this.prisma.voiceConversation.findUnique({
+      where: { id: conversationId },
+      select: { id: true, status: true, activeUserId: true, endReason: true, endedAt: true },
+    });
+    if (!existing) {
+      throw new HttpException(
+        { code: 'ADMIN_VOICE_CONVERSATION_NOT_FOUND', message: 'Không tìm thấy phiên hội thoại.' },
+        404,
+      );
+    }
+
+    for (const [key, ticket] of this.tickets) {
+      if (ticket.id === conversationId) {
+        this.tickets.delete(key);
+      }
+    }
+
+    const call = this.calls.get(conversationId);
+    let released = false;
+    const endedAt = new Date();
+    if (call) {
+      await call.close('admin_released');
+      released = true;
+    } else {
+      const updated = await this.prisma.voiceConversation.updateMany({
+        where: {
+          id: conversationId,
+          OR: [
+            { activeUserId: { not: null } },
+            { status: { in: ['CREATED', 'CONNECTING', 'ACTIVE'] } },
+          ],
+        },
+        data: {
+          activeUserId: null,
+          status: 'INTERRUPTED',
+          endReason: 'admin_released',
+          endedAt,
+        },
+      });
+      released = updated.count > 0;
+    }
+
+    const latest = await this.prisma.voiceConversation.findUnique({
+      where: { id: conversationId },
+      select: { id: true, status: true, activeUserId: true, endReason: true, endedAt: true },
+    });
+    return {
+      id: conversationId,
+      released,
+      hadLiveCall: Boolean(call),
+      status: latest?.status ?? (released ? 'INTERRUPTED' : existing.status),
+      endReason: latest?.endReason ?? (released ? 'admin_released' : existing.endReason),
+      endedAt: latest?.endedAt ?? (released ? endedAt : existing.endedAt),
+      hasActiveLock: latest ? Boolean(latest.activeUserId) : !released && Boolean(existing.activeUserId),
+    };
+  }
+
   private accept(client: WebSocket) {
     const timeout = setTimeout(() => client.close(1008, 'Authentication required'), 10000);
     client.once('message', raw => {

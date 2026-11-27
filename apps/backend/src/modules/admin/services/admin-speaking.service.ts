@@ -4,9 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { isDeepStrictEqual } from 'node:util';
 import { Prisma, SpeakingMode } from '@prisma/client';
 import { isSafeImageUrl } from '../../learning/learning.types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { BulkPublishDto } from '../dto/admin-content.dto';
 import {
   AdminSpeakingQueryDto,
   CreateAdminSpeakingPromptDto,
@@ -41,6 +43,50 @@ export interface SpeakingPromptsSummary {
   topic: number;
   pictureDescription: number;
   tongueTwister: number;
+}
+
+function maxDurationForMode(mode: SpeakingMode): number {
+  return mode === SpeakingMode.TOPIC || mode === SpeakingMode.PICTURE_DESCRIPTION
+    ? 60
+    : 30;
+}
+
+function assertValidSpeakingLimits(input: {
+  mode: SpeakingMode;
+  maxDurationSeconds: number;
+  text: string;
+  hints: string[];
+  visualContext: string | null;
+}): void {
+  const modeLimit = maxDurationForMode(input.mode);
+  if (
+    !Number.isInteger(input.maxDurationSeconds) ||
+    input.maxDurationSeconds < 5 ||
+    input.maxDurationSeconds > modeLimit
+  ) {
+    throw new BadRequestException({
+      code: 'ADMIN_INVALID_SPEAKING_DURATION',
+      message: `Thời lượng tối đa cho chế độ ${input.mode} phải từ 5 đến ${modeLimit} giây.`,
+    });
+  }
+  if (input.hints.length > 3) {
+    throw new BadRequestException({
+      code: 'ADMIN_INVALID_SPEAKING_HINTS',
+      message: 'Mỗi đề luyện nói chỉ được tối đa 3 gợi ý (hints).',
+    });
+  }
+  if (input.text.length > 1000) {
+    throw new BadRequestException({
+      code: 'ADMIN_INVALID_SPEAKING_TEXT',
+      message: 'Nội dung đề luyện nói tối đa 1000 ký tự.',
+    });
+  }
+  if (input.visualContext && input.visualContext.length > 2000) {
+    throw new BadRequestException({
+      code: 'ADMIN_INVALID_SPEAKING_CONTEXT',
+      message: 'Ngữ cảnh hình ảnh (visualContext) tối đa 2000 ký tự.',
+    });
+  }
 }
 
 function normalizeHints(raw: unknown): string[] {
@@ -214,6 +260,19 @@ export class AdminSpeakingService {
       });
     }
 
+    const text = dto.text.trim();
+    const hints = normalizeHints(dto.hints);
+    const visualContext = dto.visualContext?.trim() || null;
+    const maxDurationSeconds =
+      dto.maxDurationSeconds ?? maxDurationForMode(dto.mode);
+    assertValidSpeakingLimits({
+      mode: dto.mode,
+      maxDurationSeconds,
+      text,
+      hints,
+      visualContext,
+    });
+
     const prep = dto.preparation ? validatePreparation(dto.preparation) : null;
 
     let sortOrder = dto.sortOrder;
@@ -230,17 +289,13 @@ export class AdminSpeakingService {
         code,
         mode: dto.mode,
         title: dto.title.trim(),
-        text: dto.text.trim(),
+        text,
         difficulty: dto.difficulty ?? 1,
-        maxDurationSeconds:
-          dto.maxDurationSeconds ??
-          (dto.mode === SpeakingMode.TOPIC || dto.mode === SpeakingMode.PICTURE_DESCRIPTION
-            ? 60
-            : 30),
-        hints: normalizeHints(dto.hints),
+        maxDurationSeconds,
+        hints,
         sampleAsset: dto.sampleAsset?.trim() || null,
         imageUrl,
-        visualContext: dto.visualContext?.trim() || null,
+        visualContext,
         preparation: prep ? (prep as Prisma.InputJsonValue) : Prisma.JsonNull,
         linkedReadAloudCodes: (dto.linkedReadAloudCodes ?? [])
           .map((c) => c.trim().toLowerCase())
@@ -314,20 +369,57 @@ export class AdminSpeakingService {
       });
     }
 
-    const nextPrep =
+    const existingHints = normalizeHints(existing.hints);
+    const nextText = dto.text !== undefined ? dto.text.trim() : existing.text;
+    const nextHints = dto.hints !== undefined ? normalizeHints(dto.hints) : existingHints;
+    const nextVisualContext =
+      dto.visualContext !== undefined
+        ? dto.visualContext?.trim() || null
+        : existing.visualContext;
+    const nextMaxDurationSeconds =
+      dto.maxDurationSeconds ?? existing.maxDurationSeconds;
+    assertValidSpeakingLimits({
+      mode: nextMode,
+      maxDurationSeconds: nextMaxDurationSeconds,
+      text: nextText,
+      hints: nextHints,
+      visualContext: nextVisualContext,
+    });
+
+    const nextPrepValidated =
       dto.preparation !== undefined
         ? dto.preparation
-          ? (validatePreparation(dto.preparation) as Prisma.InputJsonValue)
+          ? validatePreparation(dto.preparation)
+          : null
+        : undefined;
+    const nextPrep =
+      nextPrepValidated !== undefined
+        ? nextPrepValidated !== null
+          ? (nextPrepValidated as Prisma.InputJsonValue)
           : Prisma.JsonNull
         : undefined;
 
-    const contentChanged =
-      dto.text !== undefined ||
-      dto.hints !== undefined ||
-      dto.visualContext !== undefined ||
-      dto.preparation !== undefined ||
-      dto.imageUrl !== undefined ||
-      dto.mode !== undefined;
+    const contentChanged = !isDeepStrictEqual(
+      {
+        text: nextText,
+        mode: nextMode,
+        hints: nextHints,
+        visualContext: nextVisualContext,
+        imageUrl: nextImageUrl,
+        preparation:
+          nextPrepValidated !== undefined
+            ? nextPrepValidated
+            : (existing.preparation ?? null),
+      },
+      {
+        text: existing.text,
+        mode: existing.mode,
+        hints: existingHints,
+        visualContext: existing.visualContext,
+        imageUrl: existing.imageUrl,
+        preparation: existing.preparation ?? null,
+      },
+    );
 
     const updated = await this.prisma.speakingPrompt.update({
       where: { id },
@@ -335,18 +427,18 @@ export class AdminSpeakingService {
         ...(nextCode ? { code: nextCode } : {}),
         ...(dto.mode !== undefined ? { mode: dto.mode } : {}),
         ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
-        ...(dto.text !== undefined ? { text: dto.text.trim() } : {}),
+        ...(dto.text !== undefined ? { text: nextText } : {}),
         ...(dto.difficulty !== undefined ? { difficulty: dto.difficulty } : {}),
         ...(dto.maxDurationSeconds !== undefined
           ? { maxDurationSeconds: dto.maxDurationSeconds }
           : {}),
-        ...(dto.hints !== undefined ? { hints: normalizeHints(dto.hints) } : {}),
+        ...(dto.hints !== undefined ? { hints: nextHints } : {}),
         ...(dto.sampleAsset !== undefined
           ? { sampleAsset: dto.sampleAsset?.trim() || null }
           : {}),
         ...(dto.imageUrl !== undefined ? { imageUrl: nextImageUrl } : {}),
         ...(dto.visualContext !== undefined
-          ? { visualContext: dto.visualContext?.trim() || null }
+          ? { visualContext: nextVisualContext }
           : {}),
         ...(nextPrep !== undefined ? { preparation: nextPrep } : {}),
         ...(dto.linkedReadAloudCodes !== undefined
@@ -419,5 +511,45 @@ export class AdminSpeakingService {
     });
 
     return { id, action: 'DELETED', submissionsCount };
+  }
+
+  async bulkPublishPrompts(
+    dto: BulkPublishDto,
+  ): Promise<{ updatedCount: number; published: boolean; ids: string[] }> {
+    const uniqueIds = [...new Set(dto.ids)];
+    const prompts = await this.prisma.speakingPrompt.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true, code: true, mode: true, imageUrl: true },
+    });
+    if (prompts.length !== uniqueIds.length) {
+      throw new NotFoundException({
+        code: 'ADMIN_SPEAKING_NOT_FOUND',
+        message: 'Một hoặc nhiều đề luyện nói trong danh sách không tồn tại.',
+      });
+    }
+
+    if (dto.published) {
+      for (const prompt of prompts) {
+        if (prompt.mode === SpeakingMode.PICTURE_DESCRIPTION && !prompt.imageUrl) {
+          throw new BadRequestException({
+            code: 'ADMIN_PICTURE_IMAGE_REQUIRED',
+            message: `Đề mô tả tranh "${prompt.code}" thiếu ảnh minh họa để xuất bản.`,
+          });
+        }
+      }
+    }
+
+    const updated = await this.prisma.$transaction((tx) =>
+      tx.speakingPrompt.updateMany({
+        where: { id: { in: uniqueIds } },
+        data: { published: dto.published },
+      }),
+    );
+
+    return {
+      updatedCount: updated.count,
+      published: dto.published,
+      ids: uniqueIds,
+    };
   }
 }

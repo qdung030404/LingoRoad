@@ -5,11 +5,24 @@ export type AdminExportEntity =
   | 'units'
   | 'lessons'
   | 'items'
+  | 'assessment-groups'
   | 'topics'
   | 'speaking'
   | 'grammar'
   | 'users'
   | 'audit-logs';
+
+export interface AdminExportResult {
+  filename: string;
+  contentType: string;
+  body: string;
+  count: number;
+  truncated: boolean;
+}
+
+export const EXPORT_BATCH_SIZE = 500;
+export const MAX_CONTENT_EXPORT_ROWS = 10_000;
+export const MAX_SENSITIVE_EXPORT_ROWS = 5_000;
 
 const FORMULA_TRIGGERS = new Set([
   '=',
@@ -58,6 +71,55 @@ export function rowsToSafeCsv(
   return `\uFEFF${lines.join('\r\n')}`;
 }
 
+async function fetchCursorBatched<T extends { id?: string }>(
+  fetchPage: (args: {
+    take: number;
+    cursor?: { id: string };
+    skip?: number;
+  }) => Promise<T[]>,
+  maxRows: number,
+  batchSize = EXPORT_BATCH_SIZE,
+): Promise<{ rows: T[]; truncated: boolean }> {
+  const rows: T[] = [];
+  let cursorId: string | undefined;
+  let truncated = false;
+
+  while (rows.length < maxRows) {
+    const remaining = maxRows - rows.length;
+    const pageLimit = Math.min(batchSize, remaining);
+    const checkOverflow = remaining <= batchSize;
+    const take = checkOverflow ? pageLimit + 1 : pageLimit;
+
+    const batch = await fetchPage({
+      take,
+      ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+    });
+
+    if (batch.length === 0) {
+      break;
+    }
+
+    if (checkOverflow && batch.length > pageLimit) {
+      rows.push(...batch.slice(0, pageLimit));
+      truncated = true;
+      break;
+    }
+
+    rows.push(...batch);
+    if (batch.length < pageLimit) {
+      break;
+    }
+
+    const lastId = batch[batch.length - 1]?.id;
+    if (!lastId) {
+      break;
+    }
+    cursorId = lastId;
+  }
+
+  return { rows, truncated };
+}
+
 @Injectable()
 export class AdminExportService {
   constructor(private readonly prisma: PrismaService) {}
@@ -65,11 +127,12 @@ export class AdminExportService {
   async exportEntity(
     entity: string,
     format: 'json' | 'csv' = 'json',
-  ): Promise<{ filename: string; contentType: string; body: string }> {
+  ): Promise<AdminExportResult> {
     const allowed: readonly AdminExportEntity[] = [
       'units',
       'lessons',
       'items',
+      'assessment-groups',
       'topics',
       'speaking',
       'grammar',
@@ -91,13 +154,20 @@ export class AdminExportService {
 
     switch (entity as AdminExportEntity) {
       case 'units': {
-        const units = await this.prisma.learningUnit.findMany({
-          orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }],
-        });
+        const { rows: units, truncated } = await fetchCursorBatched(
+          (pageArgs) =>
+            this.prisma.learningUnit.findMany({
+              ...pageArgs,
+              orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }, { id: 'asc' }],
+            }),
+          MAX_CONTENT_EXPORT_ROWS,
+        );
         if (format === 'json') {
           return {
             filename,
             contentType,
+            count: units.length,
+            truncated,
             body: JSON.stringify(
               {
                 units: units.map((u) => ({
@@ -116,6 +186,8 @@ export class AdminExportService {
         return {
           filename,
           contentType,
+          count: units.length,
+          truncated,
           body: rowsToSafeCsv(
             ['code', 'cefrLevel', 'orderIndex', 'title', 'description'],
             units.map((u) => [u.code, u.cefrLevel, u.orderIndex, u.title, u.description]),
@@ -124,17 +196,24 @@ export class AdminExportService {
       }
 
       case 'lessons': {
-        const lessons = await this.prisma.learningLesson.findMany({
-          orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
-          include: {
-            unit: { select: { code: true } },
-            grammarTopic: { select: { code: true } },
-          },
-        });
+        const { rows: lessons, truncated } = await fetchCursorBatched(
+          (pageArgs) =>
+            this.prisma.learningLesson.findMany({
+              ...pageArgs,
+              orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }, { id: 'asc' }],
+              include: {
+                unit: { select: { code: true } },
+                grammarTopic: { select: { code: true } },
+              },
+            }),
+          MAX_CONTENT_EXPORT_ROWS,
+        );
         if (format === 'json') {
           return {
             filename,
             contentType,
+            count: lessons.length,
+            truncated,
             body: JSON.stringify(
               {
                 lessons: lessons.map((l) => ({
@@ -158,6 +237,8 @@ export class AdminExportService {
         return {
           filename,
           contentType,
+          count: lessons.length,
+          truncated,
           body: rowsToSafeCsv(
             ['code', 'kind', 'title', 'estimatedMinutes', 'sortOrder', 'published', 'unitCode', 'grammarTopicCode'],
             lessons.map((l) => [
@@ -175,13 +256,20 @@ export class AdminExportService {
       }
 
       case 'items': {
-        const items = await this.prisma.assessmentItem.findMany({
-          orderBy: [{ createdAt: 'desc' }],
-        });
+        const { rows: items, truncated } = await fetchCursorBatched(
+          (pageArgs) =>
+            this.prisma.assessmentItem.findMany({
+              ...pageArgs,
+              orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            }),
+          MAX_CONTENT_EXPORT_ROWS,
+        );
         if (format === 'json') {
           return {
             filename,
             contentType,
+            count: items.length,
+            truncated,
             body: JSON.stringify(
               {
                 items: items.map((i) => ({
@@ -212,6 +300,8 @@ export class AdminExportService {
         return {
           filename,
           contentType,
+          count: items.length,
+          truncated,
           body: rowsToSafeCsv(
             ['externalId', 'skill', 'skillCode', 'cefrLevel', 'type', 'usageScope', 'prompt', 'correctOption', 'irtA', 'irtB', 'irtC'],
             items.map((i) => [
@@ -231,15 +321,78 @@ export class AdminExportService {
         };
       }
 
-      case 'topics': {
-        const topics = await this.prisma.curatedTopic.findMany({
-          orderBy: [{ displayOrder: 'asc' }],
-          include: { words: { orderBy: [{ word: 'asc' }] } },
-        });
+      case 'assessment-groups': {
+        const { rows: groups, truncated } = await fetchCursorBatched(
+          (pageArgs) =>
+            this.prisma.assessmentItemGroup.findMany({
+              ...pageArgs,
+              orderBy: [{ cefrLevel: 'asc' }, { partNumber: 'asc' }, { id: 'asc' }],
+            }),
+          MAX_CONTENT_EXPORT_ROWS,
+        );
         if (format === 'json') {
           return {
             filename,
             contentType,
+            count: groups.length,
+            truncated,
+            body: JSON.stringify(
+              {
+                assessmentGroups: groups.map((g) => ({
+                  id: g.id,
+                  skill: g.skill,
+                  title: g.title,
+                  cefrLevel: g.cefrLevel,
+                  partNumber: g.partNumber,
+                  passage: g.passage,
+                  audioUrl: g.audioUrl,
+                  transcript: g.transcript,
+                  usageScope: g.usageScope,
+                })),
+              },
+              null,
+              2,
+            ),
+          };
+        }
+        return {
+          filename,
+          contentType,
+          count: groups.length,
+          truncated,
+          body: rowsToSafeCsv(
+            ['id', 'skill', 'title', 'cefrLevel', 'partNumber', 'usageScope', 'audioUrl', 'passage', 'transcript'],
+            groups.map((g) => [
+              g.id,
+              g.skill,
+              g.title ?? '',
+              g.cefrLevel,
+              g.partNumber,
+              g.usageScope,
+              g.audioUrl ?? '',
+              g.passage ?? '',
+              g.transcript ?? '',
+            ]),
+          ),
+        };
+      }
+
+      case 'topics': {
+        const { rows: topics, truncated } = await fetchCursorBatched(
+          (pageArgs) =>
+            this.prisma.curatedTopic.findMany({
+              ...pageArgs,
+              orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+              include: { words: { orderBy: [{ word: 'asc' }] } },
+            }),
+          MAX_CONTENT_EXPORT_ROWS,
+        );
+        if (format === 'json') {
+          return {
+            filename,
+            contentType,
+            count: topics.length,
+            truncated,
             body: JSON.stringify(
               {
                 topics: topics.map((t) => ({
@@ -279,27 +432,37 @@ export class AdminExportService {
               w.exampleEn,
               w.exampleVi,
               w.imageUrl ?? '',
+              w.audioUrl ?? '',
             ]);
           }
         }
         return {
           filename,
           contentType,
+          count: flatRows.length,
+          truncated,
           body: rowsToSafeCsv(
-            ['topicSlug', 'topicTitleVi', 'word', 'phonetic', 'partOfSpeech', 'meaningVi', 'exampleEn', 'exampleVi', 'imageUrl'],
+            ['topicSlug', 'topicTitleVi', 'word', 'phonetic', 'partOfSpeech', 'meaningVi', 'exampleEn', 'exampleVi', 'imageUrl', 'audioUrl'],
             flatRows,
           ),
         };
       }
 
       case 'speaking': {
-        const prompts = await this.prisma.speakingPrompt.findMany({
-          orderBy: [{ mode: 'asc' }, { sortOrder: 'asc' }],
-        });
+        const { rows: prompts, truncated } = await fetchCursorBatched(
+          (pageArgs) =>
+            this.prisma.speakingPrompt.findMany({
+              ...pageArgs,
+              orderBy: [{ mode: 'asc' }, { sortOrder: 'asc' }, { id: 'asc' }],
+            }),
+          MAX_CONTENT_EXPORT_ROWS,
+        );
         if (format === 'json') {
           return {
             filename,
             contentType,
+            count: prompts.length,
+            truncated,
             body: JSON.stringify(
               {
                 speakingPrompts: prompts.map((p) => ({
@@ -327,6 +490,8 @@ export class AdminExportService {
         return {
           filename,
           contentType,
+          count: prompts.length,
+          truncated,
           body: rowsToSafeCsv(
             ['code', 'mode', 'title', 'text', 'difficulty', 'maxDurationSeconds', 'published', 'imageUrl'],
             prompts.map((p) => [
@@ -344,14 +509,26 @@ export class AdminExportService {
       }
 
       case 'grammar': {
-        const topics = await this.prisma.grammarTopic.findMany({
-          orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }],
-          include: { parent: { select: { code: true } } },
-        });
+        const { rows: topics, truncated } = await fetchCursorBatched(
+          (pageArgs) =>
+            this.prisma.grammarTopic.findMany({
+              ...pageArgs,
+              orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }, { id: 'asc' }],
+              include: {
+                parent: { select: { code: true } },
+                prerequisites: {
+                  include: { prerequisite: { select: { code: true } } },
+                },
+              },
+            }),
+          MAX_CONTENT_EXPORT_ROWS,
+        );
         if (format === 'json') {
           return {
             filename,
             contentType,
+            count: topics.length,
+            truncated,
             body: JSON.stringify(
               {
                 grammarTopics: topics.map((t) => ({
@@ -367,6 +544,9 @@ export class AdminExportService {
                   examples: t.examples,
                   orderIndex: t.orderIndex,
                   published: t.published,
+                  prerequisiteCodes: (t.prerequisites ?? []).map(
+                    (edge) => edge.prerequisite.code,
+                  ),
                 })),
               },
               null,
@@ -377,6 +557,8 @@ export class AdminExportService {
         return {
           filename,
           contentType,
+          count: topics.length,
+          truncated,
           body: rowsToSafeCsv(
             ['code', 'parentCode', 'cefrLevel', 'isLeaf', 'titleEn', 'titleVi', 'orderIndex', 'published'],
             topics.map((t) => [
@@ -394,29 +576,42 @@ export class AdminExportService {
       }
 
       case 'users': {
-        const users = await this.prisma.user.findMany({
-          orderBy: [{ createdAt: 'desc' }],
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            role: true,
-            status: true,
-            provider: true,
-            createdAt: true,
-            profile: {
-              select: { targetCefr: true, dailyGoalMinutes: true, learningPurpose: true },
-            },
-          },
-        });
+        const { rows: users, truncated } = await fetchCursorBatched(
+          (pageArgs) =>
+            this.prisma.user.findMany({
+              ...pageArgs,
+              orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                role: true,
+                status: true,
+                provider: true,
+                createdAt: true,
+                profile: {
+                  select: { targetCefr: true, dailyGoalMinutes: true, learningPurpose: true },
+                },
+              },
+            }),
+          MAX_SENSITIVE_EXPORT_ROWS,
+        );
         if (format === 'json') {
-          return { filename, contentType, body: JSON.stringify({ users }, null, 2) };
+          return {
+            filename,
+            contentType,
+            count: users.length,
+            truncated,
+            body: JSON.stringify({ users }, null, 2),
+          };
         }
         return {
           filename,
           contentType,
+          count: users.length,
+          truncated,
           body: rowsToSafeCsv(
-            ['id', 'email', 'name', 'role', 'status', 'provider', 'targetCefr', 'dailyGoalMinutes', 'createdAt'],
+            ['id', 'email', 'name', 'role', 'status', 'provider', 'targetCefr', 'dailyGoalMinutes', 'learningPurpose', 'createdAt'],
             users.map((u) => [
               u.id,
               u.email,
@@ -426,6 +621,7 @@ export class AdminExportService {
               u.provider,
               u.profile?.targetCefr ?? '',
               u.profile?.dailyGoalMinutes ?? '',
+              u.profile?.learningPurpose ?? '',
               u.createdAt,
             ]),
           ),
@@ -433,16 +629,28 @@ export class AdminExportService {
       }
 
       case 'audit-logs': {
-        const logs = await this.prisma.auditLog.findMany({
-          orderBy: [{ createdAt: 'desc' }],
-          take: 2000,
-        });
+        const { rows: logs, truncated } = await fetchCursorBatched(
+          (pageArgs) =>
+            this.prisma.auditLog.findMany({
+              ...pageArgs,
+              orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+            }),
+          MAX_SENSITIVE_EXPORT_ROWS,
+        );
         if (format === 'json') {
-          return { filename, contentType, body: JSON.stringify({ auditLogs: logs }, null, 2) };
+          return {
+            filename,
+            contentType,
+            count: logs.length,
+            truncated,
+            body: JSON.stringify({ auditLogs: logs }, null, 2),
+          };
         }
         return {
           filename,
           contentType,
+          count: logs.length,
+          truncated,
           body: rowsToSafeCsv(
             ['createdAt', 'adminEmail', 'action', 'method', 'path', 'resourceType', 'resourceId', 'statusCode', 'ipAddress'],
             logs.map((l) => [

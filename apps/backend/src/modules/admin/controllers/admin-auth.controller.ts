@@ -10,12 +10,17 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle } from '@nestjs/throttler';
 import { Request } from 'express';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
+import {
+  ClientIpThrottlerGuard,
+  normalizeClientIp,
+} from '../../../common/guards/client-ip-throttler.guard';
 import { ApiResponse } from '../../../common/interfaces/api-response.interface';
 import {
+  AdminChangePasswordDto,
   AdminLoginDto,
   AdminLogoutDto,
   AdminRefreshDto,
@@ -23,6 +28,7 @@ import {
 import { AdminJwtGuard } from '../guards/admin-jwt.guard';
 import { AdminAuditInterceptor } from '../interceptors/admin-audit.interceptor';
 import {
+  AdminAuditRequest,
   AdminAuthResult,
   AdminAuthService,
   AdminUserView,
@@ -35,7 +41,7 @@ export class AdminAuthController {
   constructor(private readonly adminAuthService: AdminAuthService) {}
 
   @Public()
-  @UseGuards(ThrottlerGuard)
+  @UseGuards(ClientIpThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -44,7 +50,8 @@ export class AdminAuthController {
     @Req() req: Request,
     @Headers('x-device-id') deviceId?: string,
   ): Promise<ApiResponse<AdminAuthResult>> {
-    const ipAddress = req.ip || req.socket.remoteAddress;
+    const ipAddress =
+      normalizeClientIp(req.ip || req.socket?.remoteAddress) ?? undefined;
     const data = await this.adminAuthService.login(dto, {
       ipAddress,
       deviceIdentifier: deviceId,
@@ -57,6 +64,8 @@ export class AdminAuthController {
   }
 
   @Public()
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
@@ -64,7 +73,8 @@ export class AdminAuthController {
     @Req() req: Request,
     @Headers('x-device-id') deviceId?: string,
   ): Promise<ApiResponse<AdminAuthResult>> {
-    const ipAddress = req.ip || req.socket.remoteAddress;
+    const ipAddress =
+      normalizeClientIp(req.ip || req.socket?.remoteAddress) ?? undefined;
     const data = await this.adminAuthService.refresh(dto, {
       ipAddress,
       deviceIdentifier: deviceId,
@@ -77,14 +87,57 @@ export class AdminAuthController {
   }
 
   @Public()
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Body() dto: AdminLogoutDto): Promise<ApiResponse<null>> {
-    await this.adminAuthService.logout(dto);
+  async logout(
+    @Body() dto: AdminLogoutDto,
+    @Req() req: AdminAuditRequest,
+  ): Promise<ApiResponse<null>> {
+    await this.adminAuthService.logout(dto, req);
     return {
       success: true,
       message: 'Đăng xuất quản trị thành công',
       data: null,
+    };
+  }
+
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: AdminChangePasswordDto,
+    @Req() req: Request,
+    @Headers('x-device-id') deviceId?: string,
+  ): Promise<ApiResponse<AdminAuthResult>> {
+    const ipAddress =
+      normalizeClientIp(req.ip || req.socket?.remoteAddress) ?? undefined;
+    const data = await this.adminAuthService.changePassword(userId, dto, {
+      ipAddress,
+      deviceIdentifier: deviceId,
+    });
+    return {
+      success: true,
+      message: 'Đổi mật khẩu quản trị thành công',
+      data,
+    };
+  }
+
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @Post('logout-all')
+  @HttpCode(HttpStatus.OK)
+  async logoutAll(
+    @CurrentUser('sub') userId: string,
+  ): Promise<ApiResponse<{ revokedSessionsCount: number }>> {
+    const data = await this.adminAuthService.logoutAll(userId);
+    return {
+      success: true,
+      message: 'Đã đăng xuất khỏi tất cả phiên quản trị thành công',
+      data,
     };
   }
 

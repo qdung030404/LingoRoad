@@ -150,4 +150,32 @@ export class FirebaseTokenService implements OnModuleInit {
       throw new ServiceUnavailableException({ code: 'ADMIN_FIREBASE_PASSWORD_FAILED', message: 'Không thể hoàn tất đặt lại mật khẩu Firebase. Vui lòng thử lại.' });
     }
   }
+
+  async deleteUser(uid: string): Promise<void> {
+    try {
+      await this.client().deleteUser(uid);
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'auth/user-not-found') {
+        return;
+      }
+      throw new ServiceUnavailableException({
+        code: 'ADMIN_FIREBASE_DELETE_FAILED',
+        message: 'Không thể xoá danh tính Firebase. Vui lòng thử lại.',
+      });
+    }
+  }
+
+  async setDisabled(uid: string, disabled: boolean): Promise<void> {
+    try {
+      await this.client().updateUser(uid, { disabled });
+    } catch (error) {
+      if ((error as { code?: string })?.code === 'auth/user-not-found') {
+        return;
+      }
+      throw new ServiceUnavailableException({
+        code: 'ADMIN_FIREBASE_STATUS_SYNC_FAILED',
+        message: 'Không thể đồng bộ trạng thái tài khoản Firebase. Vui lòng thử lại.',
+      });
+    }
+  }
 }

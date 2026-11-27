@@ -5,6 +5,7 @@ export interface JwtPayload {
   email: string;
   role: UserRole;
   firebaseUid?: string;
+  tv?: number;
   iat?: number;
   exp?: number;
 }

@@ -51,14 +51,14 @@ export class AdminMediaController {
       limits: { fileSize: 10 * 1024 * 1024, files: 1 },
     }),
   )
-  uploadAudio(
+  async uploadAudio(
     @UploadedFile() file?: UploadedAdminFile,
     @Query('scope') scope?: string,
     @Query('slug') slug?: string,
-  ): ApiResponse<AdminAudioUploadResult> {
+  ): Promise<ApiResponse<AdminAudioUploadResult>> {
     const normalizedScope =
       scope === 'placement' ? 'placement' : scope === 'learning' || !scope ? 'learning' : (scope as 'learning');
-    const data = this.adminMediaService.uploadAudio(file, normalizedScope, slug);
+    const data = await this.adminMediaService.uploadAudio(file, normalizedScope, slug);
     return {
       success: true,
       message: 'Tải tệp âm thanh WAV thành công',

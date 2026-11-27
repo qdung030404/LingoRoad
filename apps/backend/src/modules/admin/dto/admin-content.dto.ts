@@ -7,6 +7,9 @@ import {
 } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -382,8 +385,9 @@ export class UpdateAdminAssessmentItemDto {
   itemOrder?: number;
 
   @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
   @IsString()
-  passage?: string;
+  passage?: string | null;
 
   @IsOptional()
   @IsString()
@@ -394,17 +398,20 @@ export class UpdateAdminAssessmentItemDto {
   options?: unknown;
 
   @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
   @IsString()
-  correctOption?: string;
+  correctOption?: string | null;
 
   @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
   @IsString()
-  explanation?: string;
+  explanation?: string | null;
 
   @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
   @IsString()
   @MaxLength(500)
-  audioUrl?: string;
+  audioUrl?: string | null;
 
   @IsOptional()
   @ValidateIf((_obj, value) => value !== null)
@@ -546,4 +553,16 @@ export class UpdateAssessmentItemGroupDto {
   @IsArray()
   @IsUUID('4', { each: true })
   itemIds?: string[];
+}
+
+export class BulkPublishDto {
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Vui lòng chọn ít nhất 1 mục.' })
+  @ArrayMaxSize(100, { message: 'Mỗi lần cập nhật hàng loạt tối đa 100 mục.' })
+  @ArrayUnique()
+  @IsUUID(undefined, { each: true })
+  ids!: string[];
+
+  @IsBoolean()
+  published!: boolean;
 }

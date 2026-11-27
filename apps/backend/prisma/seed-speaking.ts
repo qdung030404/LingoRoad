@@ -1,4 +1,8 @@
-import { PrismaClient, SpeakingMode } from '@prisma/client';
+import { Prisma, PrismaClient, SpeakingMode } from '@prisma/client';
+import {
+  conversationPreparations,
+  readingByTopic,
+} from '../src/modules/speaking/conversation-preparation';
 
 export const readingTexts = [
   'I have lived here for five years', 'My name is Anna', 'I am a student from Hanoi',
@@ -170,16 +174,54 @@ export async function seedSpeakingContent(prisma: PrismaClient) {
   ];
   for (const group of groups) {
     for (const [index, text] of group.texts.entries()) {
+      const code = `${group.prefix}-${index + 1}`;
       const metadata = { mode: group.mode, title: text, difficulty: Math.min(3, Math.floor(index / Math.ceil(group.texts.length / 3)) + 1),
         maxDurationSeconds: group.mode === SpeakingMode.TOPIC ? 60 : 30,
         hints: group.mode === SpeakingMode.TOPIC ? topicContent[index].slice(1) : [],
-        sampleAsset: group.mode === SpeakingMode.TOPIC ? null : `${group.prefix}-${index + 1}`,
+        sampleAsset: group.mode === SpeakingMode.TOPIC ? null : code,
         imageUrl: group.mode === SpeakingMode.TOPIC ? topicImages[index] ?? null : null,
         visualContext: null,
         ...(group.mode === SpeakingMode.TOPIC ? { contentVersion: 2 } : {}),
         sortOrder: index + 1 };
-      await prisma.speakingPrompt.upsert({ where: { code: `${group.prefix}-${index + 1}` },
-        update: metadata, create: { code: `${group.prefix}-${index + 1}`, text, ...metadata } });
+
+      if (group.mode === SpeakingMode.TOPIC) {
+        const defaultPrep = conversationPreparations[code] ?? null;
+        const defaultLinkedCodes = readingByTopic[code] ? [...readingByTopic[code]] : [];
+        const existing =
+          typeof prisma.speakingPrompt.findUnique === 'function'
+            ? await prisma.speakingPrompt.findUnique({
+                where: { code },
+                select: { preparation: true, linkedReadAloudCodes: true },
+              })
+            : null;
+        const updateData: Prisma.SpeakingPromptUpdateInput = {
+          ...metadata,
+          ...(existing && existing.preparation === null && defaultPrep
+            ? { preparation: defaultPrep as unknown as Prisma.InputJsonValue }
+            : {}),
+          ...(existing && existing.linkedReadAloudCodes.length === 0 && defaultLinkedCodes.length > 0
+            ? { linkedReadAloudCodes: defaultLinkedCodes }
+            : {}),
+        };
+        const createData: Prisma.SpeakingPromptCreateInput = {
+          code,
+          text,
+          ...metadata,
+          ...(defaultPrep ? { preparation: defaultPrep as unknown as Prisma.InputJsonValue } : {}),
+          ...(defaultLinkedCodes.length > 0 ? { linkedReadAloudCodes: defaultLinkedCodes } : {}),
+        };
+        await prisma.speakingPrompt.upsert({
+          where: { code },
+          update: updateData,
+          create: createData,
+        });
+      } else {
+        await prisma.speakingPrompt.upsert({
+          where: { code },
+          update: metadata,
+          create: { code, text, ...metadata },
+        });
+      }
     }
   }
   for (const [index, item] of pictureDescriptions.entries()) {

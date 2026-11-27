@@ -39,11 +39,17 @@ export class TokenService {
     return expiresAt;
   }
 
-  async generateAccessToken(user: { id: string; email: string; role: UserRole }): Promise<string> {
+  async generateAccessToken(user: {
+    id: string;
+    email: string;
+    role: UserRole;
+    tokenVersion?: number;
+  }): Promise<string> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
+      ...(typeof user.tokenVersion === 'number' ? { tv: user.tokenVersion } : {}),
     };
     return this.jwtService.signAsync(payload);
   }
@@ -52,6 +58,7 @@ export class TokenService {
     id: string;
     email: string;
     role: UserRole;
+    tokenVersion?: number;
   }): Promise<GeneratedTokens> {
     const rawRefreshToken = this.generateRawRefreshToken();
     const tokenHash = this.hashToken(rawRefreshToken);

@@ -9,24 +9,9 @@ import {
   conversationSpeechRates, conversationTurnPauses, conversationVoices, VoiceLiveConfig,
 } from './voice-live.config';
 import { VoiceConversationsService } from './voice-conversations.service';
-import { conversationPreparation } from './conversation-preparation';
+import { conversationPreparation, readingByTopic } from './conversation-preparation';
 import { SpeakingService } from './speaking.service';
 import { HideSpeakingHistoryDto } from './speaking.dto';
-
-const readingByTopic: Record<string, readonly string[]> = {
-  'topic-1': ['read-aloud-2', 'read-aloud-3'],
-  'topic-2': ['read-aloud-4'],
-  'topic-3': ['read-aloud-5'],
-  'topic-4': ['topic-read-aloud-1'],
-  'topic-5': ['topic-read-aloud-2'],
-  'topic-6': ['topic-read-aloud-3'],
-  'topic-7': ['read-aloud-7'],
-  'topic-8': ['read-aloud-6'],
-  'topic-9': ['topic-read-aloud-1'],
-  'topic-10': ['read-aloud-8'],
-  'topic-11': ['read-aloud-9'],
-  'topic-12': ['read-aloud-1'],
-};
 
 class CreateConversationDto {
   @IsUUID() topicId!: string;

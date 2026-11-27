@@ -1,4 +1,5 @@
 import { Injectable, Optional } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import {
   AssessmentSkill,
   LearningKind,
@@ -96,6 +97,13 @@ export interface DashboardOverviewResponse {
 }
 
 const DASHBOARD_CACHE_TTL_SECONDS = 900;
+const FORCE_REFRESH_COOLDOWN_MS = 15_000;
+const DASHBOARD_TIMEFRAMES: readonly DashboardTimeframe[] = [
+  '7_DAYS',
+  '30_DAYS',
+  '90_DAYS',
+  'ALL_TIME',
+];
 
 function normalizeTimeframe(raw?: string): DashboardTimeframe {
   if (raw === '7_DAYS' || raw === '30_DAYS' || raw === '90_DAYS' || raw === 'ALL_TIME') {
@@ -120,6 +128,16 @@ export class AdminAnalyticsService {
     @Optional() private readonly cacheService?: AssessmentCacheService,
   ) {}
 
+  @OnEvent('admin.data.mutated')
+  async invalidateDashboardCache(): Promise<void> {
+    if (!this.cacheService) return;
+    await Promise.all(
+      DASHBOARD_TIMEFRAMES.map((tf) =>
+        this.cacheService!.del(`lingoroad:admin:dashboard:${tf}`),
+      ),
+    );
+  }
+
   async getDashboard(
     rawTimeframe?: string,
     forceRefresh = false,
@@ -127,10 +145,19 @@ export class AdminAnalyticsService {
     const timeframe = normalizeTimeframe(rawTimeframe);
     const cacheKey = `lingoroad:admin:dashboard:${timeframe}`;
 
-    if (!forceRefresh && this.cacheService) {
+    if (this.cacheService) {
       const cached = await this.cacheService.get<DashboardOverviewResponse>(cacheKey);
       if (cached) {
-        return cached;
+        if (!forceRefresh) {
+          return cached;
+        }
+        const generatedAtMs = Date.parse(cached.generatedAt);
+        if (
+          Number.isFinite(generatedAtMs) &&
+          Date.now() - generatedAtMs < FORCE_REFRESH_COOLDOWN_MS
+        ) {
+          return cached;
+        }
       }
     }
 
@@ -186,6 +213,7 @@ export class AdminAnalyticsService {
             { placementSessions: { some: { startedAt: { gte: thirtyDaysAgo } } } },
             { vocabularyReviews: { some: { startedAt: { gte: thirtyDaysAgo } } } },
             { speakingSubmissions: { some: { createdAt: { gte: thirtyDaysAgo } } } },
+            { voiceConversations: { some: { createdAt: { gte: thirtyDaysAgo } } } },
           ],
         },
       }),
@@ -265,6 +293,8 @@ export class AdminAnalyticsService {
           ? Prisma.sql`
               SELECT AVG(
                        CASE
+                         WHEN (ss.result->>'overall') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'overall')::numeric
+                         WHEN (ss.result->>'pronunciation') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'pronunciation')::numeric
                          WHEN (ss.result->>'overallScore') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'overallScore')::numeric
                          WHEN (ss.result->>'score') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'score')::numeric
                          ELSE NULL
@@ -278,6 +308,8 @@ export class AdminAnalyticsService {
           : Prisma.sql`
               SELECT AVG(
                        CASE
+                         WHEN (ss.result->>'overall') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'overall')::numeric
+                         WHEN (ss.result->>'pronunciation') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'pronunciation')::numeric
                          WHEN (ss.result->>'overallScore') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'overallScore')::numeric
                          WHEN (ss.result->>'score') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (ss.result->>'score')::numeric
                          ELSE NULL

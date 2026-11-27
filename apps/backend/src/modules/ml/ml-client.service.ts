@@ -22,6 +22,15 @@ import {
 import { InProcessCatFallback } from './fallbacks/in-process-cat.fallback';
 import { ReadAloudResult } from '../speaking/speaking.dto';
 
+export interface MlReadinessResult {
+  reachable: boolean;
+  httpStatus: number | null;
+  status: string;
+  components: Record<string, unknown>;
+  speakingProfiles?: unknown;
+  error?: string;
+}
+
 @Injectable()
 export class MlClientService {
   private readonly logger = new Logger(MlClientService.name);
@@ -80,16 +89,57 @@ export class MlClientService {
   /**
    * Check ML Component Readiness
    */
-  async checkReady(): Promise<Record<string, unknown> | null> {
+  async checkReady(): Promise<MlReadinessResult> {
     try {
       const res = await firstValueFrom(
         this.httpService.get(`${this.baseUrl}/ready`, {
           timeout: 5000,
+          validateStatus: (s) => s === 200 || s === 503,
         }),
       );
-      return res.data;
-    } catch {
-      return null;
+      const payload =
+        res.data && typeof res.data === 'object' && !Array.isArray(res.data)
+          ? (res.data as Record<string, unknown>)
+          : {};
+      const rawComponents = payload.components;
+      const components =
+        rawComponents &&
+        typeof rawComponents === 'object' &&
+        !Array.isArray(rawComponents)
+          ? (rawComponents as Record<string, unknown>)
+          : {};
+      const status =
+        typeof payload.status === 'string' && payload.status.trim().length > 0
+          ? payload.status
+          : res.status === 200
+            ? 'ready'
+            : 'not_ready';
+      return {
+        reachable: true,
+        httpStatus: res.status,
+        status,
+        components,
+        ...(payload.speakingProfiles !== undefined
+          ? { speakingProfiles: payload.speakingProfiles }
+          : {}),
+      };
+    } catch (error: unknown) {
+      const axiosErr = error as {
+        response?: { status?: number };
+        message?: string;
+      } | null;
+      const httpStatus =
+        typeof axiosErr?.response?.status === 'number'
+          ? axiosErr.response.status
+          : null;
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        reachable: false,
+        httpStatus,
+        status: 'unreachable',
+        components: {},
+        error: message,
+      };
     }
   }
 
