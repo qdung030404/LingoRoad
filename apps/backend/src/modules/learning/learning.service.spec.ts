@@ -818,6 +818,7 @@ describe('LearningService', () => {
         published: true,
         contentVersion: 1,
         unitId: 'a1-u1',
+        grammarTopicId: null,
         content: structuredClone(firstClass) as unknown as Prisma.JsonValue,
         createdAt: now,
         updatedAt: now,
@@ -868,6 +869,7 @@ describe('LearningService', () => {
         published: true,
         contentVersion: 5,
         unitId: 'a2-u1',
+        grammarTopicId: null,
         content: {
           steps: [],
           coverImageUrl: '/media/learning/v1/images/scene-reading-book-club.jpg',
