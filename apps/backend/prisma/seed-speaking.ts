@@ -21,6 +21,12 @@ export const topicContent = [
   ['My hobbies', 'What is your favourite hobby?', 'How often do you do it?', 'Why do you enjoy it?'],
   ['My favourite food', 'What food do you like?', 'How does it taste?', 'When do you usually eat it?'],
   ['Where I live', 'Where do you live?', 'What is interesting about your area?', 'What do you like about it?'],
+  ['Travel and holidays', 'Where did you go on your last trip?', 'Who did you travel with?', 'Where would you like to visit next?'],
+  ['Shopping and clothes', 'What clothes do you like wearing?', 'Where do you usually buy clothes?', 'Do you prefer shopping online or in stores?'],
+  ['Health and sports', 'What sport or exercise do you enjoy?', 'How often do you exercise?', 'What do you do to stay healthy?'],
+  ['Study and future plans', 'What subject or skill are you learning now?', 'How do you practice English every week?', 'What job or goal do you want in the future?'],
+  ['Weather and seasons', 'What is the weather like today?', 'Which season is your favourite?', 'What do you enjoy doing on rainy or sunny days?'],
+  ['Technology in daily life', 'What device do you use most every day?', 'How does technology help you study or work?', 'What app could you not live without?'],
 ];
 export const twisters = [
   'Red lorry, yellow lorry.', 'She sees cheese.', 'Four fine fresh fish for you.',
@@ -40,6 +46,12 @@ export const topicImages = [
   '/media/learning/v1/images/topic-my-hobbies.jpg',
   '/media/learning/v1/images/topic-favourite-food.jpg',
   '/media/learning/v1/images/topic-where-i-live.jpg',
+  '/media/learning/v1/images/topic-travel-holidays.jpg',
+  '/media/learning/v1/images/topic-shopping-clothes.jpg',
+  '/media/learning/v1/images/topic-health-sports.jpg',
+  '/media/learning/v1/images/topic-study-plans.jpg',
+  '/media/learning/v1/images/topic-weather-seasons.jpg',
+  '/media/learning/v1/images/topic-technology-daily.jpg',
 ];
 
 export const pictureDescriptions = [
@@ -94,6 +106,58 @@ export const pictureDescriptions = [
     ],
     imageUrl: '/media/learning/v1/images/picture-study-library.jpg',
     visualContext: 'A bright spacious university library: a bearded young man in a light shirt and a young woman wearing glasses stand together browsing a row of colourful hardcover books, with more bookshelves and students studying in the background.',
+  },
+  {
+    code: 'picture-5',
+    title: 'At the airport departure hall',
+    text: 'Describe the passengers, luggage and departure hall in this airport picture.',
+    difficulty: 2,
+    hints: [
+      'Where are the travellers standing and what are they carrying?',
+      'What signs, boards or counters can you see in the terminal?',
+      'Where do you think these passengers are going?',
+    ],
+    imageUrl: '/media/learning/v1/images/picture-airport-checkin.jpg',
+    visualContext: 'A bright modern airport departure terminal: travellers with rolling suitcases and backpacks walk and queue near check-in counters and flight information boards under high glass windows.',
+  },
+  {
+    code: 'picture-6',
+    title: 'Morning at the farmers’ market',
+    text: 'Describe the market stalls, fresh produce and shoppers in this picture.',
+    difficulty: 2,
+    hints: [
+      'What fruits and vegetables are displayed on the stalls?',
+      'What are the vendor and shoppers doing?',
+      'How does the market atmosphere look?',
+    ],
+    imageUrl: '/media/learning/v1/images/picture-farmers-market.jpg',
+    visualContext: 'An outdoor morning farmers market: wooden stalls and baskets filled with colourful fresh vegetables and fruits while shoppers browse and talk with vendors.',
+  },
+  {
+    code: 'picture-7',
+    title: 'Team brainstorming in a studio',
+    text: 'Describe the colleagues, workspace and how they are collaborating.',
+    difficulty: 3,
+    hints: [
+      'How many colleagues are in the meeting and what are they looking at?',
+      'What tools, laptops or notes are on the table and wall?',
+      'How would you describe their teamwork and mood?',
+    ],
+    imageUrl: '/media/learning/v1/images/picture-office-brainstorm.jpg',
+    visualContext: 'A modern office meeting room: a group of colleagues gather around a table with laptops and notebooks, pointing at ideas and sticky notes on a whiteboard during a collaborative brainstorming session.',
+  },
+  {
+    code: 'picture-8',
+    title: 'Evening street food stall',
+    text: 'Describe the cook, food stall and evening street scene in this picture.',
+    difficulty: 3,
+    hints: [
+      'What is the cook preparing at the stall?',
+      'What lights, equipment and ingredients can you see?',
+      'Why do people enjoy visiting street food stalls like this in the evening?',
+    ],
+    imageUrl: '/media/learning/v1/images/picture-street-food.jpg',
+    visualContext: 'A lively evening street food market stall: a vendor prepares hot dishes over a bright counter surrounded by bowls of ingredients, warm hanging lights, and customers waiting nearby.',
   },
 ];
 

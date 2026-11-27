@@ -41,15 +41,15 @@ describe('Speaking mode catalogue', () => {
     const rows = upsert.mock.calls.map(call => call[0]);
     expect(rows.filter(row => row.where.code.startsWith('read-aloud-'))).toHaveLength(9);
     expect(rows.filter(row => row.where.code.startsWith('topic-read-aloud-'))).toHaveLength(3);
-    expect(rows.filter(row => row.create.mode === 'TOPIC')).toHaveLength(6);
-    expect(rows.filter(row => row.create.mode === 'PICTURE_DESCRIPTION')).toHaveLength(4);
+    expect(rows.filter(row => row.create.mode === 'TOPIC')).toHaveLength(12);
+    expect(rows.filter(row => row.create.mode === 'PICTURE_DESCRIPTION')).toHaveLength(8);
     expect(rows.filter(row => row.create.mode === 'TONGUE_TWISTER')).toHaveLength(12);
-    expect(new Set(rows.map(row => row.where.code)).size).toBe(34);
+    expect(new Set(rows.map(row => row.where.code)).size).toBe(44);
     expect(rows.filter(row => row.create.mode === 'TOPIC' || row.create.mode === 'PICTURE_DESCRIPTION').every(row => row.create.maxDurationSeconds === 60)).toBe(true);
     expect(rows.filter(row => row.create.mode === 'TOPIC' || row.create.mode === 'PICTURE_DESCRIPTION').every(row => typeof row.create.imageUrl === 'string' && row.create.imageUrl.startsWith('/media/learning/v1/images/'))).toBe(true);
     expect(rows.filter(row => row.create.mode === 'PICTURE_DESCRIPTION').every(row => typeof row.create.visualContext === 'string' && row.create.visualContext.length > 20)).toBe(true);
     await seedSpeakingContent({ speakingPrompt: { upsert } } as any);
-    expect(upsert).toHaveBeenCalledTimes(68);
+    expect(upsert).toHaveBeenCalledTimes(88);
   });
 
   it('supports PICTURE_DESCRIPTION prompt snapshots with imageUrl and 60s limit', async () => {
