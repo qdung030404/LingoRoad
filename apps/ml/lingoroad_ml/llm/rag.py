@@ -35,7 +35,18 @@ def retrieve(query: str, index_path: Path, embed_fn, k: int = 3) -> list[str]:
 
 @lru_cache
 def _embedding_client():
-    from openai import OpenAI
+    from openai import AzureOpenAI, OpenAI
+
+    azure_key = os.environ.get("AZURE_OPENAI_API_KEY")
+    azure_endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    if azure_key and azure_endpoint and not os.environ.get("EMBEDDING_BASE_URL"):
+        api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2024-08-01-preview")
+        return AzureOpenAI(
+            api_key=azure_key,
+            azure_endpoint=azure_endpoint,
+            api_version=api_version,
+        )
+
     gemini_key = os.environ.get("GEMINI_API_KEY")
     openai_key = os.environ.get("OPENAI_API_KEY")
 
@@ -54,11 +65,11 @@ def _embedding_client():
     return OpenAI(api_key=api_key, base_url=base_url)
 
 def gemini_embed(texts: list[str]) -> np.ndarray:
-    default_model = (
-        "text-embedding-3-small"
-        if os.environ.get("OPENAI_API_KEY") and not os.environ.get("GEMINI_API_KEY")
-        else "gemini-embedding-001"
+    uses_openai_family = (
+        bool(os.environ.get("AZURE_OPENAI_API_KEY") and os.environ.get("AZURE_OPENAI_ENDPOINT"))
+        or bool(os.environ.get("OPENAI_API_KEY") and not os.environ.get("GEMINI_API_KEY"))
     )
+    default_model = "text-embedding-3-small" if uses_openai_family else "gemini-embedding-001"
     model = os.environ.get("EMBEDDING_MODEL", default_model)
     client = _embedding_client()
     resp = client.embeddings.create(model=model, input=texts)

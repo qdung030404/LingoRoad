@@ -168,7 +168,7 @@ describe('Wave 3 Backend Domain Parity, Learner 360°, Round-Trip Export/Import 
       expect(httpService.get).toHaveBeenCalledWith(
         'http://ml:8001/ready',
         expect.objectContaining({
-          timeout: 5000,
+          timeout: 10000,
           validateStatus: expect.any(Function),
         }),
       );
@@ -498,6 +498,37 @@ describe('Wave 3 Backend Domain Parity, Learner 360°, Round-Trip Export/Import 
         failedSpeaking24h: 4,
         activeRefreshSessions: 15,
       });
+    });
+
+    it('MlClientService reads LINGOROAD_ML_INTERNAL_TOKEN fallback and attaches x-internal-token header', async () => {
+      const postMock = jest.fn().mockReturnValue(
+        of({
+          status: 200,
+          data: { theta: 0.25, se: 0.4, next_item_id: 'item-1' },
+        } as AxiosResponse),
+      );
+      const httpService = { post: postMock, get: jest.fn() } as unknown as HttpService;
+      const values: Record<string, string> = {
+        ML_SERVICE_URL: 'https://ml.internal.example',
+        LINGOROAD_ML_INTERNAL_TOKEN: 'fallback-token-with-more-than-32-characters',
+      };
+      const config = {
+        get: (key: string, defaultValue?: unknown) =>
+          Object.prototype.hasOwnProperty.call(values, key) ? values[key] : defaultValue,
+      } as unknown as ConfigService;
+      const fallback = new InProcessCatFallback();
+      const client = new MlClientService(httpService, config, fallback);
+
+      await client.selectNextCatItem([], [{ item_id: 'item-1', a: 1, b: 0, c: 0.25 }]);
+      expect(postMock).toHaveBeenCalledWith(
+        'https://ml.internal.example/cat/select',
+        expect.any(Object),
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'x-internal-token': 'fallback-token-with-more-than-32-characters',
+          }),
+        }),
+      );
     });
 
     it('AdminAnalyticsService.getDashboard includes voiceConversations in active30dCount', async () => {

@@ -1155,3 +1155,30 @@ export function computePaginationRange(
 
   return result;
 }
+
+export interface FormattedAppVersion {
+  shortText: string;
+  pillText: string;
+  fullText: string;
+  isCommitSha: boolean;
+}
+
+export function formatAppVersion(raw?: string | null): FormattedAppVersion {
+  const fullText = (raw ?? '').trim() || 'unknown';
+  const isCommitSha = /^[0-9a-f]{12,40}$/i.test(fullText);
+  if (isCommitSha) {
+    const shortText = fullText.slice(0, 8);
+    return {
+      shortText,
+      pillText: `#${shortText}`,
+      fullText,
+      isCommitSha: true,
+    };
+  }
+  return {
+    shortText: fullText,
+    pillText: fullText.startsWith('v') ? fullText : `v${fullText}`,
+    fullText,
+    isCommitSha: false,
+  };
+}

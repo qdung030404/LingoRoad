@@ -35,7 +35,10 @@ def parse_exercises(raw: str) -> list[dict]:
     return valid
 
 def generate(client, skill_code, skill_name, cefr, ex_type, count) -> list[dict]:
-    model = os.environ.get("LINGOROAD_LLM_MODEL_VERSION", "gemini-2.5-flash")
+    model = (
+        os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME")
+        or os.environ.get("LINGOROAD_LLM_MODEL_VERSION", "gemini-2.5-flash")
+    )
     resp = client.chat.completions.create(
         model=model, temperature=0.7, response_format={"type": "json_object"},
         messages=build_exercise_messages(skill_code, skill_name, cefr, ex_type, count))

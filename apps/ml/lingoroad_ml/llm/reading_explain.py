@@ -80,7 +80,10 @@ def explain(
     cefr: str | None = None,
     source_kind: str = "READING",
 ) -> str:
-    model = os.environ.get("LINGOROAD_LLM_MODEL_VERSION", "gemini-2.5-flash")
+    model = (
+        os.environ.get("AZURE_OPENAI_DEPLOYMENT_NAME")
+        or os.environ.get("LINGOROAD_LLM_MODEL_VERSION", "gemini-2.5-flash")
+    )
     timeout_s = explain_timeout_seconds()
     scoped_client = (
         client.with_options(timeout=timeout_s, max_retries=EXPLAIN_MAX_RETRIES)
