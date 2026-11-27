@@ -496,8 +496,11 @@ describe('Persisted learning workflow', () => {
 
   async function completeWithScanningMistakes(owner, lesson) {
     let attempt = await start(owner, lesson);
+    let wrongCount = 0;
+    const maxWrong = Math.max(1, Math.min(2, Math.floor(lesson.content.questions.length * 0.4)));
     for (const q of lesson.content.questions) {
-      const shouldFail = q.skillCode === 'reading.scanning';
+      const shouldFail = q.skillCode === 'reading.scanning' && wrongCount < maxWrong;
+      if (shouldFail) wrongCount += 1;
       const optionId = shouldFail
         ? q.options.find(option => option.id !== q.correctOptionId).id
         : q.correctOptionId;
