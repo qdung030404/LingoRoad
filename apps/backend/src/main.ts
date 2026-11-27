@@ -40,8 +40,21 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new HttpExceptionFilter());
-  app.useStaticAssets(placementMediaRoot(), { prefix: '/media/placement/', index: false, dotfiles: 'deny' });
-  app.useStaticAssets(learningMediaRoot(), { prefix: '/media/learning/', index: false, dotfiles: 'deny' });
+  const setMediaSecurityHeaders = (res: { setHeader: (name: string, value: string) => void }) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+  };
+  app.useStaticAssets(placementMediaRoot(), {
+    prefix: '/media/placement/',
+    index: false,
+    dotfiles: 'deny',
+    setHeaders: setMediaSecurityHeaders,
+  });
+  app.useStaticAssets(learningMediaRoot(), {
+    prefix: '/media/learning/',
+    index: false,
+    dotfiles: 'deny',
+    setHeaders: setMediaSecurityHeaders,
+  });
 
   const port = configService.get<number>('PORT', 3000);
 

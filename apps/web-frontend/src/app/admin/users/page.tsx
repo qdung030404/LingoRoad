@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Activity,
+  Download,
   Plus,
   Search,
   Shield,
@@ -15,12 +16,16 @@ import { LegacyStatCard } from '@/components/admin/LegacyStatCard';
 import {
   createAdminUser,
   deleteAdminUser,
+  downloadAdminExport,
+  getAdminUserDetail,
   listAdminUsers,
   updateAdminUser,
 } from '@/lib/admin-api';
 import type {
+  AdminUserDetail,
   AdminUserListItem,
   CefrLevel,
+  LearningPurpose,
   PaginationMeta,
   UserRole,
   UserStatus,
@@ -87,9 +92,15 @@ export default function AdminUsersPage(): React.ReactElement {
   const [editingUser, setEditingUser] = useState<AdminUserListItem | null>(
     null,
   );
+  const [userDetail, setUserDetail] = useState<AdminUserDetail | null>(null);
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<UserRole>('LEARNER');
   const [editStatus, setEditStatus] = useState<UserStatus>('ACTIVE');
+  const [editTargetCefr, setEditTargetCefr] = useState<CefrLevel>('B1');
+  const [editDailyGoal, setEditDailyGoal] = useState<number>(10);
+  const [editLearningPurpose, setEditLearningPurpose] = useState<
+    LearningPurpose | ''
+  >('');
   const [editPassword, setEditPassword] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -142,11 +153,25 @@ export default function AdminUsersPage(): React.ReactElement {
 
   const openEditModal = (user: AdminUserListItem): void => {
     setEditingUser(user);
+    setUserDetail(null);
     setEditName(user.name);
     setEditRole(user.role);
     setEditStatus(user.status);
+    setEditTargetCefr(user.profile?.targetCefr ?? 'B1');
+    setEditDailyGoal(user.profile?.dailyGoalMinutes ?? 10);
+    setEditLearningPurpose(user.profile?.learningPurpose ?? '');
     setEditPassword('');
     setEditError(null);
+    void getAdminUserDetail(user.id)
+      .then((detail) => {
+        setUserDetail(detail);
+        if (detail.profile) {
+          setEditTargetCefr(detail.profile.targetCefr);
+          setEditDailyGoal(detail.profile.dailyGoalMinutes);
+          setEditLearningPurpose(detail.profile.learningPurpose ?? '');
+        }
+      })
+      .catch(() => undefined);
   };
 
   const handleCreateUser = async (
@@ -190,6 +215,9 @@ export default function AdminUsersPage(): React.ReactElement {
         name: editName.trim(),
         role: editRole,
         status: editStatus,
+        targetCefr: editTargetCefr,
+        dailyGoalMinutes: editDailyGoal,
+        learningPurpose: editLearningPurpose || null,
         ...(editPassword.trim() ? { password: editPassword } : {}),
       });
       setBannerSuccess(`Đã cập nhật thông tin cho ${editingUser.email}.`);
@@ -256,17 +284,27 @@ export default function AdminUsersPage(): React.ReactElement {
       title="User Management"
       subtitle="Tra cứu, tạo mới, phân quyền, khóa/mở khóa và xoá tài khoản người dùng LingoRoad."
       actions={
-        <button
-          type="button"
-          onClick={() => {
-            setCreateError(null);
-            setShowCreateModal(true);
-          }}
-          className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-sm"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Thêm người dùng</span>
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={() => void downloadAdminExport('users', 'csv')}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
+          >
+            <Download className="h-3.5 w-3.5" />
+            <span>Export CSV</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateError(null);
+              setShowCreateModal(true);
+            }}
+            className="btn-primary inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Thêm người dùng</span>
+          </button>
+        </>
       }
     >
       {(currentAdmin) => (
@@ -664,7 +702,7 @@ export default function AdminUsersPage(): React.ReactElement {
           {/* Modal xem chi tiết & sửa User */}
           {editingUser && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slateDark-900/50 p-4">
-              <div className="w-full max-w-lg rounded-2xl border border-slateDark-100 bg-white p-6 shadow-2xl">
+              <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slateDark-100 bg-white p-6 shadow-2xl">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-bold text-slateDark-900">
@@ -769,6 +807,62 @@ export default function AdminUsersPage(): React.ReactElement {
                     </div>
                   </div>
 
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                        CEFR mục tiêu
+                      </label>
+                      <select
+                        value={editTargetCefr}
+                        onChange={(e) =>
+                          setEditTargetCefr(e.target.value as CefrLevel)
+                        }
+                        className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                      >
+                        {(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const).map(
+                          (lvl) => (
+                            <option key={lvl} value={lvl}>
+                              {lvl}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                        Mục tiêu ngày (phút)
+                      </label>
+                      <input
+                        type="number"
+                        min={5}
+                        max={120}
+                        value={editDailyGoal}
+                        onChange={(e) => setEditDailyGoal(Number(e.target.value))}
+                        className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slateDark-800">
+                        Mục đích học
+                      </label>
+                      <select
+                        value={editLearningPurpose}
+                        onChange={(e) =>
+                          setEditLearningPurpose(
+                            e.target.value as LearningPurpose | '',
+                          )
+                        }
+                        className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
+                      >
+                        <option value="">-- Chưa chọn --</option>
+                        <option value="EXAM">Thi chứng chỉ (EXAM)</option>
+                        <option value="WORK">Công việc (WORK)</option>
+                        <option value="DAILY_COMMUNICATION">Giao tiếp hàng ngày</option>
+                        <option value="STUDY">Học tập (STUDY)</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-slateDark-800">
                       Đặt lại mật khẩu mới (bỏ trống nếu giữ nguyên)
@@ -782,6 +876,59 @@ export default function AdminUsersPage(): React.ReactElement {
                       className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3.5 py-2.5 text-sm focus:border-brand-500 focus:outline-none"
                     />
                   </div>
+
+                  {userDetail &&
+                    (userDetail.recentAttempts.length > 0 ||
+                      userDetail.recentPlacements.length > 0 ||
+                      userDetail.recentSpeaking.length > 0) && (
+                      <div className="space-y-2.5 rounded-xl border border-slateDark-100 bg-slateDark-25 p-3.5 text-xs">
+                        <p className="font-bold text-slateDark-900">
+                          Hoạt động học tập gần đây
+                        </p>
+                        {userDetail.recentAttempts.slice(0, 3).map((a) => (
+                          <div
+                            key={a.id}
+                            className="flex items-center justify-between text-slateDark-800"
+                          >
+                            <span className="truncate">
+                              Bài học: <strong>{a.lessonTitle}</strong>
+                            </span>
+                            <span className="shrink-0 font-mono text-[11px]">
+                              {a.correctCount ?? 0}/{a.totalQuestions} · {a.status}
+                            </span>
+                          </div>
+                        ))}
+                        {userDetail.recentPlacements.slice(0, 2).map((p) => (
+                          <div
+                            key={p.id}
+                            className="flex items-center justify-between text-slateDark-800"
+                          >
+                            <span>
+                              Placement:{' '}
+                              <strong>{p.estimatedCefr ?? p.status}</strong>
+                            </span>
+                            <span className="font-mono text-[11px]">
+                              {p.correctCount}/{p.totalItems}
+                            </span>
+                          </div>
+                        ))}
+                        {userDetail.recentSpeaking.slice(0, 2).map((s) => (
+                          <div
+                            key={s.id}
+                            className="flex items-center justify-between text-slateDark-800"
+                          >
+                            <span className="truncate">
+                              Luyện nói: <strong>{s.promptTitle}</strong>
+                            </span>
+                            <span className="font-mono text-[11px]">
+                              {s.overallScore !== null
+                                ? `${Math.round(s.overallScore)}đ`
+                                : s.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                   <div className="flex justify-end gap-2 pt-2">
                     <button

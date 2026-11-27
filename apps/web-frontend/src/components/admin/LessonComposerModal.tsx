@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Plus, Trash2, Upload, X } from 'lucide-react';
+import { Eye, Plus, Trash2, Upload, X } from 'lucide-react';
 import {
   createAdminLesson,
   createLearningUnit,
+  resolveAdminMediaUrl,
   updateAdminLesson,
 } from '@/lib/admin-api';
 import {
@@ -13,25 +14,47 @@ import {
   validateLessonDraft,
 } from '@/lib/admin-validation';
 import type {
+  AdminGrammarTopic,
   AdminLessonItem,
   CefrLevel,
-  LearningKind,
   LearningContentPayload,
+  LearningKeyVocabInput,
+  LearningKind,
   LearningQuestionInput,
   LearningQuestionType,
   LearningStepInput,
   LearningUnitItem,
+  ListeningSegmentInput,
 } from '@/types/admin';
+import { ListeningLessonForm } from './ListeningLessonForm';
+import { MediaUploadField } from './MediaUploadField';
 
 interface LessonComposerModalProps {
   units: LearningUnitItem[];
+  grammarTopics?: AdminGrammarTopic[];
   editingLesson: AdminLessonItem | null;
   onClose: () => void;
   onSaved: () => void;
   onUnitCreated: (unit: LearningUnitItem) => void;
 }
 
-function createEmptyQuestion(index: number): LearningQuestionInput {
+const READING_SKILL_OPTIONS = [
+  'reading.gist',
+  'reading.detail',
+  'reading.vocab_in_context',
+  'reading.inference',
+  'reading.reference',
+];
+
+const LISTENING_SKILL_OPTIONS = [
+  'listening.gist',
+  'listening.detail',
+  'listening.specific_info',
+  'listening.attitude',
+  'listening.inference',
+];
+
+function createEmptyQuestion(index: number, isListening = false): LearningQuestionInput {
   return {
     id: `q-${index + 1}`,
     type: 'MULTIPLE_CHOICE',
@@ -45,6 +68,12 @@ function createEmptyQuestion(index: number): LearningQuestionInput {
     correctOptionId: 'A',
     explanation: '',
     evidence: '',
+    ...(isListening
+      ? {
+          skillCode: LISTENING_SKILL_OPTIONS[index % LISTENING_SKILL_OPTIONS.length],
+          evidenceSegmentIds: ['seg-1'],
+        }
+      : {}),
   };
 }
 
@@ -54,6 +83,38 @@ function createDefaultSteps(): LearningStepInput[] {
       id: 'step-1',
       title: 'Kiến thức trọng tâm',
       body: '',
+    },
+  ];
+}
+
+function createDefaultListeningVocab(): LearningKeyVocabInput[] {
+  return [1, 2, 3].map((i) => ({
+    id: `kv-${i}`,
+    word: '',
+    meaning: '',
+    phonetic: '',
+    example: '',
+    translation: '',
+  }));
+}
+
+function createDefaultListeningSegments(): ListeningSegmentInput[] {
+  return [
+    {
+      id: 'seg-1',
+      speaker: 'Speaker A',
+      startMs: 0,
+      endMs: 15000,
+      text: '',
+      translationVi: '',
+    },
+    {
+      id: 'seg-2',
+      speaker: 'Speaker B',
+      startMs: 15000,
+      endMs: 30000,
+      text: '',
+      translationVi: '',
     },
   ];
 }
@@ -115,6 +176,7 @@ const DEFAULT_JSON_TEMPLATE = JSON.stringify(
 
 export function LessonComposerModal({
   units,
+  grammarTopics = [],
   editingLesson,
   onClose,
   onSaved,
@@ -122,14 +184,11 @@ export function LessonComposerModal({
 }: LessonComposerModalProps): React.ReactElement {
   const isEditing = Boolean(editingLesson);
   const initialContent = editingLesson?.content;
-  const [contentBase, setContentBase] = useState<LearningContentPayload | undefined>(initialContent);
-
-  const [mode, setMode] = useState<'form' | 'json'>(
-    editingLesson?.kind === 'LISTENING' ||
-      initialContent?.listeningVersion === 1
-      ? 'json'
-      : 'form',
+  const [contentBase, setContentBase] = useState<LearningContentPayload | undefined>(
+    initialContent,
   );
+
+  const [mode, setMode] = useState<'form' | 'json' | 'preview'>('form');
   const [code, setCode] = useState(editingLesson?.code ?? '');
   const [kind, setKind] = useState<LearningKind>(
     editingLesson?.kind ?? 'GRAMMAR',
@@ -141,15 +200,40 @@ export function LessonComposerModal({
   const [estimatedMinutes, setEstimatedMinutes] = useState(
     editingLesson?.estimatedMinutes ?? 5,
   );
+  const [sortOrder, setSortOrder] = useState<string>(
+    editingLesson?.sortOrder !== undefined ? String(editingLesson.sortOrder) : '',
+  );
   const [unitId, setUnitId] = useState<string>(editingLesson?.unit?.id ?? '');
+  const [grammarTopicId, setGrammarTopicId] = useState<string>(
+    editingLesson?.grammarTopic?.id ?? '',
+  );
   const [published, setPublished] = useState<boolean>(
     editingLesson?.published ?? true,
   );
+
   const [passage, setPassage] = useState(initialContent?.passage ?? '');
+  const [coverImageUrl, setCoverImageUrl] = useState(
+    initialContent?.coverImageUrl ?? '',
+  );
+  const [keyVocabulary, setKeyVocabulary] = useState<LearningKeyVocabInput[]>(
+    initialContent?.keyVocabulary ?? [],
+  );
+  const [audioUrl, setAudioUrl] = useState(initialContent?.audioUrl ?? '');
+  const [audioDurationMs, setAudioDurationMs] = useState(
+    initialContent?.audioDurationMs ?? 35000,
+  );
+  const [preparation, setPreparation] = useState(
+    initialContent?.preparation ?? { situation: '', objective: '' },
+  );
+  const [transcriptSegments, setTranscriptSegments] = useState<
+    ListeningSegmentInput[]
+  >(
+    initialContent?.transcriptSegments?.length
+      ? initialContent.transcriptSegments
+      : createDefaultListeningSegments(),
+  );
   const [steps, setSteps] = useState<LearningStepInput[]>(
-    initialContent?.steps
-      ? initialContent.steps
-      : createDefaultSteps(),
+    initialContent?.steps ? initialContent.steps : createDefaultSteps(),
   );
   const [questions, setQuestions] = useState<LearningQuestionInput[]>(
     initialContent?.questions?.length
@@ -157,7 +241,9 @@ export function LessonComposerModal({
       : [createEmptyQuestion(0), createEmptyQuestion(1), createEmptyQuestion(2)],
   );
   const [rawJson, setRawJson] = useState<string>(
-    initialContent ? JSON.stringify(initialContent, null, 2) : DEFAULT_JSON_TEMPLATE,
+    initialContent
+      ? JSON.stringify(initialContent, null, 2)
+      : DEFAULT_JSON_TEMPLATE,
   );
 
   const [showQuickUnit, setShowQuickUnit] = useState(false);
@@ -170,6 +256,43 @@ export function LessonComposerModal({
 
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const leafGrammarTopics = grammarTopics.filter((g) => g.isLeaf);
+
+  const buildCurrentDraftPayload = (): LearningContentPayload =>
+    buildLessonContentFromForm(
+      {
+        kind,
+        passage,
+        coverImageUrl: coverImageUrl || undefined,
+        keyVocabulary:
+          kind === 'LISTENING' || keyVocabulary.length > 0
+            ? keyVocabulary
+            : undefined,
+        audioUrl: kind === 'LISTENING' ? audioUrl : undefined,
+        audioDurationMs: kind === 'LISTENING' ? audioDurationMs : undefined,
+        preparation: kind === 'LISTENING' ? preparation : undefined,
+        transcriptSegments: kind === 'LISTENING' ? transcriptSegments : undefined,
+        steps,
+        questions,
+      },
+      contentBase,
+    );
+
+  const syncFromParsedContent = (parsed: LearningContentPayload): void => {
+    setContentBase(parsed);
+    setSteps(parsed.steps);
+    setQuestions(parsed.questions);
+    setPassage(parsed.passage ?? '');
+    setCoverImageUrl(parsed.coverImageUrl ?? '');
+    setKeyVocabulary(parsed.keyVocabulary ?? []);
+    if (parsed.audioUrl !== undefined) setAudioUrl(parsed.audioUrl);
+    if (parsed.audioDurationMs !== undefined) setAudioDurationMs(parsed.audioDurationMs);
+    if (parsed.preparation) setPreparation(parsed.preparation);
+    if (parsed.transcriptSegments?.length) {
+      setTranscriptSegments(parsed.transcriptSegments);
+    }
+  };
 
   const handleFileUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -205,6 +328,25 @@ export function LessonComposerModal({
       );
     } finally {
       setCreatingUnit(false);
+    }
+  };
+
+  const handleKindChange = (nextKind: LearningKind): void => {
+    setKind(nextKind);
+    if (nextKind === 'LISTENING') {
+      if (keyVocabulary.length < 3) {
+        setKeyVocabulary(createDefaultListeningVocab());
+      }
+      if (transcriptSegments.length < 2) {
+        setTranscriptSegments(createDefaultListeningSegments());
+      }
+      if (questions.length < 5) {
+        const nextQs = [...questions];
+        while (nextQs.length < 5) {
+          nextQs.push(createEmptyQuestion(nextQs.length, true));
+        }
+        setQuestions(nextQs);
+      }
     }
   };
 
@@ -253,7 +395,7 @@ export function LessonComposerModal({
     event.preventDefault();
     setErrorMessage(null);
 
-    let contentPayload;
+    let contentPayload: LearningContentPayload;
     if (mode === 'json') {
       if (!/^[a-z0-9-]+$/.test(code.trim())) {
         setErrorMessage(
@@ -279,6 +421,15 @@ export function LessonComposerModal({
         description,
         estimatedMinutes,
         passage,
+        coverImageUrl: coverImageUrl || undefined,
+        keyVocabulary:
+          kind === 'LISTENING' || keyVocabulary.length > 0
+            ? keyVocabulary
+            : undefined,
+        audioUrl: kind === 'LISTENING' ? audioUrl : undefined,
+        audioDurationMs: kind === 'LISTENING' ? audioDurationMs : undefined,
+        preparation: kind === 'LISTENING' ? preparation : undefined,
+        transcriptSegments: kind === 'LISTENING' ? transcriptSegments : undefined,
         steps,
         questions,
       });
@@ -286,13 +437,13 @@ export function LessonComposerModal({
         setErrorMessage(validationError);
         return;
       }
-      contentPayload = buildLessonContentFromForm({
-        kind,
-        passage,
-        steps,
-        questions,
-      }, contentBase);
+      contentPayload = buildCurrentDraftPayload();
     }
+
+    const parsedSortOrder =
+      sortOrder.trim() !== '' && Number.isInteger(Number(sortOrder))
+        ? Number(sortOrder)
+        : undefined;
 
     setSubmitting(true);
     try {
@@ -302,8 +453,12 @@ export function LessonComposerModal({
         title: title.trim(),
         description: description.trim(),
         estimatedMinutes,
+        ...(parsedSortOrder !== undefined ? { sortOrder: parsedSortOrder } : {}),
         published,
         unitId: unitId || null,
+        ...(kind === 'GRAMMAR' || grammarTopicId
+          ? { grammarTopicId: grammarTopicId || null }
+          : {}),
         content: contentPayload,
       };
       if (editingLesson) {
@@ -323,6 +478,9 @@ export function LessonComposerModal({
     }
   };
 
+  const previewPayload =
+    mode === 'preview' ? buildCurrentDraftPayload() : null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slateDark-900/50 p-4">
       <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slateDark-100 bg-white shadow-2xl">
@@ -332,8 +490,8 @@ export function LessonComposerModal({
               {isEditing ? 'Chỉnh sửa bài tập' : 'Thêm bài tập lộ trình mới'}
             </h2>
             <p className="text-xs text-slateDark-700">
-              Cấu trúc nội dung được kiểm định tương thích trực tiếp với ứng dụng
-              học viên.
+              Hỗ trợ soạn trực quan đầy đủ Ngữ pháp, Từ vựng, Đọc hiểu & Nghe hiểu
+              v1.
             </p>
           </div>
           <button
@@ -378,17 +536,13 @@ export function LessonComposerModal({
               </label>
               <select
                 value={kind}
-                onChange={(e) => {
-                  const nextKind = e.target.value as LearningKind;
-                  setKind(nextKind);
-                  if (nextKind === 'LISTENING') setMode('json');
-                }}
+                onChange={(e) => handleKindChange(e.target.value as LearningKind)}
                 className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-4 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
               >
                 <option value="GRAMMAR">Ngữ pháp (GRAMMAR)</option>
                 <option value="VOCABULARY">Từ vựng (VOCABULARY)</option>
                 <option value="READING">Đọc hiểu (READING)</option>
-                <option value="LISTENING">Nghe hiểu (LISTENING - JSON)</option>
+                <option value="LISTENING">Nghe hiểu (LISTENING v1)</option>
               </select>
             </div>
 
@@ -447,10 +601,10 @@ export function LessonComposerModal({
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2.5">
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
-                  Thời lượng (phút) *
+                  Thời lượng *
                 </label>
                 <input
                   type="number"
@@ -458,22 +612,56 @@ export function LessonComposerModal({
                   max={120}
                   value={estimatedMinutes}
                   onChange={(e) => setEstimatedMinutes(Number(e.target.value))}
-                  className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-4 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
+                  className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
+                  Thứ tự
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value)}
+                  placeholder="Tự động"
+                  className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
                 />
               </div>
 
               <div className="flex flex-col justify-end pb-2">
-                <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slateDark-900">
+                <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-slateDark-900">
                   <input
                     type="checkbox"
                     checked={published}
                     onChange={(e) => setPublished(e.target.checked)}
                     className="h-4 w-4 accent-brand-600"
                   />
-                  <span>Xuất bản ngay</span>
+                  <span>Xuất bản</span>
                 </label>
               </div>
             </div>
+
+            {kind === 'GRAMMAR' && leafGrammarTopics.length > 0 && (
+              <div className="sm:col-span-2">
+                <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
+                  Liên kết Chủ điểm Ngữ pháp (Grammar DAG Leaf)
+                </label>
+                <select
+                  value={grammarTopicId}
+                  onChange={(e) => setGrammarTopicId(e.target.value)}
+                  className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-4 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
+                >
+                  <option value="">-- Không liên kết --</option>
+                  {leafGrammarTopics.map((topic) => (
+                    <option key={topic.id} value={topic.id}>
+                      [{topic.cefrLevel}] {topic.titleVi} ({topic.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {showQuickUnit && (
@@ -494,13 +682,11 @@ export function LessonComposerModal({
                   onChange={(e) => setUnitLevel(e.target.value as CefrLevel)}
                   className="rounded-xl border-[1.5px] border-slateDark-200 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none"
                 >
-                  {(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const).map(
-                    (lvl) => (
-                      <option key={lvl} value={lvl}>
-                        Bậc {lvl}
-                      </option>
-                    ),
-                  )}
+                  {(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const).map((lvl) => (
+                    <option key={lvl} value={lvl}>
+                      Bậc {lvl}
+                    </option>
+                  ))}
                 </select>
                 <input
                   type="number"
@@ -545,7 +731,6 @@ export function LessonComposerModal({
             <div className="inline-flex rounded-xl bg-slateDark-50 p-1">
               <button
                 type="button"
-                disabled={kind === 'LISTENING'}
                 onClick={() => {
                   if (mode === 'json') {
                     const parsed = parseLessonJsonDraft(rawJson);
@@ -553,10 +738,7 @@ export function LessonComposerModal({
                       setErrorMessage(parsed.error);
                       return;
                     }
-                    setContentBase(parsed.content);
-                    setSteps(parsed.content.steps);
-                    setQuestions(parsed.content.questions);
-                    setPassage(parsed.content.passage ?? '');
+                    syncFromParsedContent(parsed.content);
                   }
                   setErrorMessage(null);
                   setMode('form');
@@ -564,7 +746,7 @@ export function LessonComposerModal({
                 className={
                   mode === 'form'
                     ? 'rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-slateDark-900 shadow-sm'
-                    : 'rounded-lg px-3.5 py-1.5 text-xs font-medium text-slateDark-700 disabled:opacity-40'
+                    : 'rounded-lg px-3.5 py-1.5 text-xs font-medium text-slateDark-700'
                 }
               >
                 Biểu mẫu trực quan
@@ -572,19 +754,8 @@ export function LessonComposerModal({
               <button
                 type="button"
                 onClick={() => {
-                  if (mode === 'form') {
-                    setRawJson(
-                      JSON.stringify(
-                        buildLessonContentFromForm({
-                          kind,
-                          passage,
-                          steps,
-                          questions,
-                        }, contentBase),
-                        null,
-                        2,
-                      ),
-                    );
+                  if (mode !== 'json') {
+                    setRawJson(JSON.stringify(buildCurrentDraftPayload(), null, 2));
                   }
                   setMode('json');
                 }}
@@ -595,6 +766,29 @@ export function LessonComposerModal({
                 }
               >
                 Soạn JSON nâng cao
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (mode === 'json') {
+                    const parsed = parseLessonJsonDraft(rawJson);
+                    if (!parsed.content || parsed.error) {
+                      setErrorMessage(parsed.error);
+                      return;
+                    }
+                    syncFromParsedContent(parsed.content);
+                  }
+                  setErrorMessage(null);
+                  setMode('preview');
+                }}
+                className={
+                  mode === 'preview'
+                    ? 'inline-flex items-center gap-1.5 rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-slateDark-900 shadow-sm'
+                    : 'inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium text-slateDark-700'
+                }
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>Xem trước</span>
               </button>
             </div>
 
@@ -623,8 +817,130 @@ export function LessonComposerModal({
                 className="w-full rounded-lg border-[1.5px] border-slateDark-200 bg-slateDark-50 p-4 font-mono text-xs text-slateDark-900 focus:border-brand-500 focus:outline-none"
               />
             </div>
+          ) : mode === 'preview' && previewPayload ? (
+            <div className="space-y-4 rounded-2xl border border-slateDark-100 bg-slateDark-25 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="rounded-full bg-brand-100 px-2.5 py-0.5 text-[11px] font-bold text-brand-800">
+                    {kind}
+                  </span>
+                  <h3 className="mt-1 text-base font-extrabold text-slateDark-900">
+                    {title || '(Chưa có tiêu đề)'}
+                  </h3>
+                  <p className="text-xs text-slateDark-700">{description}</p>
+                </div>
+                <span className="text-xs font-semibold text-slateDark-700">
+                  {estimatedMinutes} phút · {previewPayload.questions.length} câu hỏi
+                </span>
+              </div>
+
+              {previewPayload.coverImageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={resolveAdminMediaUrl(previewPayload.coverImageUrl)}
+                  alt={title}
+                  className="max-h-48 w-full rounded-xl object-cover"
+                />
+              )}
+
+              {previewPayload.audioUrl && (
+                <audio
+                  controls
+                  src={resolveAdminMediaUrl(previewPayload.audioUrl)}
+                  className="w-full"
+                />
+              )}
+
+              {previewPayload.passage && (
+                <div className="rounded-xl border border-slateDark-200 bg-white p-4 text-sm leading-relaxed text-slateDark-800 whitespace-pre-wrap">
+                  {previewPayload.passage}
+                </div>
+              )}
+
+              {previewPayload.steps.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slateDark-700">
+                    Các bước hướng dẫn ({previewPayload.steps.length})
+                  </p>
+                  {previewPayload.steps.map((s, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl border border-slateDark-100 bg-white p-3"
+                    >
+                      <p className="text-xs font-bold text-slateDark-900">
+                        {idx + 1}. {s.title}
+                      </p>
+                      <p className="mt-1 text-xs text-slateDark-700">{s.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-slateDark-700">
+                  Câu hỏi luyện tập ({previewPayload.questions.length})
+                </p>
+                {previewPayload.questions.map((q, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-xl border border-slateDark-100 bg-white p-3.5"
+                  >
+                    <p className="text-xs font-bold text-slateDark-900">
+                      Câu {idx + 1}: {q.prompt}
+                    </p>
+                    <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                      {q.options.map((opt) => (
+                        <div
+                          key={opt.id}
+                          className={
+                            opt.id === q.correctOptionId
+                              ? 'rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-900'
+                              : 'rounded-lg border border-slateDark-100 bg-slateDark-25 px-2.5 py-1.5 text-xs text-slateDark-800'
+                          }
+                        >
+                          {opt.id}. {opt.text}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[11px] text-slateDark-700">
+                      Giải thích: {q.explanation}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <div className="space-y-6">
+              {/* Ảnh bìa bài học */}
+              <MediaUploadField
+                kind="image"
+                slug={code || 'lesson-cover'}
+                label="Ảnh bìa bài học (coverImageUrl — tuỳ chọn)"
+                value={coverImageUrl}
+                onChange={(url) => setCoverImageUrl(url)}
+                placeholder="/media/learning/v1/images/... hoặc https://..."
+              />
+
+              {/* Form chuyên biệt cho LISTENING v1 */}
+              {kind === 'LISTENING' && (
+                <ListeningLessonForm
+                  lessonCode={code}
+                  audioUrl={audioUrl}
+                  audioDurationMs={audioDurationMs}
+                  preparation={preparation}
+                  keyVocabulary={keyVocabulary}
+                  transcriptSegments={transcriptSegments}
+                  onAudioChange={(url, durationMs) => {
+                    setAudioUrl(url);
+                    if (durationMs) setAudioDurationMs(durationMs);
+                  }}
+                  onDurationChange={setAudioDurationMs}
+                  onPreparationChange={setPreparation}
+                  onKeyVocabularyChange={setKeyVocabulary}
+                  onSegmentsChange={setTranscriptSegments}
+                />
+              )}
+
               {kind === 'READING' && (
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">
@@ -718,6 +1034,70 @@ export function LessonComposerModal({
                       placeholder="Nội dung giải thích kiến thức hoặc ví dụ minh hoạ..."
                       className="w-full rounded-lg border-[1.5px] border-slateDark-200 bg-white p-4 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none"
                     />
+                    {kind === 'VOCABULARY' && (
+                      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        <input
+                          type="text"
+                          value={step.word ?? ''}
+                          onChange={(e) =>
+                            setSteps((prev) =>
+                              prev.map((item, idx) =>
+                                idx === sIdx
+                                  ? { ...item, word: e.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          placeholder="Từ vựng (word)"
+                          className="rounded-xl border border-slateDark-200 bg-white px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          type="text"
+                          value={step.phonetic ?? ''}
+                          onChange={(e) =>
+                            setSteps((prev) =>
+                              prev.map((item, idx) =>
+                                idx === sIdx
+                                  ? { ...item, phonetic: e.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          placeholder="Phiên âm IPA (phonetic)"
+                          className="rounded-xl border border-slateDark-200 bg-white px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          type="text"
+                          value={step.meaning ?? ''}
+                          onChange={(e) =>
+                            setSteps((prev) =>
+                              prev.map((item, idx) =>
+                                idx === sIdx
+                                  ? { ...item, meaning: e.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          placeholder="Nghĩa tiếng Việt (meaning)"
+                          className="rounded-xl border border-slateDark-200 bg-white px-3 py-1.5 text-xs"
+                        />
+                        <input
+                          type="text"
+                          value={step.example ?? ''}
+                          onChange={(e) =>
+                            setSteps((prev) =>
+                              prev.map((item, idx) =>
+                                idx === sIdx
+                                  ? { ...item, example: e.target.value }
+                                  : item,
+                              ),
+                            )
+                          }
+                          placeholder="Câu ví dụ (example)"
+                          className="rounded-xl border border-slateDark-200 bg-white px-3 py-1.5 text-xs"
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -726,7 +1106,8 @@ export function LessonComposerModal({
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-bold text-slateDark-900">
-                    Ngân hàng câu hỏi ({questions.length}/10 — tối thiểu 3 câu)
+                    Ngân hàng câu hỏi ({questions.length}/10 —{' '}
+                    {kind === 'LISTENING' ? 'chuẩn 5 câu' : 'tối thiểu 3 câu'})
                   </h3>
                   <button
                     type="button"
@@ -734,7 +1115,7 @@ export function LessonComposerModal({
                     onClick={() =>
                       setQuestions((prev) => [
                         ...prev,
-                        createEmptyQuestion(prev.length),
+                        createEmptyQuestion(prev.length, kind === 'LISTENING'),
                       ])
                     }
                     className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3 py-1.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50 disabled:opacity-40"
@@ -755,7 +1136,32 @@ export function LessonComposerModal({
                         <span className="text-xs font-bold text-slateDark-900">
                           Câu hỏi #{qIdx + 1}
                         </span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {(kind === 'READING' || kind === 'LISTENING') && (
+                            <select
+                              value={question.skillCode ?? ''}
+                              onChange={(e) =>
+                                setQuestions((prev) =>
+                                  prev.map((item, idx) =>
+                                    idx === qIdx
+                                      ? { ...item, skillCode: e.target.value }
+                                      : item,
+                                  ),
+                                )
+                              }
+                              className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1 text-xs font-medium text-slateDark-800 focus:border-brand-500 focus:outline-none"
+                            >
+                              <option value="">-- skillCode --</option>
+                              {(kind === 'LISTENING'
+                                ? LISTENING_SKILL_OPTIONS
+                                : READING_SKILL_OPTIONS
+                              ).map((sc) => (
+                                <option key={sc} value={sc}>
+                                  {sc}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                           <select
                             value={qType}
                             onChange={(e) =>
@@ -766,7 +1172,9 @@ export function LessonComposerModal({
                             }
                             className="rounded-lg border border-slateDark-200 bg-white px-2.5 py-1 text-xs font-medium text-slateDark-800 focus:border-brand-500 focus:outline-none"
                           >
-                            <option value="MULTIPLE_CHOICE">Trắc nghiệm 4 chọn 1</option>
+                            <option value="MULTIPLE_CHOICE">
+                              Trắc nghiệm 4 chọn 1
+                            </option>
                             <option value="GAP_FILL">Điền vào chỗ trống</option>
                             <option value="TRUE_FALSE_NOT_GIVEN">
                               True / False / Not Given
@@ -813,50 +1221,81 @@ export function LessonComposerModal({
                         {question.options.map((opt, optIdx) => (
                           <div
                             key={`${question.id}-${opt.id}`}
-                            className="flex items-center gap-2"
+                            className="space-y-1.5 rounded-xl border border-slateDark-100 bg-white p-2"
                           >
-                            <input
-                              type="radio"
-                              name={`correct-${qIdx}`}
-                              checked={question.correctOptionId === opt.id}
-                              onChange={() =>
-                                setQuestions((prev) =>
-                                  prev.map((item, idx) =>
-                                    idx === qIdx
-                                      ? { ...item, correctOptionId: opt.id }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              aria-label={`Chọn ${opt.id} là đáp án đúng`}
-                              className="h-4 w-4 accent-brand-600"
-                            />
-                            <span className="w-5 text-xs font-bold text-slateDark-700">
-                              {opt.id}.
-                            </span>
-                            <input
-                              type="text"
-                              readOnly={qType === 'TRUE_FALSE_NOT_GIVEN'}
-                              value={opt.text}
-                              onChange={(e) =>
-                                setQuestions((prev) =>
-                                  prev.map((item, idx) =>
-                                    idx === qIdx
-                                      ? {
-                                          ...item,
-                                          options: item.options.map((o, oIdx) =>
-                                            oIdx === optIdx
-                                              ? { ...o, text: e.target.value }
-                                              : o,
-                                          ),
-                                        }
-                                      : item,
-                                  ),
-                                )
-                              }
-                              placeholder={`Phương án ${opt.id}`}
-                              className="flex-1 rounded-xl border-[1.5px] border-slateDark-200 bg-white px-3 py-2 text-sm text-slateDark-900 focus:border-brand-500 focus:outline-none read-only:bg-slateDark-100"
-                            />
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                name={`correct-${qIdx}`}
+                                checked={question.correctOptionId === opt.id}
+                                onChange={() =>
+                                  setQuestions((prev) =>
+                                    prev.map((item, idx) =>
+                                      idx === qIdx
+                                        ? { ...item, correctOptionId: opt.id }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                                aria-label={`Chọn ${opt.id} là đáp án đúng`}
+                                className="h-4 w-4 accent-brand-600"
+                              />
+                              <span className="w-5 text-xs font-bold text-slateDark-700">
+                                {opt.id}.
+                              </span>
+                              <input
+                                type="text"
+                                readOnly={qType === 'TRUE_FALSE_NOT_GIVEN'}
+                                value={opt.text}
+                                onChange={(e) =>
+                                  setQuestions((prev) =>
+                                    prev.map((item, idx) =>
+                                      idx === qIdx
+                                        ? {
+                                            ...item,
+                                            options: item.options.map(
+                                              (o, oIdx) =>
+                                                oIdx === optIdx
+                                                  ? { ...o, text: e.target.value }
+                                                  : o,
+                                            ),
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                                placeholder={`Phương án ${opt.id}`}
+                                className="flex-1 rounded-lg border border-slateDark-200 bg-slateDark-25 px-2.5 py-1.5 text-xs text-slateDark-900 focus:border-brand-500 focus:outline-none read-only:bg-slateDark-100"
+                              />
+                            </div>
+                            {qType !== 'TRUE_FALSE_NOT_GIVEN' && (
+                              <input
+                                type="text"
+                                value={opt.imageUrl ?? ''}
+                                onChange={(e) =>
+                                  setQuestions((prev) =>
+                                    prev.map((item, idx) =>
+                                      idx === qIdx
+                                        ? {
+                                            ...item,
+                                            options: item.options.map(
+                                              (o, oIdx) =>
+                                                oIdx === optIdx
+                                                  ? {
+                                                      ...o,
+                                                      imageUrl: e.target.value,
+                                                    }
+                                                  : o,
+                                            ),
+                                          }
+                                        : item,
+                                    ),
+                                  )
+                                }
+                                placeholder="Ảnh phương án (tuỳ chọn, URL)"
+                                className="w-full rounded-lg border border-slateDark-100 bg-white px-2.5 py-1 text-[11px] text-slateDark-700 focus:border-brand-500 focus:outline-none"
+                              />
+                            )}
                           </div>
                         ))}
                       </div>
@@ -893,6 +1332,56 @@ export function LessonComposerModal({
                           placeholder="Câu dẫn chứng nguyên văn trong đoạn văn (tuỳ chọn)"
                           className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-white px-3.5 py-2 text-xs text-slateDark-900 focus:border-brand-500 focus:outline-none"
                         />
+                      )}
+
+                      {kind === 'LISTENING' && (
+                        <div className="space-y-1.5 rounded-xl border border-slateDark-100 bg-white p-3">
+                          <p className="text-[11px] font-semibold text-slateDark-800">
+                            Chọn đoạn transcript dẫn chứng (evidenceSegmentIds) *
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {transcriptSegments.map((seg) => {
+                              const checked = (
+                                question.evidenceSegmentIds ?? []
+                              ).includes(seg.id);
+                              return (
+                                <label
+                                  key={seg.id}
+                                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slateDark-200 bg-slateDark-25 px-2.5 py-1 text-xs"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={(e) => {
+                                      setQuestions((prev) =>
+                                        prev.map((item, idx) => {
+                                          if (idx !== qIdx) return item;
+                                          const current =
+                                            item.evidenceSegmentIds ?? [];
+                                          const next = e.target.checked
+                                            ? Array.from(
+                                                new Set([...current, seg.id]),
+                                              )
+                                            : current.filter(
+                                                (id) => id !== seg.id,
+                                              );
+                                          return {
+                                            ...item,
+                                            evidenceSegmentIds: next,
+                                          };
+                                        }),
+                                      );
+                                    }}
+                                    className="h-3.5 w-3.5 accent-brand-600"
+                                  />
+                                  <span className="font-mono font-semibold">
+                                    {seg.id}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
                     </div>
                   );

@@ -75,6 +75,7 @@ model User {
   speakingSubmissions  SpeakingSubmission[]
   speakingGameProgress SpeakingGameProgress[]
   voiceConversations   VoiceConversation[]
+  auditLogs            AuditLog[]
 
   @@map("users")
 }
@@ -152,6 +153,8 @@ model SpeakingPrompt {
   sampleAsset String? @map("sample_asset")
   imageUrl String? @map("image_url") @db.VarChar(500)
   visualContext String? @map("visual_context") @db.Text
+  preparation Json? @db.JsonB
+  linkedReadAloudCodes String[] @default([]) @map("linked_read_aloud_codes")
   id String @id @default(uuid()) @db.Uuid
   code String @unique @db.VarChar(100)
   text String @db.Text
@@ -728,4 +731,26 @@ model CuratedTopicWord {
   topic CuratedTopic @relation(fields: [topicId], references: [id], onDelete: Cascade)
   @@index([topicId])
   @@map("topic_words")
+}
+
+model AuditLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  adminUserId     String?  @map("admin_user_id") @db.Uuid
+  adminEmail      String   @map("admin_email") @db.VarChar(255)
+  action          String   @db.VarChar(100)
+  method          String   @db.VarChar(10)
+  path            String   @db.VarChar(300)
+  resourceType    String   @map("resource_type") @db.VarChar(60)
+  resourceId      String?  @map("resource_id") @db.VarChar(100)
+  statusCode      Int      @map("status_code")
+  ipAddress       String?  @map("ip_address") @db.VarChar(64)
+  payloadSnapshot Json?    @map("payload_snapshot") @db.JsonB
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  admin User? @relation(fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([adminUserId, createdAt])
+  @@index([resourceType, createdAt])
+  @@map("audit_logs")
 }

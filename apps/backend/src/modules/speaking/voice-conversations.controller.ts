@@ -71,8 +71,29 @@ export class VoiceConversationsController {
       where: { id, published: true, mode: 'TOPIC' },
     });
     if (!topic) throw new HttpException({ code: 'conversation_topic_not_found', message: 'Chủ đề chưa khả dụng.' }, 404);
-    const { id: topicId, code, title, text, hints, imageUrl, contentVersion } = topic;
-    const readAloud = await this.speaking.prompts('READ_ALOUD', readingByTopic[code] ?? []);
+    const { id: topicId, code, title, text, hints, imageUrl, contentVersion, preparation, linkedReadAloudCodes } = topic;
+    const readAloudCodes = linkedReadAloudCodes.length > 0 ? linkedReadAloudCodes : (readingByTopic[code] ?? []);
+    const readAloud = await this.speaking.prompts('READ_ALOUD', readAloudCodes);
+    const defaultPrep = conversationPreparation(code);
+    const dbPrep =
+      preparation && typeof preparation === 'object' && !Array.isArray(preparation)
+        ? (preparation as Record<string, unknown>)
+        : null;
+    const mergedPreparation = dbPrep
+      ? {
+          ...defaultPrep,
+          ...(typeof dbPrep.goal === 'string' && dbPrep.goal.trim() ? { goal: dbPrep.goal } : {}),
+          ...(typeof dbPrep.sceneImageUrl === 'string' && dbPrep.sceneImageUrl.trim()
+            ? { sceneImageUrl: dbPrep.sceneImageUrl }
+            : {}),
+          ...(Array.isArray(dbPrep.vocabulary) && dbPrep.vocabulary.length > 0
+            ? { vocabulary: dbPrep.vocabulary }
+            : {}),
+          ...(Array.isArray(dbPrep.phrases) && dbPrep.phrases.length > 0
+            ? { phrases: dbPrep.phrases }
+            : {}),
+        }
+      : defaultPrep;
     return {
       success: true, data: {
         ...this.voice.readiness(), id: topicId, code, title, text, hints, imageUrl, contentVersion, maxDurationSeconds: 180,
@@ -80,7 +101,7 @@ export class VoiceConversationsController {
           readAloud: { enabled: readAloud.enabled, items: readAloud.items },
           topic: { enabled: this.speaking.modeEnabled('TOPIC'), prompt: topic },
         },
-        preparation: conversationPreparation(code),
+        preparation: mergedPreparation,
       }
     };
   }

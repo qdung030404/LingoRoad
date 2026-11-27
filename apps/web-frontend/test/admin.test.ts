@@ -143,6 +143,69 @@ describe('Admin Lesson Validation & Helpers', () => {
     }
   });
 
+  test('validateLessonDraft & buildLessonContentFromForm validate Listening v1 drafts', () => {
+    const base = validDraft();
+    const listeningDraft: LessonDraftInput = {
+      ...base,
+      code: 'listening-a1-cafe',
+      kind: 'LISTENING',
+      audioUrl: '/media/learning/v1/cafe-order.wav',
+      audioDurationMs: 42000,
+      preparation: {
+        situation: 'At a coffee shop',
+        objective: 'Understand drink orders and prices',
+      },
+      keyVocabulary: [1, 2, 3].map((i) => ({
+        id: `kv-${i}`,
+        word: `word${i}`,
+        meaning: `nghĩa ${i}`,
+      })),
+      transcriptSegments: [
+        {
+          id: 'seg-1',
+          speaker: 'Waiter',
+          startMs: 0,
+          endMs: 20000,
+          text: 'Hello, what would you like?',
+          translationVi: 'Xin chào, bạn muốn gọi gì?',
+        },
+        {
+          id: 'seg-2',
+          speaker: 'Guest',
+          startMs: 20000,
+          endMs: 42000,
+          text: 'One iced coffee please.',
+          translationVi: 'Cho tôi một cà phê đá.',
+        },
+      ],
+      questions: [1, 2, 3, 4, 5].map((i) => ({
+        id: `q-${i}`,
+        type: 'MULTIPLE_CHOICE',
+        prompt: `Listening Q${i}?`,
+        options: [
+          { id: 'A', text: 'Opt A' },
+          { id: 'B', text: 'Opt B' },
+          { id: 'C', text: 'Opt C' },
+          { id: 'D', text: 'Opt D' },
+        ],
+        correctOptionId: 'A',
+        explanation: 'Giải thích nghe hiểu',
+        skillCode: 'listening.detail',
+        evidenceSegmentIds: ['seg-1'],
+      })),
+    };
+
+    assert.strictEqual(validateLessonDraft(listeningDraft), null);
+    const built = buildLessonContentFromForm(listeningDraft);
+    assert.strictEqual(built.listeningVersion, 1);
+    assert.strictEqual(built.audioDurationMs, 42000);
+    assert.ok(built.transcript?.includes('Waiter: Hello, what would you like?'));
+    assert.strictEqual(built.transcriptSegments?.length, 2);
+
+    const shortAudio = { ...listeningDraft, audioDurationMs: 12000 };
+    assert.ok(validateLessonDraft(shortAudio)?.includes('30.000ms'));
+  });
+
   test('buildFrontendHealthPayload returns public health status and running version', () => {
     const payload = buildFrontendHealthPayload({
       NODE_ENV: 'production',

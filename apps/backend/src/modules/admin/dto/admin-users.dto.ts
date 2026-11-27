@@ -1,4 +1,4 @@
-import { CefrLevel, UserRole, UserStatus } from '@prisma/client';
+import { CefrLevel, LearningPurpose, UserRole, UserStatus } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsEmail,
@@ -10,6 +10,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 export class AdminUsersQueryDto {
@@ -84,4 +85,20 @@ export class UpdateAdminUserDto {
   @MinLength(8, { message: 'Mật khẩu tối thiểu 8 ký tự.' })
   @MaxLength(128)
   password?: string;
+
+  @IsOptional()
+  @IsEnum(CefrLevel)
+  targetCefr?: CefrLevel;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(5)
+  @Max(120)
+  dailyGoalMinutes?: number;
+
+  @IsOptional()
+  @ValidateIf((_obj, value) => value !== null)
+  @IsEnum(LearningPurpose)
+  learningPurpose?: LearningPurpose | null;
 }

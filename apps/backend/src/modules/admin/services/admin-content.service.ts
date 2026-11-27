@@ -22,16 +22,24 @@ import { validateListeningAudio } from '../../learning/listening-media';
 import { learningMediaRoot } from '../../learning/learning.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
+  AdminAssessmentGroupsQueryDto,
   AdminAssessmentItemsQueryDto,
   AdminLessonsQueryDto,
   CreateAdminAssessmentItemDto,
   CreateAdminLessonDto,
+  CreateAssessmentItemGroupDto,
   CreateLearningUnitDto,
   UpdateAdminAssessmentItemDto,
   UpdateAdminLessonDto,
+  UpdateAssessmentItemGroupDto,
+  UpdateLearningUnitDto,
 } from '../dto/admin-content.dto';
 import { PaginatedResult } from './admin-users.service';
-import { adminPlacementBankVersion, assertReferencedItemUnchanged, lockAssessmentItem } from './assessment-item-integrity';
+import {
+  adminPlacementBankVersion,
+  assertReferencedItemUnchanged,
+  lockAssessmentItem,
+} from './assessment-item-integrity';
 
 export interface AdminUnitItem {
   id: string;
@@ -62,6 +70,12 @@ export interface AdminLessonSummary {
     title: string;
     cefrLevel: CefrLevel;
   } | null;
+  grammarTopic: {
+    id: string;
+    code: string;
+    titleVi: string;
+    cefrLevel: CefrLevel;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +94,15 @@ export interface AdminLessonDetail extends AdminLessonSummary {
 export interface AdminAssessmentItemView {
   id: string;
   externalId: string | null;
+  groupId: string | null;
+  itemOrder: number;
+  group: {
+    id: string;
+    title: string | null;
+    skill: AssessmentSkill;
+    cefrLevel: CefrLevel;
+    partNumber: number;
+  } | null;
   skill: AssessmentSkill | null;
   skillCode: string;
   cefrLevel: CefrLevel;
@@ -91,10 +114,12 @@ export interface AdminAssessmentItemView {
   correctOption: string | null;
   explanation: string | null;
   audioUrl: string | null;
+  rubricCriteria: Prisma.JsonValue | null;
   irtA: number;
   irtB: number;
   irtC: number;
   responsesCount: number;
+  activeSessionsCount: number;
   createdAt: Date;
 }
 
@@ -103,6 +128,28 @@ export interface AssessmentItemsSummary {
   mcqCount: number;
   clozeAndOtherCount: number;
   coveredSkillsCount: number;
+}
+
+export interface AdminAssessmentGroupView {
+  id: string;
+  skill: AssessmentSkill;
+  title: string | null;
+  cefrLevel: CefrLevel;
+  partNumber: number;
+  passage: string | null;
+  audioUrl: string | null;
+  transcript: string | null;
+  usageScope: ItemUsageScope;
+  itemsCount: number;
+  items?: Array<{
+    id: string;
+    externalId: string | null;
+    itemOrder: number;
+    skillCode: string;
+    type: ItemType;
+    prompt: string;
+  }>;
+  createdAt: Date;
 }
 
 function extractQuestionsCount(content: Prisma.JsonValue): number {
@@ -157,6 +204,102 @@ function extractOptionValues(options: unknown): string[] {
     }
   }
   return values;
+}
+
+const LESSON_INCLUDE = {
+  unit: {
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      cefrLevel: true,
+    },
+  },
+  grammarTopic: {
+    select: {
+      id: true,
+      code: true,
+      titleVi: true,
+      cefrLevel: true,
+    },
+  },
+  _count: {
+    select: { attempts: true },
+  },
+} as const;
+
+const ITEM_INCLUDE = {
+  group: {
+    select: {
+      id: true,
+      title: true,
+      skill: true,
+      cefrLevel: true,
+      partNumber: true,
+    },
+  },
+  _count: {
+    select: { responses: true, currentSessions: true },
+  },
+} as const;
+
+type ItemRowWithCount = {
+  id: string;
+  externalId: string | null;
+  groupId?: string | null;
+  itemOrder?: number;
+  group?: {
+    id: string;
+    title: string | null;
+    skill: AssessmentSkill;
+    cefrLevel: CefrLevel;
+    partNumber: number;
+  } | null;
+  skill: AssessmentSkill | null;
+  skillCode: string;
+  cefrLevel: CefrLevel;
+  type: ItemType;
+  usageScope: ItemUsageScope;
+  passage: string | null;
+  prompt: string;
+  options: Prisma.JsonValue | null;
+  correctOption: string | null;
+  explanation: string | null;
+  audioUrl: string | null;
+  rubricCriteria?: Prisma.JsonValue | null;
+  irtA: number;
+  irtB: number;
+  irtC: number;
+  createdAt: Date;
+  _count?: { responses?: number; currentSessions?: number };
+};
+
+function mapAssessmentItemView(row: ItemRowWithCount): AdminAssessmentItemView {
+  return {
+    id: row.id,
+    externalId: row.externalId ?? null,
+    groupId: row.groupId ?? null,
+    itemOrder: row.itemOrder ?? 1,
+    group: row.group ?? null,
+    skill: row.skill,
+    skillCode: row.skillCode,
+    cefrLevel: row.cefrLevel,
+    type: row.type,
+    usageScope: row.usageScope,
+    passage: row.passage,
+    prompt: row.prompt,
+    options: row.options,
+    correctOption: row.correctOption,
+    explanation: row.explanation,
+    audioUrl: row.audioUrl,
+    rubricCriteria: row.rubricCriteria ?? null,
+    irtA: row.irtA,
+    irtB: row.irtB,
+    irtC: row.irtC,
+    responsesCount: row._count?.responses ?? 0,
+    activeSessionsCount: row._count?.currentSessions ?? 0,
+    createdAt: row.createdAt,
+  };
 }
 
 @Injectable()
@@ -239,6 +382,132 @@ export class AdminContentService {
     };
   }
 
+  async updateUnit(id: string, dto: UpdateLearningUnitDto): Promise<AdminUnitItem> {
+    const current = await this.prisma.learningUnit.findUnique({ where: { id } });
+    if (!current) {
+      throw new NotFoundException({
+        code: 'ADMIN_UNIT_NOT_FOUND',
+        message: 'Không tìm thấy chương học.',
+      });
+    }
+
+    const nextCode = dto.code?.trim().toLowerCase();
+    if (nextCode && nextCode !== current.code) {
+      const dupCode = await this.prisma.learningUnit.findUnique({
+        where: { code: nextCode },
+        select: { id: true },
+      });
+      if (dupCode) {
+        throw new ConflictException({
+          code: 'ADMIN_UNIT_CODE_EXISTS',
+          message: `Mã chương "${nextCode}" đã tồn tại.`,
+        });
+      }
+    }
+
+    const nextCefr = dto.cefrLevel ?? current.cefrLevel;
+    const nextOrder = dto.orderIndex ?? current.orderIndex;
+    if (nextCefr !== current.cefrLevel || nextOrder !== current.orderIndex) {
+      const dupOrder = await this.prisma.learningUnit.findUnique({
+        where: {
+          cefrLevel_orderIndex: {
+            cefrLevel: nextCefr,
+            orderIndex: nextOrder,
+          },
+        },
+        select: { id: true },
+      });
+      if (dupOrder && dupOrder.id !== id) {
+        throw new ConflictException({
+          code: 'ADMIN_UNIT_ORDER_EXISTS',
+          message: `Bậc ${nextCefr} đã có chương thứ ${nextOrder}.`,
+        });
+      }
+    }
+
+    const updated = await this.prisma.learningUnit.update({
+      where: { id },
+      data: {
+        ...(nextCode ? { code: nextCode } : {}),
+        ...(dto.cefrLevel !== undefined ? { cefrLevel: dto.cefrLevel } : {}),
+        ...(dto.orderIndex !== undefined ? { orderIndex: dto.orderIndex } : {}),
+        ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+        ...(dto.description !== undefined ? { description: dto.description.trim() } : {}),
+      },
+      include: {
+        _count: { select: { lessons: true } },
+      },
+    });
+
+    return {
+      id: updated.id,
+      code: updated.code,
+      cefrLevel: updated.cefrLevel,
+      orderIndex: updated.orderIndex,
+      title: updated.title,
+      description: updated.description,
+      lessonsCount: updated._count.lessons,
+    };
+  }
+
+  async deleteUnit(
+    id: string,
+    detach = false,
+  ): Promise<{ id: string; action: 'DELETED'; detachedLessonsCount: number }> {
+    const existing = await this.prisma.learningUnit.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        _count: { select: { lessons: true } },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'ADMIN_UNIT_NOT_FOUND',
+        message: 'Không tìm thấy chương học.',
+      });
+    }
+
+    const lessonsCount = existing._count.lessons;
+    if (lessonsCount > 0 && !detach) {
+      throw new ConflictException({
+        code: 'ADMIN_UNIT_HAS_LESSONS',
+        message: `Chương học đang chứa ${lessonsCount} bài học. Xác nhận gỡ liên kết bài học trước khi xóa.`,
+      });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (lessonsCount > 0) {
+        await tx.learningLesson.updateMany({
+          where: { unitId: id },
+          data: { unitId: null },
+        });
+      }
+      await tx.learningUnit.delete({ where: { id } });
+    });
+
+    return { id, action: 'DELETED', detachedLessonsCount: lessonsCount };
+  }
+
+  private async verifyGrammarTopicLeaf(grammarTopicId: string): Promise<void> {
+    const topic = await this.prisma.grammarTopic.findUnique({
+      where: { id: grammarTopicId },
+      select: { id: true, isLeaf: true },
+    });
+    if (!topic) {
+      throw new NotFoundException({
+        code: 'ADMIN_GRAMMAR_TOPIC_NOT_FOUND',
+        message: 'Không tìm thấy chủ điểm ngữ pháp đã chọn.',
+      });
+    }
+    if (!topic.isLeaf) {
+      throw new BadRequestException({
+        code: 'ADMIN_GRAMMAR_TOPIC_NOT_LEAF',
+        message: 'Bài học chỉ có thể gắn vào chủ điểm ngữ pháp lá (isLeaf = true).',
+      });
+    }
+  }
+
   async listLessons(
     query: AdminLessonsQueryDto,
   ): Promise<PaginatedResult<AdminLessonSummary, LessonsListSummary>> {
@@ -269,19 +538,7 @@ export class AdminContentService {
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          unit: {
-            select: {
-              id: true,
-              code: true,
-              title: true,
-              cefrLevel: true,
-            },
-          },
-          _count: {
-            select: { attempts: true },
-          },
-        },
+        include: LESSON_INCLUDE,
       }),
       this.prisma.learningLesson.findMany({
         select: {
@@ -313,6 +570,7 @@ export class AdminContentService {
         questionsCount: extractQuestionsCount(row.content),
         attemptsCount: row._count.attempts,
         unit: row.unit,
+        grammarTopic: row.grammarTopic ?? null,
         createdAt: row.createdAt,
         updatedAt: row.updatedAt,
       })),
@@ -334,19 +592,7 @@ export class AdminContentService {
   async getLesson(id: string): Promise<AdminLessonDetail> {
     const row = await this.prisma.learningLesson.findUnique({
       where: { id },
-      include: {
-        unit: {
-          select: {
-            id: true,
-            code: true,
-            title: true,
-            cefrLevel: true,
-          },
-        },
-        _count: {
-          select: { attempts: true },
-        },
-      },
+      include: LESSON_INCLUDE,
     });
     if (!row) {
       throw new NotFoundException({
@@ -369,6 +615,7 @@ export class AdminContentService {
       questionsCount: extractQuestionsCount(row.content),
       attemptsCount: row._count.attempts,
       unit: row.unit,
+      grammarTopic: row.grammarTopic ?? null,
       content: row.content,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
@@ -414,6 +661,10 @@ export class AdminContentService {
       }
     }
 
+    if (dto.grammarTopicId) {
+      await this.verifyGrammarTopicLeaf(dto.grammarTopicId);
+    }
+
     let sortOrder = dto.sortOrder;
     if (sortOrder === undefined) {
       const maxRow = await this.prisma.learningLesson.aggregate({
@@ -432,21 +683,10 @@ export class AdminContentService {
         sortOrder,
         published: dto.published ?? true,
         unitId: dto.unitId ?? null,
+        grammarTopicId: dto.kind === LearningKind.GRAMMAR ? (dto.grammarTopicId ?? null) : null,
         content: dto.content as Prisma.InputJsonValue,
       },
-      include: {
-        unit: {
-          select: {
-            id: true,
-            code: true,
-            title: true,
-            cefrLevel: true,
-          },
-        },
-        _count: {
-          select: { attempts: true },
-        },
-      },
+      include: LESSON_INCLUDE,
     });
 
     return {
@@ -463,6 +703,7 @@ export class AdminContentService {
       questionsCount: extractQuestionsCount(created.content),
       attemptsCount: created._count.attempts,
       unit: created.unit,
+      grammarTopic: created.grammarTopic ?? null,
       content: created.content,
       createdAt: created.createdAt,
       updatedAt: created.updatedAt,
@@ -528,6 +769,17 @@ export class AdminContentService {
       }
     }
 
+    if (dto.grammarTopicId) {
+      await this.verifyGrammarTopicLeaf(dto.grammarTopicId);
+    }
+
+    const nextGrammarTopicData =
+      nextKind !== LearningKind.GRAMMAR
+        ? { grammarTopicId: null }
+        : dto.grammarTopicId !== undefined
+          ? { grammarTopicId: dto.grammarTopicId }
+          : {};
+
     const updated = await this.prisma.learningLesson.update({
       where: { id },
       data: {
@@ -543,27 +795,17 @@ export class AdminContentService {
         ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
         ...(dto.published !== undefined ? { published: dto.published } : {}),
         ...(dto.unitId !== undefined ? { unitId: dto.unitId } : {}),
+        ...nextGrammarTopicData,
         ...(dto.content !== undefined
           ? {
               content: dto.content as Prisma.InputJsonValue,
             }
           : {}),
         ...(dto.content !== undefined || nextKind !== current.kind
-          ? { contentVersion: { increment: 1 } } : {}),
+          ? { contentVersion: { increment: 1 } }
+          : {}),
       },
-      include: {
-        unit: {
-          select: {
-            id: true,
-            code: true,
-            title: true,
-            cefrLevel: true,
-          },
-        },
-        _count: {
-          select: { attempts: true },
-        },
-      },
+      include: LESSON_INCLUDE,
     });
 
     return {
@@ -580,6 +822,7 @@ export class AdminContentService {
       questionsCount: extractQuestionsCount(updated.content),
       attemptsCount: updated._count.attempts,
       unit: updated.unit,
+      grammarTopic: updated.grammarTopic ?? null,
       content: updated.content,
       createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
@@ -648,6 +891,7 @@ export class AdminContentService {
       ...(query.cefrLevel ? { cefrLevel: query.cefrLevel } : {}),
       ...(query.usageScope ? { usageScope: query.usageScope } : {}),
       ...(query.type ? { type: query.type } : {}),
+      ...(query.groupId ? { groupId: query.groupId } : {}),
       ...(search
         ? {
             OR: [
@@ -666,11 +910,7 @@ export class AdminContentService {
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
-        include: {
-          _count: {
-            select: { responses: true },
-          },
-        },
+        include: ITEM_INCLUDE,
       }),
       this.prisma.assessmentItem.groupBy({
         by: ['type'],
@@ -691,26 +931,7 @@ export class AdminContentService {
     }
 
     return {
-      items: rows.map((row) => ({
-        id: row.id,
-        externalId: row.externalId,
-        skill: row.skill,
-        skillCode: row.skillCode,
-        cefrLevel: row.cefrLevel,
-        type: row.type,
-        usageScope: row.usageScope,
-        passage: row.passage,
-        prompt: row.prompt,
-        options: row.options,
-        correctOption: row.correctOption,
-        explanation: row.explanation,
-        audioUrl: row.audioUrl,
-        irtA: row.irtA,
-        irtB: row.irtB,
-        irtC: row.irtC,
-        responsesCount: row._count.responses,
-        createdAt: row.createdAt,
-      })),
+      items: rows.map((row) => mapAssessmentItemView(row)),
       pagination: {
         page,
         limit,
@@ -747,12 +968,51 @@ export class AdminContentService {
       }
     }
 
+    const externalId = dto.externalId?.trim() || undefined;
+    if (externalId) {
+      const dupExt = await this.prisma.assessmentItem.findUnique({
+        where: { externalId },
+        select: { id: true },
+      });
+      if (dupExt) {
+        throw new ConflictException({
+          code: 'ADMIN_ITEM_EXTERNAL_ID_EXISTS',
+          message: `Mã Stable ID "${externalId}" đã tồn tại.`,
+        });
+      }
+    }
+
+    if (dto.groupId) {
+      const group = await this.prisma.assessmentItemGroup.findUnique({
+        where: { id: dto.groupId },
+        select: { id: true },
+      });
+      if (!group) {
+        throw new NotFoundException({
+          code: 'ADMIN_GROUP_NOT_FOUND',
+          message: 'Không tìm thấy nhóm câu hỏi đã chọn.',
+        });
+      }
+    }
+
     const created = await this.prisma.assessmentItem.create({
       data: {
-        bankVersion: adminPlacementBankVersion({ ...dto, type: itemType, usageScope: dto.usageScope ?? ItemUsageScope.ALL,
-          options: (dto.options ?? null) as Prisma.JsonValue, correctOption: dto.correctOption?.trim() || null,
-          passage: dto.passage?.trim() || null, audioUrl: dto.audioUrl?.trim() || null,
-          irtA: dto.irtA ?? 1, irtB: dto.irtB ?? 0, irtC: dto.irtC ?? 0.25 }),
+        ...(externalId ? { externalId } : {}),
+        ...(dto.groupId !== undefined ? { groupId: dto.groupId } : {}),
+        ...(dto.itemOrder !== undefined ? { itemOrder: dto.itemOrder } : {}),
+        bankVersion: adminPlacementBankVersion({
+          ...dto,
+          type: itemType,
+          usageScope: dto.usageScope ?? ItemUsageScope.ALL,
+          options: (dto.options ?? null) as Prisma.JsonValue,
+          correctOption: dto.correctOption?.trim() || null,
+          passage: dto.passage?.trim() || null,
+          audioUrl: dto.audioUrl?.trim() || null,
+          irtA: dto.irtA ?? 1,
+          irtB: dto.irtB ?? 0,
+          irtC: dto.irtC ?? 0.25,
+          groupId: dto.groupId ?? null,
+        }),
         skill: dto.skill,
         skillCode: dto.skillCode.trim(),
         cefrLevel: dto.cefrLevel,
@@ -767,39 +1027,19 @@ export class AdminContentService {
         correctOption: dto.correctOption?.trim() || null,
         explanation: dto.explanation?.trim() || null,
         audioUrl: dto.audioUrl?.trim() || null,
+        rubricCriteria:
+          dto.rubricCriteria !== undefined && dto.rubricCriteria !== null
+            ? (dto.rubricCriteria as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
         irtA: dto.irtA ?? 1.0,
         irtB: dto.irtB ?? 0.0,
         irtC: dto.irtC ?? 0.25,
       },
-      include: {
-        _count: {
-          select: { responses: true },
-        },
-      },
+      include: ITEM_INCLUDE,
     });
 
     await this.assessmentMatrixService.invalidateCache();
-
-    return {
-      id: created.id,
-      externalId: created.externalId,
-      skill: created.skill,
-      skillCode: created.skillCode,
-      cefrLevel: created.cefrLevel,
-      type: created.type,
-      usageScope: created.usageScope,
-      passage: created.passage,
-      prompt: created.prompt,
-      options: created.options,
-      correctOption: created.correctOption,
-      explanation: created.explanation,
-      audioUrl: created.audioUrl,
-      irtA: created.irtA,
-      irtB: created.irtB,
-      irtC: created.irtC,
-      responsesCount: created._count.responses,
-      createdAt: created.createdAt,
-    };
+    return mapAssessmentItemView(created);
   }
 
   async updateAssessmentItem(
@@ -807,43 +1047,76 @@ export class AdminContentService {
     dto: UpdateAdminAssessmentItemDto,
   ): Promise<AdminAssessmentItemView> {
     const updated = await this.prisma.$transaction(async (tx) => {
-    await lockAssessmentItem(tx, id);
-    const existing = await tx.assessmentItem.findUnique({
-      where: { id },
-      include: { _count: { select: { responses: true, currentSessions: true } } },
-    });
-    if (!existing) {
-      throw new NotFoundException({
-        code: 'ADMIN_ASSESSMENT_ITEM_NOT_FOUND',
-        message: 'Không tìm thấy câu hỏi đánh giá.',
+      await lockAssessmentItem(tx, id);
+      const existing = await tx.assessmentItem.findUnique({
+        where: { id },
+        include: { _count: { select: { responses: true, currentSessions: true } } },
       });
-    }
-
-    const nextType = dto.type ?? existing.type;
-    const nextOptions =
-      dto.options !== undefined ? dto.options : existing.options;
-    const nextCorrectOption =
-      dto.correctOption !== undefined
-        ? dto.correctOption.trim()
-        : existing.correctOption?.trim();
-
-    if (nextType === ItemType.MULTIPLE_CHOICE) {
-      const optionValues = extractOptionValues(nextOptions);
-      if (
-        !Array.isArray(nextOptions) ||
-        nextOptions.length < 2 ||
-        !nextCorrectOption ||
-        !optionValues.includes(nextCorrectOption)
-      ) {
-        throw new BadRequestException({
-          code: 'ADMIN_INVALID_ASSESSMENT_ITEM',
-          message:
-            'Câu hỏi trắc nghiệm cần ít nhất 2 phương án và đáp án đúng phải khớp với một phương án.',
+      if (!existing) {
+        throw new NotFoundException({
+          code: 'ADMIN_ASSESSMENT_ITEM_NOT_FOUND',
+          message: 'Không tìm thấy câu hỏi đánh giá.',
         });
       }
-    }
 
-    const data = {
+      const nextExternalId =
+        dto.externalId !== undefined
+          ? dto.externalId?.trim() || null
+          : undefined;
+      if (nextExternalId && nextExternalId !== existing.externalId) {
+        const dup = await tx.assessmentItem.findUnique({
+          where: { externalId: nextExternalId },
+          select: { id: true },
+        });
+        if (dup && dup.id !== id) {
+          throw new ConflictException({
+            code: 'ADMIN_ITEM_EXTERNAL_ID_EXISTS',
+            message: `Mã Stable ID "${nextExternalId}" đã tồn tại.`,
+          });
+        }
+      }
+
+      if (dto.groupId) {
+        const group = await tx.assessmentItemGroup.findUnique({
+          where: { id: dto.groupId },
+          select: { id: true },
+        });
+        if (!group) {
+          throw new NotFoundException({
+            code: 'ADMIN_GROUP_NOT_FOUND',
+            message: 'Không tìm thấy nhóm câu hỏi đã chọn.',
+          });
+        }
+      }
+
+      const nextType = dto.type ?? existing.type;
+      const nextOptions =
+        dto.options !== undefined ? dto.options : existing.options;
+      const nextCorrectOption =
+        dto.correctOption !== undefined
+          ? dto.correctOption.trim()
+          : existing.correctOption?.trim();
+
+      if (nextType === ItemType.MULTIPLE_CHOICE) {
+        const optionValues = extractOptionValues(nextOptions);
+        if (
+          !Array.isArray(nextOptions) ||
+          nextOptions.length < 2 ||
+          !nextCorrectOption ||
+          !optionValues.includes(nextCorrectOption)
+        ) {
+          throw new BadRequestException({
+            code: 'ADMIN_INVALID_ASSESSMENT_ITEM',
+            message:
+              'Câu hỏi trắc nghiệm cần ít nhất 2 phương án và đáp án đúng phải khớp với một phương án.',
+          });
+        }
+      }
+
+      const data = {
+        ...(nextExternalId !== undefined ? { externalId: nextExternalId } : {}),
+        ...(dto.groupId !== undefined ? { groupId: dto.groupId } : {}),
+        ...(dto.itemOrder !== undefined ? { itemOrder: dto.itemOrder } : {}),
         ...(dto.skill !== undefined ? { skill: dto.skill } : {}),
         ...(dto.skillCode !== undefined
           ? { skillCode: dto.skillCode.trim() }
@@ -872,46 +1145,36 @@ export class AdminContentService {
         ...(dto.audioUrl !== undefined
           ? { audioUrl: dto.audioUrl.trim() || null }
           : {}),
+        ...(dto.rubricCriteria !== undefined
+          ? {
+              rubricCriteria:
+                dto.rubricCriteria !== null
+                  ? (dto.rubricCriteria as Prisma.InputJsonValue)
+                  : Prisma.JsonNull,
+            }
+          : {}),
         ...(dto.irtA !== undefined ? { irtA: dto.irtA } : {}),
         ...(dto.irtB !== undefined ? { irtB: dto.irtB } : {}),
         ...(dto.irtC !== undefined ? { irtC: dto.irtC } : {}),
       };
-    const next = { ...existing, ...data, options: (dto.options !== undefined ? dto.options : existing.options) as Prisma.JsonValue };
-    const bankVersion = adminPlacementBankVersion(next);
-    assertReferencedItemUnchanged(existing, { ...data, bankVersion });
-    return tx.assessmentItem.update({
-      where: { id },
-      data: { ...data, bankVersion },
-      include: {
-        _count: {
-          select: { responses: true },
-        },
-      },
-    });
+      const next = {
+        ...existing,
+        ...data,
+        options: (dto.options !== undefined
+          ? dto.options
+          : existing.options) as Prisma.JsonValue,
+      };
+      const bankVersion = adminPlacementBankVersion(next);
+      assertReferencedItemUnchanged(existing, { ...data, bankVersion });
+      return tx.assessmentItem.update({
+        where: { id },
+        data: { ...data, bankVersion },
+        include: ITEM_INCLUDE,
+      });
     });
 
     await this.assessmentMatrixService.invalidateCache();
-
-    return {
-      id: updated.id,
-      externalId: updated.externalId,
-      skill: updated.skill,
-      skillCode: updated.skillCode,
-      cefrLevel: updated.cefrLevel,
-      type: updated.type,
-      usageScope: updated.usageScope,
-      passage: updated.passage,
-      prompt: updated.prompt,
-      options: updated.options,
-      correctOption: updated.correctOption,
-      explanation: updated.explanation,
-      audioUrl: updated.audioUrl,
-      irtA: updated.irtA,
-      irtB: updated.irtB,
-      irtC: updated.irtC,
-      responsesCount: updated._count.responses,
-      createdAt: updated.createdAt,
-    };
+    return mapAssessmentItemView(updated);
   }
 
   async deleteAssessmentItem(
@@ -919,51 +1182,297 @@ export class AdminContentService {
     force = false,
   ): Promise<{ id: string; action: 'DELETED' }> {
     await this.prisma.$transaction(async (tx) => {
-    await lockAssessmentItem(tx, id);
-    const item = await tx.assessmentItem.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        _count: {
-          select: {
-            responses: true,
-            currentSessions: true,
+      await lockAssessmentItem(tx, id);
+      const item = await tx.assessmentItem.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          _count: {
+            select: {
+              responses: true,
+              currentSessions: true,
+            },
           },
         },
-      },
-    });
-
-    if (!item) {
-      throw new NotFoundException({
-        code: 'ADMIN_ASSESSMENT_ITEM_NOT_FOUND',
-        message: 'Không tìm thấy câu hỏi đánh giá.',
       });
-    }
 
-    const inUse =
-      item._count.responses > 0 || item._count.currentSessions > 0;
-    if (inUse && !force) {
-      throw new ConflictException({
-        code: 'ADMIN_ITEM_IN_USE',
-        message:
-          'Câu hỏi đã có lịch sử trả lời. Xác nhận xoá cưỡng bức nếu muốn xoá kèm dữ liệu liên quan.',
-      });
-    }
+      if (!item) {
+        throw new NotFoundException({
+          code: 'ADMIN_ASSESSMENT_ITEM_NOT_FOUND',
+          message: 'Không tìm thấy câu hỏi đánh giá.',
+        });
+      }
 
-    if (inUse) {
+      const inUse =
+        item._count.responses > 0 || item._count.currentSessions > 0;
+      if (inUse && !force) {
+        throw new ConflictException({
+          code: 'ADMIN_ITEM_IN_USE',
+          message:
+            'Câu hỏi đã có lịch sử trả lời hoặc đang trong phiên kiểm tra. Xác nhận xoá cưỡng bức nếu muốn xoá kèm dữ liệu liên quan.',
+        });
+      }
+
+      if (inUse) {
         await tx.placementSession.updateMany({
-          where: { status: 'IN_PROGRESS', OR: [{ currentItemId: id }, { responses: { some: { itemId: id } } }] },
-          data: { currentItemId: null, status: 'ABANDONED', version: { increment: 1 } },
+          where: {
+            status: 'IN_PROGRESS',
+            OR: [{ currentItemId: id }, { responses: { some: { itemId: id } } }],
+          },
+          data: {
+            currentItemId: null,
+            status: 'ABANDONED',
+            version: { increment: 1 },
+          },
         });
         await tx.assessmentResponse.deleteMany({ where: { itemId: id } });
         await tx.assessmentItem.delete({ where: { id } });
-    } else {
-      await tx.assessmentItem.delete({ where: { id } });
-    }
+      } else {
+        await tx.assessmentItem.delete({ where: { id } });
+      }
     });
 
     await this.assessmentMatrixService.invalidateCache();
-
     return { id, action: 'DELETED' };
+  }
+
+  async listAssessmentGroups(
+    query: AdminAssessmentGroupsQueryDto,
+  ): Promise<PaginatedResult<AdminAssessmentGroupView>> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const search = query.search?.trim();
+
+    const where: Prisma.AssessmentItemGroupWhereInput = {
+      ...(query.skill ? { skill: query.skill } : {}),
+      ...(query.cefrLevel ? { cefrLevel: query.cefrLevel } : {}),
+      ...(query.usageScope ? { usageScope: query.usageScope } : {}),
+      ...(search
+        ? {
+            OR: [
+              { title: { contains: search, mode: 'insensitive' } },
+              { passage: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, rows] = await Promise.all([
+      this.prisma.assessmentItemGroup.count({ where }),
+      this.prisma.assessmentItemGroup.findMany({
+        where,
+        orderBy: [{ cefrLevel: 'asc' }, { partNumber: 'asc' }, { createdAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          items: {
+            orderBy: [{ itemOrder: 'asc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              externalId: true,
+              itemOrder: true,
+              skillCode: true,
+              type: true,
+              prompt: true,
+            },
+          },
+          _count: { select: { items: true } },
+        },
+      }),
+    ]);
+
+    return {
+      items: rows.map((g) => ({
+        id: g.id,
+        skill: g.skill,
+        title: g.title,
+        cefrLevel: g.cefrLevel,
+        partNumber: g.partNumber,
+        passage: g.passage,
+        audioUrl: g.audioUrl,
+        transcript: g.transcript,
+        usageScope: g.usageScope,
+        itemsCount: g._count.items,
+        items: g.items,
+        createdAt: g.createdAt,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: total === 0 ? 0 : Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async createAssessmentGroup(
+    dto: CreateAssessmentItemGroupDto,
+  ): Promise<AdminAssessmentGroupView> {
+    const created = await this.prisma.$transaction(async (tx) => {
+      const group = await tx.assessmentItemGroup.create({
+        data: {
+          skill: dto.skill,
+          title: dto.title?.trim() || null,
+          cefrLevel: dto.cefrLevel,
+          partNumber: dto.partNumber,
+          passage: dto.passage?.trim() || null,
+          audioUrl: dto.audioUrl?.trim() || null,
+          transcript: dto.transcript?.trim() || null,
+          usageScope: dto.usageScope ?? ItemUsageScope.ALL,
+        },
+      });
+
+      if (dto.itemIds?.length) {
+        const uniqueIds = [...new Set(dto.itemIds)];
+        for (let idx = 0; idx < uniqueIds.length; idx++) {
+          await tx.assessmentItem.updateMany({
+            where: { id: uniqueIds[idx] },
+            data: { groupId: group.id, itemOrder: idx + 1, bankVersion: null },
+          });
+        }
+      }
+
+      return tx.assessmentItemGroup.findUniqueOrThrow({
+        where: { id: group.id },
+        include: {
+          items: {
+            orderBy: [{ itemOrder: 'asc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              externalId: true,
+              itemOrder: true,
+              skillCode: true,
+              type: true,
+              prompt: true,
+            },
+          },
+          _count: { select: { items: true } },
+        },
+      });
+    });
+
+    await this.assessmentMatrixService.invalidateCache();
+    return {
+      id: created.id,
+      skill: created.skill,
+      title: created.title,
+      cefrLevel: created.cefrLevel,
+      partNumber: created.partNumber,
+      passage: created.passage,
+      audioUrl: created.audioUrl,
+      transcript: created.transcript,
+      usageScope: created.usageScope,
+      itemsCount: created._count.items,
+      items: created.items,
+      createdAt: created.createdAt,
+    };
+  }
+
+  async updateAssessmentGroup(
+    id: string,
+    dto: UpdateAssessmentItemGroupDto,
+  ): Promise<AdminAssessmentGroupView> {
+    const existing = await this.prisma.assessmentItemGroup.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'ADMIN_GROUP_NOT_FOUND',
+        message: 'Không tìm thấy nhóm đề luyện tập.',
+      });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.assessmentItemGroup.update({
+        where: { id },
+        data: {
+          ...(dto.skill !== undefined ? { skill: dto.skill } : {}),
+          ...(dto.title !== undefined ? { title: dto.title?.trim() || null } : {}),
+          ...(dto.cefrLevel !== undefined ? { cefrLevel: dto.cefrLevel } : {}),
+          ...(dto.partNumber !== undefined ? { partNumber: dto.partNumber } : {}),
+          ...(dto.passage !== undefined ? { passage: dto.passage?.trim() || null } : {}),
+          ...(dto.audioUrl !== undefined ? { audioUrl: dto.audioUrl?.trim() || null } : {}),
+          ...(dto.transcript !== undefined ? { transcript: dto.transcript?.trim() || null } : {}),
+          ...(dto.usageScope !== undefined ? { usageScope: dto.usageScope } : {}),
+        },
+      });
+
+      if (dto.itemIds !== undefined) {
+        const uniqueIds = [...new Set(dto.itemIds)];
+        await tx.assessmentItem.updateMany({
+          where: { groupId: id, id: { notIn: uniqueIds } },
+          data: { groupId: null, itemOrder: 1 },
+        });
+        for (let idx = 0; idx < uniqueIds.length; idx++) {
+          await tx.assessmentItem.updateMany({
+            where: { id: uniqueIds[idx] },
+            data: { groupId: id, itemOrder: idx + 1, bankVersion: null },
+          });
+        }
+      }
+
+      return tx.assessmentItemGroup.findUniqueOrThrow({
+        where: { id },
+        include: {
+          items: {
+            orderBy: [{ itemOrder: 'asc' }, { createdAt: 'asc' }],
+            select: {
+              id: true,
+              externalId: true,
+              itemOrder: true,
+              skillCode: true,
+              type: true,
+              prompt: true,
+            },
+          },
+          _count: { select: { items: true } },
+        },
+      });
+    });
+
+    await this.assessmentMatrixService.invalidateCache();
+    return {
+      id: updated.id,
+      skill: updated.skill,
+      title: updated.title,
+      cefrLevel: updated.cefrLevel,
+      partNumber: updated.partNumber,
+      passage: updated.passage,
+      audioUrl: updated.audioUrl,
+      transcript: updated.transcript,
+      usageScope: updated.usageScope,
+      itemsCount: updated._count.items,
+      items: updated.items,
+      createdAt: updated.createdAt,
+    };
+  }
+
+  async deleteAssessmentGroup(
+    id: string,
+  ): Promise<{ id: string; action: 'DELETED'; detachedItemsCount: number }> {
+    const existing = await this.prisma.assessmentItemGroup.findUnique({
+      where: { id },
+      select: { id: true, _count: { select: { items: true } } },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'ADMIN_GROUP_NOT_FOUND',
+        message: 'Không tìm thấy nhóm đề luyện tập.',
+      });
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      if (existing._count.items > 0) {
+        await tx.assessmentItem.updateMany({
+          where: { groupId: id },
+          data: { groupId: null, itemOrder: 1 },
+        });
+      }
+      await tx.assessmentItemGroup.delete({ where: { id } });
+    });
+
+    await this.assessmentMatrixService.invalidateCache();
+    return { id, action: 'DELETED', detachedItemsCount: existing._count.items };
   }
 }

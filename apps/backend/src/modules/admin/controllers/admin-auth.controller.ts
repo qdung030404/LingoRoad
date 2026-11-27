@@ -8,6 +8,7 @@ import {
   Post,
   Req,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { Request } from 'express';
@@ -20,6 +21,7 @@ import {
   AdminRefreshDto,
 } from '../dto/admin-auth.dto';
 import { AdminJwtGuard } from '../guards/admin-jwt.guard';
+import { AdminAuditInterceptor } from '../interceptors/admin-audit.interceptor';
 import {
   AdminAuthResult,
   AdminAuthService,
@@ -28,6 +30,7 @@ import {
 
 @Controller(['admin/auth', 'api/v1/admin/auth'])
 @UseGuards(AdminJwtGuard)
+@UseInterceptors(AdminAuditInterceptor)
 export class AdminAuthController {
   constructor(private readonly adminAuthService: AdminAuthService) {}
 
