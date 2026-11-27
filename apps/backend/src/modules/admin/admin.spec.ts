@@ -383,11 +383,12 @@ describe('AdminUsersService', () => {
 
 describe('AdminContentService', () => {
   const tx = {
+    $queryRaw: jest.fn(async () => []),
     learningAttempt: { deleteMany: jest.fn() },
     learningLesson: { delete: jest.fn() },
     placementSession: { updateMany: jest.fn() },
     assessmentResponse: { deleteMany: jest.fn() },
-    assessmentItem: { delete: jest.fn() },
+    assessmentItem: { delete: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
   };
   const prisma = {
     learningLesson: {
@@ -404,9 +405,9 @@ describe('AdminContentService', () => {
       findMany: jest.fn(),
       groupBy: jest.fn(),
       create: jest.fn(),
-      update: jest.fn(),
-      findUnique: jest.fn(),
-      delete: jest.fn(),
+      update: tx.assessmentItem.update,
+      findUnique: tx.assessmentItem.findUnique,
+      delete: tx.assessmentItem.delete,
     },
     $transaction: jest.fn(async (cb: (client: typeof tx) => Promise<unknown>) =>
       cb(tx),
@@ -572,7 +573,7 @@ describe('AdminContentService', () => {
       cefrLevel: CefrLevel.B1,
       type: ItemType.MULTIPLE_CHOICE,
       usageScope: ItemUsageScope.ALL,
-      passage: null,
+      passage: 'A short reading passage.',
       prompt: 'Choose the best answer',
       options: ['Alpha', 'Beta', 'Gamma', 'Delta'],
       correctOption: 'Alpha',
@@ -590,6 +591,7 @@ describe('AdminContentService', () => {
       skill: AssessmentSkill.READING,
       skillCode: 'reading.skimming',
       cefrLevel: CefrLevel.B1,
+      passage: 'A short reading passage.',
       prompt: 'Choose the best answer',
       options: ['Alpha', 'Beta', 'Gamma', 'Delta'],
       correctOption: 'Alpha',
@@ -631,9 +633,10 @@ describe('AdminContentService', () => {
 
 describe('AdminImportService', () => {
   const tx = {
+    $queryRaw: jest.fn(async () => []),
     learningUnit: { upsert: jest.fn(), findMany: jest.fn() },
     learningLesson: { aggregate: jest.fn(), upsert: jest.fn() },
-    assessmentItem: { upsert: jest.fn(), create: jest.fn() },
+    assessmentItem: { upsert: jest.fn(), create: jest.fn(), findUnique: jest.fn(async () => null) },
     curatedTopic: { upsert: jest.fn() },
     curatedTopicWord: { deleteMany: jest.fn(), createMany: jest.fn() },
   };
@@ -713,6 +716,7 @@ describe('AdminImportService', () => {
         skill: 'READING',
         cefrLevel: 'A1',
         prompt: 'Who uses the big bedroom?',
+        passage: 'Anna and her sister share the home.',
         options: ['Anna', "Anna's sister", 'Sam', "Anna's mother"],
         correctOption: "Anna's sister",
       },
@@ -721,6 +725,7 @@ describe('AdminImportService', () => {
         skill: 'READING',
         cefrLevel: 'A1',
         prompt: 'Where is the cafe?',
+        passage: 'The cafe is in the park.',
         options: ['Park', 'Station', 'School', 'Bank'],
         correctOption: 'Park',
       },
@@ -790,6 +795,7 @@ describe('AdminImportService', () => {
           cefrLevel: 'A1',
           skillCode: 'reading.scanning',
           prompt: 'Prompt question?',
+          passage: 'A short reading passage.',
           options: ['Yes', 'No', 'Maybe', 'Never'],
           correctOption: 'Yes',
         },

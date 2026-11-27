@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, OnModuleInit, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { applicationDefault, cert, Credential, getApps, initializeApp } from 'firebase-admin/app';
 import type { Auth, DecodedIdToken } from 'firebase-admin/auth';
@@ -120,4 +120,34 @@ export class FirebaseTokenService implements OnModuleInit {
   }
 
   async revoke(uid: string): Promise<void> { await this.client().revokeRefreshTokens(uid); }
+
+  /** Never attach an existing Firebase account merely because its email matches. */
+  async createPasswordUser(uid: string, email: string, password: string, displayName: string): Promise<void> {
+    try {
+      await this.client().createUser({ uid, email, password, displayName, disabled: true });
+    } catch (error) {
+      if ((error as { code?: string }).code === 'auth/email-already-exists') {
+        throw new ConflictException({ code: 'ADMIN_FIREBASE_EMAIL_EXISTS', message: 'Email đã có tài khoản Firebase. Cần liên kết danh tính đã xác minh trước khi quản lý.' });
+      }
+      throw new ServiceUnavailableException({ code: 'ADMIN_FIREBASE_CREATE_FAILED', message: 'Không thể tạo danh tính Firebase. Vui lòng thử lại.' });
+    }
+  }
+
+  async activatePasswordUser(uid: string): Promise<void> {
+    await this.client().updateUser(uid, { disabled: false });
+  }
+
+  /** Compensation is only used for the UID created by this provisioning request. */
+  async removeProvisionedUser(uid: string): Promise<void> {
+    await this.client().deleteUser(uid);
+  }
+
+  async resetPassword(uid: string, password: string): Promise<void> {
+    try {
+      await this.client().updateUser(uid, { password });
+      await this.revoke(uid);
+    } catch {
+      throw new ServiceUnavailableException({ code: 'ADMIN_FIREBASE_PASSWORD_FAILED', message: 'Không thể hoàn tất đặt lại mật khẩu Firebase. Vui lòng thử lại.' });
+    }
+  }
 }

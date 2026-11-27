@@ -9,8 +9,11 @@ import {
 } from '@prisma/client';
 import { AssessmentMatrixService } from '../../assessment/services/assessment-matrix.service';
 import { validateLearningContent } from '../../learning/learning.types';
+import { validateListeningAudio } from '../../learning/listening-media';
+import { learningMediaRoot } from '../../learning/learning.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CuratedVocabularyService } from '../../vocabulary/curated-vocabulary.service';
+import { adminPlacementBankVersion, assertReferencedItemUnchanged, lockAssessmentItem } from './assessment-item-integrity';
 
 export interface ImportErrorItem {
   path: string;
@@ -561,6 +564,7 @@ export class AdminImportService {
       if (LEARNING_KIND_VALUES.has(kind)) {
         try {
           validateLearningContent(raw.content, kind as LearningKind);
+          if (published) validateListeningAudio(raw.content, learningMediaRoot());
         } catch (err) {
           errors.push({
             path: `${path}.content`,
@@ -735,6 +739,17 @@ export class AdminImportService {
             'audioUrl chỉ chấp nhận đường dẫn http(s)://, /media/ hoặc assets/ hợp lệ.',
         });
         itemValid = false;
+      }
+
+      if (itemValid) {
+        try {
+          adminPlacementBankVersion({ type: type as ItemType, skill: skill as AssessmentSkill,
+            usageScope: usageScope as ItemUsageScope, options: (raw.options ?? null) as Prisma.JsonValue,
+            correctOption, prompt, passage, audioUrl, irtA, irtB, irtC });
+        } catch (error) {
+          errors.push({ path, message: error instanceof Error ? error.message : 'Câu hỏi placement không hợp lệ.' });
+          itemValid = false;
+        }
       }
 
       if (!itemValid) return;
@@ -1060,17 +1075,30 @@ export class AdminImportService {
           };
 
           if (item.externalId) {
+            let existing = await tx.assessmentItem.findUnique({ where: { externalId: item.externalId },
+              include: { _count: { select: { responses: true, currentSessions: true } } } });
+            if (existing) {
+              await lockAssessmentItem(tx, existing.id);
+              existing = await tx.assessmentItem.findUnique({ where: { externalId: item.externalId },
+                include: { _count: { select: { responses: true, currentSessions: true } } } });
+            }
+            const bankVersion = adminPlacementBankVersion({ ...item, options: (item.options ?? null) as Prisma.JsonValue,
+              correctOption: item.correctOption ?? null, passage: item.passage ?? null, audioUrl: item.audioUrl ?? null,
+              groupId: existing?.groupId });
+            if (existing) assertReferencedItemUnchanged(existing, { ...itemData, bankVersion });
             await tx.assessmentItem.upsert({
               where: { externalId: item.externalId },
               create: {
                 externalId: item.externalId,
                 ...itemData,
+                bankVersion,
               },
-              update: itemData,
+              update: { ...itemData, bankVersion },
             });
           } else {
             await tx.assessmentItem.create({
-              data: itemData,
+              data: { ...itemData, bankVersion: adminPlacementBankVersion({ ...item, options: (item.options ?? null) as Prisma.JsonValue,
+                correctOption: item.correctOption ?? null, passage: item.passage ?? null, audioUrl: item.audioUrl ?? null }) },
             });
           }
         }

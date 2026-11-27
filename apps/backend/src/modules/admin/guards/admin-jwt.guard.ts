@@ -54,7 +54,7 @@ export class AdminJwtGuard implements CanActivate {
     }
 
     if (this.firebase?.enabled && this.firebaseUsers) {
-      const decoded = await this.firebase.verify(token);
+      const decoded = await this.firebase.verify(token, true);
       const principal = await this.firebaseUsers.resolve(decoded);
       if (principal.role !== UserRole.ADMIN) {
         throw new ForbiddenException({

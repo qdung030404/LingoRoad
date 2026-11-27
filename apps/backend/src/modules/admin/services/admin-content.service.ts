@@ -18,6 +18,8 @@ import {
 } from '../../assessment/constants/cefr-can-do-matrix.constant';
 import { AssessmentMatrixService } from '../../assessment/services/assessment-matrix.service';
 import { validateLearningContent } from '../../learning/learning.types';
+import { validateListeningAudio } from '../../learning/listening-media';
+import { learningMediaRoot } from '../../learning/learning.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   AdminAssessmentItemsQueryDto,
@@ -29,6 +31,7 @@ import {
   UpdateAdminLessonDto,
 } from '../dto/admin-content.dto';
 import { PaginatedResult } from './admin-users.service';
+import { adminPlacementBankVersion, assertReferencedItemUnchanged, lockAssessmentItem } from './assessment-item-integrity';
 
 export interface AdminUnitItem {
   id: string;
@@ -376,6 +379,7 @@ export class AdminContentService {
     const code = dto.code.trim().toLowerCase();
     try {
       validateLearningContent(dto.content, dto.kind);
+      if (dto.published ?? true) validateListeningAudio(dto.content, learningMediaRoot());
     } catch (error) {
       throw new BadRequestException({
         code: 'ADMIN_INVALID_LESSON_CONTENT',
@@ -471,7 +475,7 @@ export class AdminContentService {
   ): Promise<AdminLessonDetail> {
     const current = await this.prisma.learningLesson.findUnique({
       where: { id },
-      select: { id: true, code: true, kind: true },
+      select: { id: true, code: true, kind: true, content: true, published: true },
     });
     if (!current) {
       throw new NotFoundException({
@@ -481,9 +485,11 @@ export class AdminContentService {
     }
 
     const nextKind = dto.kind ?? current.kind;
-    if (dto.content !== undefined) {
+    if (dto.content !== undefined || dto.kind !== undefined || dto.published === true) {
       try {
-        validateLearningContent(dto.content, nextKind);
+        const nextContent = dto.content ?? current.content;
+        validateLearningContent(nextContent, nextKind);
+        if (dto.published ?? current.published) validateListeningAudio(nextContent, learningMediaRoot());
       } catch (error) {
         throw new BadRequestException({
           code: 'ADMIN_INVALID_LESSON_CONTENT',
@@ -540,9 +546,10 @@ export class AdminContentService {
         ...(dto.content !== undefined
           ? {
               content: dto.content as Prisma.InputJsonValue,
-              contentVersion: { increment: 1 },
             }
           : {}),
+        ...(dto.content !== undefined || nextKind !== current.kind
+          ? { contentVersion: { increment: 1 } } : {}),
       },
       include: {
         unit: {
@@ -742,6 +749,10 @@ export class AdminContentService {
 
     const created = await this.prisma.assessmentItem.create({
       data: {
+        bankVersion: adminPlacementBankVersion({ ...dto, type: itemType, usageScope: dto.usageScope ?? ItemUsageScope.ALL,
+          options: (dto.options ?? null) as Prisma.JsonValue, correctOption: dto.correctOption?.trim() || null,
+          passage: dto.passage?.trim() || null, audioUrl: dto.audioUrl?.trim() || null,
+          irtA: dto.irtA ?? 1, irtB: dto.irtB ?? 0, irtC: dto.irtC ?? 0.25 }),
         skill: dto.skill,
         skillCode: dto.skillCode.trim(),
         cefrLevel: dto.cefrLevel,
@@ -795,8 +806,11 @@ export class AdminContentService {
     id: string,
     dto: UpdateAdminAssessmentItemDto,
   ): Promise<AdminAssessmentItemView> {
-    const existing = await this.prisma.assessmentItem.findUnique({
+    const updated = await this.prisma.$transaction(async (tx) => {
+    await lockAssessmentItem(tx, id);
+    const existing = await tx.assessmentItem.findUnique({
       where: { id },
+      include: { _count: { select: { responses: true, currentSessions: true } } },
     });
     if (!existing) {
       throw new NotFoundException({
@@ -829,9 +843,7 @@ export class AdminContentService {
       }
     }
 
-    const updated = await this.prisma.assessmentItem.update({
-      where: { id },
-      data: {
+    const data = {
         ...(dto.skill !== undefined ? { skill: dto.skill } : {}),
         ...(dto.skillCode !== undefined
           ? { skillCode: dto.skillCode.trim() }
@@ -863,12 +875,19 @@ export class AdminContentService {
         ...(dto.irtA !== undefined ? { irtA: dto.irtA } : {}),
         ...(dto.irtB !== undefined ? { irtB: dto.irtB } : {}),
         ...(dto.irtC !== undefined ? { irtC: dto.irtC } : {}),
-      },
+      };
+    const next = { ...existing, ...data, options: (dto.options !== undefined ? dto.options : existing.options) as Prisma.JsonValue };
+    const bankVersion = adminPlacementBankVersion(next);
+    assertReferencedItemUnchanged(existing, { ...data, bankVersion });
+    return tx.assessmentItem.update({
+      where: { id },
+      data: { ...data, bankVersion },
       include: {
         _count: {
           select: { responses: true },
         },
       },
+    });
     });
 
     await this.assessmentMatrixService.invalidateCache();
@@ -899,7 +918,9 @@ export class AdminContentService {
     id: string,
     force = false,
   ): Promise<{ id: string; action: 'DELETED' }> {
-    const item = await this.prisma.assessmentItem.findUnique({
+    await this.prisma.$transaction(async (tx) => {
+    await lockAssessmentItem(tx, id);
+    const item = await tx.assessmentItem.findUnique({
       where: { id },
       select: {
         id: true,
@@ -930,17 +951,16 @@ export class AdminContentService {
     }
 
     if (inUse) {
-      await this.prisma.$transaction(async (tx) => {
         await tx.placementSession.updateMany({
-          where: { currentItemId: id },
-          data: { currentItemId: null },
+          where: { status: 'IN_PROGRESS', OR: [{ currentItemId: id }, { responses: { some: { itemId: id } } }] },
+          data: { currentItemId: null, status: 'ABANDONED', version: { increment: 1 } },
         });
         await tx.assessmentResponse.deleteMany({ where: { itemId: id } });
         await tx.assessmentItem.delete({ where: { id } });
-      });
     } else {
-      await this.prisma.assessmentItem.delete({ where: { id } });
+      await tx.assessmentItem.delete({ where: { id } });
     }
+    });
 
     await this.assessmentMatrixService.invalidateCache();
 

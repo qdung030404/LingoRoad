@@ -1,4 +1,7 @@
 import type {
+  AssessmentSkill,
+  ItemType,
+  ItemUsageScope,
   LearningContentPayload,
   LearningKind,
   LearningQuestionInput,
@@ -18,8 +21,10 @@ export interface LessonDraftInput {
 
 export function buildLessonContentFromForm(
   draft: Pick<LessonDraftInput, 'kind' | 'passage' | 'steps' | 'questions'>,
+  original?: LearningContentPayload,
 ): LearningContentPayload {
   const cleanSteps = draft.steps.map((step, index) => ({
+    ...step,
     id: step.id.trim() || `step-${index + 1}`,
     title: step.title.trim(),
     body: step.body.trim(),
@@ -39,11 +44,13 @@ export function buildLessonContentFromForm(
             { id: 'C', text: 'Not Given' },
           ]
         : question.options.map((opt, optIndex) => ({
+            ...opt,
             id: opt.id.trim() || String.fromCharCode(65 + optIndex),
             text: opt.text.trim(),
           }));
 
     return {
+      ...question,
       id: question.id.trim() || `q-${qIndex + 1}`,
       type: qType,
       prompt: question.prompt.trim(),
@@ -59,10 +66,93 @@ export function buildLessonContentFromForm(
 
   const cleanPassage = draft.passage?.trim();
   return {
+    ...original,
     steps: cleanSteps,
     questions: cleanQuestions,
-    ...(draft.kind === 'READING' && cleanPassage ? { passage: cleanPassage } : {}),
+    ...(draft.kind === 'READING' ? { passage: cleanPassage } : {}),
   };
+}
+
+export function assessmentChoiceDraft(raw: unknown, correctOption?: string | null): {
+  options: string[]; correctIndex: number;
+} {
+  if (!Array.isArray(raw)) return { options: ['', '', '', ''], correctIndex: -1 };
+  return {
+    options: raw.map(entry => typeof entry === 'string' ? entry : String(entry?.text ?? entry?.id ?? '')),
+    correctIndex: raw.findIndex(entry => typeof entry === 'string'
+      ? entry.trim() === correctOption?.trim()
+      : entry && (entry.id === correctOption || entry.text === correctOption)),
+  };
+}
+
+export function buildAssessmentChoices(options: string[], correctIndex: number, original: unknown) {
+  const saved = options.map((text, index) => {
+    const previous = Array.isArray(original) ? original[index] : undefined;
+    return previous && typeof previous === 'object' ? { ...previous, text: text.trim() } : text.trim();
+  });
+  const selected = saved[correctIndex];
+  return { options: saved, correctOption: typeof selected === 'string' ? selected : selected?.id ?? selected?.text };
+}
+
+export interface AssessmentItemDraftInput {
+  skill: AssessmentSkill;
+  type: ItemType;
+  usageScope: ItemUsageScope;
+  passage: string;
+  prompt: string;
+  options: string[];
+  correctIndex: number;
+  irtB: number;
+}
+
+export function validateAssessmentItemDraft(
+  draft: AssessmentItemDraftInput,
+): string | null {
+  if (!draft.prompt.trim() || draft.prompt.trim().length < 3) {
+    return 'Nội dung câu hỏi cần ít nhất 3 ký tự.';
+  }
+
+  if (!Number.isFinite(draft.irtB)) {
+    return 'Độ khó IRT (b) phải là một số hợp lệ.';
+  }
+
+  const isPlacement = draft.usageScope === 'PLACEMENT';
+  if (isPlacement) {
+    if (draft.type !== 'MULTIPLE_CHOICE') {
+      return 'Câu hỏi phạm vi PLACEMENT phải thuộc loại MULTIPLE_CHOICE.';
+    }
+    if (draft.skill !== 'READING' && draft.skill !== 'LISTENING') {
+      return 'Câu hỏi phạm vi PLACEMENT chỉ hỗ trợ kỹ năng READING hoặc LISTENING.';
+    }
+    if (draft.skill === 'READING' && !draft.passage.trim()) {
+      return 'Câu hỏi READING phạm vi PLACEMENT bắt buộc phải có đoạn văn đính kèm.';
+    }
+  }
+
+  const usesChoiceOptions =
+    draft.type === 'MULTIPLE_CHOICE' ||
+    draft.type === 'CLOZE' ||
+    draft.type === 'GAP_FILL';
+
+  if (usesChoiceOptions) {
+    const cleanOptions = draft.options.map((opt) => opt.trim());
+    if (isPlacement && cleanOptions.length !== 4) {
+      return 'Câu hỏi phạm vi PLACEMENT bắt buộc phải có đúng 4 phương án trả lời.';
+    }
+    if (cleanOptions.length < 2 || cleanOptions.some((opt) => !opt)) {
+      return isPlacement
+        ? 'Câu hỏi phạm vi PLACEMENT cần nhập đầy đủ cả 4 phương án trả lời.'
+        : 'Vui lòng nhập đầy đủ ít nhất 2 phương án trả lời.';
+    }
+    if (new Set(cleanOptions).size !== cleanOptions.length) {
+      return 'Các phương án trả lời không được trùng nhau.';
+    }
+    if (draft.correctIndex < 0 || draft.correctIndex >= cleanOptions.length) {
+      return 'Vui lòng chọn đáp án đúng.';
+    }
+  }
+
+  return null;
 }
 
 function hasUniqueMatch(passage: string, evidence: string): boolean {
@@ -172,6 +262,22 @@ export function parseLessonJsonDraft(rawJson: string): {
         content: null,
         error: 'Mảng "questions" trong JSON phải có từ 3 đến 10 câu hỏi.',
       };
+    }
+
+    const isRecord = (value: unknown): value is Record<string, unknown> =>
+      value !== null && typeof value === 'object' && !Array.isArray(value);
+    const hasStrings = (value: Record<string, unknown>, keys: string[]) =>
+      keys.every(key => typeof value[key] === 'string');
+    const optionalStrings = (value: Record<string, unknown>, keys: string[]) =>
+      keys.every(key => value[key] === undefined || typeof value[key] === 'string');
+    if (obj.steps.some(step => !isRecord(step) || !hasStrings(step, ['id', 'title', 'body'])
+      || !optionalStrings(step, ['word', 'phonetic', 'meaning', 'example']))
+      || obj.questions.some(question => !isRecord(question)
+        || !hasStrings(question, ['id', 'prompt', 'correctOptionId', 'explanation'])
+        || !optionalStrings(question, ['evidence', 'skillCode'])
+        || !Array.isArray(question.options)
+        || question.options.some(option => !isRecord(option) || !hasStrings(option, ['id', 'text'])))) {
+      return { content: null, error: 'Các bước học, câu hỏi và phương án trong JSON không đúng cấu trúc.' };
     }
 
     return {

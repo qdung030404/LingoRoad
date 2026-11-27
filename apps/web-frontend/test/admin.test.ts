@@ -1,5 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert';
+import './admin-regressions.test';
 import {
   buildLessonContentFromForm,
   computePaginationRange,
@@ -7,6 +8,11 @@ import {
   validateLessonDraft,
   type LessonDraftInput,
 } from '../src/lib/admin-validation';
+import {
+  buildFrontendHealthPayload,
+  resolveAdminMediaUrl,
+  validateCloudApiBaseUrl,
+} from '../src/lib/admin-api';
 
 function validDraft(): LessonDraftInput {
   return {
@@ -89,5 +95,63 @@ describe('Admin Lesson Validation & Helpers', () => {
       computePaginationRange(5, 10),
       [1, 'ellipsis', 4, 5, 6, 'ellipsis', 10],
     );
+  });
+
+  test('validateCloudApiBaseUrl rejects empty, non-HTTPS, or localhost values and normalizes cloud HTTPS URL', () => {
+    assert.throws(() => validateCloudApiBaseUrl(''), /không được để trống/);
+    assert.throws(() => validateCloudApiBaseUrl('   '), /không được để trống/);
+    assert.throws(
+      () => validateCloudApiBaseUrl('http://localhost:3000'),
+      /HTTPS/,
+    );
+    assert.throws(
+      () => validateCloudApiBaseUrl('https://localhost:3000'),
+      /localhost/,
+    );
+    assert.throws(
+      () => validateCloudApiBaseUrl('https://127.0.0.1:3000'),
+      /localhost/,
+    );
+    assert.throws(
+      () => validateCloudApiBaseUrl('https://backend.local'),
+      /localhost/,
+    );
+    assert.strictEqual(
+      validateCloudApiBaseUrl('https://lingoroad-api-demo.azurewebsites.net///'),
+      'https://lingoroad-api-demo.azurewebsites.net',
+    );
+  });
+
+  test('resolveAdminMediaUrl resolves relative Listening media against configured API base URL', () => {
+    const prev = process.env.NEXT_PUBLIC_API_URL;
+    try {
+      process.env.NEXT_PUBLIC_API_URL = 'https://lingoroad-api-demo.azurewebsites.net/';
+      assert.strictEqual(
+        resolveAdminMediaUrl('/media/learning/v1/sample-a1.wav'),
+        'https://lingoroad-api-demo.azurewebsites.net/media/learning/v1/sample-a1.wav',
+      );
+      assert.strictEqual(
+        resolveAdminMediaUrl('https://cdn.example.com/audio.wav'),
+        'https://cdn.example.com/audio.wav',
+      );
+    } finally {
+      if (prev === undefined) {
+        delete process.env.NEXT_PUBLIC_API_URL;
+      } else {
+        process.env.NEXT_PUBLIC_API_URL = prev;
+      }
+    }
+  });
+
+  test('buildFrontendHealthPayload returns public health status and running version', () => {
+    const payload = buildFrontendHealthPayload({
+      NODE_ENV: 'production',
+      APP_VERSION: 'sha-7f8a9b0',
+    });
+    assert.strictEqual(payload.success, true);
+    assert.strictEqual(payload.data.status, 'ok');
+    assert.strictEqual(payload.data.service, 'web-frontend');
+    assert.strictEqual(payload.data.version, 'sha-7f8a9b0');
+    assert.ok(payload.data.timestamp.length > 0);
   });
 });

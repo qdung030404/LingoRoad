@@ -169,10 +169,21 @@ export class AdminAuthService {
     });
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.refreshSession.update({
-        where: { id: session.id },
+      const claimed = await tx.refreshSession.updateMany({
+        where: {
+          id: session.id,
+          isRevoked: false,
+          expiresAt: { gt: new Date() },
+          user: { role: UserRole.ADMIN, status: UserStatus.ACTIVE },
+        },
         data: { isRevoked: true },
       });
+      if (claimed.count !== 1) {
+        throw new UnauthorizedException({
+          code: 'AUTH_INVALID_REFRESH_TOKEN',
+          message: 'Phiên đăng nhập đã được sử dụng hoặc không còn hợp lệ.',
+        });
+      }
       await tx.refreshSession.create({
         data: {
           userId: user.id,

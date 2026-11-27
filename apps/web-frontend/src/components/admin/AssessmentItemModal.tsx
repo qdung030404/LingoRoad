@@ -3,6 +3,11 @@
 import React, { useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import {
+  assessmentChoiceDraft,
+  buildAssessmentChoices,
+  validateAssessmentItemDraft,
+} from '@/lib/admin-validation';
+import {
   createAdminAssessmentItem,
   updateAdminAssessmentItem,
 } from '@/lib/admin-api';
@@ -23,21 +28,6 @@ interface AssessmentItemModalProps {
 }
 
 const LEVELS: readonly CefrLevel[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-
-function normalizeOptionStrings(raw: unknown): [string, string, string, string] {
-  const result: [string, string, string, string] = ['', '', '', ''];
-  if (!Array.isArray(raw)) return result;
-  for (let i = 0; i < Math.min(4, raw.length); i++) {
-    const entry = raw[i];
-    if (typeof entry === 'string') {
-      result[i] = entry;
-    } else if (entry && typeof entry === 'object') {
-      const obj = entry as { text?: unknown; id?: unknown };
-      result[i] = String(obj.text ?? obj.id ?? '');
-    }
-  }
-  return result;
-}
 
 export function AssessmentItemModal({
   descriptors,
@@ -77,17 +67,11 @@ export function AssessmentItemModal({
   const [passage, setPassage] = useState(editingItem?.passage ?? '');
   const [prompt, setPrompt] = useState(editingItem?.prompt ?? '');
 
-  const initialOpts = normalizeOptionStrings(editingItem?.options);
-  const initialCorrectIdx = Math.max(
-    0,
-    initialOpts.findIndex(
-      (opt) => opt.trim() === (editingItem?.correctOption ?? '').trim(),
-    ),
-  );
+  const initialChoices = assessmentChoiceDraft(editingItem?.options, editingItem?.correctOption);
 
   const [options, setOptions] =
-    useState<[string, string, string, string]>(initialOpts);
-  const [correctIndex, setCorrectIndex] = useState<number>(initialCorrectIdx);
+    useState<string[]>(initialChoices.options);
+  const [correctIndex, setCorrectIndex] = useState<number>(initialChoices.correctIndex);
   const [explanation, setExplanation] = useState(
     editingItem?.explanation ?? '',
   );
@@ -116,22 +100,22 @@ export function AssessmentItemModal({
     event.preventDefault();
     setErrorMessage(null);
 
-    if (!prompt.trim() || prompt.trim().length < 3) {
-      setErrorMessage('Nội dung câu hỏi cần ít nhất 3 ký tự.');
+    const validationError = validateAssessmentItemDraft({
+      skill,
+      type,
+      usageScope,
+      passage,
+      prompt,
+      options,
+      correctIndex,
+      irtB,
+    });
+    if (validationError) {
+      setErrorMessage(validationError);
       return;
     }
 
     const cleanOptions = options.map((opt) => opt.trim());
-    if (usesChoiceOptions) {
-      if (cleanOptions.some((opt) => !opt)) {
-        setErrorMessage('Vui lòng nhập đầy đủ 4 phương án trả lời.');
-        return;
-      }
-      if (new Set(cleanOptions).size !== 4) {
-        setErrorMessage('4 phương án trả lời không được trùng nhau.');
-        return;
-      }
-    }
 
     setSubmitting(true);
     try {
@@ -145,8 +129,7 @@ export function AssessmentItemModal({
         prompt: prompt.trim(),
         ...(usesChoiceOptions
           ? {
-              options: cleanOptions,
-              correctOption: cleanOptions[correctIndex],
+              ...buildAssessmentChoices(cleanOptions, correctIndex, editingItem?.options),
             }
           : {}),
         explanation: explanation.trim() || undefined,
@@ -366,7 +349,11 @@ export function AssessmentItemModal({
           {usesChoiceOptions && (
             <div className="space-y-2.5">
               <label className="block text-xs font-semibold text-slateDark-800">
-                4 phương án trả lời (chọn nút tròn cho đáp án đúng) *
+                Các phương án trả lời (chọn nút tròn cho đáp án đúng
+                {usageScope === 'PLACEMENT'
+                  ? ' — bắt buộc đúng 4 phương án cho PLACEMENT'
+                  : ''}
+                ) *
               </label>
               {options.map((opt, idx) => (
                 <div key={idx} className="flex items-center gap-2.5">
@@ -383,12 +370,7 @@ export function AssessmentItemModal({
                     required
                     value={opt}
                     onChange={(e) => {
-                      const next = [...options] as [
-                        string,
-                        string,
-                        string,
-                        string,
-                      ];
+                      const next = [...options];
                       next[idx] = e.target.value;
                       setOptions(next);
                     }}

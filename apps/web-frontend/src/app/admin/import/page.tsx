@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   AlertCircle,
@@ -213,6 +213,9 @@ const STEP_LABELS: Array<{ step: ImportStep; label: string }> = [
 ];
 
 export default function AdminImportPage(): React.ReactElement {
+  const revision = useRef(0);
+  const validatedJson = useRef<string | null>(null);
+  const applyInFlight = useRef(false);
   const [step, setStep] = useState<ImportStep>(1);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [rawJson, setRawJson] = useState<string>(SAMPLE_BUNDLE_ALL);
@@ -231,6 +234,9 @@ export default function AdminImportPage(): React.ReactElement {
   const [applyError, setApplyError] = useState<string | null>(null);
 
   const resetProgress = (): void => {
+    revision.current += 1;
+    validatedJson.current = null;
+    setValidating(false);
     setStep(1);
     setParsedBundle(null);
     setValidationResult(null);
@@ -241,6 +247,7 @@ export default function AdminImportPage(): React.ReactElement {
   };
 
   const handleLoadSample = (sample: string): void => {
+    if (applying) return;
     setSelectedFileName(null);
     setRawJson(sample);
     resetProgress();
@@ -250,8 +257,11 @@ export default function AdminImportPage(): React.ReactElement {
     event: React.ChangeEvent<HTMLInputElement>,
   ): Promise<void> => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || applying) return;
+    resetProgress();
+    const requestRevision = revision.current;
     const text = await file.text();
+    if (requestRevision !== revision.current) return;
     setSelectedFileName(file.name);
     setRawJson(text);
     resetProgress();
@@ -259,6 +269,11 @@ export default function AdminImportPage(): React.ReactElement {
   };
 
   const handleValidate = async (): Promise<void> => {
+    const requestRevision = ++revision.current;
+    validatedJson.current = null;
+    setParsedBundle(null);
+    setValidationResult(null);
+    setStep(1);
     setSyntaxError(null);
     setApplyError(null);
     setApplyResult(null);
@@ -281,10 +296,13 @@ export default function AdminImportPage(): React.ReactElement {
     setValidating(true);
     try {
       const result = await validateAdminImport(parsed);
+      if (requestRevision !== revision.current) return;
+      validatedJson.current = result.isValid ? rawJson : null;
       setParsedBundle(parsed);
       setValidationResult(result);
       setStep(result.isValid ? 2 : 1);
     } catch (err) {
+      if (requestRevision !== revision.current) return;
       setValidationResult(null);
       setStep(1);
       setSyntaxError(
@@ -293,12 +311,13 @@ export default function AdminImportPage(): React.ReactElement {
           : 'Không thể kiểm tra gói JSON với máy chủ.',
       );
     } finally {
-      setValidating(false);
+      if (requestRevision === revision.current) setValidating(false);
     }
   };
 
   const handleApply = async (): Promise<void> => {
-    if (!parsedBundle || !validationResult?.isValid) return;
+    if (!parsedBundle || !validationResult?.isValid || !confirmedAtomic || validatedJson.current !== rawJson || applyInFlight.current) return;
+    applyInFlight.current = true;
     setApplyError(null);
     setApplying(true);
     try {
@@ -312,6 +331,7 @@ export default function AdminImportPage(): React.ReactElement {
           : 'Áp dụng gói JSON thất bại. Toàn bộ giao dịch đã được hoàn tác.',
       );
     } finally {
+      applyInFlight.current = false;
       setApplying(false);
     }
   };
@@ -380,6 +400,7 @@ export default function AdminImportPage(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => handleLoadSample(SAMPLE_BUNDLE_ALL)}
+                  disabled={applying}
                   className="rounded-xl border border-brand-200 bg-brand-25 px-3 py-1.5 text-xs font-semibold text-brand-800 hover:bg-brand-50"
                 >
                   Mẫu Bundle tổng hợp
@@ -387,6 +408,7 @@ export default function AdminImportPage(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => handleLoadSample(SAMPLE_ITEMS_ONLY)}
+                  disabled={applying}
                   className="rounded-xl border border-slateDark-200 bg-white px-3 py-1.5 text-xs font-semibold text-slateDark-800 hover:bg-slateDark-50"
                 >
                   Mẫu Items
@@ -394,6 +416,7 @@ export default function AdminImportPage(): React.ReactElement {
                 <button
                   type="button"
                   onClick={() => handleLoadSample(SAMPLE_TOPICS_ONLY)}
+                  disabled={applying}
                   className="rounded-xl border border-slateDark-200 bg-white px-3 py-1.5 text-xs font-semibold text-slateDark-800 hover:bg-slateDark-50"
                 >
                   Mẫu Từ vựng chủ đề
@@ -409,6 +432,7 @@ export default function AdminImportPage(): React.ReactElement {
                 <input
                   type="file"
                   accept=".json,application/json"
+                  disabled={applying}
                   onChange={(e) => void handleFileChange(e)}
                   className="hidden"
                 />
@@ -428,6 +452,7 @@ export default function AdminImportPage(): React.ReactElement {
               <textarea
                 rows={16}
                 value={rawJson}
+                disabled={applying}
                 onChange={(e) => {
                   setRawJson(e.target.value);
                   resetProgress();
@@ -470,7 +495,7 @@ export default function AdminImportPage(): React.ReactElement {
 
               <button
                 type="button"
-                disabled={validating || !rawJson.trim()}
+                disabled={applying || validating || !rawJson.trim()}
                 onClick={() => void handleValidate()}
                 className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-semibold shadow-sm disabled:opacity-50"
               >

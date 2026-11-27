@@ -4,7 +4,9 @@ import {
   Injectable,
   NotFoundException,
   Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { AuthProvider, CefrLevel, Prisma, UserRole, UserStatus } from '@prisma/client';
 import { FirebaseTokenService } from '../../auth/firebase/firebase-token.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -200,27 +202,71 @@ export class AdminUsersService {
       });
     }
 
-    const passwordHash = await this.passwordService.hash(dto.password);
-    const created = await this.prisma.$transaction(async (tx) => {
-      return tx.user.create({
-        data: {
-          email,
-          name: dto.name.trim(),
-          passwordHash,
-          provider: AuthProvider.LOCAL,
-          role: dto.role ?? UserRole.LEARNER,
-          status: UserStatus.ACTIVE,
-          profile: {
-            create: {
-              targetCefr: dto.targetCefr ?? CefrLevel.B1,
-              dailyGoalMinutes: 10,
-              reminderEnabled: true,
+    const role = dto.role ?? UserRole.LEARNER;
+    const firebaseUid = this.firebase?.enabled && role === UserRole.LEARNER ? randomUUID() : undefined;
+    const passwordHash = firebaseUid ? null : await this.passwordService.hash(dto.password);
+    if (firebaseUid) {
+      await this.firebase!.createPasswordUser(firebaseUid, email, dto.password, dto.name.trim());
+    }
+    let created: SelectedAdminUser;
+    try {
+      created = await this.prisma.$transaction((tx) =>
+        tx.user.create({
+          data: {
+            email,
+            name: dto.name.trim(),
+            passwordHash,
+            ...(firebaseUid ? { firebaseUid } : {}),
+            provider: AuthProvider.LOCAL,
+            role,
+            status: UserStatus.ACTIVE,
+            profile: {
+              create: {
+                targetCefr: dto.targetCefr ?? CefrLevel.B1,
+                dailyGoalMinutes: 10,
+                reminderEnabled: true,
+              },
             },
           },
-        },
-        select: ADMIN_USER_SELECT,
-      });
-    });
+          select: ADMIN_USER_SELECT,
+        }),
+      );
+    } catch (error) {
+      if (firebaseUid) {
+        try {
+          await this.firebase!.removeProvisionedUser(firebaseUid);
+        } catch {
+          throw new ServiceUnavailableException({
+            code: 'ADMIN_FIREBASE_CLEANUP_FAILED',
+            message:
+              'Tạo tài khoản chưa hoàn tất; không thể thu hồi danh tính Firebase mới. Cần quản trị viên kiểm tra trước khi thử lại.',
+          });
+        }
+      }
+      throw error;
+    }
+
+    if (firebaseUid) {
+      try {
+        await this.firebase!.activatePasswordUser(firebaseUid);
+      } catch (error) {
+        const [dbCleanup, firebaseCleanup] = await Promise.allSettled([
+          this.prisma.user.delete({ where: { id: created.id } }),
+          this.firebase!.removeProvisionedUser(firebaseUid),
+        ]);
+        if (
+          dbCleanup.status === 'rejected' ||
+          firebaseCleanup.status === 'rejected'
+        ) {
+          throw new ServiceUnavailableException({
+            code: 'ADMIN_FIREBASE_CLEANUP_FAILED',
+            message:
+              'Kích hoạt tài khoản Firebase thất bại và không thể hoàn tác đầy đủ dữ liệu đã tạo. Cần quản trị viên kiểm tra trước khi thử lại.',
+          });
+        }
+        throw error;
+      }
+    }
 
     return mapUserItem(created);
   }
@@ -257,6 +303,10 @@ export class AdminUsersService {
       ? await this.passwordService.hash(dto.password)
       : undefined;
 
+    if (dto.password && this.firebase?.enabled && existing.firebaseUid) {
+      await this.firebase.resetPassword(existing.firebaseUid, dto.password);
+    }
+
     const shouldRevokeSessions =
       (dto.status !== undefined && dto.status !== UserStatus.ACTIVE) ||
       dto.role !== undefined ||
@@ -285,12 +335,12 @@ export class AdminUsersService {
     });
 
     if (
-      dto.status !== undefined &&
-      dto.status !== UserStatus.ACTIVE &&
+      shouldRevokeSessions &&
+      !dto.password &&
       this.firebase?.enabled &&
       existing.firebaseUid
     ) {
-      await this.firebase.revoke(existing.firebaseUid).catch(() => undefined);
+      await this.firebase.revoke(existing.firebaseUid);
     }
 
     return mapUserItem(updated);

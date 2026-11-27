@@ -16,6 +16,7 @@ import type {
   AdminLessonItem,
   CefrLevel,
   LearningKind,
+  LearningContentPayload,
   LearningQuestionInput,
   LearningQuestionType,
   LearningStepInput,
@@ -121,6 +122,7 @@ export function LessonComposerModal({
 }: LessonComposerModalProps): React.ReactElement {
   const isEditing = Boolean(editingLesson);
   const initialContent = editingLesson?.content;
+  const [contentBase, setContentBase] = useState<LearningContentPayload | undefined>(initialContent);
 
   const [mode, setMode] = useState<'form' | 'json'>(
     editingLesson?.kind === 'LISTENING' ||
@@ -145,7 +147,7 @@ export function LessonComposerModal({
   );
   const [passage, setPassage] = useState(initialContent?.passage ?? '');
   const [steps, setSteps] = useState<LearningStepInput[]>(
-    initialContent?.steps?.length
+    initialContent?.steps
       ? initialContent.steps
       : createDefaultSteps(),
   );
@@ -289,7 +291,7 @@ export function LessonComposerModal({
         passage,
         steps,
         questions,
-      });
+      }, contentBase);
     }
 
     setSubmitting(true);
@@ -544,7 +546,21 @@ export function LessonComposerModal({
               <button
                 type="button"
                 disabled={kind === 'LISTENING'}
-                onClick={() => setMode('form')}
+                onClick={() => {
+                  if (mode === 'json') {
+                    const parsed = parseLessonJsonDraft(rawJson);
+                    if (!parsed.content || parsed.error) {
+                      setErrorMessage(parsed.error);
+                      return;
+                    }
+                    setContentBase(parsed.content);
+                    setSteps(parsed.content.steps);
+                    setQuestions(parsed.content.questions);
+                    setPassage(parsed.content.passage ?? '');
+                  }
+                  setErrorMessage(null);
+                  setMode('form');
+                }}
                 className={
                   mode === 'form'
                     ? 'rounded-lg bg-white px-3.5 py-1.5 text-xs font-semibold text-slateDark-900 shadow-sm'
@@ -564,7 +580,7 @@ export function LessonComposerModal({
                           passage,
                           steps,
                           questions,
-                        }),
+                        }, contentBase),
                         null,
                         2,
                       ),
@@ -658,7 +674,7 @@ export function LessonComposerModal({
                       <span className="text-xs font-bold text-slateDark-700">
                         Bước học #{sIdx + 1}
                       </span>
-                      {steps.length > 1 && (
+                      {steps.length > 0 && (
                         <button
                           type="button"
                           onClick={() =>

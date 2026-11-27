@@ -105,7 +105,12 @@ export function AdminShell({
           router.replace('/admin/login');
           return;
         }
-        saveAdminSession({ ...session, user: freshAdmin });
+        const latestSession = getStoredAdminSession();
+        if (!latestSession || latestSession.user.id !== freshAdmin.id) {
+          router.replace('/admin/login');
+          return;
+        }
+        saveAdminSession({ ...latestSession, user: freshAdmin });
         setAdmin(freshAdmin);
       } catch {
         if (!active) return;

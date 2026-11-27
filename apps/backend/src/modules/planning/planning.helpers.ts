@@ -12,9 +12,13 @@ export type PlanItem = {
   id: string; lessonId: string; title: string; kind: LearningKind; estimatedMinutes: number;
   reasonCode: string; reason: string; focusSkillCode?: ReadingFocusCode;
 };
-export type PlannedLesson = LearningLesson & {
-  unit?: { cefrLevel: CefrLevel } | null;
-};
+export type PlannedLesson = Pick<
+  LearningLesson,
+  'id' | 'code' | 'kind' | 'title' | 'estimatedMinutes' | 'sortOrder'
+> &
+  Partial<LearningLesson> & {
+    unit?: { cefrLevel: CefrLevel } | null;
+  };
 
 const CEFR_RANK: Record<CefrLevel, number> = {
   A1: 1,

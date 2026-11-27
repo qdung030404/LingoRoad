@@ -13,6 +13,20 @@ export const DEMO_TEST_VERSION = 'READING_LISTENING_V1';
 export const SECTION_TOTAL = 5;
 export const PLACEMENT_TOTAL = 10;
 
+export function isValidPlacementItem(item: Pick<AssessmentItem, 'type' | 'options' | 'correctOption' | 'prompt' | 'irtA' | 'irtB' | 'irtC' | 'skill' | 'passage' | 'audioUrl'>): boolean {
+  const options = item.options;
+  const base = item.type === 'MULTIPLE_CHOICE' && Array.isArray(options) && options.length === 4
+    && options.every((o) => typeof o === 'string' && o.trim().length > 0)
+    && new Set(options).size === 4 && options.filter((o) => o === item.correctOption).length === 1
+    && item.prompt.trim().length > 0 && Number.isFinite(item.irtA) && item.irtA > 0
+    && Number.isFinite(item.irtB) && Number.isFinite(item.irtC) && item.irtC >= 0 && item.irtC < 1;
+  if (!base) return false;
+  if (item.skill === AssessmentSkill.READING) return !!item.passage?.trim();
+  if (item.skill !== AssessmentSkill.LISTENING || !item.audioUrl) return false;
+  const match = /^\/media\/placement\/([a-zA-Z0-9._-]+\.wav)$/.exec(item.audioUrl);
+  return !!match && existsSync(join(placementMediaRoot(), match[1]));
+}
+
 export function placementMediaRoot() {
   // Works with `npm --prefix apps/backend start` and launches from repository root.
   return existsSync(join(process.cwd(), 'prisma', 'schema.prisma'))
@@ -60,21 +74,11 @@ export class DemoPlacementService {
   }
 
   private validItem(item: AssessmentItem): boolean {
-    const options = item.options;
-    const base = item.type === 'MULTIPLE_CHOICE' && Array.isArray(options) && options.length === 4
-      && options.every((o) => typeof o === 'string' && o.trim().length > 0)
-      && new Set(options).size === 4 && options.filter((o) => o === item.correctOption).length === 1
-      && item.prompt.trim().length > 0 && Number.isFinite(item.irtA) && item.irtA > 0
-      && Number.isFinite(item.irtB) && Number.isFinite(item.irtC) && item.irtC >= 0 && item.irtC < 1;
-    if (!base) return false;
-    if (item.skill === AssessmentSkill.READING) return !!item.passage?.trim();
-    if (item.skill !== AssessmentSkill.LISTENING || !item.audioUrl) return false;
-    const match = /^\/media\/placement\/([a-zA-Z0-9._-]+\.wav)$/.exec(item.audioUrl);
-    return !!match && existsSync(join(placementMediaRoot(), match[1]));
+    return isValidPlacementItem(item);
   }
 
   private async bank(bankVersion = DEMO_BANK_VERSION) {
-    const items = await this.prisma.assessmentItem.findMany({ where: { bankVersion }, orderBy: { externalId: 'asc' } });
+    const items = await this.prisma.assessmentItem.findMany({ where: { bankVersion, groupId: null, usageScope: { in: ['PLACEMENT', 'ALL'] } }, orderBy: { externalId: 'asc' } });
     return items.filter((item) => this.validItem(item));
   }
 

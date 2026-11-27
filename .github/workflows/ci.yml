@@ -8,7 +8,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # ==========================================
@@ -187,10 +187,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -205,5 +205,307 @@ jobs:
       - name: Run Web Frontend Tests
         run: npm run test --workspace=apps/web-frontend
 
-      - name: Build Web Frontend
+      - name: Build Web Frontend (Cloud URL Verification)
+        env:
+          NEXT_PUBLIC_API_URL: https://lingoroad-api-ci-verify.azurewebsites.net
+          LINGOROAD_REQUIRE_CLOUD_API_URL: 'true'
         run: npm run frontend:build
+
+  # ==========================================
+  # JOB 5: Auto-Deploy Backend & Web Admin to Azure App Service (main only)
+  # ==========================================
+  deploy-azure-admin:
+    name: Deploy Admin & Backend (Azure App Service)
+    needs: [backend-ci, web-frontend-ci]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: azure-lingoroad-admin-deploy
+      cancel-in-progress: false
+    env:
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP || 'rg-lingoroad-demo-web' }}
+      AZURE_ACR_NAME: ${{ vars.AZURE_ACR_NAME || 'lingoroad6e9f265b' }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Audit Production Dependencies (Block Critical Vulnerabilities)
+        run: |
+          npm audit --omit=dev --audit-level=critical --workspace=apps/backend
+          npm audit --omit=dev --audit-level=critical --workspace=apps/web-frontend
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve Target Apps & Record Current Running Image Digests
+        id: record_state
+        run: |
+          set -euo pipefail
+          RG="${AZURE_RESOURCE_GROUP}"
+          ACR_SERVER="${AZURE_ACR_NAME}.azurecr.io"
+
+          BACKEND_APP="${{ vars.AZURE_BACKEND_APP_NAME }}"
+          FRONTEND_APP="${{ vars.AZURE_FRONTEND_APP_NAME }}"
+
+          if [ -z "${BACKEND_APP}" ]; then
+            BACKEND_APP=$(az webapp list -g "${RG}" --query "[?starts_with(name, 'lingoroad-api-')].name | [0]" -o tsv)
+          fi
+          if [ -z "${FRONTEND_APP}" ]; then
+            FRONTEND_APP=$(az webapp list -g "${RG}" --query "[?starts_with(name, 'lingoroad-admin-')].name | [0]" -o tsv)
+          fi
+
+          if [ -z "${BACKEND_APP}" ] || [ -z "${FRONTEND_APP}" ]; then
+            echo "Không tìm thấy ứng dụng App Service trong resource group ${RG}. Hãy chạy scripts/azure-bootstrap.ps1 trước." >&2
+            exit 1
+          fi
+
+          BACKEND_URL="https://${BACKEND_APP}.azurewebsites.net"
+          FRONTEND_URL="https://${FRONTEND_APP}.azurewebsites.net"
+
+          PREV_BACKEND_FX=$(az webapp config show -g "${RG}" -n "${BACKEND_APP}" --query "linuxFxVersion" -o tsv)
+          PREV_FRONTEND_FX=$(az webapp config show -g "${RG}" -n "${FRONTEND_APP}" --query "linuxFxVersion" -o tsv)
+
+          PREV_BACKEND_IMAGE="${PREV_BACKEND_FX#DOCKER|}"
+          PREV_FRONTEND_IMAGE="${PREV_FRONTEND_FX#DOCKER|}"
+
+          {
+            echo "acr_server=${ACR_SERVER}"
+            echo "backend_app=${BACKEND_APP}"
+            echo "frontend_app=${FRONTEND_APP}"
+            echo "backend_url=${BACKEND_URL}"
+            echo "frontend_url=${FRONTEND_URL}"
+            echo "prev_backend_image=${PREV_BACKEND_IMAGE}"
+            echo "prev_frontend_image=${PREV_FRONTEND_IMAGE}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Recorded previous backend image : ${PREV_BACKEND_IMAGE}"
+          echo "Recorded previous frontend image: ${PREV_FRONTEND_IMAGE}"
+
+      - name: Build Backend & Web Admin Images Tagged by Commit SHA
+        run: |
+          set -euo pipefail
+          ACR_SERVER="${{ steps.record_state.outputs.acr_server }}"
+          SHA="${{ github.sha }}"
+          BACKEND_URL="${{ steps.record_state.outputs.backend_url }}"
+
+          docker build \
+            -f apps/backend/Dockerfile \
+            -t "${ACR_SERVER}/lingoroad-backend:${SHA}" \
+            apps/backend
+
+          docker build \
+            -f apps/web-frontend/Dockerfile \
+            --build-arg NEXT_PUBLIC_API_URL="${BACKEND_URL}" \
+            --build-arg NEXT_PUBLIC_APP_VERSION="${SHA}" \
+            --build-arg APP_VERSION="${SHA}" \
+            -t "${ACR_SERVER}/lingoroad-web-admin:${SHA}" \
+            .
+
+      - name: Scan Backend Image for Critical Vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "${{ steps.record_state.outputs.acr_server }}/lingoroad-backend:${{ github.sha }}"
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
+
+      - name: Scan Web Admin Image for Critical Vulnerabilities
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: "${{ steps.record_state.outputs.acr_server }}/lingoroad-web-admin:${{ github.sha }}"
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
+
+      - name: Push Images to ACR and Resolve Immutable Digests
+        id: push_images
+        run: |
+          set -euo pipefail
+          ACR_NAME="${AZURE_ACR_NAME}"
+          ACR_SERVER="${{ steps.record_state.outputs.acr_server }}"
+          SHA="${{ github.sha }}"
+
+          az acr login --name "${ACR_NAME}"
+
+          docker push "${ACR_SERVER}/lingoroad-backend:${SHA}"
+          docker push "${ACR_SERVER}/lingoroad-web-admin:${SHA}"
+
+          BACKEND_DIGEST=$(az acr repository show-manifests \
+            --name "${ACR_NAME}" \
+            --repository lingoroad-backend \
+            --query "[?contains(tags, '${SHA}')].digest | [0]" -o tsv)
+
+          FRONTEND_DIGEST=$(az acr repository show-manifests \
+            --name "${ACR_NAME}" \
+            --repository lingoroad-web-admin \
+            --query "[?contains(tags, '${SHA}')].digest | [0]" -o tsv)
+
+          if [ -z "${BACKEND_DIGEST}" ] || [ -z "${FRONTEND_DIGEST}" ]; then
+            echo "Không thể lấy digest từ ACR cho SHA ${SHA}." >&2
+            exit 1
+          fi
+
+          BACKEND_IMAGE_REF="${ACR_SERVER}/lingoroad-backend@${BACKEND_DIGEST}"
+          FRONTEND_IMAGE_REF="${ACR_SERVER}/lingoroad-web-admin@${FRONTEND_DIGEST}"
+
+          {
+            echo "backend_digest=${BACKEND_DIGEST}"
+            echo "frontend_digest=${FRONTEND_DIGEST}"
+            echo "backend_image_ref=${BACKEND_IMAGE_REF}"
+            echo "frontend_image_ref=${FRONTEND_IMAGE_REF}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Deploy Backend by Digest and Wait for /health (DB & Schema Ready)
+        id: deploy_backend
+        run: |
+          set -euo pipefail
+          RG="${AZURE_RESOURCE_GROUP}"
+          APP="${{ steps.record_state.outputs.backend_app }}"
+          IMAGE_REF="${{ steps.push_images.outputs.backend_image_ref }}"
+          ACR_SERVER="${{ steps.record_state.outputs.acr_server }}"
+          BACKEND_URL="${{ steps.record_state.outputs.backend_url }}"
+
+          az webapp config appsettings set -g "${RG}" -n "${APP}" \
+            --settings APP_VERSION="${{ github.sha }}" --output none
+
+          az webapp config container set -g "${RG}" -n "${APP}" \
+            --container-image-name "${IMAGE_REF}" \
+            --container-registry-url "https://${ACR_SERVER}" --output none
+
+          az webapp restart -g "${RG}" -n "${APP}" --output none
+
+          echo "Waiting for Backend /health at ${BACKEND_URL}/health ..."
+          HEALTHY="false"
+          for i in $(seq 1 36); do
+            if RESP=$(curl -fsS --max-time 10 "${BACKEND_URL}/health" 2>/dev/null); then
+              if echo "${RESP}" | grep -q '"database":"ready"' && echo "${RESP}" | grep -q '"schema":"ready"'; then
+                echo "Backend is healthy: ${RESP}"
+                HEALTHY="true"
+                break
+              fi
+            fi
+            sleep 5
+          done
+
+          if [ "${HEALTHY}" != "true" ]; then
+            echo "Backend /health không đạt sau 180 giây. Chặn phát hành Frontend!" >&2
+            exit 1
+          fi
+
+      - name: Deploy Web Admin by Digest and Run Full Smoke Test
+        id: deploy_frontend
+        run: |
+          set -euo pipefail
+          RG="${AZURE_RESOURCE_GROUP}"
+          APP="${{ steps.record_state.outputs.frontend_app }}"
+          IMAGE_REF="${{ steps.push_images.outputs.frontend_image_ref }}"
+          ACR_SERVER="${{ steps.record_state.outputs.acr_server }}"
+          BACKEND_URL="${{ steps.record_state.outputs.backend_url }}"
+          FRONTEND_URL="${{ steps.record_state.outputs.frontend_url }}"
+
+          az webapp config appsettings set -g "${RG}" -n "${APP}" \
+            --settings APP_VERSION="${{ github.sha }}" NEXT_PUBLIC_APP_VERSION="${{ github.sha }}" --output none
+
+          az webapp config container set -g "${RG}" -n "${APP}" \
+            --container-image-name "${IMAGE_REF}" \
+            --container-registry-url "https://${ACR_SERVER}" --output none
+
+          az webapp restart -g "${RG}" -n "${APP}" --output none
+
+          node scripts/azure-smoke-test.mjs \
+            --backend-url "${BACKEND_URL}" \
+            --frontend-url "${FRONTEND_URL}" \
+            --expected-version "${{ github.sha }}" | tee smoke-test-result.json
+
+      - name: Automatic Rollback on Deployment or Smoke Test Failure
+        if: failure() && steps.record_state.outcome == 'success'
+        run: |
+          set -euo pipefail
+          RG="${AZURE_RESOURCE_GROUP}"
+          ACR_SERVER="${{ steps.record_state.outputs.acr_server }}"
+          BACKEND_APP="${{ steps.record_state.outputs.backend_app }}"
+          FRONTEND_APP="${{ steps.record_state.outputs.frontend_app }}"
+          PREV_BACKEND="${{ steps.record_state.outputs.prev_backend_image }}"
+          PREV_FRONTEND="${{ steps.record_state.outputs.prev_frontend_image }}"
+
+          echo "Phát hiện lỗi sau khi cập nhật! Đang khôi phục image trước đó..."
+          if [ -n "${PREV_BACKEND}" ] && [[ "${PREV_BACKEND}" != *":bootstrap" ]]; then
+            az webapp config container set -g "${RG}" -n "${BACKEND_APP}" \
+              --container-image-name "${PREV_BACKEND}" \
+              --container-registry-url "https://${ACR_SERVER}" --output none
+            az webapp restart -g "${RG}" -n "${BACKEND_APP}" --output none
+          fi
+
+          if [ -n "${PREV_FRONTEND}" ] && [[ "${PREV_FRONTEND}" != *":bootstrap" ]]; then
+            az webapp config container set -g "${RG}" -n "${FRONTEND_APP}" \
+              --container-image-name "${PREV_FRONTEND}" \
+              --container-registry-url "https://${ACR_SERVER}" --output none
+            az webapp restart -g "${RG}" -n "${FRONTEND_APP}" --output none
+          fi
+          echo "Đã gửi lệnh khôi phục image trước đó."
+
+      - name: Save Release Digest Manifest and Smoke Test Evidence
+        if: always() && steps.push_images.outcome == 'success'
+        run: |
+          cat <<EOF > release-manifest.json
+          {
+            "commitSha": "${{ github.sha }}",
+            "releasedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "resourceGroup": "${AZURE_RESOURCE_GROUP}",
+            "backend": {
+              "appName": "${{ steps.record_state.outputs.backend_app }}",
+              "url": "${{ steps.record_state.outputs.backend_url }}",
+              "digest": "${{ steps.push_images.outputs.backend_digest }}",
+              "imageRef": "${{ steps.push_images.outputs.backend_image_ref }}",
+              "previousImageRef": "${{ steps.record_state.outputs.prev_backend_image }}"
+            },
+            "frontend": {
+              "appName": "${{ steps.record_state.outputs.frontend_app }}",
+              "url": "${{ steps.record_state.outputs.frontend_url }}",
+              "digest": "${{ steps.push_images.outputs.frontend_digest }}",
+              "imageRef": "${{ steps.push_images.outputs.frontend_image_ref }}",
+              "previousImageRef": "${{ steps.record_state.outputs.prev_frontend_image }}"
+            }
+          }
+          EOF
+
+          {
+            echo "### LingoRoad Azure Release Summary"
+            echo "- **Commit SHA**: \`${{ github.sha }}\`"
+            echo "- **Backend URL**: ${{ steps.record_state.outputs.backend_url }}"
+            echo "- **Backend Digest**: \`${{ steps.push_images.outputs.backend_digest }}\`"
+            echo "- **Previous Backend Image**: \`${{ steps.record_state.outputs.prev_backend_image }}\`"
+            echo "- **Web Admin URL**: ${{ steps.record_state.outputs.frontend_url }}"
+            echo "- **Web Admin Digest**: \`${{ steps.push_images.outputs.frontend_digest }}\`"
+            echo "- **Previous Web Admin Image**: \`${{ steps.record_state.outputs.prev_frontend_image }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Release Manifest & Smoke Test Artifact
+        if: always() && steps.push_images.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: azure-release-${{ github.sha }}
+          path: |
+            release-manifest.json
+            smoke-test-result.json
+          if-no-files-found: warn
+          retention-days: 30
+

@@ -97,6 +97,10 @@ describe('DemoPlacementService', () => {
     expect(replay).toEqual(first);
     expect(session.currentItemIndex).toBe(1);
     expect(prisma.assessmentResponse.create).toHaveBeenCalledTimes(1);
+    expect(prisma.assessmentItem.findMany).toHaveBeenCalledWith({
+      where: { bankVersion: 'demo-v1', groupId: null, usageScope: { in: ['PLACEMENT', 'ALL'] } },
+      orderBy: { externalId: 'asc' },
+    });
     await expect(service.answer('session', 'owner', dto(0, 'No'))).rejects.toThrow(ConflictException);
   });
 

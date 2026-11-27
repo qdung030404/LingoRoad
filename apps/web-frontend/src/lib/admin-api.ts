@@ -25,9 +25,84 @@ import type {
 
 const SESSION_KEY = 'lingoroad_admin_session';
 
-function apiBaseUrl(): string {
+export function validateCloudApiBaseUrl(rawUrl?: string): string {
+  const value = rawUrl?.trim() ?? '';
+  if (!value) {
+    throw new Error(
+      'NEXT_PUBLIC_API_URL không được để trống trên bản phát hành cloud.',
+    );
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`NEXT_PUBLIC_API_URL không hợp lệ: "${value}".`);
+  }
+  if (parsed.protocol !== 'https:') {
+    throw new Error(
+      `NEXT_PUBLIC_API_URL trên cloud bắt buộc dùng HTTPS (nhận được "${parsed.protocol}").`,
+    );
+  }
+  const host = parsed.hostname.toLowerCase();
+  if (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '0.0.0.0' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local')
+  ) {
+    throw new Error(
+      `NEXT_PUBLIC_API_URL trên cloud không được dùng localhost/nội bộ (nhận được "${host}").`,
+    );
+  }
+  return value.replace(/\/+$/, '');
+}
+
+export function apiBaseUrl(): string {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
-  return (configured || 'http://localhost:3000').replace(/\/+$/, '');
+  if (!configured) {
+    throw new Error('NEXT_PUBLIC_API_URL chưa được cấu hình.');
+  }
+  return configured.replace(/\/+$/, '');
+}
+
+export interface FrontendHealthPayload {
+  success: true;
+  data: {
+    status: 'ok';
+    service: 'web-frontend';
+    version: string;
+    timestamp: string;
+  };
+}
+
+export function buildFrontendHealthPayload(
+  env: NodeJS.ProcessEnv = process.env,
+): FrontendHealthPayload {
+  const version =
+    env.APP_VERSION?.trim() ||
+    env.NEXT_PUBLIC_APP_VERSION?.trim() ||
+    '1.0.0';
+
+  return {
+    success: true,
+    data: {
+      status: 'ok',
+      service: 'web-frontend',
+      version,
+      timestamp: new Date().toISOString(),
+    },
+  };
+}
+
+export function resolveAdminMediaUrl(mediaPathOrUrl: string): string {
+  const trimmed = mediaPathOrUrl.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const normalizedPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `${apiBaseUrl()}${normalizedPath}`;
 }
 
 export function getStoredAdminSession(): AdminAuthSession | null {
@@ -386,7 +461,7 @@ export async function createAdminAssessmentItem(input: {
   usageScope: ItemUsageScope;
   passage?: string;
   prompt: string;
-  options?: string[];
+  options?: unknown[];
   correctOption?: string;
   explanation?: string;
   irtA?: number;
@@ -409,7 +484,7 @@ export async function updateAdminAssessmentItem(
     usageScope?: ItemUsageScope;
     passage?: string;
     prompt?: string;
-    options?: string[];
+    options?: unknown[];
     correctOption?: string;
     explanation?: string;
     irtA?: number;
