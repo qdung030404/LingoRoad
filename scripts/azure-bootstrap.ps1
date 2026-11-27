@@ -47,28 +47,108 @@ if ($LASTEXITCODE -ne 0) {
   throw "Không thể tạo hoặc cập nhật Resource Group '$ResourceGroupName'."
 }
 
-Write-Host "==> [3/5] Triển khai Bicep template (App Service Plan B1, 2 Linux Web Apps, Managed Identity AcrPull)..." -ForegroundColor Cyan
-$bicepPath = Join-Path $PSScriptRoot '..\infra\azure\main.bicep'
-$deployArgs = @(
-  'deployment', 'group', 'create',
-  '--resource-group', $ResourceGroupName,
-  '--template-file', $bicepPath,
-  '--parameters',
-  "location=$Location",
-  "acrName=$AcrName",
-  "acrResourceGroupName=$AcrResourceGroupName",
-  "appVersion=$AppVersion"
-)
-if ($BackendImageReference) {
-  $deployArgs += "backendImageReference=$BackendImageReference"
-}
-if ($FrontendImageReference) {
-  $deployArgs += "frontendImageReference=$FrontendImageReference"
+Write-Host "==> [3/5] Triển khai Bicep template (App Service Plan B1, 2 Linux Web Apps, Storage Account, Managed Identity RBAC)..." -ForegroundColor Cyan
+
+# Bảo toàn image đang chạy, APP_VERSION và các biến bí mật hiện có nếu chạy lại trên môi trường live (zero-downtime idempotent)
+$existingSecretMap = @{}
+$existingAppsJson = az webapp list --resource-group $ResourceGroupName --output json 2>$null
+if ($LASTEXITCODE -eq 0 -and $existingAppsJson) {
+  $existingApps = $existingAppsJson | ConvertFrom-Json
+  $existingBackend = $existingApps | Where-Object { $_.name -like 'lingoroad-api-*' } | Select-Object -First 1
+  $existingFrontend = $existingApps | Where-Object { $_.name -like 'lingoroad-admin-*' } | Select-Object -First 1
+
+  if ($existingBackend) {
+    $beFx = $existingBackend.siteConfig.linuxFxVersion
+    if (-not $BackendImageReference -and $beFx -and $beFx.StartsWith('DOCKER|')) {
+      $candidate = $beFx.Substring(7)
+      if ($candidate -and ($candidate -notlike '*:bootstrap')) {
+        $BackendImageReference = $candidate
+        Write-Host "    [Bảo toàn] Giữ nguyên Backend image đang chạy."
+      }
+    }
+    $beSettingsJson = az webapp config appsettings list --resource-group $ResourceGroupName --name $existingBackend.name --output json 2>$null
+    if ($LASTEXITCODE -eq 0 -and $beSettingsJson) {
+      foreach ($item in ($beSettingsJson | ConvertFrom-Json)) {
+        if ($item.name -eq 'APP_VERSION' -and $AppVersion -eq 'bootstrap' -and $item.value -and $item.value -ne 'bootstrap') {
+          $AppVersion = $item.value
+        }
+        if ($item.name -in @('DATABASE_URL', 'JWT_SECRET', 'FIREBASE_PROJECT_ID', 'FIREBASE_CLIENT_EMAIL', 'FIREBASE_PRIVATE_KEY') -and -not [string]::IsNullOrWhiteSpace($item.value)) {
+          $existingSecretMap[$item.name] = $item.value
+        }
+      }
+    }
+  }
+
+  if ($existingFrontend) {
+    $feFx = $existingFrontend.siteConfig.linuxFxVersion
+    if (-not $FrontendImageReference -and $feFx -and $feFx.StartsWith('DOCKER|')) {
+      $candidate = $feFx.Substring(7)
+      if ($candidate -and ($candidate -notlike '*:bootstrap')) {
+        $FrontendImageReference = $candidate
+        Write-Host "    [Bảo toàn] Giữ nguyên Frontend image đang chạy."
+      }
+    }
+  }
 }
 
-$deployJson = az @deployArgs --query properties.outputs --output json
-if ($LASTEXITCODE -ne 0 -or -not $deployJson) {
-  throw "Triển khai Bicep thất bại."
+$secretParamMap = @{
+  'DATABASE_URL'          = 'databaseUrl'
+  'JWT_SECRET'            = 'jwtSecret'
+  'FIREBASE_PROJECT_ID'   = 'firebaseProjectId'
+  'FIREBASE_CLIENT_EMAIL' = 'firebaseClientEmail'
+  'FIREBASE_PRIVATE_KEY'  = 'firebasePrivateKey'
+}
+$bicepParams = @{
+  location             = @{ value = $Location }
+  acrName              = @{ value = $AcrName }
+  acrResourceGroupName = @{ value = $AcrResourceGroupName }
+  appVersion           = @{ value = $AppVersion }
+}
+if ($BackendImageReference) {
+  $bicepParams['backendImageReference'] = @{ value = $BackendImageReference }
+}
+if ($FrontendImageReference) {
+  $bicepParams['frontendImageReference'] = @{ value = $FrontendImageReference }
+}
+
+$resolvedSecretCount = 0
+foreach ($secretName in $secretParamMap.Keys) {
+  $val = [Environment]::GetEnvironmentVariable($secretName)
+  if ([string]::IsNullOrWhiteSpace($val) -and $existingSecretMap.ContainsKey($secretName)) {
+    $val = $existingSecretMap[$secretName]
+  }
+  if (-not [string]::IsNullOrWhiteSpace($val)) {
+    if ($secretName -eq 'DATABASE_URL' -and $val -notmatch 'sslmode=') {
+      throw "DATABASE_URL bắt buộc phải cấu hình TLS (ví dụ: ?sslmode=verify-full hoặc ?sslmode=require)."
+    }
+    $bicepParams[$secretParamMap[$secretName]] = @{ value = $val }
+    $resolvedSecretCount++
+  }
+}
+
+$bicepPath = Join-Path $PSScriptRoot '..\infra\azure\main.bicep'
+$tmpBicepParamsFile = Join-Path ([System.IO.Path]::GetTempPath()) ("lingoroad-bicep-params-" + [guid]::NewGuid().ToString('N') + ".json")
+try {
+  @{
+    '$schema'      = 'https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#'
+    contentVersion = '1.0.0.0'
+    parameters     = $bicepParams
+  } | ConvertTo-Json -Depth 6 | Set-Content -Path $tmpBicepParamsFile -Encoding UTF8
+
+  $deployJson = az deployment group create `
+    --resource-group $ResourceGroupName `
+    --template-file $bicepPath `
+    --parameters "@$tmpBicepParamsFile" `
+    --query properties.outputs `
+    --output json
+  if ($LASTEXITCODE -ne 0 -or -not $deployJson) {
+    throw "Triển khai Bicep thất bại."
+  }
+}
+finally {
+  if (Test-Path $tmpBicepParamsFile) {
+    Remove-Item -Path $tmpBicepParamsFile -Force -ErrorAction SilentlyContinue
+  }
 }
 $outputs = $deployJson | ConvertFrom-Json
 
@@ -76,10 +156,12 @@ $backendAppName = $outputs.backendAppName.value
 $backendHttpsUrl = $outputs.backendHttpsUrl.value
 $frontendAppName = $outputs.frontendAppName.value
 $frontendHttpsUrl = $outputs.frontendHttpsUrl.value
+$storageAccountName = $outputs.storageAccountName.value
 $possibleIpsRaw = $outputs.backendPossibleOutboundIps.value
 
 Write-Host "    Backend App : $backendAppName ($backendHttpsUrl)" -ForegroundColor Green
 Write-Host "    Frontend App: $frontendAppName ($frontendHttpsUrl)" -ForegroundColor Green
+Write-Host "    Storage Acct: $storageAccountName (container: media)" -ForegroundColor Green
 Write-Host "    Lưu ý chi phí: App Service Plan B1 (1 instance) tính phí theo thời gian tồn tại dù không có lưu lượng." -ForegroundColor Yellow
 
 if (-not $SkipPostgresFirewall) {
@@ -94,6 +176,16 @@ if (-not $SkipPostgresFirewall) {
 
   if (-not $PostgresResourceGroupName) {
     throw "Không tìm thấy PostgreSQL Flexible Server '$PostgresServerName'. Hãy truyền -PostgresResourceGroupName."
+  }
+
+  Write-Host "    [Storage] Đảm bảo bật PostgreSQL Storage AutoGrow trên '$PostgresServerName' (online, zero-downtime)..."
+  az postgres flexible-server update `
+    --resource-group $PostgresResourceGroupName `
+    --name $PostgresServerName `
+    --storage-auto-grow Enabled `
+    --output none
+  if ($LASTEXITCODE -ne 0) {
+    throw "Không thể bật Storage AutoGrow cho PostgreSQL Flexible Server '$PostgresServerName'."
   }
 
   $existingRulesJson = az postgres flexible-server firewall-rule list `
@@ -142,7 +234,8 @@ if (-not $SkipPostgresFirewall) {
       if ($LASTEXITCODE -ne 0) {
         throw "Không thể bổ sung danh sách firewall rule cho '$PostgresServerName'."
       }
-    } finally {
+    }
+    finally {
       if (Test-Path $fwParamsFile) {
         Remove-Item -Path $fwParamsFile -Force -ErrorAction SilentlyContinue
       }
@@ -153,47 +246,12 @@ else {
   Write-Host "==> [4/5] Bỏ qua bước cập nhật Firewall PostgreSQL theo cờ -SkipPostgresFirewall." -ForegroundColor Yellow
 }
 
-Write-Host "==> [5/5] Kiểm tra và nạp cấu hình bí mật vào Backend App Service (nếu có trong biến môi trường)..." -ForegroundColor Cyan
-$secretSettings = @{}
-$secretNames = @(
-  'DATABASE_URL',
-  'JWT_SECRET',
-  'FIREBASE_PROJECT_ID',
-  'FIREBASE_CLIENT_EMAIL',
-  'FIREBASE_PRIVATE_KEY'
-)
-foreach ($secretName in $secretNames) {
-  $val = [Environment]::GetEnvironmentVariable($secretName)
-  if (-not [string]::IsNullOrWhiteSpace($val)) {
-    if ($secretName -eq 'DATABASE_URL' -and $val -notmatch 'sslmode=') {
-      throw "DATABASE_URL bắt buộc phải cấu hình TLS (ví dụ: ?sslmode=verify-full hoặc ?sslmode=require)."
-    }
-    $secretSettings[$secretName] = $val
-  }
-}
-
-if ($secretSettings.Count -gt 0) {
-  $tmpSettingsFile = Join-Path ([System.IO.Path]::GetTempPath()) ("lingoroad-appsettings-" + [guid]::NewGuid().ToString('N') + ".json")
-  try {
-    $secretSettings | ConvertTo-Json -Compress | Set-Content -Path $tmpSettingsFile -Encoding UTF8 -NoNewline
-    az webapp config appsettings set `
-      --resource-group $ResourceGroupName `
-      --name $backendAppName `
-      --settings "@$tmpSettingsFile" `
-      --output none
-    if ($LASTEXITCODE -ne 0) {
-      throw "Không thể cập nhật cấu hình bí mật cho Backend App Service."
-    }
-  }
-  finally {
-    if (Test-Path $tmpSettingsFile) {
-      Remove-Item -Path $tmpSettingsFile -Force -ErrorAction SilentlyContinue
-    }
-  }
-  Write-Host "    Đã cập nhật $($secretSettings.Count) biến cấu hình bí mật vào '$backendAppName' (giá trị được ẩn hoàn toàn)." -ForegroundColor Green
+Write-Host "==> [5/5] Xác nhận cấu hình bí mật và loại bỏ emulator setting trên cloud..." -ForegroundColor Cyan
+if ($resolvedSecretCount -gt 0) {
+  Write-Host "    Đã bảo toàn/áp dụng $resolvedSecretCount biến bí mật vào '$backendAppName' qua @secure() Bicep parameters (ẩn hoàn toàn)." -ForegroundColor Green
 }
 else {
-  Write-Host "    Không có biến bí mật nào trong phiên shell hiện tại; giữ nguyên App Settings hiện có."
+  Write-Host "    Chưa có biến bí mật nào trong môi trường hoặc trên App Service; hãy cấu hình secrets trước khi phát hành." -ForegroundColor Yellow
 }
 
 # Tuyệt đối đảm bảo không có FIREBASE_AUTH_EMULATOR_HOST trên cloud
@@ -205,10 +263,11 @@ az webapp config appsettings delete `
 
 Write-Host "`nHoàn tất bootstrap hạ tầng!" -ForegroundColor Green
 [PSCustomObject]@{
-  ResourceGroup   = $ResourceGroupName
-  AppServicePlan  = $outputs.appServicePlanName.value
-  BackendAppName  = $backendAppName
-  BackendUrl      = $backendHttpsUrl
-  FrontendAppName = $frontendAppName
-  FrontendUrl     = $frontendHttpsUrl
+  ResourceGroup      = $ResourceGroupName
+  AppServicePlan     = $outputs.appServicePlanName.value
+  StorageAccountName = $storageAccountName
+  BackendAppName     = $backendAppName
+  BackendUrl         = $backendHttpsUrl
+  FrontendAppName    = $frontendAppName
+  FrontendUrl        = $frontendHttpsUrl
 }

@@ -1,7 +1,16 @@
-import { Injectable, Logger, BadRequestException, ServiceUnavailableException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  Optional,
+  ServiceUnavailableException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DefaultAzureCredential } from '@azure/identity';
 import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
 import * as crypto from 'crypto';
+import { MediaStorageService } from '../media/media-storage.service';
 
 export interface UploadedImageFile {
   buffer: Buffer;
@@ -76,32 +85,57 @@ export class AzureBlobStorageService implements OnModuleInit {
   private readonly containerName: string;
   private containerInitialized = false;
 
-  constructor(private readonly configService: ConfigService) {
-    this.containerName = this.configService.get<string>('AZURE_STORAGE_CONTAINER_NAME', 'vocabulary');
-    this.initClients();
+  constructor(
+    private readonly configService: ConfigService,
+    @Optional() private readonly mediaStorage?: MediaStorageService,
+  ) {
+    this.containerName =
+      this.configService.get<string>('AZURE_STORAGE_CONTAINER_NAME', 'media')?.trim() || 'media';
+    if (!this.mediaStorage) {
+      this.initClients();
+    }
   }
 
   private initClients(): void {
-    const connStr = this.configService.get<string>('AZURE_STORAGE_CONNECTION_STRING');
-    if (connStr && !this.containerClient) {
+    if (this.containerClient) return;
+    const connStr = this.configService.get<string>('AZURE_STORAGE_CONNECTION_STRING')?.trim();
+    if (connStr) {
       try {
         this.blobServiceClient = BlobServiceClient.fromConnectionString(connStr);
         this.containerClient = this.blobServiceClient.getContainerClient(this.containerName);
+        return;
       } catch (err) {
         this.logger.error(`Lỗi khởi tạo Azure Blob Service: ${err instanceof Error ? err.message : err}`);
+        return;
+      }
+    }
+
+    const accountName = this.configService.get<string>('AZURE_STORAGE_ACCOUNT_NAME')?.trim();
+    if (accountName && /^[a-zA-Z0-9-]+$/.test(accountName)) {
+      try {
+        this.blobServiceClient = new BlobServiceClient(
+          `https://${accountName}.blob.core.windows.net`,
+          new DefaultAzureCredential(),
+        );
+        this.containerClient = this.blobServiceClient.getContainerClient(this.containerName);
+      } catch (err) {
+        this.logger.error(`Lỗi khởi tạo Azure Blob Managed Identity: ${err instanceof Error ? err.message : err}`);
       }
     }
   }
 
   /**
-   * Khởi tạo và kiểm tra quyền container Azure Blob ngay lúc ứng dụng khởi động
+   * Khởi tạo và kiểm tra quyền private container Azure Blob ngay lúc ứng dụng khởi động
    * nhằm loại bỏ độ trễ network round-trip (~50-100ms) ở mỗi request upload của user.
    */
   async onModuleInit(): Promise<void> {
+    if (this.mediaStorage) {
+      return;
+    }
     this.initClients();
     if (this.containerClient && !this.containerInitialized) {
       try {
-        await this.containerClient.createIfNotExists({ access: 'blob' });
+        await this.containerClient.createIfNotExists();
         this.containerInitialized = true;
       } catch (err) {
         this.logger.warn(`Không thể khởi tạo container Azure Blob lúc khởi động: ${err instanceof Error ? err.message : err}`);
@@ -127,20 +161,37 @@ export class AzureBlobStorageService implements OnModuleInit {
       throw new BadRequestException('Chỉ chấp nhận file ảnh hợp lệ định dạng JPG, PNG, WEBP hoặc GIF.');
     }
 
+    // Sử dụng extension nghiêm ngặt từ detected type, lưu dưới prefix vocabulary/ để phát qua proxy /media/vocabulary/:filename
+    const blobName = `vocabulary/${crypto.randomUUID()}${detected.ext}`;
+    const publicApiBaseUrl = this.configService
+      .get<string>('PUBLIC_API_BASE_URL')
+      ?.trim()
+      .replace(/\/+$/, '');
+
+    if (this.mediaStorage) {
+      const uploaded = await this.mediaStorage.uploadBuffer(
+        blobName,
+        file.buffer,
+        detected.mime,
+      );
+      if (publicApiBaseUrl) {
+        return `${publicApiBaseUrl}/media/${uploaded.key}`;
+      }
+      return uploaded.blobUrl ?? uploaded.url;
+    }
+
     if (!this.containerClient) {
       this.initClients();
       if (!this.containerClient) {
-        throw new ServiceUnavailableException('Chưa cấu hình AZURE_STORAGE_CONNECTION_STRING.');
+        throw new ServiceUnavailableException('Chưa cấu hình AZURE_STORAGE_CONNECTION_STRING hoặc AZURE_STORAGE_ACCOUNT_NAME.');
       }
     }
 
-    // Sử dụng extension nghiêm ngặt từ detected type, loại bỏ nguy cơ Path Traversal / Extension spoofing
-    const blobName = `${crypto.randomUUID()}${detected.ext}`;
     const blockBlobClient = this.containerClient.getBlockBlobClient(blobName);
 
     try {
       if (!this.containerInitialized) {
-        await this.containerClient.createIfNotExists({ access: 'blob' });
+        await this.containerClient.createIfNotExists();
         this.containerInitialized = true;
       }
 
@@ -149,6 +200,9 @@ export class AzureBlobStorageService implements OnModuleInit {
           blobContentType: detected.mime,
         },
       });
+      if (publicApiBaseUrl) {
+        return `${publicApiBaseUrl}/media/${blobName}`;
+      }
       return blockBlobClient.url;
     } catch (err) {
       this.logger.error(`Lỗi khi tải ảnh lên Azure Blob: ${err instanceof Error ? err.message : err}`);

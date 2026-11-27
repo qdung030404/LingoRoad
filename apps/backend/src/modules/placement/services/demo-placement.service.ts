@@ -1,10 +1,11 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { AssessmentItem, AssessmentResponse, AssessmentSkill, CefrLevel, PlacementSession, Prisma, SessionStatus } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MlClientService } from '../../ml/ml-client.service';
+import { MediaStorageService } from '../../media/media-storage.service';
 import { SubmitAnswerDto } from '../interfaces/placement.interface';
 import { PlacementCompletedEvent } from '../events/placement-completed.event';
 
@@ -12,8 +13,15 @@ export const DEMO_BANK_VERSION = 'demo-v1';
 export const DEMO_TEST_VERSION = 'READING_LISTENING_V1';
 export const SECTION_TOTAL = 5;
 export const PLACEMENT_TOTAL = 10;
+export const PLACEMENT_AUDIO_URL_REGEX = /^\/media\/placement\/([a-zA-Z0-9._-]+\.wav)$/;
 
-export function isValidPlacementItem(item: Pick<AssessmentItem, 'type' | 'options' | 'correctOption' | 'prompt' | 'irtA' | 'irtB' | 'irtC' | 'skill' | 'passage' | 'audioUrl'>): boolean {
+export function isValidPlacementItem(
+  item: Pick<AssessmentItem, 'type' | 'options' | 'correctOption' | 'prompt' | 'irtA' | 'irtB' | 'irtC' | 'skill' | 'passage' | 'audioUrl'>,
+  audioExists: (audioUrl: string) => boolean = (audioUrl) => {
+    const match = PLACEMENT_AUDIO_URL_REGEX.exec(audioUrl);
+    return !!match && !match[1].includes('..') && existsSync(join(placementMediaRoot(), match[1]));
+  },
+): boolean {
   const options = item.options;
   const base = item.type === 'MULTIPLE_CHOICE' && Array.isArray(options) && options.length === 4
     && options.every((o) => typeof o === 'string' && o.trim().length > 0)
@@ -23,8 +31,9 @@ export function isValidPlacementItem(item: Pick<AssessmentItem, 'type' | 'option
   if (!base) return false;
   if (item.skill === AssessmentSkill.READING) return !!item.passage?.trim();
   if (item.skill !== AssessmentSkill.LISTENING || !item.audioUrl) return false;
-  const match = /^\/media\/placement\/([a-zA-Z0-9._-]+\.wav)$/.exec(item.audioUrl);
-  return !!match && existsSync(join(placementMediaRoot(), match[1]));
+  const match = PLACEMENT_AUDIO_URL_REGEX.exec(item.audioUrl);
+  if (!match || match[1].includes('..')) return false;
+  return audioExists(item.audioUrl);
 }
 
 export function placementMediaRoot() {
@@ -51,6 +60,7 @@ export class DemoPlacementService {
     private readonly prisma: PrismaService,
     private readonly ml: MlClientService,
     private readonly events: EventEmitter2,
+    @Optional() private readonly mediaStorage?: MediaStorageService,
   ) {}
 
   private unavailable(message = 'Ngân hàng câu hỏi chưa sẵn sàng. Vui lòng thử lại sau.'): never {
@@ -73,13 +83,22 @@ export class DemoPlacementService {
     };
   }
 
-  private validItem(item: AssessmentItem): boolean {
-    return isValidPlacementItem(item);
+  private async validItem(item: AssessmentItem): Promise<boolean> {
+    if (!this.mediaStorage) {
+      return isValidPlacementItem(item);
+    }
+    if (!isValidPlacementItem(item, () => true)) return false;
+    if (item.skill !== AssessmentSkill.LISTENING || !item.audioUrl) return true;
+    return this.mediaStorage.exists(item.audioUrl);
   }
 
   private async bank(bankVersion = DEMO_BANK_VERSION) {
     const items = await this.prisma.assessmentItem.findMany({ where: { bankVersion, groupId: null, usageScope: { in: ['PLACEMENT', 'ALL'] } }, orderBy: { externalId: 'asc' } });
-    return items.filter((item) => this.validItem(item));
+    if (!this.mediaStorage) {
+      return items.filter((item) => isValidPlacementItem(item));
+    }
+    const checked = await Promise.all(items.map(async (item) => ((await this.validItem(item)) ? item : null)));
+    return checked.filter((item): item is AssessmentItem => item !== null);
   }
 
   private async owned(sessionId: string, userId: string): Promise<Session> {
@@ -89,9 +108,9 @@ export class DemoPlacementService {
     return session;
   }
 
-  private startState(session: Session) {
+  private async startState(session: Session) {
     if (session.status !== SessionStatus.IN_PROGRESS) this.conflict('Bạn đã hoàn tất bài kiểm tra. Vui lòng xem kết quả.');
-    if (!session.currentItem || !this.validItem(session.currentItem)) this.unavailable();
+    if (!session.currentItem || !(await this.validItem(session.currentItem))) this.unavailable();
     return {
       sessionId: session.id, totalItems: session.totalItems,
       currentIndex: session.currentItemIndex, currentSkill: this.skill(session.currentItemIndex),
@@ -195,14 +214,14 @@ export class DemoPlacementService {
     };
   }
 
-  private answerState(session: Session) {
+  private async answerState(session: Session) {
     if (session.status === SessionStatus.COMPLETED) return { isFinished: true, nextItem: null, result: this.resultState(session) };
     if (session.status !== SessionStatus.IN_PROGRESS) this.conflict();
-    if (!session.currentItem || !this.validItem(session.currentItem)) this.unavailable();
+    if (!session.currentItem || !(await this.validItem(session.currentItem))) this.unavailable();
     return { isFinished: false, nextItem: this.publicItem(session.currentItem, session.currentItemIndex), result: null };
   }
 
-  private replay(session: Session, dto: SubmitAnswerDto) {
+  private async replay(session: Session, dto: SubmitAnswerDto) {
     const existing = session.responses.find((r) => r.itemIndex === dto.itemIndex || r.itemId === dto.itemId);
     if (!existing) return null;
     if (existing.itemId !== dto.itemId || existing.itemIndex !== dto.itemIndex || existing.selectedOption !== dto.selectedOption) this.conflict();
@@ -211,11 +230,11 @@ export class DemoPlacementService {
 
   async answer(sessionId: string, userId: string, dto: SubmitAnswerDto) {
     const session = await this.owned(sessionId, userId);
-    const replay = this.replay(session, dto);
+    const replay = await this.replay(session, dto);
     if (replay) return replay;
     if (session.status !== SessionStatus.IN_PROGRESS || session.currentItemId !== dto.itemId || session.currentItemIndex !== dto.itemIndex) this.conflict();
     const item = session.currentItem;
-    if (!item || !this.validItem(item)) this.unavailable();
+    if (!item || !(await this.validItem(item))) this.unavailable();
     if (!(item.options as string[]).includes(dto.selectedOption)) {
       throw new BadRequestException({ code: 'PLACEMENT_INVALID_OPTION', message: 'Lựa chọn không thuộc câu hỏi hiện tại.' });
     }
@@ -241,7 +260,7 @@ export class DemoPlacementService {
     });
     const latest = await this.owned(sessionId, userId);
     if (!committed) {
-      const concurrentReplay = this.replay(latest, dto);
+      const concurrentReplay = await this.replay(latest, dto);
       if (concurrentReplay) return concurrentReplay;
       this.conflict();
     }

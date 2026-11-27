@@ -34,9 +34,9 @@ describe('AzureBlobStorageService', () => {
     (service as any).containerClient = mockContainerClient;
   });
 
-  it('initializes and verifies container existence on module startup (onModuleInit)', async () => {
+  it('initializes and verifies private container existence on module startup (onModuleInit)', async () => {
     await service.onModuleInit();
-    expect(mockContainerClient.createIfNotExists).toHaveBeenCalledWith({ access: 'blob' });
+    expect(mockContainerClient.createIfNotExists).toHaveBeenCalledWith();
   });
 
   it('throws BadRequestException if no file or buffer is provided', async () => {
@@ -82,20 +82,30 @@ describe('AzureBlobStorageService', () => {
         blobHTTPHeaders: { blobContentType: 'image/jpeg' },
       }),
     );
-    // Đảm bảo đuôi file là .jpg từ magic bytes, không bị ảnh hưởng bởi path traversal .php
+    // Đảm bảo đuôi file là .jpg từ magic bytes và lưu dưới prefix vocabulary/
     const generatedBlobName = mockContainerClient.getBlockBlobClient.mock.calls[0][0];
-    expect(generatedBlobName).toMatch(/^[0-9a-f-]+\.jpg$/);
+    expect(generatedBlobName).toMatch(/^vocabulary\/[0-9a-f-]+\.jpg$/);
   });
 
-  it('successfully uploads valid PNG based on true magic bytes', async () => {
+  it('successfully uploads valid PNG based on true magic bytes and returns proxy URL when PUBLIC_API_BASE_URL is set', async () => {
     // Valid PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A
     const pngBuffer = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
-    await service.uploadImage({
+    mockConfigService.get.mockImplementation((key: string, defaultVal?: string) => {
+      if (key === 'PUBLIC_API_BASE_URL') return 'https://api.lingoroad.app/';
+      if (key === 'AZURE_STORAGE_CONTAINER_NAME') return 'media';
+      if (key === 'AZURE_STORAGE_CONNECTION_STRING') {
+        return 'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=dummy;EndpointSuffix=core.windows.net';
+      }
+      return defaultVal;
+    });
+
+    const url = await service.uploadImage({
       buffer: pngBuffer,
       originalname: 'test.png',
     });
 
     const generatedBlobName = mockContainerClient.getBlockBlobClient.mock.calls[0][0];
-    expect(generatedBlobName).toMatch(/^[0-9a-f-]+\.png$/);
+    expect(generatedBlobName).toMatch(/^vocabulary\/[0-9a-f-]+\.png$/);
+    expect(url).toBe(`https://api.lingoroad.app/media/${generatedBlobName}`);
   });
 });
