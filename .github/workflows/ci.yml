@@ -212,11 +212,11 @@ jobs:
         run: npm run frontend:build
 
   # ==========================================
-  # JOB 5: Auto-Deploy Backend & Web Admin to Azure App Service (main only)
+  # JOB 5: Auto-Deploy ML, Backend & Web Admin to Azure (main only)
   # ==========================================
   deploy-azure-admin:
-    name: Deploy Admin & Backend (Azure App Service)
-    needs: [backend-ci, web-frontend-ci]
+    name: Deploy ML, Admin & Backend (Azure)
+    needs: [backend-ci, web-frontend-ci, ml-ci]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -255,17 +255,22 @@ jobs:
         id: record_state
         run: |
           set -euo pipefail
+          az config set extension.use_dynamic_install=yes_without_prompt --only-show-errors
           RG="${AZURE_RESOURCE_GROUP}"
           ACR_SERVER="${AZURE_ACR_NAME}.azurecr.io"
 
           BACKEND_APP="${{ vars.AZURE_BACKEND_APP_NAME }}"
           FRONTEND_APP="${{ vars.AZURE_FRONTEND_APP_NAME }}"
+          ML_APP="${{ vars.AZURE_ML_APP_NAME }}"
 
           if [ -z "${BACKEND_APP}" ]; then
             BACKEND_APP=$(az webapp list -g "${RG}" --query "[?starts_with(name, 'lingoroad-api-')].name | [0]" -o tsv)
           fi
           if [ -z "${FRONTEND_APP}" ]; then
             FRONTEND_APP=$(az webapp list -g "${RG}" --query "[?starts_with(name, 'lingoroad-admin-')].name | [0]" -o tsv)
+          fi
+          if [ -z "${ML_APP}" ]; then
+            ML_APP=$(az containerapp list -g "${RG}" --query "[?starts_with(name, 'lingoroad-ml-')].name | [0]" -o tsv || true)
           fi
 
           if [ -z "${BACKEND_APP}" ] || [ -z "${FRONTEND_APP}" ]; then
@@ -282,25 +287,42 @@ jobs:
           PREV_BACKEND_IMAGE="${PREV_BACKEND_FX#DOCKER|}"
           PREV_FRONTEND_IMAGE="${PREV_FRONTEND_FX#DOCKER|}"
 
+          ML_URL=""
+          PREV_ML_IMAGE=""
+          if [ -n "${ML_APP}" ]; then
+            ML_FQDN=$(az containerapp show -g "${RG}" -n "${ML_APP}" --query "properties.configuration.ingress.fqdn" -o tsv)
+            ML_URL="https://${ML_FQDN}"
+            PREV_ML_IMAGE=$(az containerapp show -g "${RG}" -n "${ML_APP}" --query "properties.template.containers[0].image" -o tsv)
+          fi
+
           {
             echo "acr_server=${ACR_SERVER}"
             echo "backend_app=${BACKEND_APP}"
             echo "frontend_app=${FRONTEND_APP}"
+            echo "ml_app=${ML_APP}"
             echo "backend_url=${BACKEND_URL}"
             echo "frontend_url=${FRONTEND_URL}"
+            echo "ml_url=${ML_URL}"
             echo "prev_backend_image=${PREV_BACKEND_IMAGE}"
             echo "prev_frontend_image=${PREV_FRONTEND_IMAGE}"
+            echo "prev_ml_image=${PREV_ML_IMAGE}"
           } >> "$GITHUB_OUTPUT"
 
           echo "Recorded previous backend image : ${PREV_BACKEND_IMAGE}"
           echo "Recorded previous frontend image: ${PREV_FRONTEND_IMAGE}"
+          echo "Recorded previous ML image      : ${PREV_ML_IMAGE}"
 
-      - name: Build Backend & Web Admin Images Tagged by Commit SHA
+      - name: Build ML, Backend & Web Admin Images Tagged by Commit SHA
         run: |
           set -euo pipefail
           ACR_SERVER="${{ steps.record_state.outputs.acr_server }}"
           SHA="${{ github.sha }}"
           BACKEND_URL="${{ steps.record_state.outputs.backend_url }}"
+
+          docker build \
+            -f apps/ml/Dockerfile \
+            -t "${ACR_SERVER}/lingoroad-ml:${SHA}" \
+            apps/ml
 
           docker build \
             -f apps/backend/Dockerfile \
@@ -315,6 +337,16 @@ jobs:
             --build-arg APP_VERSION="${SHA}" \
             -t "${ACR_SERVER}/lingoroad-web-admin:${SHA}" \
             .
+
+      - name: Scan ML Image for Critical Vulnerabilities
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: "${{ steps.record_state.outputs.acr_server }}/lingoroad-ml:${{ github.sha }}"
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
 
       - name: Scan Backend Image for Critical Vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
@@ -346,8 +378,14 @@ jobs:
 
           az acr login --name "${ACR_NAME}"
 
+          docker push "${ACR_SERVER}/lingoroad-ml:${SHA}"
           docker push "${ACR_SERVER}/lingoroad-backend:${SHA}"
           docker push "${ACR_SERVER}/lingoroad-web-admin:${SHA}"
+
+          ML_DIGEST=$(az acr repository show-manifests \
+            --name "${ACR_NAME}" \
+            --repository lingoroad-ml \
+            --query "[?contains(tags, '${SHA}')].digest | [0]" -o tsv)
 
           BACKEND_DIGEST=$(az acr repository show-manifests \
             --name "${ACR_NAME}" \
@@ -359,20 +397,55 @@ jobs:
             --repository lingoroad-web-admin \
             --query "[?contains(tags, '${SHA}')].digest | [0]" -o tsv)
 
-          if [ -z "${BACKEND_DIGEST}" ] || [ -z "${FRONTEND_DIGEST}" ]; then
+          if [ -z "${ML_DIGEST}" ] || [ -z "${BACKEND_DIGEST}" ] || [ -z "${FRONTEND_DIGEST}" ]; then
             echo "Không thể lấy digest từ ACR cho SHA ${SHA}." >&2
             exit 1
           fi
 
+          ML_IMAGE_REF="${ACR_SERVER}/lingoroad-ml@${ML_DIGEST}"
           BACKEND_IMAGE_REF="${ACR_SERVER}/lingoroad-backend@${BACKEND_DIGEST}"
           FRONTEND_IMAGE_REF="${ACR_SERVER}/lingoroad-web-admin@${FRONTEND_DIGEST}"
 
           {
+            echo "ml_digest=${ML_DIGEST}"
             echo "backend_digest=${BACKEND_DIGEST}"
             echo "frontend_digest=${FRONTEND_DIGEST}"
+            echo "ml_image_ref=${ML_IMAGE_REF}"
             echo "backend_image_ref=${BACKEND_IMAGE_REF}"
             echo "frontend_image_ref=${FRONTEND_IMAGE_REF}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Deploy ML Container App by Digest and Wait for /health
+        id: deploy_ml
+        if: steps.record_state.outputs.ml_app != ''
+        run: |
+          set -euo pipefail
+          az config set extension.use_dynamic_install=yes_without_prompt --only-show-errors
+          RG="${AZURE_RESOURCE_GROUP}"
+          ML_APP="${{ steps.record_state.outputs.ml_app }}"
+          ML_IMAGE_REF="${{ steps.push_images.outputs.ml_image_ref }}"
+          ML_URL="${{ steps.record_state.outputs.ml_url }}"
+
+          az containerapp update -g "${RG}" -n "${ML_APP}" \
+            --image "${ML_IMAGE_REF}" --output none
+
+          echo "Waiting for ML /health at ${ML_URL}/health ..."
+          ML_HEALTHY="false"
+          for i in $(seq 1 36); do
+            if RESP=$(curl -fsS --max-time 10 "${ML_URL}/health" 2>/dev/null); then
+              if echo "${RESP}" | grep -q '"status":"ok"'; then
+                echo "ML Service is healthy: ${RESP}"
+                ML_HEALTHY="true"
+                break
+              fi
+            fi
+            sleep 5
+          done
+
+          if [ "${ML_HEALTHY}" != "true" ]; then
+            echo "ML Service /health không đạt sau 180 giây." >&2
+            exit 1
+          fi
 
       - name: Deploy Backend by Digest and Wait for /health (DB & Schema Ready)
         id: deploy_backend
@@ -424,6 +497,7 @@ jobs:
           ACR_SERVER="${{ steps.record_state.outputs.acr_server }}"
           BACKEND_URL="${{ steps.record_state.outputs.backend_url }}"
           FRONTEND_URL="${{ steps.record_state.outputs.frontend_url }}"
+          ML_URL="${{ steps.record_state.outputs.ml_url }}"
 
           az webapp config appsettings set -g "${RG}" -n "${APP}" \
             --settings APP_VERSION="${{ github.sha }}" NEXT_PUBLIC_APP_VERSION="${{ github.sha }}" --output none
@@ -434,23 +508,37 @@ jobs:
 
           az webapp restart -g "${RG}" -n "${APP}" --output none
 
-          node scripts/azure-smoke-test.mjs \
-            --backend-url "${BACKEND_URL}" \
-            --frontend-url "${FRONTEND_URL}" \
-            --expected-version "${{ github.sha }}" | tee smoke-test-result.json
+          SMOKE_ARGS=(
+            --backend-url "${BACKEND_URL}"
+            --frontend-url "${FRONTEND_URL}"
+            --expected-version "${{ github.sha }}"
+          )
+          if [ -n "${ML_URL}" ]; then
+            SMOKE_ARGS+=(--ml-url "${ML_URL}")
+          fi
+
+          node scripts/azure-smoke-test.mjs "${SMOKE_ARGS[@]}" | tee smoke-test-result.json
 
       - name: Automatic Rollback on Deployment or Smoke Test Failure
         if: failure() && steps.record_state.outcome == 'success'
         run: |
           set -euo pipefail
+          az config set extension.use_dynamic_install=yes_without_prompt --only-show-errors
           RG="${AZURE_RESOURCE_GROUP}"
           ACR_SERVER="${{ steps.record_state.outputs.acr_server }}"
           BACKEND_APP="${{ steps.record_state.outputs.backend_app }}"
           FRONTEND_APP="${{ steps.record_state.outputs.frontend_app }}"
+          ML_APP="${{ steps.record_state.outputs.ml_app }}"
           PREV_BACKEND="${{ steps.record_state.outputs.prev_backend_image }}"
           PREV_FRONTEND="${{ steps.record_state.outputs.prev_frontend_image }}"
+          PREV_ML="${{ steps.record_state.outputs.prev_ml_image }}"
 
           echo "Phát hiện lỗi sau khi cập nhật! Đang khôi phục image trước đó..."
+          if [ -n "${ML_APP}" ] && [ -n "${PREV_ML}" ] && [[ "${PREV_ML}" != *":bootstrap" ]]; then
+            az containerapp update -g "${RG}" -n "${ML_APP}" \
+              --image "${PREV_ML}" --output none || true
+          fi
+
           if [ -n "${PREV_BACKEND}" ] && [[ "${PREV_BACKEND}" != *":bootstrap" ]]; then
             az webapp config container set -g "${RG}" -n "${BACKEND_APP}" \
               --container-image-name "${PREV_BACKEND}" \
@@ -474,6 +562,13 @@ jobs:
             "commitSha": "${{ github.sha }}",
             "releasedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "resourceGroup": "${AZURE_RESOURCE_GROUP}",
+            "ml": {
+              "appName": "${{ steps.record_state.outputs.ml_app }}",
+              "url": "${{ steps.record_state.outputs.ml_url }}",
+              "digest": "${{ steps.push_images.outputs.ml_digest }}",
+              "imageRef": "${{ steps.push_images.outputs.ml_image_ref }}",
+              "previousImageRef": "${{ steps.record_state.outputs.prev_ml_image }}"
+            },
             "backend": {
               "appName": "${{ steps.record_state.outputs.backend_app }}",
               "url": "${{ steps.record_state.outputs.backend_url }}",
@@ -494,12 +589,12 @@ jobs:
           {
             echo "### LingoRoad Azure Release Summary"
             echo "- **Commit SHA**: \`${{ github.sha }}\`"
+            echo "- **ML Service URL**: ${{ steps.record_state.outputs.ml_url }}"
+            echo "- **ML Digest**: \`${{ steps.push_images.outputs.ml_digest }}\`"
             echo "- **Backend URL**: ${{ steps.record_state.outputs.backend_url }}"
             echo "- **Backend Digest**: \`${{ steps.push_images.outputs.backend_digest }}\`"
-            echo "- **Previous Backend Image**: \`${{ steps.record_state.outputs.prev_backend_image }}\`"
             echo "- **Web Admin URL**: ${{ steps.record_state.outputs.frontend_url }}"
             echo "- **Web Admin Digest**: \`${{ steps.push_images.outputs.frontend_digest }}\`"
-            echo "- **Previous Web Admin Image**: \`${{ steps.record_state.outputs.prev_frontend_image }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Release Manifest & Smoke Test Artifact
