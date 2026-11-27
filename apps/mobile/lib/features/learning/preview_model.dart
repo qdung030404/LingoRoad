@@ -216,10 +216,6 @@ extension PracticeDetails on PracticeSkill {
   ][index];
 }
 
-const writingPrompts = [
-  'You recently stayed at a hotel in Hanoi and left your jacket in the room. Write an email to the receptionist: say who you are, describe your jacket, and ask how to get it back.',
-  'Some people argue that working from home brings more benefits, while others believe working in an office fosters better collaboration. Discuss both views and give your opinion.',
-];
 const sampleWriting = [
   'Dear Hotel Receptionist, My name is Nam and I stayed in room 302 last weekend. Unfortunately, I forgot my dark blue jacket in the closet. Could you please check with housekeeping and inform me how I can arrange to get it back? Thank you very much for your assistance.',
   'Nowadays, the debate between working remotely and working in an office has gained widespread attention. On the one hand, remote work offers flexibility and saves commuting time. On the other hand, office environments promote direct communication and team bonding. In my opinion, a hybrid model combining both approaches provides the optimal balance for modern workers.',

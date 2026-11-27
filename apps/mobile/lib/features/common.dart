@@ -54,47 +54,6 @@ class ErrorNotice extends StatelessWidget {
   );
 }
 
-class LoadPage extends StatefulWidget {
-  const LoadPage({
-    super.key,
-    required this.title,
-    required this.load,
-    required this.builder,
-  });
-  final String title;
-  final Future<Json> Function() load;
-  final Widget Function(BuildContext, Json) builder;
-  @override
-  State<LoadPage> createState() => _LoadPageState();
-}
-
-class _LoadPageState extends State<LoadPage> {
-  late Future<Json> future = widget.load();
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.title)),
-    body: FutureBuilder<Json>(
-      future: future,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return PageBody(
-            children: [
-              ErrorNotice(
-                errorMessage(snapshot.error!),
-                onRetry: () => setState(() => future = widget.load()),
-              ),
-            ],
-          );
-        }
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        return widget.builder(context, snapshot.data!);
-      },
-    ),
-  );
-}
-
 String? requiredName(String? value) =>
     (value?.trim().length ?? 0) < 2 || value!.trim().length > 100
     ? 'Họ tên cần từ 2 đến 100 ký tự.'
