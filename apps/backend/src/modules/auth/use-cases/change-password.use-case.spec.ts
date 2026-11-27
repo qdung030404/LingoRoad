@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ChangePasswordUseCase } from './change-password.use-case';
 import { UserRepository, UserWithProfile } from '../repositories/user.repository';
@@ -11,7 +11,6 @@ import { UserRole, UserStatus } from '@prisma/client';
 describe('ChangePasswordUseCase', () => {
   let useCase: ChangePasswordUseCase;
   let userRepository: jest.Mocked<UserRepository>;
-  let refreshSessionRepository: jest.Mocked<RefreshSessionRepository>;
   let passwordService: jest.Mocked<PasswordService>;
   let prismaService: { $transaction: jest.Mock };
   let eventEmitter: jest.Mocked<EventEmitter2>;
@@ -55,7 +54,6 @@ describe('ChangePasswordUseCase', () => {
 
     useCase = module.get<ChangePasswordUseCase>(ChangePasswordUseCase);
     userRepository = module.get(UserRepository);
-    refreshSessionRepository = module.get(RefreshSessionRepository);
     passwordService = module.get(PasswordService);
     prismaService = module.get(PrismaService);
     eventEmitter = module.get(EventEmitter2);

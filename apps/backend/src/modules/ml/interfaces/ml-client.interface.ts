@@ -12,11 +12,6 @@ export interface CatCandidate {
   c: number;
 }
 
-export interface CatSelectRequest {
-  history: CatHistoryEntry[];
-  candidates: CatCandidate[];
-}
-
 export interface CatSelectResponse {
   theta: number;
   se: number;
@@ -39,12 +34,6 @@ export interface AdvisorPathEntry {
   name: string;
   mastery: number;
   reason: string;
-}
-
-export interface AdvisorRequest {
-  question: string;
-  path: AdvisorPathEntry[];
-  locale?: string;
 }
 
 export interface AdvisorResponse {
@@ -134,10 +123,6 @@ export interface KtEvent {
   correct: number;
   elapsed: number;
   lag: number;
-}
-
-export interface KtPredictRequest {
-  sequence: KtEvent[];
 }
 
 export interface KtPredictResponse {

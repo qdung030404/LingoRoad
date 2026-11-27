@@ -35,7 +35,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return true;
   }
 
-  handleRequest<TUser = unknown>(err: unknown, user: TUser, info: unknown): TUser {
+  handleRequest<TUser = unknown>(err: unknown, user: TUser): TUser {
     if (err || !user) {
       throw err || new UnauthorizedException({ code: 'AUTH_UNAUTHORIZED', message: 'Yêu cầu Bearer token hợp lệ.' });
     }

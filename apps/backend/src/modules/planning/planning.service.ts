@@ -20,9 +20,6 @@ import {
   learningDayStart,
   PlanItem,
   PlannedLesson,
-  ProgressScoreStats,
-  ProgressUnit,
-  ProgressUnitStatus,
   SkillLevelChange,
 } from './planning.helpers';
 
@@ -124,15 +121,6 @@ export class PlanningService {
       const existing = await tx.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });
       if (existing && changed) await this.ensureIn(tx, userId);
       return this.preferenceDto(saved);
-    });
-  }
-
-  /** Profile writes share the same revision and replan path without creating a pre-placement plan. */
-  async reconcileProfileGoal(userId: string) {
-    return this.prisma.$transaction(async tx => {
-      await this.lock(tx, userId);
-      const existing = await tx.learningDayPlan.findUnique({ where: { userId_date: { userId, date: learningDate(new Date()) } } });
-      if (existing) await this.ensureIn(tx, userId);
     });
   }
 
@@ -572,22 +560,6 @@ export class PlanningService {
       SELECT idx, FLOOR(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span)))))::double precision AS seconds
       FROM merged CROSS JOIN LATERAL unnest(spans) AS pieces(span) GROUP BY idx`;
     return new Map(rows.map(row => [row.idx, Number(row.seconds ?? 0)]));
-  }
-
-  /** UTC ranges are unioned across devices before summing. Time is never inferred from attempts. */
-  async activeSeconds(userId: string, from: Date, to: Date): Promise<number> {
-    if (from >= to) return 0;
-    const rows = await this.prisma.$queryRaw<{ milliseconds: number }[]>`
-      WITH merged AS (
-        SELECT range_agg(tstzrange(GREATEST(s.start_at AT TIME ZONE 'UTC', ${from}::timestamptz),
-          LEAST(s.end_at AT TIME ZONE 'UTC', ${to}::timestamptz), '[)')) AS ranges
-        FROM learning_activity_segments s JOIN learning_activity_sessions a ON a.id = s.session_id
-        WHERE a.user_id = ${userId}::uuid AND s.start_at IS NOT NULL
-          AND s.end_at > (${from}::timestamptz AT TIME ZONE 'UTC')
-          AND s.start_at < (${to}::timestamptz AT TIME ZONE 'UTC')
-      ), pieces AS (SELECT unnest(ranges) AS span FROM merged)
-      SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span))) * 1000), 0)::double precision AS milliseconds FROM pieces`;
-    return Math.floor((rows[0]?.milliseconds ?? 0) / 1000);
   }
 
   async progress(userId: string) {
