@@ -101,6 +101,7 @@ export default function AdminUsersPage(): React.ReactElement {
     initialFilters.status,
   );
   const [loading, setLoading] = useState(true);
+  const usersReqRef = useRef(0);
   const [exporting, setExporting] = useState(false);
   const [bannerError, setBannerError] = useState<string | null>(null);
   const [bannerSuccess, setBannerSuccess] = useState<string | null>(null);
@@ -169,6 +170,7 @@ export default function AdminUsersPage(): React.ReactElement {
   };
 
   const loadUsers = useCallback(async () => {
+    const reqId = ++usersReqRef.current;
     setLoading(true);
     setBannerError(null);
     try {
@@ -179,19 +181,23 @@ export default function AdminUsersPage(): React.ReactElement {
         role: roleFilter,
         status: statusFilter,
       });
+      if (reqId !== usersReqRef.current) return;
       setUsers(result.items);
       setPagination(result.pagination);
       if (result.summary) {
         setSummary(result.summary);
       }
     } catch (err) {
+      if (reqId !== usersReqRef.current) return;
       setBannerError(
         err instanceof Error
           ? err.message
           : 'Không thể tải danh sách người dùng.',
       );
     } finally {
-      setLoading(false);
+      if (reqId === usersReqRef.current) {
+        setLoading(false);
+      }
     }
   }, [page, limit, searchQuery, roleFilter, statusFilter]);
 

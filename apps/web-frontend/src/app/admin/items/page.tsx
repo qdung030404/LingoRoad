@@ -122,6 +122,7 @@ export default function AdminItemsPage(): React.ReactElement {
   );
   const [groupIdFilter, setGroupIdFilter] = useState(initialFilters.groupId);
   const [loading, setLoading] = useState(true);
+  const itemsReqRef = useRef(0);
   const [exporting, setExporting] = useState(false);
   const [bannerError, setBannerError] = useState<string | null>(null);
 
@@ -151,6 +152,7 @@ export default function AdminItemsPage(): React.ReactElement {
   const [groupsPage, setGroupsPage] = useState(1);
   const [groupsLimit, setGroupsLimit] = useState(10);
   const [groupsLoading, setGroupsLoading] = useState(false);
+  const groupsReqRef = useRef(0);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [editingGroup, setEditingGroup] = useState<AdminAssessmentGroup | null>(
     null,
@@ -187,6 +189,7 @@ export default function AdminItemsPage(): React.ReactElement {
   }, []);
 
   const loadItems = useCallback(async () => {
+    const reqId = ++itemsReqRef.current;
     setLoading(true);
     setBannerError(null);
     try {
@@ -200,19 +203,23 @@ export default function AdminItemsPage(): React.ReactElement {
         usageScope: usageScopeFilter,
         groupId: groupIdFilter || undefined,
       });
+      if (reqId !== itemsReqRef.current) return;
       setItems(result.items);
       setPagination(result.pagination);
       if (result.summary) {
         setSummary(result.summary);
       }
     } catch (err) {
+      if (reqId !== itemsReqRef.current) return;
       setBannerError(
         err instanceof Error
           ? err.message
           : 'Không thể tải danh sách câu hỏi.',
       );
     } finally {
-      setLoading(false);
+      if (reqId === itemsReqRef.current) {
+        setLoading(false);
+      }
     }
   }, [
     page,
@@ -226,6 +233,7 @@ export default function AdminItemsPage(): React.ReactElement {
   ]);
 
   const loadGroups = useCallback(async () => {
+    const reqId = ++groupsReqRef.current;
     setGroupsLoading(true);
     setBannerError(null);
     try {
@@ -237,14 +245,18 @@ export default function AdminItemsPage(): React.ReactElement {
         usageScope: usageScopeFilter,
         search: searchQuery,
       });
+      if (reqId !== groupsReqRef.current) return;
       setGroups(result.items);
       setGroupsPagination(result.pagination);
     } catch (err) {
+      if (reqId !== groupsReqRef.current) return;
       setBannerError(
         err instanceof Error ? err.message : 'Không thể tải danh sách nhóm đề.',
       );
     } finally {
-      setGroupsLoading(false);
+      if (reqId === groupsReqRef.current) {
+        setGroupsLoading(false);
+      }
     }
   }, [groupsPage, groupsLimit, skillFilter, cefrFilter, usageScopeFilter, searchQuery]);
 
@@ -438,6 +450,10 @@ export default function AdminItemsPage(): React.ReactElement {
   const handleSaveGroup = async (event: React.FormEvent): Promise<void> => {
     event.preventDefault();
     setGroupError(null);
+    if (!Number.isInteger(gPartNumber) || gPartNumber < 1 || gPartNumber > 20) {
+      setGroupError('Part # phải là số nguyên từ 1 đến 20.');
+      return;
+    }
     setSavingGroup(true);
     try {
       const itemIds = gSelectedItems.map((item) => item.id);

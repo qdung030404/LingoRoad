@@ -112,10 +112,16 @@ export function SpeakingVoiceTab({
         <button
           type="button"
           onClick={() => {
-            setVoiceStuckOnly(true);
+            setVoiceAssessmentFilter(
+              voiceAssessmentFilter === 'PROCESSING' ? '' : 'PROCESSING',
+            );
             setVoicePage(1);
           }}
-          className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/70 px-3.5 py-2 text-xs font-semibold text-blue-900 hover:bg-blue-50"
+          className={`inline-flex items-center gap-2 rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
+            voiceAssessmentFilter === 'PROCESSING'
+              ? 'border-blue-400 bg-blue-100 text-blue-950 shadow-sm'
+              : 'border-blue-200 bg-blue-50/70 text-blue-900 hover:bg-blue-50'
+          }`}
         >
           <Clock className="h-3.5 w-3.5 text-blue-600" />
           <span>Chấm điểm treo (stuckProcessing):</span>

@@ -206,6 +206,9 @@ export function LessonComposerModal({
 
   const handleKindChange = (nextKind: LearningKind): void => {
     setKind(nextKind);
+    if (nextKind !== 'GRAMMAR') {
+      setGrammarTopicId('');
+    }
     if (nextKind === 'LISTENING') {
       setSteps([]);
       const nextSegments = transcriptSegments.length >= 2 ? transcriptSegments : createDefaultListeningSegments();
@@ -363,7 +366,7 @@ export function LessonComposerModal({
         ...(parsedSortOrder !== undefined ? { sortOrder: parsedSortOrder } : {}),
         published,
         unitId: unitId || null,
-        ...(kind === 'GRAMMAR' || grammarTopicId ? { grammarTopicId: grammarTopicId || null } : {}),
+        grammarTopicId: kind === 'GRAMMAR' ? (grammarTopicId || null) : null,
         content: contentPayload,
       };
       if (editingLesson) await updateAdminLesson(editingLesson.id, payload);
@@ -488,6 +491,7 @@ export function LessonComposerModal({
                 <label className="mb-1.5 block text-xs font-semibold text-slateDark-800">Thời lượng *</label>
                 <input
                   type="number"
+                  required
                   min={1}
                   max={120}
                   value={estimatedMinutes}

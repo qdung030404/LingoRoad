@@ -387,3 +387,175 @@ test('AdminUsersPage surfaces detail load errors and renders all 5 recent activi
   assert.ok(bodyText.replace(/\s+/g, '').includes('15/20'));
   assert.ok(bodyText.includes('Prompt #5'));
 });
+
+test('LessonComposerModal generates unique IDs after middle deletion and clears grammarTopicId on kind change', async () => {
+  interface SavedLessonPayload {
+    kind: string;
+    grammarTopicId?: string | null;
+    content: { questions: Array<{ id: string }> };
+  }
+  const hooks = hookHarness();
+  let savedPayload: SavedLessonPayload | null = null;
+  const helpers = await import('../src/lib/admin-validation');
+  const { LessonComposerModal } = loadComponent('components/admin/LessonComposerModal.tsx', {
+    react: hooks.react,
+    'lucide-react': {},
+    '@/lib/admin-validation': helpers,
+    './MediaUploadField': { MediaUploadField: () => null },
+    './ListeningLessonForm': { ListeningLessonForm: () => null },
+    '@/lib/admin-api': {
+      updateAdminLesson: async (_id: string, payload: SavedLessonPayload) => {
+        savedPayload = payload;
+      },
+      resolveAdminMediaUrl: (u: string) => u,
+    },
+  });
+
+  const props = {
+    units: [],
+    grammarTopics: [{ id: 'gt-1', code: 'grammar.tenses', titleVi: 'Thì', cefrLevel: 'A1', isLeaf: true }],
+    editingLesson: {
+      id: 'lesson-1',
+      code: 'grammar-lesson-1',
+      kind: 'GRAMMAR',
+      title: 'Grammar Lesson',
+      description: 'Desc',
+      estimatedMinutes: 5,
+      grammarTopic: { id: 'gt-1', code: 'grammar.tenses', titleVi: 'Thì', cefrLevel: 'A1' },
+      content: {
+        steps: [{ id: 'step-1', title: 'Step', body: 'Body' }],
+        questions: [1, 2, 3, 4].map((i) => ({
+          id: `q-${i}`,
+          type: 'MULTIPLE_CHOICE' as const,
+          prompt: `Question ${i}`,
+          explanation: 'Exp',
+          options: ['A', 'B', 'C', 'D'].map((id) => ({ id, text: `${id}-${i}` })),
+          correctOptionId: 'A',
+        })),
+      },
+    },
+    onClose() { },
+    onSaved() { },
+    onUnitCreated() { },
+  };
+
+  let tree = hooks.render(LessonComposerModal, props);
+  const deleteButtons = nodes(tree).filter((n) => n.type === 'button' && n.props?.['aria-label'] === 'Xoá câu hỏi');
+  deleteButtons[1].props.onClick?.();
+  tree = hooks.render(LessonComposerModal, props);
+  button(tree, 'Thêm câu hỏi').props.onClick?.();
+  tree = hooks.render(LessonComposerModal, props);
+
+  const textareas = nodes(tree).filter((n) => n.type === 'textarea');
+  const lastPrompt = textareas[textareas.length - 2];
+  const lastExp = textareas[textareas.length - 1];
+  lastPrompt.props.onChange?.({ target: { value: 'New Question 5' } });
+  lastExp.props.onChange?.({ target: { value: 'New Exp 5' } });
+  tree = hooks.render(LessonComposerModal, props);
+
+  const optionInputs = nodes(tree).filter(
+    (n) => n.type === 'input' && typeof n.props?.placeholder === 'string' && n.props.placeholder.startsWith('Phương án '),
+  );
+  optionInputs.slice(-4).forEach((inp, idx) => {
+    inp.props.onChange?.({ target: { value: `Opt-${idx}` } });
+  });
+  tree = hooks.render(LessonComposerModal, props);
+
+  const kindSelect = nodes(tree).find((n) => n.type === 'select' && n.props?.value === 'GRAMMAR')!;
+  kindSelect.props.onChange?.({ target: { value: 'VOCABULARY' } });
+  tree = hooks.render(LessonComposerModal, props);
+
+  await nodes(tree).find((n) => n.type === 'form')!.props.onSubmit({ preventDefault() { } });
+  await tick();
+
+  assert.ok(savedPayload, 'Expected updateAdminLesson to be called');
+  const submitted = savedPayload as SavedLessonPayload;
+  assert.equal(submitted.kind, 'VOCABULARY');
+  assert.equal(submitted.grammarTopicId, null);
+  const qIds = submitted.content.questions.map((q) => q.id);
+  assert.equal(new Set(qIds).size, qIds.length);
+  assert.ok(qIds.includes('q-5'));
+});
+
+test('AdminUsersPage ignores stale out-of-order list responses', async () => {
+  const hooks = hookHarness();
+  const resolvers: Array<(value: unknown) => void> = [];
+  const AdminUsersPage = loadComponent('app/admin/users/page.tsx', {
+    react: hooks.react,
+    'lucide-react': {},
+    '@/components/admin/AdminShell': { AdminShell: (props: Record<string, unknown>) => props },
+    '@/components/admin/GlobalPagination': {},
+    '@/components/admin/LegacyStatCard': {},
+    '@/lib/admin-api': {
+      listAdminUsers: () =>
+        new Promise((res) => {
+          resolvers.push(res);
+        }),
+      downloadAdminExport: async () => undefined,
+    },
+  }).default;
+
+  const renderPage = () => {
+    const shell = hooks.render(AdminUsersPage);
+    const children = shell.props.children as Array<(user: Record<string, unknown>) => unknown>;
+    return { shell, body: children[0]({ id: 'admin-1', role: 'ADMIN' }) };
+  };
+
+  let view = renderPage();
+  view.shell.props.onAuthenticated?.();
+  view = renderPage();
+  hooks.flushEffects();
+
+  const roleSelect = nodes(view.body).find((n) => n.type === 'select')!;
+  roleSelect.props.onChange?.({ target: { value: 'ADMIN' } });
+  view = renderPage();
+  hooks.flushEffects();
+
+  assert.equal(resolvers.length, 2);
+  resolvers[1]({
+    items: [
+      {
+        id: 'u-new',
+        email: 'newest-admin@example.com',
+        name: 'Newest Admin',
+        avatarUrl: null,
+        provider: 'LOCAL',
+        role: 'ADMIN',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        profile: null,
+        stats: { learningAttempts: 0, placementSessions: 0, vocabularyDecks: 0, speakingSubmissions: 0 },
+      },
+    ],
+    pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+    summary: { total: 1, activeLearners30d: 0, learners: 0, admins: 1 },
+  });
+  await tick();
+
+  resolvers[0]({
+    items: [
+      {
+        id: 'u-old',
+        email: 'stale-learner@example.com',
+        name: 'Stale Learner',
+        avatarUrl: null,
+        provider: 'LOCAL',
+        role: 'LEARNER',
+        status: 'ACTIVE',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        profile: null,
+        stats: { learningAttempts: 0, placementSessions: 0, vocabularyDecks: 0, speakingSubmissions: 0 },
+      },
+    ],
+    pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+    summary: { total: 1, activeLearners30d: 0, learners: 1, admins: 0 },
+  });
+  await tick();
+
+  view = renderPage();
+  const bodyText = text(view.body);
+  assert.ok(bodyText.includes('newest-admin@example.com'));
+  assert.ok(!bodyText.includes('stale-learner@example.com'));
+});

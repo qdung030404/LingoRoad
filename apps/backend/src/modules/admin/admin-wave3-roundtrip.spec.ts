@@ -1,9 +1,8 @@
 import {
   BadRequestException,
-  ServiceUnavailableException,
+  CallHandler,
+  ExecutionContext,
 } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { ConfigService } from '@nestjs/config';
 import {
   AssessmentSkill,
   AuthProvider,
@@ -18,7 +17,6 @@ import {
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { Response } from 'express';
-import { ExecutionContext, CallHandler } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { lastValueFrom, of } from 'rxjs';
 import { AssessmentMatrixService } from '../assessment/services/assessment-matrix.service';
@@ -26,7 +24,7 @@ import { MediaStorageService } from '../media/media-storage.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PasswordService } from '../security/password.service';
 import { CuratedVocabularyService } from '../vocabulary/curated-vocabulary.service';
-import { AdminContentController } from './controllers/admin-content.controller';
+import { AdminReportingController } from './controllers/admin-reporting.controller';
 import { BulkPublishDto } from './dto/admin-content.dto';
 import { AdminAuditInterceptor } from './interceptors/admin-audit.interceptor';
 import { AdminAnalyticsService } from './services/admin-analytics.service';
@@ -43,7 +41,6 @@ import {
 import { AdminImportService } from './services/admin-import.service';
 import { AdminSpeakingService } from './services/admin-speaking.service';
 import { AdminUsersService } from './services/admin-users.service';
-import { AdminVocabularyService } from './services/admin-vocabulary.service';
 
 const UUID_1 = '11111111-1111-4111-8111-111111111111';
 const UUID_2 = '22222222-2222-4222-8222-222222222222';
@@ -265,12 +262,9 @@ describe('Wave 3 Round-Trip Export/Import, Single-User Export & Bulk Publish', (
         headers[k] = v;
       }),
     } as unknown as Response;
-    const controller = new AdminContentController(
+    const controller = new AdminReportingController(
       {} as AdminAnalyticsService,
-      {} as AdminContentService,
       {} as AdminImportService,
-      {} as AdminVocabularyService,
-      {} as AdminSpeakingService,
       {} as AdminAuditService,
       exportService,
     );
@@ -526,9 +520,4 @@ describe('Wave 3 Round-Trip Export/Import, Single-User Export & Bulk Publish', (
       data: { published: false },
     });
   });
-
-  // Unused imports guard keep clean TS compilation
-  void HttpService;
-  void ConfigService;
-  void ServiceUnavailableException;
 });

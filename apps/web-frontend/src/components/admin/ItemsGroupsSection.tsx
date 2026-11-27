@@ -345,6 +345,7 @@ export function renderGroupFormModal(p: GroupModalParams): React.ReactElement {
               <label className="mb-1 block text-xs font-semibold text-slateDark-800">Part #</label>
               <input
                 type="number"
+                required
                 min={1}
                 max={20}
                 value={p.gPartNumber}

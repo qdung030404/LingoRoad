@@ -14,6 +14,24 @@ import { MediaUploadField } from './MediaUploadField';
 
 export const MAX_LESSON_CODE_LENGTH = 100;
 
+export function nextUniquePrefixedId(prefix: string, existingIds: readonly string[]): string {
+  const used = new Set(existingIds.map((id) => id.trim()));
+  const pattern = new RegExp(`^${prefix}-(\\d+)$`);
+  let maxNum = 0;
+  for (const id of existingIds) {
+    const match = pattern.exec(id.trim());
+    if (match) {
+      const parsed = Number.parseInt(match[1], 10);
+      if (parsed > maxNum) maxNum = parsed;
+    }
+  }
+  let nextNum = maxNum + 1;
+  while (used.has(`${prefix}-${nextNum}`)) {
+    nextNum += 1;
+  }
+  return `${prefix}-${nextNum}`;
+}
+
 export function buildCloneLessonCode(raw: string): string {
   const trimmed = raw.trim().toLowerCase();
   if (!trimmed) return '';
@@ -81,9 +99,12 @@ export function createEmptyQuestion(
   index: number,
   isListening = false,
   defaultSegmentId = 'seg-1',
+  existingIds: readonly string[] = [],
 ): LearningQuestionInput {
+  const id =
+    existingIds.length > 0 ? nextUniquePrefixedId('q', existingIds) : `q-${index + 1}`;
   return {
-    id: `q-${index + 1}`,
+    id,
     type: 'MULTIPLE_CHOICE',
     prompt: '',
     options: [
@@ -144,7 +165,7 @@ export function renderNonListeningVocabAndSteps({
               setKeyVocabulary((prev) => [
                 ...prev,
                 {
-                  id: `kv-${prev.length + 1}`,
+                  id: nextUniquePrefixedId('kv', prev.map((item) => item.id)),
                   word: '',
                   meaning: '',
                   phonetic: '',
@@ -257,7 +278,10 @@ export function renderNonListeningVocabAndSteps({
           <button
             type="button"
             onClick={() =>
-              setSteps((prev) => [...prev, { id: `step-${prev.length + 1}`, title: '', body: '' }])
+              setSteps((prev) => [
+                ...prev,
+                { id: nextUniquePrefixedId('step', prev.map((item) => item.id)), title: '', body: '' },
+              ])
             }
             className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3 py-1.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
           >
@@ -402,7 +426,12 @@ export function renderLessonQuestionsSection({
           onClick={() =>
             setQuestions((prev) => [
               ...prev,
-              createEmptyQuestion(prev.length, kind === 'LISTENING', transcriptSegments[0]?.id ?? 'seg-1'),
+              createEmptyQuestion(
+                prev.length,
+                kind === 'LISTENING',
+                transcriptSegments[0]?.id ?? 'seg-1',
+                prev.map((q) => q.id),
+              ),
             ])
           }
           className="inline-flex items-center gap-1.5 rounded-xl border border-slateDark-200 bg-white px-3 py-1.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50 disabled:opacity-40"

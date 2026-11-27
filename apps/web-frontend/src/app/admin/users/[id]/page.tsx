@@ -118,6 +118,7 @@ export default function AdminUser360Page(): React.ReactElement {
   const [detail, setDetail] = useState<AdminUserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const detailReqRef = useRef(0);
   const [exporting, setExporting] = useState(false);
 
   // Tab 1: Profile form
@@ -162,6 +163,7 @@ export default function AdminUser360Page(): React.ReactElement {
   const [placementDetailError, setPlacementDetailError] = useState<
     string | null
   >(null);
+  const placementReqRef = useRef(0);
   const [confirmResetRetakeOpen, setConfirmResetRetakeOpen] = useState(false);
   const [resetPlacementSkillLevels, setResetPlacementSkillLevels] =
     useState(false);
@@ -171,6 +173,7 @@ export default function AdminUser360Page(): React.ReactElement {
   const [sessions, setSessions] = useState<AdminUserSessionView[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const sessionsReqRef = useRef(0);
   const [revokeTarget, setRevokeTarget] = useState<AdminUserSessionView | null>(
     null,
   );
@@ -199,38 +202,48 @@ export default function AdminUser360Page(): React.ReactElement {
 
   const loadDetail = useCallback(async (): Promise<void> => {
     if (!userId) return;
+    const reqId = ++detailReqRef.current;
     setLoading(true);
     setError(null);
     try {
       const res = await getAdminUserDetail(userId);
+      if (reqId !== detailReqRef.current) return;
       setDetail(res);
       hydrateProfileForm(res);
     } catch (err) {
+      if (reqId !== detailReqRef.current) return;
       setError(
         err instanceof Error
           ? err.message
           : 'Không thể tải hồ sơ 360° của người dùng.',
       );
     } finally {
-      setLoading(false);
+      if (reqId === detailReqRef.current) {
+        setLoading(false);
+      }
     }
   }, [hydrateProfileForm, userId]);
 
   const loadSessions = useCallback(async (): Promise<void> => {
     if (!userId) return;
+    const reqId = ++sessionsReqRef.current;
     setSessionsLoading(true);
     setSessionsError(null);
     try {
       const list = await listAdminUserSessions(userId);
+      if (reqId !== sessionsReqRef.current) return;
       setSessions(list);
     } catch (err) {
+      if (reqId !== sessionsReqRef.current) return;
       setSessionsError(
         err instanceof Error
           ? err.message
           : 'Không thể tải danh sách phiên đăng nhập.',
       );
     } finally {
-      setSessionsLoading(false);
+      if (reqId === sessionsReqRef.current) {
+        setSessionsLoading(false);
+      }
     }
   }, [userId]);
 
@@ -341,21 +354,26 @@ export default function AdminUser360Page(): React.ReactElement {
 
   const openPlacementModal = async (sessionId: string): Promise<void> => {
     if (!userId) return;
+    const reqId = ++placementReqRef.current;
     setPlacementModalSessionId(sessionId);
     setPlacementDetail(null);
     setPlacementDetailError(null);
     setPlacementDetailLoading(true);
     try {
       const res = await getAdminUserPlacementDetail(userId, sessionId);
+      if (reqId !== placementReqRef.current) return;
       setPlacementDetail(res);
     } catch (err) {
+      if (reqId !== placementReqRef.current) return;
       setPlacementDetailError(
         err instanceof Error
           ? err.message
           : 'Không thể tải chi tiết bài kiểm tra đầu vào.',
       );
     } finally {
-      setPlacementDetailLoading(false);
+      if (reqId === placementReqRef.current) {
+        setPlacementDetailLoading(false);
+      }
     }
   };
 

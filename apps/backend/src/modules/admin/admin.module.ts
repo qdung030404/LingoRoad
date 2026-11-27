@@ -7,10 +7,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { SpeakingModule } from '../speaking/speaking.module';
 import { VocabularyModule } from '../vocabulary/vocabulary.module';
 import { ClientIpThrottlerGuard } from '../../common/guards/client-ip-throttler.guard';
+import { AdminAssessmentController } from './controllers/admin-assessment.controller';
 import { AdminAuthController } from './controllers/admin-auth.controller';
+import { AdminCatalogController } from './controllers/admin-catalog.controller';
 import { AdminContentController } from './controllers/admin-content.controller';
 import { AdminMediaController } from './controllers/admin-media.controller';
 import { AdminOpsController } from './controllers/admin-ops.controller';
+import { AdminReportingController } from './controllers/admin-reporting.controller';
 import { AdminUsersController } from './controllers/admin-users.controller';
 import { AdminJwtGuard } from './guards/admin-jwt.guard';
 import { AdminAuditInterceptor } from './interceptors/admin-audit.interceptor';
@@ -40,6 +43,9 @@ import { AdminVocabularyService } from './services/admin-vocabulary.service';
     AdminAuthController,
     AdminUsersController,
     AdminContentController,
+    AdminAssessmentController,
+    AdminCatalogController,
+    AdminReportingController,
     AdminMediaController,
     AdminOpsController,
   ],
