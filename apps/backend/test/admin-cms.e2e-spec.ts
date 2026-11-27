@@ -211,7 +211,7 @@ describe('Admin CMS & Dashboard Analytics (E2E real PostgreSQL)', () => {
 
   it('supports Grammar leaf CRUD (201/200/200) and rejects legacy invalid keys with 400', async () => {
     const authHeader = `Bearer ${adminToken}`;
-    const code = `grammar.e2e_leaf_${lettersSuffix()}`;
+    const code = `grammar.cms_leaf_${lettersSuffix()}`;
 
     await request(app.getHttpServer())
       .post('/api/v1/admin/grammar/topics')

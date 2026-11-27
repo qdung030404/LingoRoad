@@ -55,7 +55,7 @@ export class PasswordService {
       argon2.hash(password, {
         type: argon2.argon2id,
         memoryCost: isTest ? 4096 : 65536,
-        timeCost: isTest ? 1 : 3,
+        timeCost: isTest ? 2 : 3,
         parallelism: isTest ? 1 : 4,
       }),
     );
