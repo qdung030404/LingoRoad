@@ -358,6 +358,16 @@ class PassageCard extends StatelessWidget {
 
   Future<void> _expand(BuildContext context) async {
     onExpandedChanged?.call(true);
+    final moveWatch = Stopwatch();
+    void handleThrottledInteraction() {
+      if (!moveWatch.isRunning || moveWatch.elapsedMilliseconds >= 500) {
+        moveWatch
+          ..reset()
+          ..start();
+        onInteraction?.call();
+      }
+    }
+
     try {
       await showModalBottomSheet<void>(
         context: context,
@@ -367,9 +377,14 @@ class PassageCard extends StatelessWidget {
           child: FractionallySizedBox(
             heightFactor: practice ? .82 : .75,
             child: Listener(
-              onPointerDown: (_) => onInteraction?.call(),
-              onPointerMove: (_) => onInteraction?.call(),
-              onPointerSignal: (_) => onInteraction?.call(),
+              onPointerDown: (_) {
+                moveWatch
+                  ..reset()
+                  ..start();
+                onInteraction?.call();
+              },
+              onPointerMove: (_) => handleThrottledInteraction(),
+              onPointerSignal: (_) => handleThrottledInteraction(),
               child: practice
                   ? _readingSheet(sheetContext)
                   : SingleChildScrollView(

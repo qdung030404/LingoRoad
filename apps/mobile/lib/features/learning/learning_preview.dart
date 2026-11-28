@@ -373,7 +373,9 @@ class _LearningPreviewState extends State<LearningPreview>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _scheduleLearningDayRefresh();
-      learning?.activity?.flush();
+      learning?.activity?.flush(
+        refreshOnAck: ModalRoute.of(context)?.isCurrent == true,
+      );
       learning?.refreshIfStale();
       _loadTab(selectedTab.value);
       _refreshVocabulary();

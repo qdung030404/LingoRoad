@@ -10,6 +10,7 @@ import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { buildCorsOptions } from './common/config/cors.config';
 import { normalizeForwardedForHeader } from './common/guards/client-ip-throttler.guard';
+import { gzipCompressionMiddleware } from './common/middleware/gzip-compression.middleware';
 import { placementMediaRoot } from './modules/placement/services/demo-placement.service';
 import { learningMediaRoot } from './modules/learning/learning.service';
 
@@ -60,6 +61,8 @@ async function bootstrap() {
       nodeEnv: configService.get<string>('NODE_ENV'),
     }),
   );
+
+  app.use(gzipCompressionMiddleware({ threshold: 1024 }));
 
   app.useGlobalPipes(
     new ValidationPipe({

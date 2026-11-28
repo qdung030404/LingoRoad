@@ -9,7 +9,10 @@ describe('Firebase account ownership', () => {
   const token = { uid: 'uid', email: row.email, name: 'Learner', role: 'ADMIN', email_verified: true, firebase: { sign_in_provider: 'google.com' } } as unknown as DecodedIdToken;
   const prisma = { user: { findUnique: jest.fn(), create: jest.fn(), update: jest.fn() } };
   const service = new FirebaseUserService(prisma as unknown as PrismaService);
-  beforeEach(() => jest.resetAllMocks());
+  beforeEach(() => {
+    jest.resetAllMocks();
+    service.invalidateCache();
+  });
   it('preserves internal UUID ownership and database roles', async () => {
     prisma.user.findUnique.mockResolvedValue(row);
     await expect(service.resolve(token)).resolves.toEqual({ sub: row.id, email: row.email, role: 'LEARNER', firebaseUid: 'uid' });
@@ -190,5 +193,119 @@ describe('Firebase account ownership', () => {
     prisma.user.findUnique.mockResolvedValue({ ...row, provider: AuthProvider.LOCAL, avatarUrl: null, status: UserStatus.SUSPENDED });
     await expect(service.resolve(googleToken)).rejects.toBeInstanceOf(ForbiddenException);
     expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('caches resolved active users for 60s and clears immediately on invalidateCache', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-28T10:00:00Z'));
+    try {
+      prisma.user.findUnique.mockResolvedValue(row);
+
+      await expect(service.resolve(token)).resolves.toEqual({
+        sub: row.id,
+        email: row.email,
+        role: UserRole.LEARNER,
+        firebaseUid: 'uid',
+      });
+      expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
+
+      // Subsequent calls within 60s hit the in-memory cache with zero DB reads.
+      await expect(service.resolve(token)).resolves.toEqual({
+        sub: row.id,
+        email: row.email,
+        role: UserRole.LEARNER,
+        firebaseUid: 'uid',
+      });
+      expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
+
+      // Invalidation by internal userId takes effect immediately (e.g. admin suspension).
+      service.invalidateCache(row.id);
+      prisma.user.findUnique.mockResolvedValueOnce({ ...row, status: UserStatus.SUSPENDED });
+      await expect(service.resolve(token)).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
+
+      // Re-cache active user, then verify 60s TTL expiry triggers fresh DB lookup.
+      prisma.user.findUnique.mockResolvedValue(row);
+      await service.resolve(token);
+      expect(prisma.user.findUnique).toHaveBeenCalledTimes(3);
+
+      jest.advanceTimersByTime(60_000);
+      await service.resolve(token);
+      expect(prisma.user.findUnique).toHaveBeenCalledTimes(4);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('bypasses cache when Google identity sync is needed or email changes and bounds cache at 1,000 entries', async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      ...row,
+      provider: AuthProvider.LOCAL,
+      avatarUrl: null,
+    });
+    const passwordToken = {
+      ...token,
+      firebase: { sign_in_provider: 'password' },
+    } as unknown as DecodedIdToken;
+    await service.resolve(passwordToken);
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(1);
+
+    // Next sign-in via Google needs provider/avatar sync -> must bypass cache and update DB.
+    prisma.user.update.mockResolvedValue({
+      ...row,
+      provider: AuthProvider.GOOGLE,
+      avatarUrl: 'https://cdn.example.com/pic.png',
+    });
+    await service.resolve({
+      ...token,
+      picture: 'https://cdn.example.com/pic.png',
+    } as unknown as DecodedIdToken);
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
+    expect(prisma.user.update).toHaveBeenCalledTimes(1);
+
+    // Changing email in token bypasses cached entry.
+    await service.resolve({
+      ...token,
+      email: 'changed@example.com',
+      picture: 'https://cdn.example.com/pic.png',
+    } as unknown as DecodedIdToken);
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(3);
+
+    // Capacity bound (1,000): inserting 1,001 distinct users evicts the oldest entry.
+    service.invalidateCache();
+    prisma.user.findUnique.mockReset();
+    for (let i = 0; i < 1001; i += 1) {
+      const uid = `uid-${i}`;
+      prisma.user.findUnique.mockResolvedValueOnce({
+        ...row,
+        id: `user-${i}`,
+        firebaseUid: uid,
+        email: `u${i}@example.com`,
+      });
+      await service.resolve({
+        ...token,
+        uid,
+        email: `u${i}@example.com`,
+      } as unknown as DecodedIdToken);
+    }
+    // uid-1000 is cached (no extra DB call), while uid-0 was evicted (triggers DB call).
+    await service.resolve({
+      ...token,
+      uid: 'uid-1000',
+      email: 'u1000@example.com',
+    } as unknown as DecodedIdToken);
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(1001);
+
+    prisma.user.findUnique.mockResolvedValueOnce({
+      ...row,
+      id: 'user-0',
+      firebaseUid: 'uid-0',
+      email: 'u0@example.com',
+    });
+    await service.resolve({
+      ...token,
+      uid: 'uid-0',
+      email: 'u0@example.com',
+    } as unknown as DecodedIdToken);
+    expect(prisma.user.findUnique).toHaveBeenCalledTimes(1002);
   });
 });

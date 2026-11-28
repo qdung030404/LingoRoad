@@ -33,9 +33,25 @@ describe('PrismaService & resolveDatasourceUrl', () => {
     expect(parsed6543.searchParams.get('pool_timeout')).toBe('45');
   });
 
-  it('leaves non-Supabase URLs, invalid URLs, and undefined untouched', () => {
+  it('appends default connection_limit=10 on postgres/postgresql URLs when omitted and preserves explicit limits', () => {
     const localUrl = 'postgresql://postgres:postgres@localhost:5432/lingoroad';
-    expect(resolveDatasourceUrl(localUrl)).toBe(localUrl);
+    const resolvedLocal = new URL(resolveDatasourceUrl(localUrl)!);
+    expect(resolvedLocal.searchParams.get('connection_limit')).toBe('10');
+
+    const azureUrl =
+      'postgres://lingoroad:secret@lingoroad.postgres.database.azure.com:5432/lingoroad?sslmode=require';
+    const resolvedAzure = new URL(resolveDatasourceUrl(azureUrl)!);
+    expect(resolvedAzure.searchParams.get('sslmode')).toBe('require');
+    expect(resolvedAzure.searchParams.get('connection_limit')).toBe('10');
+
+    const explicitUrl =
+      'postgresql://postgres:postgres@localhost:5432/lingoroad?connection_limit=20&pool_timeout=15';
+    expect(resolveDatasourceUrl(explicitUrl)).toBe(explicitUrl);
+  });
+
+  it('leaves non-postgres URLs, invalid URLs, and undefined untouched', () => {
+    const mysqlUrl = 'mysql://root:pass@localhost:3306/lingoroad';
+    expect(resolveDatasourceUrl(mysqlUrl)).toBe(mysqlUrl);
     expect(resolveDatasourceUrl('not-a-valid-url')).toBe('not-a-valid-url');
     expect(resolveDatasourceUrl(undefined)).toBeUndefined();
   });
