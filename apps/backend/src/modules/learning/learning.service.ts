@@ -389,6 +389,20 @@ export class LearningService {
     return this.publicAttempt(await this.owned(this.prisma, userId, attemptId));
   }
 
+  private mergeAttemptAnswer(
+    answers: readonly LearningAttemptAnswer[],
+    next: LearningAttemptAnswer,
+  ): LearningAttemptAnswer[] {
+    const updated = [...answers];
+    const existingIndex = updated.findIndex((answer) => answer.questionId === next.questionId);
+    if (existingIndex >= 0) {
+      updated[existingIndex] = next;
+    } else {
+      updated.push(next);
+    }
+    return updated;
+  }
+
   private async reserve(tx: Database, attempt: Attempt, expectedVersion: number, data: Prisma.LearningAttemptUpdateManyMutationInput = {}) {
     if (attempt.status !== 'IN_PROGRESS' || attempt.version !== expectedVersion) this.conflict();
     const updated = await tx.learningAttempt.updateMany({
@@ -411,13 +425,35 @@ export class LearningService {
         if (attempt.answers.find((answer) => answer.questionId === dto.questionId)?.checked) this.conflict();
       }
       await this.reserve(tx, attempt, dto.expectedVersion, { phase: dto.phase, positionIndex: dto.index });
+      const nextAnswers = [...attempt.answers];
       if (dto.questionId !== undefined) {
         await tx.learningAttemptAnswer.upsert({
           where: { attemptId_questionId: { attemptId, questionId: dto.questionId } },
           create: { attemptId, questionId: dto.questionId, optionId: dto.optionId }, update: { optionId: dto.optionId }
         });
+        const existingIndex = nextAnswers.findIndex((answer) => answer.questionId === dto.questionId);
+        if (existingIndex >= 0) {
+          nextAnswers[existingIndex] = { ...nextAnswers[existingIndex], optionId: dto.optionId! };
+        } else {
+          nextAnswers.push({
+            id: '',
+            attemptId,
+            questionId: dto.questionId,
+            optionId: dto.optionId!,
+            checked: false,
+            isCorrect: null,
+            checkedAt: null,
+          });
+        }
       }
-      return this.publicAttempt(await this.owned(tx, userId, attemptId));
+      return this.publicAttempt({
+        ...attempt,
+        version: attempt.version + 1,
+        phase: dto.phase,
+        positionIndex: dto.index,
+        updatedAt: new Date(),
+        answers: nextAnswers,
+      });
     });
   }
 
@@ -466,9 +502,24 @@ export class LearningService {
           }
         }
         await this.reserve(tx, attempt, dto.expectedVersion, { phase: 'QUIZ', positionIndex: index, ...extraUpdate });
-        const data = { optionId: dto.optionId, checked: true, isCorrect: dto.optionId === question.correctOptionId, checkedAt: new Date() };
+        const checkedAt = new Date();
+        const data = { optionId: dto.optionId, checked: true, isCorrect: dto.optionId === question.correctOptionId, checkedAt };
         await tx.learningAttemptAnswer.upsert({ where: { attemptId_questionId: { attemptId, questionId } }, create: { attemptId, questionId, ...data }, update: data });
-        return this.publicAttempt(await this.owned(tx, userId, attemptId));
+        const updatedAttempt: Attempt = {
+          ...attempt,
+          version: attempt.version + 1,
+          phase: 'QUIZ',
+          positionIndex: index,
+          updatedAt: checkedAt,
+          ...(extraUpdate.eligibleForLevelEval === false ? { eligibleForLevelEval: false } : {}),
+          answers: this.mergeAttemptAnswer(attempt.answers, {
+            id: saved?.id ?? '',
+            attemptId,
+            questionId,
+            ...data,
+          }),
+        };
+        return this.publicAttempt(updatedAttempt);
       });
     } catch (error) {
       // Concurrent identical checks can race before the first lock is visible.
@@ -507,7 +558,14 @@ export class LearningService {
           }
         }
         await this.reserve(tx, attempt, expectedVersion, { status: 'COMPLETED', correctCount, submittedAt });
-        const savedAttempt = await this.owned(tx, userId, attemptId);
+        const savedAttempt: Attempt = {
+          ...attempt,
+          version: attempt.version + 1,
+          status: 'COMPLETED',
+          correctCount,
+          submittedAt,
+          updatedAt: submittedAt,
+        };
         const levelChange = this.planning ? await this.planning.evaluateReadingLevel(tx, userId, savedAttempt) : null;
         return { ...this.publicAttempt(savedAttempt), levelChange };
       });

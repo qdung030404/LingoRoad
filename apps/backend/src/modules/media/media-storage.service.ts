@@ -59,7 +59,16 @@ export interface MediaBlobStreamResult {
 interface MediaCacheEntry {
   exists: boolean;
   durationMs?: number;
+  properties?: MediaBlobProperties;
   expiresAt: number;
+}
+
+function cloneBlobProperties(props: MediaBlobProperties): MediaBlobProperties {
+  return {
+    ...props,
+    ...(props.lastModified ? { lastModified: new Date(props.lastModified.getTime()) } : {}),
+    ...(props.metadata ? { metadata: { ...props.metadata } } : {}),
+  };
 }
 
 const CACHE_MAX_ENTRIES = 500;
@@ -271,8 +280,14 @@ export class MediaStorageService implements OnModuleInit {
 
   private setCached(
     key: string,
-    value: { exists: boolean; durationMs?: number },
+    value: {
+      exists: boolean;
+      durationMs?: number;
+      properties?: MediaBlobProperties;
+    },
+    replace = false,
   ): void {
+    const existing = replace ? undefined : this.getCached(key);
     if (this.metadataCache.has(key)) {
       this.metadataCache.delete(key);
     }
@@ -281,11 +296,14 @@ export class MediaStorageService implements OnModuleInit {
       if (oldestKey === undefined) break;
       this.metadataCache.delete(oldestKey);
     }
+    const durationMs = value.durationMs ?? existing?.durationMs;
+    const properties = value.properties
+      ? cloneBlobProperties(value.properties)
+      : existing?.properties;
     this.metadataCache.set(key, {
       exists: value.exists,
-      ...(value.durationMs !== undefined
-        ? { durationMs: value.durationMs }
-        : {}),
+      ...(durationMs !== undefined ? { durationMs } : {}),
+      ...(properties !== undefined ? { properties } : {}),
       expiresAt: Date.now() + CACHE_TTL_MS,
     });
   }
@@ -362,7 +380,7 @@ export class MediaStorageService implements OnModuleInit {
           },
           ...(normalizedMeta ? { metadata: normalizedMeta } : {}),
         });
-        this.setCached(normalizedKey, { exists: true, durationMs });
+        this.setCached(normalizedKey, { exists: true, durationMs }, true);
         return {
           key: normalizedKey,
           url: `/media/${normalizedKey}`,
@@ -391,7 +409,7 @@ export class MediaStorageService implements OnModuleInit {
     }
 
     this.writeLocalAtomically(normalizedKey, buffer);
-    this.setCached(normalizedKey, { exists: true, durationMs });
+    this.setCached(normalizedKey, { exists: true, durationMs }, true);
     return {
       key: normalizedKey,
       url: `/media/${normalizedKey}`,
@@ -498,7 +516,17 @@ export class MediaStorageService implements OnModuleInit {
         durationMs = listeningWaveDurationMs(downloaded);
       }
 
-      this.setCached(key, { exists: true, durationMs });
+      this.setCached(key, {
+        exists: true,
+        durationMs,
+        properties: {
+          contentLength: props.contentLength ?? 0,
+          contentType: props.contentType || inferMediaContentType(key),
+          etag: props.etag,
+          lastModified: props.lastModified,
+          metadata: props.metadata,
+        },
+      });
     }
 
     if (
@@ -516,6 +544,11 @@ export class MediaStorageService implements OnModuleInit {
     const normalizedKey = tryNormalizeBlobKey(key);
     if (!normalizedKey) return null;
 
+    const cached = this.getCached(normalizedKey);
+    if (cached?.properties) {
+      return cloneBlobProperties(cached.properties);
+    }
+
     if (this.isAzureConfigured()) {
       const client = this.initClients();
       if (!client) {
@@ -529,7 +562,7 @@ export class MediaStorageService implements OnModuleInit {
         const props = await client
           .getBlockBlobClient(normalizedKey)
           .getProperties();
-        return {
+        const result: MediaBlobProperties = {
           contentLength: props.contentLength ?? 0,
           contentType:
             props.contentType || inferMediaContentType(normalizedKey),
@@ -537,8 +570,25 @@ export class MediaStorageService implements OnModuleInit {
           lastModified: props.lastModified,
           metadata: props.metadata,
         };
+        const rawMetaDuration =
+          props.metadata?.durationms ?? props.metadata?.durationMs;
+        const parsedMetaDuration =
+          rawMetaDuration !== undefined ? Number(rawMetaDuration) : Number.NaN;
+        const durationMs =
+          Number.isFinite(parsedMetaDuration) && parsedMetaDuration > 0
+            ? parsedMetaDuration
+            : undefined;
+        this.setCached(normalizedKey, {
+          exists: true,
+          ...(durationMs !== undefined ? { durationMs } : {}),
+          properties: result,
+        });
+        return cloneBlobProperties(result);
       } catch (err) {
-        if (isAzureNotFoundError(err)) return null;
+        if (isAzureNotFoundError(err)) {
+          this.metadataCache.delete(normalizedKey);
+          return null;
+        }
         this.logger.error(
           `Lỗi đọc thuộc tính Blob (${normalizedKey}): ${
             err instanceof Error ? err.message : String(err)
@@ -556,12 +606,14 @@ export class MediaStorageService implements OnModuleInit {
     const stat = statSync(localPath);
     if (!stat.isFile()) return null;
 
-    return {
+    const result: MediaBlobProperties = {
       contentLength: stat.size,
       contentType: inferMediaContentType(normalizedKey),
       etag: `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`,
       lastModified: stat.mtime,
     };
+    this.setCached(normalizedKey, { exists: true, properties: result });
+    return cloneBlobProperties(result);
   }
 
   async getBlobStream(
@@ -605,7 +657,10 @@ export class MediaStorageService implements OnModuleInit {
         };
       } catch (err) {
         if (err instanceof ServiceUnavailableException) throw err;
-        if (isAzureNotFoundError(err)) return null;
+        if (isAzureNotFoundError(err)) {
+          this.metadataCache.delete(normalizedKey);
+          return null;
+        }
         this.logger.error(
           `Lỗi đọc luồng Blob (${normalizedKey}): ${
             err instanceof Error ? err.message : String(err)

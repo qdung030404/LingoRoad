@@ -16,56 +16,143 @@ import 'vocabulary_review_page.dart';
 import 'vocabulary_word_card.dart';
 import 'vocabulary_word_edit_dialog.dart';
 
+sealed class _ReviewLaunchOutcome {
+  const _ReviewLaunchOutcome();
+}
+
+class _ReviewLaunchCompleted extends _ReviewLaunchOutcome {
+  const _ReviewLaunchCompleted();
+}
+
+class _ReviewLaunchEmpty extends _ReviewLaunchOutcome {
+  const _ReviewLaunchEmpty();
+}
+
+class _ReviewLaunchFailed extends _ReviewLaunchOutcome {
+  const _ReviewLaunchFailed(this.error);
+  final Object error;
+}
+
+class _VocabularyReviewLauncherPage extends StatefulWidget {
+  const _VocabularyReviewLauncherPage({
+    required this.controller,
+    required this.loader,
+  });
+
+  final VocabularyController controller;
+  final Future<VocabularyReviewAttempt?> Function() loader;
+
+  @override
+  State<_VocabularyReviewLauncherPage> createState() =>
+      _VocabularyReviewLauncherPageState();
+}
+
+class _VocabularyReviewLauncherPageState
+    extends State<_VocabularyReviewLauncherPage> {
+  VocabularyReviewAttempt? _attempt;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  Future<void> _resolve() async {
+    try {
+      final attempt = await widget.loader();
+      if (!mounted) return;
+      if (!widget.controller.active || attempt == null) {
+        Navigator.of(context).pop(const _ReviewLaunchEmpty());
+        return;
+      }
+      setState(() {
+        _attempt = attempt;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context).pop(_ReviewLaunchFailed(e));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || _attempt == null) {
+      return const FigmaPage(
+        title: 'Ôn từ vựng',
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return PopScope<_ReviewLaunchOutcome>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          Navigator.of(context).pop(const _ReviewLaunchCompleted());
+        }
+      },
+      child: VocabularyReviewPage(
+        controller: widget.controller,
+        attemptId: _attempt!.id,
+        initialAttempt: _attempt,
+      ),
+    );
+  }
+}
+
 Future<void> openVocabularyReview(
   BuildContext context,
   VocabularyController controller,
   String deckId, {
   String scope = 'NEEDS_REVIEW',
 }) async {
-  try {
-    final attempt = await controller.startReview(deckId, scope: scope);
-    if (!context.mounted || !controller.active) return;
-    if (attempt == null) {
-      if (scope == 'ALL') {
-        previewMessage(context, 'Bộ từ chưa có từ để ôn.');
-        await controller.refresh();
-        return;
-      }
-      final all = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Không còn từ cần ôn'),
-          content: const Text('Bạn có thể ôn lại tất cả từ trong bộ này.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Đóng'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Ôn tất cả'),
-            ),
-          ],
-        ),
-      );
-      if (all == true && context.mounted) {
-        await openVocabularyReview(context, controller, deckId, scope: 'ALL');
-      }
+  final beforeMutation = controller.mutationVersion;
+  final beforeSummary = controller.summaryRefreshVersion;
+  final outcome = await previewPush<_ReviewLaunchOutcome>(
+    context,
+    _VocabularyReviewLauncherPage(
+      controller: controller,
+      loader: () => controller.startReview(deckId, scope: scope),
+    ),
+  );
+  if (!context.mounted || !controller.active) return;
+  if (outcome is _ReviewLaunchFailed) {
+    previewMessage(context, controller.message(outcome.error));
+    return;
+  }
+  if (outcome is _ReviewLaunchEmpty) {
+    if (scope == 'ALL') {
+      previewMessage(context, 'Bộ từ chưa có từ để ôn.');
+      if (controller.stale) await controller.refresh();
       return;
     }
-    await previewPush(
-      context,
-      VocabularyReviewPage(
-        controller: controller,
-        attemptId: attempt.id,
-        initialAttempt: attempt,
+    final all = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Không còn từ cần ôn'),
+        content: const Text('Bạn có thể ôn lại tất cả từ trong bộ này.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Đóng'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Ôn tất cả'),
+          ),
+        ],
       ),
     );
-    if (controller.active) await controller.refresh();
-  } catch (e) {
-    if (context.mounted && controller.active) {
-      previewMessage(context, controller.message(e));
+    if (all == true && context.mounted) {
+      await openVocabularyReview(context, controller, deckId, scope: 'ALL');
     }
+    return;
+  }
+  if (controller.active &&
+      (controller.mutationVersion != beforeMutation ||
+          controller.summaryRefreshVersion != beforeSummary ||
+          controller.stale)) {
+    await controller.refresh();
   }
 }
 
@@ -74,26 +161,29 @@ Future<void> openActiveVocabularyReview(
   VocabularyController controller, {
   required VoidCallback onNoActiveReview,
 }) async {
-  try {
-    final activeAttempt = await controller.findActiveReview();
-    if (!controller.active || !context.mounted) return;
-    if (activeAttempt != null) {
-      await previewPush(
-        context,
-        VocabularyReviewPage(
-          controller: controller,
-          attemptId: activeAttempt.id,
-          initialAttempt: activeAttempt,
-        ),
-      );
-      if (controller.active) await controller.refresh();
-      return;
-    }
+  final beforeMutation = controller.mutationVersion;
+  final beforeSummary = controller.summaryRefreshVersion;
+  final outcome = await previewPush<_ReviewLaunchOutcome>(
+    context,
+    _VocabularyReviewLauncherPage(
+      controller: controller,
+      loader: controller.findActiveReview,
+    ),
+  );
+  if (!controller.active || !context.mounted) return;
+  if (outcome is _ReviewLaunchFailed) {
+    previewMessage(context, controller.message(outcome.error));
+    return;
+  }
+  if (outcome is _ReviewLaunchEmpty) {
     onNoActiveReview();
-  } catch (e) {
-    if (context.mounted && controller.active) {
-      previewMessage(context, controller.message(e));
-    }
+    return;
+  }
+  if (controller.active &&
+      (controller.mutationVersion != beforeMutation ||
+          controller.summaryRefreshVersion != beforeSummary ||
+          controller.stale)) {
+    await controller.refresh();
   }
 }
 
@@ -515,6 +605,7 @@ class VocabularyWordsTab extends StatefulWidget {
 }
 
 class _VocabularyWordsTabState extends State<VocabularyWordsTab> {
+  final TextEditingController _searchController = TextEditingController();
   String search = '';
   String? error;
   bool loading = true;
@@ -547,93 +638,140 @@ class _VocabularyWordsTabState extends State<VocabularyWordsTab> {
   @override
   void dispose() {
     timer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.controller,
-    builder: (context, _) => FigmaPage(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
-        children: [
-          Row(
-            children: [
-              Expanded(child: learningHeading('Từ của tôi', size: 32)),
-              IconButton(
-                key: const Key('vocabularyHistory'),
-                tooltip: 'Lịch sử ôn từ',
-                onPressed: () => previewPush(
-                  context,
-                  VocabularyHistoryPage(controller: widget.controller),
-                ),
-                icon: const Icon(Icons.history),
-              ),
-              IconButton(
-                key: const Key('vocabularyAddDeck'),
-                tooltip: 'Tạo bộ từ',
-                onPressed: widget.controller.busy
-                    ? null
-                    : () async {
-                        final result = await showDialog<bool>(
-                          context: context,
-                          builder: (context) =>
-                              _DeckForm(controller: widget.controller),
-                        );
-                        if (result == true && mounted) load();
-                      },
-                icon: const Icon(Icons.add_circle_outline),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            key: const Key('vocabularySearch'),
-            decoration: const InputDecoration(
-              hintText: 'Tìm bộ từ',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: (value) {
-              search = value;
-              timer?.cancel();
-              timer = Timer(const Duration(milliseconds: 300), () => load());
-            },
-          ),
-          const SizedBox(height: 16),
-          VocabularyPendingNotice(
-            controller: widget.controller,
-            onResolved: () => load(),
-          ),
-          if (error != null) LearningError(error!, retry: () => load()),
-          if (loading) const Center(child: CircularProgressIndicator()),
-          if (!loading && error == null && widget.controller.decks.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('Chưa có bộ từ phù hợp. Bấm + để tạo bộ từ.'),
-            ),
-          for (final deck in widget.controller.decks) ...[
-            VocabularyDeckCard(
-              deck: deck,
-              onTap: () async {
-                await previewPush(
-                  context,
-                  VocabularyDeckPage(
-                    controller: widget.controller,
-                    deckId: deck.id,
-                  ),
-                );
-                if (mounted) load();
-              },
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (widget.controller.nextCursor != null)
-            TextButton(
-              onPressed: loading ? null : () => load(more: true),
-              child: const Text('Xem thêm bộ từ'),
-            ),
-        ],
+  Future<void> _openDeck(VocabularyDeck deck) async {
+    final beforeMutation = widget.controller.mutationVersion;
+    final beforeSummary = widget.controller.summaryRefreshVersion;
+    final changed = await previewPush<bool>(
+      context,
+      VocabularyDeckPage(
+        controller: widget.controller,
+        deckId: deck.id,
       ),
+    );
+    if (mounted &&
+        (changed == true ||
+            widget.controller.mutationVersion != beforeMutation ||
+            widget.controller.summaryRefreshVersion != beforeSummary)) {
+      load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FigmaPage(
+    child: CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: learningHeading('Từ của tôi', size: 32)),
+                    IconButton(
+                      key: const Key('vocabularyHistory'),
+                      tooltip: 'Lịch sử ôn từ',
+                      onPressed: () => previewPush(
+                        context,
+                        VocabularyHistoryPage(controller: widget.controller),
+                      ),
+                      icon: const Icon(Icons.history),
+                    ),
+                    AnimatedBuilder(
+                      animation: widget.controller,
+                      builder: (context, _) => IconButton(
+                        key: const Key('vocabularyAddDeck'),
+                        tooltip: 'Tạo bộ từ',
+                        onPressed: widget.controller.busy
+                            ? null
+                            : () async {
+                                final result = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) =>
+                                      _DeckForm(controller: widget.controller),
+                                );
+                                if (result == true && mounted) load();
+                              },
+                        icon: const Icon(Icons.add_circle_outline),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  key: const Key('vocabularySearch'),
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: 'Tìm bộ từ',
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: (value) {
+                    search = value;
+                    timer?.cancel();
+                    timer = Timer(
+                      const Duration(milliseconds: 250),
+                      () => load(),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                VocabularyPendingNotice(
+                  controller: widget.controller,
+                  onResolved: () => load(),
+                ),
+                if (error != null) LearningError(error!, retry: () => load()),
+                if (loading) const Center(child: CircularProgressIndicator()),
+              ],
+            ),
+          ),
+        ),
+        AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            final decks = widget.controller.decks;
+            return SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  if (!loading && error == null && decks.isEmpty)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('Chưa có bộ từ phù hợp. Bấm + để tạo bộ từ.'),
+                      ),
+                    ),
+                  if (decks.isNotEmpty)
+                    SliverList.builder(
+                      itemCount: decks.length,
+                      itemBuilder: (context, index) {
+                        final deck = decks[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: VocabularyDeckCard(
+                            deck: deck,
+                            onTap: () => _openDeck(deck),
+                          ),
+                        );
+                      },
+                    ),
+                  if (widget.controller.nextCursor != null)
+                    SliverToBoxAdapter(
+                      child: TextButton(
+                        onPressed: loading ? null : () => load(more: true),
+                        child: const Text('Xem thêm bộ từ'),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
     ),
   );
 }
@@ -738,12 +876,15 @@ class VocabularyDeckPage extends StatefulWidget {
 }
 
 class _VocabularyDeckPageState extends State<VocabularyDeckPage> {
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  String? _playingWordId;
+  AudioPlayer? _audioPlayer;
+  StreamSubscription<void>? _audioCompleteSub;
+  final WordPlaybackTracker _audioTracker = WordPlaybackTracker();
+  final TextEditingController _searchController = TextEditingController();
   VocabularyDeck? deck;
   List<VocabularyWord> words = [];
   String? cursor, error;
   bool loading = true;
+  bool _changed = false;
   String search = '';
   Timer? timer;
   int epoch = 0;
@@ -755,43 +896,57 @@ class _VocabularyDeckPageState extends State<VocabularyDeckPage> {
 
   @override
   void dispose() {
-    _audioPlayer.dispose();
+    _audioCompleteSub?.cancel();
+    _audioPlayer?.dispose();
+    _audioTracker.dispose();
+    _searchController.dispose();
     timer?.cancel();
     super.dispose();
+  }
+
+  AudioPlayer _ensureAudioPlayer() {
+    final existing = _audioPlayer;
+    if (existing != null) return existing;
+    final created = AudioPlayer();
+    _audioPlayer = created;
+    _audioCompleteSub = created.onPlayerComplete.listen((_) {
+      if (mounted) {
+        _audioTracker.setPlaying(null);
+      }
+    });
+    return created;
   }
 
   Future<void> _playAudio(VocabularyWord word) async {
     final url = word.field('audioUrl');
     if (url.isNotEmpty) {
       try {
-        setState(() => _playingWordId = word.id);
-        await _audioPlayer.stop();
-        await _audioPlayer.play(UrlSource(url));
-        _audioPlayer.onPlayerComplete.first.then((_) {
-          if (mounted && _playingWordId == word.id) {
-            setState(() => _playingWordId = null);
-          }
-        });
+        _audioTracker.setPlaying(word.id);
+        final player = _ensureAudioPlayer();
+        await player.stop();
+        await player.play(UrlSource(url));
         return;
       } catch (_) {
-        if (mounted) setState(() => _playingWordId = null);
+        if (mounted && _audioTracker.currentId == word.id) {
+          _audioTracker.setPlaying(null);
+        }
       }
     }
     try {
       final lookup = await widget.controller.lookupWord(word.english);
       final remoteAudio = lookup?['audioUrl']?.toString() ?? '';
       if (remoteAudio.isNotEmpty) {
-        setState(() => _playingWordId = word.id);
-        await _audioPlayer.stop();
-        await _audioPlayer.play(UrlSource(remoteAudio));
-        _audioPlayer.onPlayerComplete.first.then((_) {
-          if (mounted && _playingWordId == word.id) {
-            setState(() => _playingWordId = null);
-          }
-        });
+        _audioTracker.setPlaying(word.id);
+        final player = _ensureAudioPlayer();
+        await player.stop();
+        await player.play(UrlSource(remoteAudio));
         return;
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted && _audioTracker.currentId == word.id) {
+        _audioTracker.setPlaying(null);
+      }
+    }
 
     if (mounted) {
       previewMessage(context, 'Chưa có âm thanh phát âm cho từ này.');
@@ -802,8 +957,11 @@ class _VocabularyDeckPageState extends State<VocabularyDeckPage> {
     final request = ++epoch;
     setState(() => loading = true);
     try {
+      final fetchDeckFuture = deck == null || (!more && search.isEmpty)
+          ? widget.controller.deck(widget.deckId)
+          : Future<VocabularyDeck>.value(deck!);
       final values = await Future.wait([
-        widget.controller.deck(widget.deckId),
+        fetchDeckFuture,
         widget.controller.words(
           widget.deckId,
           query: search,
@@ -839,7 +997,10 @@ class _VocabularyDeckPageState extends State<VocabularyDeckPage> {
           deckId: widget.deckId,
         ),
       );
-      if (result == true && mounted) load();
+      if (result == true && mounted) {
+        _changed = true;
+        load();
+      }
       return;
     }
     final result = await showDialog<bool>(
@@ -851,7 +1012,10 @@ class _VocabularyDeckPageState extends State<VocabularyDeckPage> {
         word: word,
       ),
     );
-    if (result == true && mounted) load();
+    if (result == true && mounted) {
+      _changed = true;
+      load();
+    }
   }
 
   Future<void> removeWord(VocabularyWord word) async {
@@ -864,7 +1028,10 @@ class _VocabularyDeckPageState extends State<VocabularyDeckPage> {
     }
     try {
       await widget.controller.deleteWord(word);
-      if (mounted) load();
+      if (mounted) {
+        _changed = true;
+        load();
+      }
     } catch (e) {
       if (mounted) setState(() => error = widget.controller.message(e));
     }
@@ -882,12 +1049,15 @@ class _VocabularyDeckPageState extends State<VocabularyDeckPage> {
       return;
     }
     if (action == 'rename') {
-      await showDialog<bool>(
+      final renamed = await showDialog<bool>(
         context: context,
         builder: (context) =>
             _DeckForm(controller: widget.controller, deck: deck),
       );
-      if (mounted) load();
+      if (renamed == true && mounted) {
+        _changed = true;
+        load();
+      }
       return;
     }
     if (action == 'delete' &&
@@ -898,162 +1068,215 @@ class _VocabularyDeckPageState extends State<VocabularyDeckPage> {
         )) {
       try {
         await widget.controller.deleteDeck(deck!);
-        if (mounted) Navigator.pop(context);
+        _changed = true;
+        if (mounted) Navigator.pop(context, true);
       } catch (e) {
         if (mounted) setState(() => error = widget.controller.message(e));
       }
     }
   }
 
-  @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-    animation: widget.controller,
-    builder: (context, _) => FigmaPage(
-      title: deck?.name ?? 'Bộ từ',
-      trailing: deck == null
-          ? null
-          : PopupMenuButton<String>(
-              key: const Key('vocabularyDeckMenu'),
-              tooltip: 'Quản lý bộ từ',
-              onSelected: manage,
+  Widget _buildWordRow(VocabularyWord word) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _audioTracker.listen(word.id),
+        builder: (context, isPlaying, _) => VocabularyWordCard(
+          english: word.english,
+          phonetic: word.field('phonetic'),
+          partOfSpeech: word.field('partOfSpeech'),
+          meaning: word.meaning,
+          example: word.field('example'),
+          translation: word.field('translation'),
+          imageUrl: word.field('imageUrl'),
+          learningState: word.learningState,
+          isPlaying: isPlaying,
+          onPlayAudio: () => _playAudio(word),
+          topAction: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: AppShadows.level1,
+            ),
+            child: PopupMenuButton<String>(
+              key: ValueKey('vocabulary-word-menu-${word.id}'),
+              tooltip: 'Quản lý từ',
+              padding: EdgeInsets.zero,
+              icon: const FigmaAsset(
+                'word-list/imgVuesaxOutlineMore',
+                size: 18,
+              ),
+              onSelected: (action) =>
+                  action == 'edit' ? editWord(word) : removeWord(word),
               itemBuilder: (_) => const [
-                PopupMenuItem(value: 'rename', child: Text('Đổi tên bộ từ')),
-                PopupMenuItem(value: 'history', child: Text('Lịch sử ôn')),
-                PopupMenuItem(value: 'delete', child: Text('Xóa bộ từ')),
+                PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: AppColors.grey800,
+                      ),
+                      SizedBox(width: 8),
+                      Text('Chỉnh sửa'),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: AppColors.error100,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Xóa',
+                        style: TextStyle(color: AppColors.error100),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-      bottom: CustomAppButton(
-        key: const Key('vocabularyStartReview'),
-        text: deck?.activeAttemptId == null ? 'Luyện tập' : 'Tiếp tục học',
-        onPressed:
-            deck == null || deck!.totalWords == 0 || widget.controller.busy
-            ? null
-            : () async {
-                await openVocabularyReview(
-                  context,
-                  widget.controller,
-                  widget.deckId,
-                );
-                if (mounted) load();
-              },
+          ),
+        ),
       ),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${deck?.totalWords ?? 0} từ · ${deck?.rememberedWords ?? 0} đã nhớ',
-                  style: designText(16),
-                ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope<bool>(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) Navigator.of(context).pop(_changed);
+    },
+    child: AnimatedBuilder(
+      animation: widget.controller,
+      builder: (context, _) => FigmaPage(
+        title: deck?.name ?? 'Bộ từ',
+        trailing: deck == null
+            ? null
+            : PopupMenuButton<String>(
+                key: const Key('vocabularyDeckMenu'),
+                tooltip: 'Quản lý bộ từ',
+                onSelected: manage,
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'rename', child: Text('Đổi tên bộ từ')),
+                  PopupMenuItem(value: 'history', child: Text('Lịch sử ôn')),
+                  PopupMenuItem(value: 'delete', child: Text('Xóa bộ từ')),
+                ],
               ),
-              IconButton(
-                key: const Key('vocabularyAddWord'),
-                tooltip: 'Thêm từ',
-                onPressed: widget.controller.busy ? null : () => editWord(),
-                icon: const Icon(Icons.add_circle_outline),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            decoration: const InputDecoration(
-              hintText: 'Tìm từ hoặc nghĩa',
-              prefixIcon: Icon(Icons.search),
-            ),
-            onChanged: (value) {
-              search = value;
-              timer?.cancel();
-              timer = Timer(const Duration(milliseconds: 300), () => load());
-            },
-          ),
-          const SizedBox(height: 16),
-          VocabularyPendingNotice(
-            controller: widget.controller,
-            onResolved: () => load(),
-          ),
-          if (error != null) LearningError(error!, retry: () => load()),
-          if (loading) const Center(child: CircularProgressIndicator()),
-          if (!loading && words.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(24),
-              child: Text('Chưa có từ phù hợp. Bấm + để thêm từ.'),
-            ),
-          for (final word in words) ...[
-            VocabularyWordCard(
-              english: word.english,
-              phonetic: word.field('phonetic'),
-              partOfSpeech: word.field('partOfSpeech'),
-              meaning: word.meaning,
-              example: word.field('example'),
-              translation: word.field('translation'),
-              imageUrl: word.field('imageUrl'),
-              learningState: word.learningState,
-              isPlaying: _playingWordId == word.id,
-              onPlayAudio: () => _playAudio(word),
-              topAction: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: AppShadows.level1,
-                ),
-                child: PopupMenuButton<String>(
-                  key: ValueKey('vocabulary-word-menu-${word.id}'),
-                  tooltip: 'Quản lý từ',
-                  padding: EdgeInsets.zero,
-                  icon: const FigmaAsset(
-                    'word-list/imgVuesaxOutlineMore',
-                    size: 18,
-                  ),
-                  onSelected: (action) =>
-                      action == 'edit' ? editWord(word) : removeWord(word),
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'edit',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.edit_outlined,
-                            size: 18,
-                            color: AppColors.grey800,
+        bottom: CustomAppButton(
+          key: const Key('vocabularyStartReview'),
+          text: deck?.activeAttemptId == null ? 'Luyện tập' : 'Tiếp tục học',
+          onPressed:
+              deck == null || deck!.totalWords == 0 || widget.controller.busy
+              ? null
+              : () async {
+                  final beforeMutation = widget.controller.mutationVersion;
+                  final beforeSummary =
+                      widget.controller.summaryRefreshVersion;
+                  await openVocabularyReview(
+                    context,
+                    widget.controller,
+                    widget.deckId,
+                  );
+                  if (mounted &&
+                      (widget.controller.mutationVersion != beforeMutation ||
+                          widget.controller.summaryRefreshVersion !=
+                              beforeSummary)) {
+                    _changed = true;
+                    load();
+                  }
+                },
+        ),
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${deck?.totalWords ?? 0} từ · ${deck?.rememberedWords ?? 0} đã nhớ',
+                            style: designText(16),
                           ),
-                          SizedBox(width: 8),
-                          Text('Chỉnh sửa'),
-                        ],
-                      ),
+                        ),
+                        IconButton(
+                          key: const Key('vocabularyAddWord'),
+                          tooltip: 'Thêm từ',
+                          onPressed: widget.controller.busy
+                              ? null
+                              : () => editWord(),
+                          icon: const Icon(Icons.add_circle_outline),
+                        ),
+                      ],
                     ),
-                    PopupMenuItem(
-                      value: 'delete',
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: AppColors.error100,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Xóa',
-                            style: TextStyle(color: AppColors.error100),
-                          ),
-                        ],
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        hintText: 'Tìm từ hoặc nghĩa',
+                        prefixIcon: Icon(Icons.search),
                       ),
+                      onChanged: (value) {
+                        search = value;
+                        timer?.cancel();
+                        timer = Timer(
+                          const Duration(milliseconds: 250),
+                          () => load(),
+                        );
+                      },
                     ),
+                    const SizedBox(height: 16),
+                    VocabularyPendingNotice(
+                      controller: widget.controller,
+                      onResolved: () {
+                        _changed = true;
+                        load();
+                      },
+                    ),
+                    if (error != null) LearningError(error!, retry: () => load()),
+                    if (loading) const Center(child: CircularProgressIndicator()),
+                    if (!loading && words.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('Chưa có từ phù hợp. Bấm + để thêm từ.'),
+                      ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            if (words.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                sliver: SliverList.builder(
+                  itemCount: words.length,
+                  itemBuilder: (context, index) => _buildWordRow(words[index]),
+                ),
+              ),
+            if (cursor != null)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                sliver: SliverToBoxAdapter(
+                  child: TextButton(
+                    onPressed: loading ? null : () => load(more: true),
+                    child: const Text('Xem thêm từ'),
+                  ),
+                ),
+              ),
           ],
-          if (cursor != null)
-            TextButton(
-              onPressed: loading ? null : () => load(more: true),
-              child: const Text('Xem thêm từ'),
-            ),
-        ],
+        ),
       ),
     ),
   );
@@ -1131,55 +1354,81 @@ class _VocabularyHistoryPageState extends State<VocabularyHistoryPage> {
   @override
   Widget build(BuildContext context) => FigmaPage(
     title: 'Lịch sử ôn từ',
-    child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (widget.controller.stale)
-          const Text('Dữ liệu đã lưu · chưa đồng bộ'),
-        if (error != null) LearningError(error!, retry: () => load()),
-        if (loading) const Center(child: CircularProgressIndicator()),
-        if (!loading && items.isEmpty) const Text('Chưa có lượt ôn từ.'),
-        for (final row in items) ...[
-          LearningCard(
-            children: [
-              learningHeading(
-                (row['deckSnapshot'] as Map?)?['name'] as String? ?? 'Bộ từ',
-                size: 22,
-              ),
-              Text(
-                row['status'] == 'IN_PROGRESS'
-                    ? 'Đang ôn'
-                    : row['status'] == 'ABANDONED'
-                    ? 'Đã dừng sớm'
-                    : 'Đã kết thúc lượt',
-              ),
-              Text(
-                '${(row['counts'] as Map?)?['reviewedCount'] ?? 0} từ đã ôn · ${(row['counts'] as Map?)?['skippedCount'] ?? 0} bỏ qua',
-              ),
-              CustomAppButton(
-                key: ValueKey('vocabulary-history-${row['id']}'),
-                text: row['status'] == 'IN_PROGRESS'
-                    ? 'Tiếp tục'
-                    : 'Xem kết quả',
-                onPressed: () async {
-                  await previewPush(
-                    context,
-                    VocabularyReviewPage(
-                      controller: widget.controller,
-                      attemptId: row['id'] as String,
-                    ),
-                  );
-                  if (mounted) load();
-                },
-              ),
-            ],
+    child: CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (widget.controller.stale)
+                  const Text('Dữ liệu đã lưu · chưa đồng bộ'),
+                if (error != null) LearningError(error!, retry: () => load()),
+                if (loading) const Center(child: CircularProgressIndicator()),
+                if (!loading && items.isEmpty)
+                  const Text('Chưa có lượt ôn từ.'),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-        ],
+        ),
+        if (items.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            sliver: SliverList.builder(
+              itemCount: items.length,
+              itemBuilder: (context, index) {
+                final row = items[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: LearningCard(
+                    children: [
+                      learningHeading(
+                        (row['deckSnapshot'] as Map?)?['name'] as String? ??
+                            'Bộ từ',
+                        size: 22,
+                      ),
+                      Text(
+                        row['status'] == 'IN_PROGRESS'
+                            ? 'Đang ôn'
+                            : row['status'] == 'ABANDONED'
+                            ? 'Đã dừng sớm'
+                            : 'Đã kết thúc lượt',
+                      ),
+                      Text(
+                        '${(row['counts'] as Map?)?['reviewedCount'] ?? 0} từ đã ôn · ${(row['counts'] as Map?)?['skippedCount'] ?? 0} bỏ qua',
+                      ),
+                      CustomAppButton(
+                        key: ValueKey('vocabulary-history-${row['id']}'),
+                        text: row['status'] == 'IN_PROGRESS'
+                            ? 'Tiếp tục'
+                            : 'Xem kết quả',
+                        onPressed: () async {
+                          await previewPush(
+                            context,
+                            VocabularyReviewPage(
+                              controller: widget.controller,
+                              attemptId: row['id'] as String,
+                            ),
+                          );
+                          if (mounted) load();
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
         if (cursor != null)
-          TextButton(
-            onPressed: loading ? null : () => load(more: true),
-            child: const Text('Xem thêm lịch sử'),
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            sliver: SliverToBoxAdapter(
+              child: TextButton(
+                onPressed: loading ? null : () => load(more: true),
+                child: const Text('Xem thêm lịch sử'),
+              ),
+            ),
           ),
       ],
     ),

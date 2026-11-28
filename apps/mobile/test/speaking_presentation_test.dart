@@ -23,14 +23,25 @@ void main() {
           child: Scaffold(body: RecordingWaveform(amplitudes: amplitudes)),
         ),
       );
-      double barHeight(int index) => tester
-          .widget<AnimatedContainer>(
-            find.byKey(ValueKey('amplitude-bar-$index')),
+      RecordingWaveformPainter waveformPainter() => tester
+          .widget<CustomPaint>(
+            find.descendant(
+              of: find.byType(RecordingWaveform),
+              matching: find.byType(CustomPaint),
+            ),
           )
-          .constraints!
-          .maxHeight;
+          .painter! as RecordingWaveformPainter;
+      double barHeight(int index) => waveformPainter().barHeight(index);
 
       await tester.pumpWidget(view(samples.stream));
+      expect(
+        find.descendant(
+          of: find.byType(RecordingWaveform),
+          matching: find.byType(RepaintBoundary),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(AnimatedContainer), findsNothing);
       expect(barHeight(31), 4);
       samples.add(-30);
       await tester.pump();
@@ -39,14 +50,7 @@ void main() {
       await tester.pump();
       expect(barHeight(30), 30);
       expect(barHeight(31), 4);
-      expect(
-        tester
-            .widget<AnimatedContainer>(
-              find.byKey(const ValueKey('amplitude-bar-31')),
-            )
-            .duration,
-        Duration.zero,
-      );
+      expect(waveformPainter().animationDuration, Duration.zero);
       await tester.pumpWidget(view(replacement.stream));
       expect(samples.hasListener, isFalse);
       expect(barHeight(30), 4);

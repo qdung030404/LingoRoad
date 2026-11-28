@@ -108,7 +108,8 @@ export class VocabularyService {
     return (await this.deckViews(db, deck.userId, [deck]))[0];
   }
   async deck(userId: string, id: string, includeDeleted = false) {
-    return { deck: await this.prisma.$transaction(async db => this.deckView(db, await this.ownedDeck(db, userId, id, includeDeleted)), { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }) };
+    const deck = await this.ownedDeck(this.prisma, userId, id, includeDeleted);
+    return { deck: await this.deckView(this.prisma, deck) };
   }
   async decks(userId: string, query: VocabularyListQuery) {
     query.limit ??= 20;
@@ -217,14 +218,33 @@ export class VocabularyService {
   }
   async words(userId: string, deckId: string, query: VocabularyListQuery) {
     query.limit ??= 20;
-    return this.prisma.$transaction(async db => {
-      await this.ownedDeck(db, userId, deckId);
-      if (query.cursor) { const cursor = await this.ownedWord(db, userId, query.cursor); if (cursor.deckId !== deckId) vocabMissing(); }
-      const search = query.query?.trim();
-      const rows = await db.vocabularyWord.findMany({ where: { deckId, deletedAt: null, ...(search ? { OR: [{ english: { contains: search, mode: 'insensitive' as const } }, { meaning: { contains: search, mode: 'insensitive' as const } }] } : {}) },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }], take: query.limit + 1, ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}) });
-      return { items: rows.slice(0, query.limit).map(w => ({ ...wordView(w), acceptedAnswers: w.acceptedAnswers })), nextCursor: rows.length > query.limit ? rows[query.limit - 1].id : null };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+    const [, cursor] = await Promise.all([
+      this.ownedDeck(this.prisma, userId, deckId),
+      query.cursor ? this.ownedWord(this.prisma, userId, query.cursor) : Promise.resolve(null),
+    ]);
+    if (cursor && cursor.deckId !== deckId) vocabMissing();
+    const search = query.query?.trim();
+    const rows = await this.prisma.vocabularyWord.findMany({
+      where: {
+        deckId,
+        deletedAt: null,
+        ...(search
+          ? {
+              OR: [
+                { english: { contains: search, mode: 'insensitive' as const } },
+                { meaning: { contains: search, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: query.limit + 1,
+      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
+    });
+    return {
+      items: rows.slice(0, query.limit).map(w => ({ ...wordView(w), acceptedAnswers: w.acceptedAnswers })),
+      nextCursor: rows.length > query.limit ? rows[query.limit - 1].id : null,
+    };
   }
   async createDeck(userId: string, dto: VocabularyCreateDeckDto) {
     const receipt = await this.commands.execute(userId, dto.commandId, 'CREATE_DECK', 'decks', dto, async db => {
@@ -500,18 +520,16 @@ export class VocabularyService {
 
   /** Returns active words stored in the account's stable Reading vocabulary deck. */
   async readingWords(userId: string) {
-    return this.prisma.$transaction(async db => {
-      const deck = await this.findReadingDeck(db, userId);
-      if (!deck) return { deck: null, items: [] };
-      const rows = await db.vocabularyWord.findMany({
-        where: { deckId: deck.id, deletedAt: null },
-        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      });
-      return {
-        deck: { id: deck.id, name: deck.name },
-        items: rows.map(w => ({ ...wordView(w), acceptedAnswers: w.acceptedAnswers })),
-      };
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+    const deck = await this.findReadingDeck(this.prisma, userId);
+    if (!deck) return { deck: null, items: [] };
+    const rows = await this.prisma.vocabularyWord.findMany({
+      where: { deckId: deck.id, deletedAt: null },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return {
+      deck: { id: deck.id, name: deck.name },
+      items: rows.map(w => ({ ...wordView(w), acceptedAnswers: w.acceptedAnswers })),
+    };
   }
 
   /** Atomically saves a reading-passage word into the user's Reading deck without duplicates. */

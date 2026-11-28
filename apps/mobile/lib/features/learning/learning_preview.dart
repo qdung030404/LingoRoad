@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/app_startup_timing.dart';
@@ -73,7 +74,15 @@ class LearningPreview extends StatefulWidget {
 
 class _LearningPreviewState extends State<LearningPreview>
     with WidgetsBindingObserver {
-  late final String? _accountId = widget.account?.user?['id'] as String?;
+  late final String? _accountId = widget.account?.activeAccountId;
+  bool _isSessionAccountCurrent() {
+    final account = widget.account;
+    if (account == null || _accountId == null) return false;
+    if (!account.hasAuthenticatedContext) return false;
+    final liveId = account.user?['id'] as String?;
+    return liveId == null || liveId == _accountId;
+  }
+
   late final ReminderNotificationPlatform _reminderPlatform =
       widget.reminderPlatform ?? MethodChannelReminderPlatform();
   late final NotificationController notifications =
@@ -85,7 +94,7 @@ class _LearningPreviewState extends State<LearningPreview>
         accountId: _accountId ?? 'preview',
         isAccountCurrent: widget.account == null
             ? null
-            : () => widget.account!.user?['id'] == _accountId,
+            : _isSessionAccountCurrent,
       );
   String? _previousGoalMetDate;
   bool? _previousGoalMet;
@@ -99,7 +108,8 @@ class _LearningPreviewState extends State<LearningPreview>
           repository: ApiSpeakingRepository(widget.account!.api),
           recorder: DeviceSpeakingRecorder(_accountId),
           accountId: _accountId,
-          isCurrent: () => widget.account!.user?['id'] == speaking?.accountId,
+          isCurrent: () =>
+              _isSessionAccountCurrent() && speaking?.accountId == _accountId,
           onSubmissionSucceeded: _handleSpeakingSucceeded,
         );
   late final VocabularyController? vocabularyController =
@@ -109,7 +119,8 @@ class _LearningPreviewState extends State<LearningPreview>
           repository: ApiVocabularyRepository(widget.account!.api),
           accountId: _accountId,
           isCurrent: () =>
-              widget.account!.user?['id'] == vocabularyController?.accountId,
+              _isSessionAccountCurrent() &&
+              vocabularyController?.accountId == _accountId,
         );
   late final GrammarController? grammarController = widget.account == null
       ? null
@@ -125,7 +136,8 @@ class _LearningPreviewState extends State<LearningPreview>
       : DailyLearningController(
           repository: ApiDailyRepository(widget.account!.api),
           accountId: _accountId,
-          isCurrent: () => widget.account!.user?['id'] == daily?.accountId,
+          isCurrent: () =>
+              _isSessionAccountCurrent() && daily?.accountId == _accountId,
           onHomeChanged: _refreshAfterChange,
           onPreferences: (prefs) {
             final profile = widget.account!.user?['profile'];
@@ -139,13 +151,20 @@ class _LearningPreviewState extends State<LearningPreview>
       PreviewModel(
         accountId: _accountId,
         initialDailyMinutes:
-            widget.account?.profile['dailyGoalMinutes'] as int? ?? 10,
+            (widget.account?.profile['dailyGoalMinutes'] as num?)?.toInt() ??
+            ((widget.account?.cachedHome?['preferences']
+                        as Map?)?['dailyGoalMinutes']
+                    as num?)
+                ?.toInt() ??
+            10,
       );
   late final WordLibrary library = WordLibrary(accountId: _accountId);
   bool _hadInitialCachedHome = false;
   String? _initialLivePlanStatus;
   final selectedTab = ValueNotifier<int>(0);
   final ValueNotifier<bool> showPreviousLevels = ValueNotifier<bool>(false);
+  final ValueNotifier<int?> _rememberedWordsCount = ValueNotifier<int?>(null);
+  List<WritingPracticeItem>? _cachedWritingItems;
   late final LearningController? learning =
       widget.account == null || _accountId == null
       ? null
@@ -194,13 +213,28 @@ class _LearningPreviewState extends State<LearningPreview>
           onGoalJustMet: _handleGoalJustMet,
           onLevelChanged: _handleLevelChanged,
           isAccountCurrent: () =>
-              widget.account!.user?['id'] == learning?.accountId,
+              _isSessionAccountCurrent() && learning?.accountId == _accountId,
         );
   final tabs = PageController();
+  int? _jumpingToTab;
   void switchTab(int index) {
     if (!tabs.hasClients) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      tabs.jumpToPage(index);
+    final current = tabs.page?.round() ?? selectedTab.value;
+    if (current == index && ((tabs.page ?? index) - index).abs() < 0.01) {
+      return;
+    }
+    if (MediaQuery.disableAnimationsOf(context) ||
+        (index - current).abs() > 1) {
+      _jumpingToTab = index;
+      try {
+        tabs.jumpToPage(index);
+      } finally {
+        _jumpingToTab = null;
+      }
+      if (selectedTab.value != index) {
+        selectedTab.value = index;
+        _loadTab(index);
+      }
     } else {
       tabs.animateToPage(
         index,
@@ -237,6 +271,8 @@ class _LearningPreviewState extends State<LearningPreview>
     WidgetsBinding.instance.addObserver(this);
     _accountId;
     widget.account?.addListener(_speakingSessionChanged);
+    vocabularyController?.addListener(_syncRememberedWordsCount);
+    _syncRememberedWordsCount();
     final cached = widget.account?.cachedHome;
     _hadInitialCachedHome = cached != null;
     if (cached != null) {
@@ -306,11 +342,23 @@ class _LearningPreviewState extends State<LearningPreview>
     }
   }
 
+  void _syncRememberedWordsCount() {
+    final totals = vocabularyController?.summary?['totals'];
+    final next = totals is Map
+        ? (totals['rememberedWords'] as num?)?.toInt()
+        : null;
+    if (_rememberedWordsCount.value != next) {
+      _rememberedWordsCount.value = next;
+    }
+  }
+
   @override
   void dispose() {
     _learningDayTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.account?.removeListener(_speakingSessionChanged);
+    vocabularyController?.removeListener(_syncRememberedWordsCount);
+    _rememberedWordsCount.dispose();
     speaking?.dispose();
     daily?.dispose();
     learning?.dispose();
@@ -529,12 +577,20 @@ class _LearningPreviewState extends State<LearningPreview>
   void openProfile() {
     final account = widget.account;
     if (account != null) {
-      final rememberedWords =
-          (vocabularyController?.summary?['totals']
-                  as Map?)?['rememberedWords']
-              as int?;
+      final rememberedWords = _rememberedWordsCount.value;
       final completedLessons =
           (learning?.summary['completedLessonCount'] as num?)?.toInt();
+      final beforePrefsVersion = account.profile['preferencesVersion'];
+      final beforeGoalMinutes = account.profile['dailyGoalMinutes'];
+      final beforeTargetCefr = account.profile['targetCefr'];
+      final beforePurpose = account.profile['learningPurpose'];
+      final beforeKinds = List<Object?>.from(
+        account.profile['preferredKinds'] as List? ?? const [],
+      );
+      final beforePlacementCefr = account.placementCefr;
+      final beforeCompletedPlacementId =
+          account.placement['completedSessionId'];
+      final beforeHasCompleted = account.hasCompletedPlacement;
       previewPush<void>(
         context,
         ProfilePage(
@@ -543,7 +599,23 @@ class _LearningPreviewState extends State<LearningPreview>
           completedLessonCount: completedLessons,
         ),
       ).then((_) {
-        if (mounted) _refreshAfterChange();
+        if (!mounted) return;
+        final afterKinds =
+            (account.profile['preferredKinds'] as List?)?.cast<Object?>() ??
+            const <Object?>[];
+        final learningChanged =
+            account.profile['preferencesVersion'] != beforePrefsVersion ||
+            account.profile['dailyGoalMinutes'] != beforeGoalMinutes ||
+            account.profile['targetCefr'] != beforeTargetCefr ||
+            account.profile['learningPurpose'] != beforePurpose ||
+            !listEquals(afterKinds, beforeKinds) ||
+            account.placementCefr != beforePlacementCefr ||
+            account.placement['completedSessionId'] !=
+                beforeCompletedPlacementId ||
+            account.hasCompletedPlacement != beforeHasCompleted;
+        if (learningChanged) {
+          _refreshAfterChange();
+        }
       });
       return;
     }
@@ -601,6 +673,39 @@ class _LearningPreviewState extends State<LearningPreview>
           ),
   );
 
+  Listenable _tabListenable(int index) => switch (index) {
+    0 => Listenable.merge([
+      notifications,
+      if (widget.account == null) model,
+      if (vocabularyController == null) library,
+      widget.account,
+      learning,
+      daily,
+      _rememberedWordsCount,
+    ]),
+    1 => Listenable.merge([
+      if (widget.account == null) model,
+      widget.account,
+      learning,
+      showPreviousLevels,
+    ]),
+    2 => Listenable.merge([
+      if (vocabularyController == null) library,
+    ]),
+    3 => Listenable.merge([
+      if (widget.account == null) model,
+      learning,
+    ]),
+    _ => Listenable.merge([
+      if (widget.account == null) model,
+      widget.account,
+      learning,
+      daily,
+      _rememberedWordsCount,
+      showPreviousLevels,
+    ]),
+  };
+
   @override
   Widget build(BuildContext context) {
     final surface = ValueListenableBuilder<int>(
@@ -618,6 +723,8 @@ class _LearningPreviewState extends State<LearningPreview>
                 controller: tabs,
                 physics: const ClampingScrollPhysics(),
                 onPageChanged: (index) {
+                  final target = _jumpingToTab;
+                  if (target != null && index != target) return;
                   selectedTab.value = index;
                   _loadTab(index);
                 },
@@ -625,20 +732,7 @@ class _LearningPreviewState extends State<LearningPreview>
                 itemBuilder: (context, index) => RetainedTab(
                   key: ValueKey(index),
                   child: AnimatedBuilder(
-                    animation: Listenable.merge([
-                      if (index == 0) notifications,
-                      if (index == 0 || index == 4 || widget.account == null)
-                        model,
-                      if (vocabularyController == null &&
-                          (index == 0 || index == 2 || widget.account == null))
-                        library,
-                      widget.account,
-                      if (index != 2) learning,
-                      if (index == 0 || index == 4) daily,
-                      if (index != 3) vocabularyController,
-                      if (index == 0 || index == 1 || index == 4)
-                        showPreviousLevels,
-                    ]),
+                    animation: _tabListenable(index),
                     builder: (context, _) => tabContent(index),
                   ),
                 ),
@@ -687,20 +781,26 @@ class _LearningPreviewState extends State<LearningPreview>
   }
 
   Widget tabContent(int page) {
+    final accountName =
+        ((widget.account?.user?['name'] ??
+                widget.account?.cachedAccount?['name'])
+            as String?) ??
+        'Anna';
+    final accountAvatarUrl =
+        (widget.account?.user?['avatarUrl'] ??
+                widget.account?.cachedAccount?['avatarUrl'])
+            as String?;
     if (page == 0) {
       return RepaintBoundary(
         child: HomeDashboard(
           model: model,
           library: library,
           onProfile: openProfile,
-          displayName: widget.account?.user?['name'] as String? ?? 'Anna',
-          avatarUrl: widget.account?.user?['avatarUrl'] as String?,
+          displayName: accountName,
+          avatarUrl: accountAvatarUrl,
           level: widget.account == null ? 'A1' : widget.account!.placementCefr,
           learning: learning,
-          vocabularyWordsCount:
-              (vocabularyController?.summary?['totals']
-                      as Map?)?['rememberedWords']
-                  as int?,
+          vocabularyWordsCount: _rememberedWordsCount.value,
           vocabularySection: vocabularyController == null
               ? null
               : VocabularyHomeSection(
@@ -762,33 +862,25 @@ class _LearningPreviewState extends State<LearningPreview>
           },
           onOpenWritingItem: (itemId) async {
             if (itemId.isNotEmpty) {
-              List<WritingPracticeItem> items = WritingPracticeItem.defaultItems;
-              final restoreFuture = model.ensureRestored().catchError((Object _) {});
-              try {
-                final fetched = await (writing ?? WritingEvaluationService())
-                    .fetchWritingItems();
-                if (fetched.isNotEmpty) {
-                  items = fetched;
-                }
-              } catch (_) {}
-              await restoreFuture;
-              final index = items.indexWhere((e) => e.id == itemId);
-              final matched = index >= 0 ? items[index] : items.firstOrNull;
-              if (matched != null && mounted) {
-                await previewPush<void>(
-                  context,
-                  WritingTaskPage(
-                    model: model,
-                    item: matched,
-                    itemIndex: index >= 0 ? index : 0,
-                    evaluationService: writing,
-                  ),
-                );
-                if (mounted && (learning?.active ?? false)) {
-                  await learning!.refresh();
-                }
+              final opened = await previewPush<bool>(
+                context,
+                _DeferredWritingTaskPage(
+                  model: model,
+                  itemId: itemId,
+                  evaluationService: writing,
+                  cachedItems: _cachedWritingItems,
+                  onItemsLoaded: (items) => _cachedWritingItems = items,
+                ),
+              );
+              if (opened == false && mounted) {
+                setState(() => skill = PracticeSkill.writing);
+                switchTab(3);
                 return;
               }
+              if (mounted && (learning?.active ?? false)) {
+                await learning!.refresh();
+              }
+              return;
             }
             setState(() => skill = PracticeSkill.writing);
             switchTab(3);
@@ -807,8 +899,8 @@ class _LearningPreviewState extends State<LearningPreview>
       return RepaintBoundary(
         child: ProgressDashboard(
           model: model,
-          displayName: widget.account?.user?['name'] as String? ?? 'Anna',
-          avatarUrl: widget.account?.user?['avatarUrl'] as String?,
+          displayName: accountName,
+          avatarUrl: accountAvatarUrl,
           level: widget.account == null ? 'A1' : widget.account!.placementCefr,
           learning: learning,
           daily: daily,
@@ -835,59 +927,82 @@ class _LearningPreviewState extends State<LearningPreview>
       );
     }
     final oldPage = page > 2 ? page - 1 : page;
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                ['Hello, Anna!', 'Học', 'Luyện tập', 'Tiến độ'][oldPage],
+                style: designHeading(36, height: 1),
+              ),
+            ),
+            PreviewLevelBadge(
+              label: widget.account == null
+                  ? 'A1'
+                  : widget.account!.placementCefr ?? '—',
+              onTap: () => previewMessage(
+                context,
+                widget.account == null
+                    ? 'A1 là mức minh họa của bản xem trước.'
+                    : 'Mức tạm tính từ bài kiểm tra Đọc/Nghe; chưa đánh giá Nói/Viết.',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        if (restoreError != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(restoreError!),
+          ),
+      ],
+    );
     return RepaintBoundary(
       child: FigmaPage(
         titleStyle: designHeading(18),
-        child: ListView(
+        child: CustomScrollView(
           key: PageStorageKey('preview-content-$oldPage'),
           primary: false,
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 108),
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    ['Hello, Anna!', 'Học', 'Luyện tập', 'Tiến độ'][oldPage],
-                    style: designHeading(36, height: 1),
-                  ),
-                ),
-                PreviewLevelBadge(
-                  label: widget.account == null
-                      ? 'A1'
-                      : widget.account!.placementCefr ?? '—',
-                  onTap: () => previewMessage(
-                    context,
-                    widget.account == null
-                        ? 'A1 là mức minh họa của bản xem trước.'
-                        : 'Mức tạm tính từ bài kiểm tra Đọc/Nghe; chưa đánh giá Nói/Viết.',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            if (restoreError != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(restoreError!),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 108),
+              sliver: SliverMainAxisGroup(
+                slivers: [
+                  SliverToBoxAdapter(child: header),
+                  if (oldPage == 1) ...roadSlivers(),
+                  if (oldPage == 2) ...practiceSlivers(),
+                ],
               ),
-            if (oldPage == 1) ...road(),
-            if (oldPage == 2) ...practice(),
+            ),
           ],
         ),
       ),
     );
   }
 
-  List<Widget> road() {
+  List<Widget> roadSlivers() {
     if (learning != null) {
       final String? placementCefr = widget.account?.placementCefr;
       final bool hasVocabLessons = learning!.lessons.any(
         (l) => l.kind == 'VOCABULARY',
       );
       return [
-        learningSegments(['Ngữ pháp', 'Từ vựng'], vocabulary ? 1 : 0, (i) => setState(() => vocabulary = i == 1)),
-        const SizedBox(height: 24),
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              learningSegments(
+                ['Ngữ pháp', 'Từ vựng'],
+                vocabulary ? 1 : 0,
+                (i) => setState(() => vocabulary = i == 1),
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        ),
         if (!vocabulary)
           grammarController != null
               ? GrammarRoadSection(
@@ -895,9 +1010,15 @@ class _LearningPreviewState extends State<LearningPreview>
                   learningController: learning,
                   placementCefr: placementCefr,
                   showPreviousLevels: showPreviousLevels.value,
-                  onTogglePreviousLevels: () => showPreviousLevels.value = !showPreviousLevels.value,
+                  onTogglePreviousLevels: () =>
+                      showPreviousLevels.value = !showPreviousLevels.value,
+                  asSliver: true,
                 )
-              : LearningCatalogue(controller: learning!, kinds: const ['GRAMMAR'])
+              : LearningCatalogue(
+                  controller: learning!,
+                  kinds: const ['GRAMMAR'],
+                  asSliver: true,
+                )
         else ...[
           if (hasVocabLessons) ...[
             LearningCatalogue(
@@ -907,14 +1028,20 @@ class _LearningPreviewState extends State<LearningPreview>
               showPreviousLevels: showPreviousLevels.value,
               onTogglePreviousLevels: () =>
                   showPreviousLevels.value = !showPreviousLevels.value,
+              asSliver: true,
             ),
-            const SizedBox(height: 12),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
           ],
-          CuratedTopicsCatalogue(controller: vocabularyController, onOpenDeck: openWordDeck),
+          SliverToBoxAdapter(
+            child: CuratedTopicsCatalogue(
+              controller: vocabularyController,
+              onOpenDeck: openWordDeck,
+            ),
+          ),
         ],
       ];
     }
-    return buildSampleRoadSections(
+    final sampleWidgets = buildSampleRoadSections(
       context: context,
       vocabulary: vocabulary,
       model: model,
@@ -922,56 +1049,194 @@ class _LearningPreviewState extends State<LearningPreview>
       onSelectVocabulary: (value) => setState(() => vocabulary = value),
       onOpenDeck: openWordDeck,
     );
+    return [
+      SliverList.builder(
+        itemCount: sampleWidgets.length,
+        itemBuilder: (context, index) => sampleWidgets[index],
+      ),
+    ];
   }
 
-  Widget practiceCatalogue(String kind) => LearningCatalogue(
-    controller: learning!,
-    kinds: [kind],
-    onOpenHistory: () => previewPush<void>(
-      context,
-      LearningHistoryPage(controller: learning!, kind: kind),
-    ),
-  );
-
-  List<Widget> practice() => [
-    learningSegments(
-      PracticeSkill.values.map((s) => s.label).toList(),
-      skill.index,
-      (i) => setState(() => skill = PracticeSkill.values[i]),
-      icons: [
-        'imgVuesaxLinearHeadphone',
-        'imgVuesaxLinearBook',
-        'imgVuesaxOutlineNoteText',
-        'imgVuesaxLinearMicrophone2',
-      ],
-    ),
-    const SizedBox(height: 24),
-    if (speaking == null && skill == PracticeSkill.speaking) ...[
-      if (widget.onSignIn != null)
-        TextButton(
-          key: const Key('speakingSignIn'),
-          onPressed: widget.onSignIn,
-          child: const Text('Đăng nhập để chấm giọng thật'),
+  Widget practiceCatalogue(String kind, {bool asSliver = false}) =>
+      LearningCatalogue(
+        controller: learning!,
+        kinds: [kind],
+        asSliver: asSliver,
+        onOpenHistory: () => previewPush<void>(
+          context,
+          LearningHistoryPage(controller: learning!, kind: kind),
         ),
-    ],
-    if (speaking != null && skill == PracticeSkill.speaking)
-      SpeakingTopicCatalogue(
-        controller: speaking!,
-        practicePage: () =>
-            SpeakingPreviewPage(model: model, speaking: speaking),
-      )
-    else if (learning != null &&
-        (skill == PracticeSkill.reading || skill == PracticeSkill.listening))
-      practiceCatalogue(
-        skill == PracticeSkill.reading ? 'READING' : 'LISTENING',
-      )
-    else if (skill == PracticeSkill.writing)
-      WritingPracticeSection(model: model, evaluationService: writing)
-    else
-      ...buildSamplePracticeSections(
+      );
+
+  List<Widget> practiceSlivers() {
+    final headerControl = SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          learningSegments(
+            PracticeSkill.values.map((s) => s.label).toList(),
+            skill.index,
+            (i) => setState(() => skill = PracticeSkill.values[i]),
+            icons: [
+              'imgVuesaxLinearHeadphone',
+              'imgVuesaxLinearBook',
+              'imgVuesaxOutlineNoteText',
+              'imgVuesaxLinearMicrophone2',
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+    if (speaking == null && skill == PracticeSkill.speaking) {
+      final sampleWidgets = buildSamplePracticeSections(
         context: context,
         skill: skill,
         model: model,
+      );
+      return [
+        headerControl,
+        SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (widget.onSignIn != null)
+                TextButton(
+                  key: const Key('speakingSignIn'),
+                  onPressed: widget.onSignIn,
+                  child: const Text('Đăng nhập để chấm giọng thật'),
+                ),
+              ...sampleWidgets,
+            ],
+          ),
+        ),
+      ];
+    }
+    if (speaking != null && skill == PracticeSkill.speaking) {
+      return [
+        headerControl,
+        SliverToBoxAdapter(
+          child: SpeakingTopicCatalogue(
+            controller: speaking!,
+            practicePage: () =>
+                SpeakingPreviewPage(model: model, speaking: speaking),
+          ),
+        ),
+      ];
+    }
+    if (learning != null &&
+        (skill == PracticeSkill.reading || skill == PracticeSkill.listening)) {
+      return [
+        headerControl,
+        practiceCatalogue(
+          skill == PracticeSkill.reading ? 'READING' : 'LISTENING',
+          asSliver: true,
+        ),
+      ];
+    }
+    if (skill == PracticeSkill.writing) {
+      return [
+        headerControl,
+        SliverToBoxAdapter(
+          child: WritingPracticeSection(
+            model: model,
+            evaluationService: writing,
+          ),
+        ),
+      ];
+    }
+    final sampleWidgets = buildSamplePracticeSections(
+      context: context,
+      skill: skill,
+      model: model,
+    );
+    return [
+      headerControl,
+      SliverList.builder(
+        itemCount: sampleWidgets.length,
+        itemBuilder: (context, index) => sampleWidgets[index],
       ),
-  ];
+    ];
+  }
+}
+
+class _DeferredWritingTaskPage extends StatefulWidget {
+  const _DeferredWritingTaskPage({
+    required this.model,
+    required this.itemId,
+    required this.evaluationService,
+    required this.cachedItems,
+    required this.onItemsLoaded,
+  });
+
+  final PreviewModel model;
+  final String itemId;
+  final WritingEvaluationService? evaluationService;
+  final List<WritingPracticeItem>? cachedItems;
+  final ValueChanged<List<WritingPracticeItem>> onItemsLoaded;
+
+  @override
+  State<_DeferredWritingTaskPage> createState() =>
+      _DeferredWritingTaskPageState();
+}
+
+class _DeferredWritingTaskPageState extends State<_DeferredWritingTaskPage> {
+  WritingPracticeItem? _matched;
+  int _matchedIndex = 0;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolve();
+  }
+
+  Future<void> _resolve() async {
+    List<WritingPracticeItem> items =
+        widget.cachedItems ?? WritingPracticeItem.defaultItems;
+    final restoreFuture = widget.model.ensureRestored().catchError((Object _) {});
+    if (widget.cachedItems == null) {
+      try {
+        final fetched = await (widget.evaluationService ??
+                WritingEvaluationService())
+            .fetchWritingItems();
+        if (fetched.isNotEmpty) {
+          items = fetched;
+          widget.onItemsLoaded(fetched);
+        }
+      } catch (_) {}
+    }
+    await restoreFuture;
+    if (!mounted) return;
+    final index = items.indexWhere((e) => e.id == widget.itemId);
+    final matched = index >= 0 ? items[index] : items.firstOrNull;
+    if (matched == null) {
+      Navigator.of(context).pop(false);
+      return;
+    }
+    setState(() {
+      _matched = matched;
+      _matchedIndex = index >= 0 ? index : 0;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || _matched == null) {
+      return FigmaPage(
+        titleStyle: designHeading(18),
+        title: 'Luyện Viết',
+        child: const Center(
+          child: CircularProgressIndicator(color: AppColors.primary500),
+        ),
+      );
+    }
+    return WritingTaskPage(
+      model: widget.model,
+      item: _matched!,
+      itemIndex: _matchedIndex,
+      evaluationService: widget.evaluationService,
+    );
+  }
 }

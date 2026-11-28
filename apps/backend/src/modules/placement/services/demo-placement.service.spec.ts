@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { AssessmentItem, AssessmentSkill, CefrLevel, ItemUsageScope } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MlClientService } from '../../ml/ml-client.service';
+import { InProcessCatFallback } from '../../ml/fallbacks/in-process-cat.fallback';
 import { DemoPlacementService, provisionalCefr } from './demo-placement.service';
 
 jest.mock('fs', () => ({ ...jest.requireActual('fs'), existsSync: jest.fn(() => true) }));
@@ -41,6 +42,7 @@ describe('DemoPlacementService', () => {
     assessmentItem: { findMany: jest.Mock }; assessmentResponse: { create: jest.Mock }; $transaction: jest.Mock;
   };
   let ml: { selectNextCatItem: jest.Mock };
+  let inProcessCat: InProcessCatFallback;
   let events: { emit: jest.Mock };
   const dto = (index = 0, selectedOption = 'Yes') => ({ itemId: `item-${index}`, itemIndex: index, selectedOption });
 
@@ -52,6 +54,7 @@ describe('DemoPlacementService', () => {
       assessmentResponse: { create: jest.fn() }, $transaction: jest.fn(),
     };
     ml = { selectNextCatItem: jest.fn(async (_h, candidates) => ({ next_item_id: candidates[0].item_id })) };
+    inProcessCat = new InProcessCatFallback();
     events = { emit: jest.fn() };
     prisma.$transaction.mockImplementation(async (fn) => fn(prisma));
     prisma.placementSession.updateMany.mockImplementation(async ({ data }) => {
@@ -62,7 +65,13 @@ describe('DemoPlacementService', () => {
     prisma.assessmentResponse.create.mockImplementation(async ({ data }) => {
       session.responses.push({ ...data, id: 'saved', item: item(data.itemId, data.itemIndex < 5 ? 'READING' : 'LISTENING'), createdAt: new Date() });
     });
-    service = new DemoPlacementService(prisma as unknown as PrismaService, ml as unknown as MlClientService, events as unknown as EventEmitter2);
+    service = new DemoPlacementService(
+      prisma as unknown as PrismaService,
+      ml as unknown as MlClientService,
+      events as unknown as EventEmitter2,
+      undefined,
+      inProcessCat,
+    );
   });
 
   it.each(['answer', 'result', 'review'] as const)('rejects another account for %s', async (method) => {
@@ -72,9 +81,11 @@ describe('DemoPlacementService', () => {
 
   it('resumes the persisted question without running CAT again', async () => {
     prisma.placementSession.findFirst.mockResolvedValue(session);
+    const selectSpy = jest.spyOn(inProcessCat, 'select');
     const result = await service.start('owner');
     expect(result.firstItem.id).toBe('item-0');
     expect(result.firstItem).not.toHaveProperty('correctOption');
+    expect(selectSpy).not.toHaveBeenCalled();
     expect(ml.selectNextCatItem).not.toHaveBeenCalled();
   });
 
@@ -85,10 +96,13 @@ describe('DemoPlacementService', () => {
   });
 
   it('leaves the original question and response history untouched when CAT fails', async () => {
-    ml.selectNextCatItem.mockRejectedValue(new Error('Both CAT implementations failed'));
+    jest.spyOn(inProcessCat, 'select').mockImplementationOnce(() => {
+      throw new Error('In-process CAT failure');
+    });
     await expect(service.answer('session', 'owner', dto())).rejects.toThrow(ServiceUnavailableException);
     expect(session.currentItemIndex).toBe(0);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(ml.selectNextCatItem).not.toHaveBeenCalled();
   });
 
   it('commits a valid answer and treats identical retry as idempotent', async () => {
@@ -101,6 +115,7 @@ describe('DemoPlacementService', () => {
       where: { bankVersion: 'demo-v1', groupId: null, usageScope: { in: ['PLACEMENT', 'ALL'] } },
       orderBy: { externalId: 'asc' },
     });
+    expect(ml.selectNextCatItem).not.toHaveBeenCalled();
     await expect(service.answer('session', 'owner', dto(0, 'No'))).rejects.toThrow(ConflictException);
   });
 
@@ -114,11 +129,58 @@ describe('DemoPlacementService', () => {
     expect(prisma.assessmentResponse.create).not.toHaveBeenCalled();
   });
 
-  it('starts Listening at A2 with an empty skill-specific CAT history', async () => {
+  it('starts Listening at A2 with an empty skill-specific CAT history using in-process IRT without ML HTTP call', async () => {
+    const selectSpy = jest.spyOn(inProcessCat, 'select');
     session = state(4);
     await service.answer('session', 'owner', dto(4));
-    expect(ml.selectNextCatItem.mock.calls[0][0]).toEqual([]);
-    expect(ml.selectNextCatItem.mock.calls[0][1]).toEqual([expect.objectContaining({ item_id: 'listening' })]);
+    expect(ml.selectNextCatItem).not.toHaveBeenCalled();
+    expect(selectSpy).toHaveBeenCalledTimes(1);
+    expect(selectSpy.mock.calls[0][0]).toEqual([]);
+    expect(selectSpy.mock.calls[0][1]).toEqual([expect.objectContaining({ item_id: 'listening' })]);
+  });
+
+  it('caches placement bank items across repeated answers and invalidates on admin.data.mutated', async () => {
+    const readingItems = Array.from({ length: 5 }, (_, i) => ({
+      ...item(`item-${i}`, 'READING', CefrLevel.A2),
+      irtA: 1.4,
+      irtB: (i - 2) * 0.8,
+    }));
+    const listeningItems = Array.from({ length: 5 }, (_, i) => ({
+      ...item(`item-${i + 5}`, 'LISTENING', CefrLevel.A2),
+      irtA: 1.4,
+      irtB: (i - 2) * 0.8,
+    }));
+    prisma.assessmentItem.findMany.mockResolvedValue([...readingItems, ...listeningItems]);
+    session.currentItem = readingItems[0];
+
+    await service.answer('session', 'owner', { itemId: 'item-0', itemIndex: 0, selectedOption: 'Yes' });
+    const secondItemId = session.currentItemId!;
+    await service.answer('session', 'owner', { itemId: secondItemId, itemIndex: 1, selectedOption: 'Yes' });
+    expect(prisma.assessmentItem.findMany).toHaveBeenCalledTimes(1);
+    expect(ml.selectNextCatItem).not.toHaveBeenCalled();
+
+    service.handleAdminDataMutated();
+    const thirdItemId = session.currentItemId!;
+    await service.answer('session', 'owner', { itemId: thirdItemId, itemIndex: 2, selectedOption: 'Yes' });
+    expect(prisma.assessmentItem.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves 3PL IRT EAP adaptation in-process (higher difficulty after correct, lower after wrong)', async () => {
+    const baseItem = item('item-0', 'READING', CefrLevel.A2);
+    const easy = { ...item('easy', 'READING', CefrLevel.B1), irtA: 1.5, irtB: -1.5, irtC: 0.2 };
+    const hard = { ...item('hard', 'READING', CefrLevel.B2), irtA: 1.5, irtB: 1.2, irtC: 0.2 };
+    prisma.assessmentItem.findMany.mockResolvedValue([baseItem, easy, hard]);
+
+    // Answering item-0 correctly shifts theta positive -> selects hard item.
+    const afterCorrect = await service.answer('session', 'owner', dto(0, 'Yes'));
+    expect(afterCorrect.nextItem?.id).toBe('hard');
+
+    // Reset session and answer wrongly -> shifts theta negative -> selects easy item.
+    session = state(0);
+    service.invalidateBankCache();
+    const afterWrong = await service.answer('session', 'owner', dto(0, 'No'));
+    expect(afterWrong.nextItem?.id).toBe('easy');
+    expect(ml.selectNextCatItem).not.toHaveBeenCalled();
   });
 
   it('hides correctness and explanations while the test is in progress', async () => {

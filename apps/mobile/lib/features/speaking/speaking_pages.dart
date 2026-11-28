@@ -164,34 +164,50 @@ class _SpeakingCatalogueState extends State<SpeakingCatalogue> {
 }
 
 class SpeakingRecordPage extends StatefulWidget {
-  const SpeakingRecordPage({super.key, required this.controller});
+  const SpeakingRecordPage({
+    super.key,
+    required this.controller,
+    this.playerFactory,
+  });
   final SpeakingController controller;
+  final AudioPlayer Function()? playerFactory;
   @override
   State<SpeakingRecordPage> createState() => _SpeakingRecordPageState();
 }
 
 class _SpeakingRecordPageState extends State<SpeakingRecordPage>
     with WidgetsBindingObserver {
-  final AudioPlayer _player = AudioPlayer();
+  AudioPlayer? _player;
   SpeakingController get c => widget.controller;
   bool get showReviewHeader =>
       c.mode != 'TONGUE_TWISTER' && c.status == 'SUCCEEDED' && c.result != null;
   bool _playing = false;
   StreamSubscription<void>? _completion;
+
+  AudioPlayer _ensurePlayer() {
+    final existing = _player;
+    if (existing != null) return existing;
+    final player = (widget.playerFactory ?? AudioPlayer.new)();
+    _completion = player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playing = false);
+    });
+    return _player = player;
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _completion = _player.onPlayerComplete.listen((_) {
-      if (mounted) setState(() => _playing = false);
-    });
     if (c.submission != null) unawaited(c.check());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
-      unawaited(_player.stop());
+      final player = _player;
+      if (player != null) {
+        unawaited(player.stop());
+      }
       _playing = false;
       unawaited(c.stop());
     } else if (c.submission != null) {
@@ -200,7 +216,7 @@ class _SpeakingRecordPageState extends State<SpeakingRecordPage>
   }
 
   Future<void> _record() async {
-    await _player.stop();
+    await _player?.stop();
     if (mounted) setState(() => _playing = false);
     await c.start();
   }
@@ -210,9 +226,9 @@ class _SpeakingRecordPageState extends State<SpeakingRecordPage>
     if (path == null) return;
     try {
       if (_playing) {
-        await _player.stop();
+        await _player?.stop();
       } else {
-        await _player.play(DeviceFileSource(path));
+        await _ensurePlayer().play(DeviceFileSource(path));
       }
       if (mounted) setState(() => _playing = !_playing);
     } catch (_) {
@@ -223,7 +239,7 @@ class _SpeakingRecordPageState extends State<SpeakingRecordPage>
   }
 
   Future<void> _send({bool newAttempt = false}) async {
-    await _player.stop();
+    await _player?.stop();
     if (mounted) setState(() => _playing = false);
     await c.send(newAttempt: newAttempt);
   }
@@ -232,7 +248,10 @@ class _SpeakingRecordPageState extends State<SpeakingRecordPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_completion?.cancel());
-    unawaited(_player.dispose());
+    final player = _player;
+    if (player != null) {
+      unawaited(player.dispose());
+    }
     unawaited(c.endSession());
     super.dispose();
   }

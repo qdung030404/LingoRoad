@@ -79,6 +79,11 @@ class DemoShell extends StatelessWidget {
     }
     switch (session.stage) {
       case SessionStage.loading:
+        if (session.canRenderStartupSwr) {
+          return _SwrStartupShell(
+            child: _AccountNavigator(session: session),
+          );
+        }
         return const _StartupScreen();
       case SessionStage.signedOut:
         return AuthPage(session: session);
@@ -210,6 +215,41 @@ class _StartupScreen extends StatelessWidget {
   }
 }
 
+class _SwrStartupShell extends StatelessWidget {
+  const _SwrStartupShell({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return Stack(
+      children: [
+        child,
+        if (!reduceMotion)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: IgnorePointer(
+              child: SafeArea(
+                bottom: false,
+                child: Semantics(
+                  label: 'Đang đồng bộ dữ liệu mới',
+                  child: LinearProgressIndicator(
+                    key: const Key('startupSwrProgress'),
+                    minHeight: 2.5,
+                    backgroundColor: Colors.transparent,
+                    color: AppColors.primary400.withValues(alpha: 0.75),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _AccountNavigator extends StatefulWidget {
   const _AccountNavigator({required this.session});
   final SessionController session;
@@ -223,6 +263,7 @@ class _AccountNavigatorState extends State<_AccountNavigator> {
   Widget build(BuildContext context) {
     final session = widget.session;
     final completed = session.hasCompletedPlacement;
+    final previewKey = session.activeAccountId ?? session.user?['id'];
     return NavigatorPopHandler<void>(
       onPopWithResult: (_) => navigatorKey.currentState?.maybePop(),
       child: Navigator(
@@ -233,7 +274,7 @@ class _AccountNavigatorState extends State<_AccountNavigator> {
           ),
           builder: (_) => completed
               ? LearningPreview(
-                  key: ValueKey(session.user?['id']),
+                  key: ValueKey(previewKey),
                   account: session,
                   onLogout: session.logout,
                 )

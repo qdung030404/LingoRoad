@@ -68,14 +68,15 @@ class PreviewNavigationBar extends StatelessWidget {
                               ? Duration.zero
                               : const Duration(milliseconds: 200),
                           opacity: selectedIndex == i ? 1 : .5,
-                          child: ColorFiltered(
+                          child: FigmaAsset(
+                            'nav/${icons[i]}',
+                            size: 32,
                             colorFilter: ColorFilter.mode(
                               selectedIndex == i
                                   ? AppColors.primary500
                                   : AppColors.grey900,
                               BlendMode.srcIn,
                             ),
-                            child: FigmaAsset('nav/${icons[i]}', size: 32),
                           ),
                         ),
                       ),

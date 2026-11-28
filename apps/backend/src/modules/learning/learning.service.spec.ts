@@ -989,5 +989,61 @@ describe('LearningService', () => {
       expect(linkedItem?.grammarTopicCode).toBe('grammar.tenses.present_perfect');
       expect(legacyItem?.grammarTopicCode).toBe('grammar.pronouns');
     });
+
+    it('reads owned attempt only once per progress(), check(), and submit() transaction', async () => {
+      const readingContent: LearningContent = {
+        steps: [{ id: 's0', title: 'Intro', body: 'Passage intro' }],
+        passage: 'Short passage.',
+        questions: content.questions.map((question) => ({
+          ...question,
+          skillCode: 'reading.scanning',
+          evidence: 'Short passage.',
+        })),
+      };
+      const clean = fixture();
+      clean.lesson.kind = 'READING';
+      clean.attempt.lessonSnapshot = {
+        ...(clean.attempt.lessonSnapshot as object),
+        kind: 'READING',
+        cefrLevel: 'A2',
+      };
+      clean.attempt.contentSnapshot = structuredClone(readingContent) as unknown as Prisma.JsonValue;
+
+      clean.db.learningAttempt.findFirst.mockClear();
+      const progressed = await clean.service.progress('owner', 'attempt', {
+        expectedVersion: 0,
+        phase: 'QUIZ',
+        index: 0,
+        questionId: 'q0',
+        optionId: 'B',
+      });
+      expect(clean.db.learningAttempt.findFirst).toHaveBeenCalledTimes(1);
+      expect(progressed.version).toBe(1);
+      expect(progressed.position).toEqual({ phase: 'QUIZ', index: 0 });
+      expect(progressed.answers[0]).toEqual({ questionId: 'q0', optionId: 'B', checked: false });
+
+      let version = progressed.version;
+      for (let i = 0; i < 5; i++) {
+        clean.db.learningAttempt.findFirst.mockClear();
+        const checked = await clean.service.check('owner', 'attempt', `q${i}`, {
+          expectedVersion: version,
+          optionId: 'A',
+        });
+        expect(clean.db.learningAttempt.findFirst).toHaveBeenCalledTimes(1);
+        expect(checked.answers[i]).toMatchObject({
+          questionId: `q${i}`,
+          optionId: 'A',
+          checked: true,
+          isCorrect: true,
+        });
+        version = checked.version;
+      }
+
+      clean.db.learningAttempt.findFirst.mockClear();
+      const submitted = await clean.service.submit('owner', 'attempt', version);
+      expect(clean.db.learningAttempt.findFirst).toHaveBeenCalledTimes(1);
+      expect(submitted.status).toBe('COMPLETED');
+      expect(submitted.result).toEqual({ correctCount: 5, totalQuestions: 5, scoreRatio: 1 });
+    });
   });
 });

@@ -588,4 +588,97 @@ describe('VocabularyService batched queries', () => {
     expect(replay.words.map(w => w.id)).toEqual(firstResult.wordIds);
     expect(replay.words).toEqual(first.words);
   });
+
+  it('executes deck(), words(), and readingWords() directly without RepeatableRead $transaction overhead', async () => {
+    const deckId = '00000000-0000-4000-8000-000000000020';
+    const otherDeckId = '00000000-0000-4000-8000-000000000021';
+    const deck = deckRow(deckId, 'Reading Deck');
+    const words = [
+      {
+        id: '00000000-0000-4000-8000-000000000101',
+        deckId,
+        english: 'focus',
+        meaning: 'tập trung',
+        phonetic: '/ˈfəʊkəs/',
+        partOfSpeech: 'noun',
+        example: '',
+        translation: '',
+        imageUrl: null,
+        acceptedAnswers: ['focus'],
+        contentVersion: 1,
+        version: 1,
+        learningState: 'NEEDS_REVIEW',
+        lastPresentedAt: null,
+        lastReviewedAt: null,
+        lastReviewItemId: null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000102',
+        deckId,
+        english: 'clarity',
+        meaning: 'rõ ràng',
+        phonetic: '/ˈklærəti/',
+        partOfSpeech: 'noun',
+        example: '',
+        translation: '',
+        imageUrl: null,
+        acceptedAnswers: ['clarity'],
+        contentVersion: 1,
+        version: 1,
+        learningState: 'REMEMBERED',
+        lastPresentedAt: now,
+        lastReviewedAt: now,
+        lastReviewItemId: 'rev-1',
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      },
+    ];
+    const { db, service } = makeService({
+      vocabularyDeck: {
+        findFirst: jest.fn(async () => deck),
+      },
+      vocabularyWord: {
+        findFirst: jest.fn(async ({ where }: any) => {
+          if (where.id === 'cursor-other-deck') {
+            return { ...words[0], id: 'cursor-other-deck', deckId: otherDeckId };
+          }
+          if (where.id === words[0].id) {
+            return words[0];
+          }
+          return null;
+        }),
+        findMany: jest.fn(async ({ cursor }: any) => (cursor ? [words[1]] : words)),
+      },
+      $queryRaw: jest.fn(async () => [
+        { deckId, totalWords: 2, rememberedWords: 1, reviewedWords: 1 },
+      ]),
+    });
+
+    const singleDeck = await service.deck(userId, deckId);
+    expect(singleDeck.deck).toMatchObject({ id: deckId, totalWords: 2, rememberedWords: 1 });
+    expect(db.$transaction).not.toHaveBeenCalled();
+
+    const page = await service.words(userId, deckId, { limit: 1 });
+    expect(page.items).toHaveLength(1);
+    expect(page.nextCursor).toBe(words[0].id);
+    expect(db.$transaction).not.toHaveBeenCalled();
+
+    const nextPage = await service.words(userId, deckId, { limit: 1, cursor: words[0].id });
+    expect(nextPage.items.map(w => w.id)).toEqual([words[1].id]);
+    expect(nextPage.nextCursor).toBeNull();
+    expect(db.$transaction).not.toHaveBeenCalled();
+
+    await expect(
+      service.words(userId, deckId, { limit: 1, cursor: 'cursor-other-deck' }),
+    ).rejects.toThrow(NotFoundException);
+
+    const reading = await service.readingWords(userId);
+    expect(reading.deck).toEqual({ id: deckId, name: 'Reading Deck' });
+    expect(reading.items.map(w => w.id)).toEqual([words[0].id, words[1].id]);
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
 });

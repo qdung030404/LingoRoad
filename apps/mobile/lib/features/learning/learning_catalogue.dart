@@ -30,6 +30,7 @@ class LearningCatalogue extends StatefulWidget {
     this.placementCefr,
     this.showPreviousLevels = false,
     this.onTogglePreviousLevels,
+    this.asSliver = false,
   });
   final LearningController controller;
   final List<String> kinds;
@@ -37,6 +38,7 @@ class LearningCatalogue extends StatefulWidget {
   final String? placementCefr;
   final bool showPreviousLevels;
   final VoidCallback? onTogglePreviousLevels;
+  final bool asSliver;
 
   @override
   State<LearningCatalogue> createState() => _LearningCatalogueState();
@@ -103,96 +105,17 @@ class _LearningCatalogueState extends State<LearningCatalogue> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildLessonItem(
+    LearningLesson lesson, {
+    required bool isListening,
+    required bool isReading,
+  }) {
     final controller = widget.controller;
-    final int placementRank = GrammarController.cefrRank(widget.placementCefr);
-    final bool filterBelowPlacement = placementRank > 0 && !widget.showPreviousLevels;
-    final Iterable<LearningLesson> allKindLessons = controller.lessons.where(
-      (lesson) => widget.kinds.contains(lesson.kind),
-    );
-    final bool hasPreviousLessons =
-        placementRank > 0 &&
-        allKindLessons.any((lesson) {
-          final int r = GrammarController.cefrRank(lesson.cefrLevel);
-          return r >= 0 && r < placementRank;
-        });
-    final lessons = filterBelowPlacement
-        ? allKindLessons.where((lesson) {
-            final int r = GrammarController.cefrRank(lesson.cefrLevel);
-            return r < 0 || r >= placementRank;
-          })
-        : allKindLessons;
-    final isReading =
-        widget.kinds.length == 1 && widget.kinds.single == 'READING';
-    final isListening =
-        widget.kinds.length == 1 && widget.kinds.single == 'LISTENING';
-    final levels = isReading || isListening
-        ? (lessons
-              .map((lesson) => lesson.cefrLevel)
-              .whereType<String>()
-              .toSet()
-              .toList()
-            ..sort())
-        : <String>[];
-    final level = levels.contains(selectedLevel) ? selectedLevel : null;
-    final visible = level == null
-        ? lessons
-        : lessons.where((lesson) => lesson.cefrLevel == level);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (controller.catalogueError != null)
-          LearningError(
-            controller.catalogueError!,
-            retry: controller.loadCatalogue,
-          )
-        else if (controller.error != null)
-          LearningError(controller.error!, retry: controller.refresh),
-        if (levels.isNotEmpty || widget.onOpenHistory != null) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: levels.isEmpty
-                      ? const SizedBox.shrink()
-                      : _levelDropdown(levels, level),
-                ),
-              ),
-              if (widget.onOpenHistory case final openHistory?) ...[
-                const SizedBox(width: 8),
-                IconButton.filledTonal(
-                  key: const ValueKey('practice-history'),
-                  tooltip: 'Lịch sử làm bài',
-                  onPressed: openHistory,
-                  icon: const Icon(Icons.history_rounded, size: 24),
-                  style: IconButton.styleFrom(
-                    backgroundColor: AppColors.primary25,
-                    foregroundColor: AppColors.primary800,
-                    minimumSize: const Size.square(48),
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: AppRadius.tagRadius,
-                      side: const BorderSide(color: AppColors.primary100),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 12),
-        ],
-        if ((controller.catalogueLoading || controller.loading) &&
-            controller.lessons.isEmpty &&
-            controller.catalogueError == null &&
-            controller.error == null)
-          const Center(child: CircularProgressIndicator()),
-        for (final lesson in visible) ...[
-          if (isListening || isReading)
-            _practiceLessonCard(lesson, isReading: isReading)
-          else
-            LearningCard(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: isListening || isReading
+          ? _practiceLessonCard(lesson, isReading: isReading)
+          : LearningCard(
               key: ValueKey('learning-lesson-${lesson.id}'),
               onTap: () {
                 if (lesson.kind == 'GRAMMAR' &&
@@ -233,35 +156,203 @@ class _LearningCatalogueState extends State<LearningCatalogue> {
                   ),
               ],
             ),
-          const SizedBox(height: 12),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final int placementRank = GrammarController.cefrRank(widget.placementCefr);
+    final bool filterBelowPlacement = placementRank > 0 && !widget.showPreviousLevels;
+    final List<LearningLesson> allKindLessons = controller.lessons
+        .where((lesson) => widget.kinds.contains(lesson.kind))
+        .toList();
+    final bool hasPreviousLessons =
+        placementRank > 0 &&
+        allKindLessons.any((lesson) {
+          final int r = GrammarController.cefrRank(lesson.cefrLevel);
+          return r >= 0 && r < placementRank;
+        });
+    final List<LearningLesson> lessons = filterBelowPlacement
+        ? allKindLessons.where((lesson) {
+            final int r = GrammarController.cefrRank(lesson.cefrLevel);
+            return r < 0 || r >= placementRank;
+          }).toList()
+        : allKindLessons;
+    final isReading =
+        widget.kinds.length == 1 && widget.kinds.single == 'READING';
+    final isListening =
+        widget.kinds.length == 1 && widget.kinds.single == 'LISTENING';
+    final levels = isReading || isListening
+        ? (lessons
+              .map((lesson) => lesson.cefrLevel)
+              .whereType<String>()
+              .toSet()
+              .toList()
+            ..sort())
+        : <String>[];
+    final level = levels.contains(selectedLevel) ? selectedLevel : null;
+    final List<LearningLesson> visible = level == null
+        ? lessons
+        : lessons.where((lesson) => lesson.cefrLevel == level).toList();
+
+    final topChildren = <Widget>[
+      if (controller.catalogueError != null)
+        LearningError(
+          controller.catalogueError!,
+          retry: controller.loadCatalogue,
+        )
+      else if (controller.error != null)
+        LearningError(controller.error!, retry: controller.refresh),
+      if (levels.isNotEmpty || widget.onOpenHistory != null) ...[
+        Row(
+          children: [
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: levels.isEmpty
+                    ? const SizedBox.shrink()
+                    : _levelDropdown(levels, level),
+              ),
+            ),
+            if (widget.onOpenHistory case final openHistory?) ...[
+              const SizedBox(width: 8),
+              IconButton.filledTonal(
+                key: const ValueKey('practice-history'),
+                tooltip: 'Lịch sử làm bài',
+                onPressed: openHistory,
+                icon: const Icon(Icons.history_rounded, size: 24),
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.primary25,
+                  foregroundColor: AppColors.primary800,
+                  minimumSize: const Size.square(48),
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: AppRadius.tagRadius,
+                    side: const BorderSide(color: AppColors.primary100),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+      ],
+      if ((controller.catalogueLoading || controller.loading) &&
+          controller.lessons.isEmpty &&
+          controller.catalogueError == null &&
+          controller.error == null)
+        const Center(child: CircularProgressIndicator()),
+    ];
+
+    final bottomChildren = <Widget>[
+      if (allKindLessons.isEmpty &&
+          controller.catalogueLoaded &&
+          !controller.catalogueLoading &&
+          !controller.loading &&
+          controller.catalogueError == null &&
+          controller.error == null)
+        learningBody('Chưa có bài học được xuất bản.'),
+      if (allKindLessons.isNotEmpty && lessons.isEmpty && hasPreviousLessons) ...[
+        learningBody(
+          'Chưa có bài học từ bậc ${widget.placementCefr} trở lên. Nhấn "Xem các bậc trước đó" để ôn lại.',
+        ),
+        AppSpacing.gapSm,
+      ],
+      if ((isListening || isReading) && lessons.isNotEmpty && visible.isEmpty)
+        learningBody(
+          isReading
+              ? 'Chưa có bài đọc ở cấp độ này.'
+              : 'Chưa có bài nghe ở cấp độ này.',
+        ),
+      if (hasPreviousLessons && widget.onTogglePreviousLevels != null)
+        CustomAppButton(
+          key: const Key('catalogueTogglePreviousLevels'),
+          text: widget.showPreviousLevels
+              ? 'Ẩn các bậc trước đó'
+              : 'Xem các bậc trước đó',
+          isSecondary: true,
+          onPressed: widget.onTogglePreviousLevels,
+        ),
+    ];
+
+    if (widget.asSliver) {
+      return SliverMainAxisGroup(
+        slivers: [
+          if (topChildren.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: topChildren,
+              ),
+            ),
+          if (visible.isNotEmpty)
+            SliverList.builder(
+              itemCount: visible.length,
+              itemBuilder: (context, index) => _buildLessonItem(
+                visible[index],
+                isListening: isListening,
+                isReading: isReading,
+              ),
+            ),
+          if (bottomChildren.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: bottomChildren,
+              ),
+            ),
         ],
-        if (allKindLessons.isEmpty &&
-            controller.catalogueLoaded &&
-            !controller.catalogueLoading &&
-            !controller.loading &&
-            controller.catalogueError == null &&
-            controller.error == null)
-          learningBody('Chưa có bài học được xuất bản.'),
-        if (allKindLessons.isNotEmpty && lessons.isEmpty && hasPreviousLessons) ...[
-          learningBody(
-            'Chưa có bài học từ bậc ${widget.placementCefr} trở lên. Nhấn "Xem các bậc trước đó" để ôn lại.',
-          ),
-          AppSpacing.gapSm,
+      );
+    }
+
+    final hasAncestorScroll = Scrollable.maybeOf(context) != null;
+    if (hasAncestorScroll) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ...topChildren,
+          if (visible.isNotEmpty)
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: visible.length,
+              itemBuilder: (context, index) => _buildLessonItem(
+                visible[index],
+                isListening: isListening,
+                isReading: isReading,
+              ),
+            ),
+          ...bottomChildren,
         ],
-        if ((isListening || isReading) && lessons.isNotEmpty && visible.isEmpty)
-          learningBody(
-            isReading
-                ? 'Chưa có bài đọc ở cấp độ này.'
-                : 'Chưa có bài nghe ở cấp độ này.',
+      );
+    }
+
+    return CustomScrollView(
+      slivers: [
+        if (topChildren.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: topChildren,
+            ),
           ),
-        if (hasPreviousLessons && widget.onTogglePreviousLevels != null)
-          CustomAppButton(
-            key: const Key('catalogueTogglePreviousLevels'),
-            text: widget.showPreviousLevels
-                ? 'Ẩn các bậc trước đó'
-                : 'Xem các bậc trước đó',
-            isSecondary: true,
-            onPressed: widget.onTogglePreviousLevels,
+        if (visible.isNotEmpty)
+          SliverList.builder(
+            itemCount: visible.length,
+            itemBuilder: (context, index) => _buildLessonItem(
+              visible[index],
+              isListening: isListening,
+              isReading: isReading,
+            ),
+          ),
+        if (bottomChildren.isNotEmpty)
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: bottomChildren,
+            ),
           ),
       ],
     );

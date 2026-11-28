@@ -43,6 +43,7 @@ class LearningController extends ChangeNotifier {
   onLevelChanged;
   int _catalogueEpoch = 0;
   Future<void>? _refreshing, _catalogueRequest;
+  Future<Json>? _ensurePlanRequest;
   DateTime? _loadedAt, _catalogueAt;
   String? _loadedDate;
   Json? _home;
@@ -121,11 +122,24 @@ class LearningController extends ChangeNotifier {
     return _refreshing ??= _refresh(++_epoch);
   }
 
+  Future<Json> _coalescedEnsurePlan() {
+    final pending = _ensurePlanRequest;
+    if (pending != null) return pending;
+    final task = daily!.repository.ensurePlan();
+    _ensurePlanRequest = task;
+    return task.whenComplete(() {
+      if (identical(_ensurePlanRequest, task)) {
+        _ensurePlanRequest = null;
+      }
+    });
+  }
+
   Future<void> _refresh(int epoch) async {
     await Future<void>.value();
     if (!active || epoch != _epoch) return;
     loading = true;
     error = null;
+    var notifiedFinal = false;
     notifyListeners();
     try {
       if (usesHomeApi) {
@@ -143,22 +157,29 @@ class LearningController extends ChangeNotifier {
           if (needsPlan) {
             daily!.loading = true;
             daily!.error = null;
+          } else {
+            _loadedAt = DateTime.now();
+            _loadedDate = value['date'] as String;
           }
           _applyHome(value);
           loading = false;
+          if (!needsPlan) {
+            _refreshing = null;
+            notifiedFinal = true;
+          }
           notifyListeners();
           onHome?.call(value);
           if (!needsPlan) {
-            _loadedAt = DateTime.now();
-            _loadedDate = value['date'] as String;
             onPlanReady?.call(value);
             return;
           }
           try {
-            final response = await daily!.repository.ensurePlan();
+            final response = await _coalescedEnsurePlan();
             if (!active || epoch != _epoch) return;
             if (response['date'] != value['date']) {
               daily!.loading = false;
+              _refreshing = null;
+              notifiedFinal = true;
               Timer.run(() {
                 if (active && epoch == _epoch) refresh();
               });
@@ -174,11 +195,13 @@ class LearningController extends ChangeNotifier {
             };
             daily!.loading = false;
             _applyHome(updated);
-            onHome?.call(updated);
-            onPlanReady?.call(updated);
             _loadedAt = DateTime.now();
             _loadedDate = updated['date'] as String;
+            _refreshing = null;
+            notifiedFinal = true;
             notifyListeners();
+            onHome?.call(updated);
+            onPlanReady?.call(updated);
           } catch (e) {
             if (!active || epoch != _epoch) return;
             if (e is ApiFailure && e.status == 403) {
@@ -222,10 +245,12 @@ class LearningController extends ChangeNotifier {
             : 'Không tải được bài học. Hãy thử lại.';
       }
     } finally {
-      if (active && epoch == _epoch) {
+      if (epoch == _epoch) {
         loading = false;
         _refreshing = null;
-        notifyListeners();
+        if (active && !notifiedFinal) {
+          notifyListeners();
+        }
       }
     }
   }
@@ -250,9 +275,9 @@ class LearningController extends ChangeNotifier {
   }
 
   Future<void> _loadCatalogue() async {
-    await Future<void>.value();
-    if (!active) return;
     final epoch = _catalogueEpoch;
+    await Future<void>.value();
+    if (!active || epoch != _catalogueEpoch) return;
     catalogueLoading = true;
     catalogueError = null;
     notifyListeners();
@@ -262,15 +287,17 @@ class LearningController extends ChangeNotifier {
       lessons = learningItems(value['items']).map(LearningLesson.new).toList();
       _catalogueAt = DateTime.now();
     } catch (e) {
-      if (active) {
+      if (active && epoch == _catalogueEpoch) {
         catalogueError = e is ApiFailure
             ? e.message
             : 'Không tải được danh mục.';
       }
     } finally {
-      _catalogueRequest = null;
-      catalogueLoading = false;
-      notifyListeners();
+      if (epoch == _catalogueEpoch) {
+        _catalogueRequest = null;
+        catalogueLoading = false;
+        if (active) notifyListeners();
+      }
     }
   }
 

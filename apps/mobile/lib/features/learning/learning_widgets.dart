@@ -299,13 +299,15 @@ class DashboardCard extends StatelessWidget {
     required this.child,
     this.padding = EdgeInsets.zero,
     this.radius,
+    this.clipBehavior = Clip.none,
   });
   final Widget child;
   final EdgeInsetsGeometry padding;
   final BorderRadiusGeometry? radius;
+  final Clip clipBehavior;
   @override
   Widget build(BuildContext context) => Container(
-    clipBehavior: Clip.antiAlias,
+    clipBehavior: clipBehavior,
     padding: padding,
     decoration: BoxDecoration(
       color: Colors.white,
@@ -332,45 +334,49 @@ class LearningGradientBackdrop extends StatelessWidget {
     right: 0,
     top: 0,
     height: 460,
-    child: AnimatedBuilder(
-      animation: scroll,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF1B3F26),
-                  Color(0xFF255B37),
-                  Color(0xFF357D4C),
-                  Color(0xFF54A56C),
-                  Color(0xFF8EC99F),
-                  Color(0xFFC8E6D2),
-                  Color(0xFFE7F3ED),
-                  AppColors.grey25,
-                ],
-                stops: [0.0, 0.22, 0.40, 0.55, 0.70, 0.83, 0.93, 1.0],
+    child: RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: scroll,
+        child: const RepaintBoundary(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0xFF1B3F26),
+                      Color(0xFF255B37),
+                      Color(0xFF357D4C),
+                      Color(0xFF54A56C),
+                      Color(0xFF8EC99F),
+                      Color(0xFFC8E6D2),
+                      Color(0xFFE7F3ED),
+                      AppColors.grey25,
+                    ],
+                    stops: [0.0, 0.22, 0.40, 0.55, 0.70, 0.83, 0.93, 1.0],
+                  ),
+                ),
               ),
-            ),
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment(0.74, -0.82),
-                radius: 0.75,
-                colors: [Color(0x36A6F0C0), Color(0x00A6F0C0)],
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: RadialGradient(
+                    center: Alignment(0.74, -0.82),
+                    radius: 0.75,
+                    colors: [Color(0x36A6F0C0), Color(0x00A6F0C0)],
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
-      builder: (context, child) => Transform.translate(
-        key: scrollKey,
-        offset: Offset(0, scroll.hasClients ? -scroll.offset : 0),
-        child: child,
+        ),
+        builder: (context, child) => Transform.translate(
+          key: scrollKey,
+          offset: Offset(0, scroll.hasClients ? -scroll.offset : 0),
+          child: child,
+        ),
       ),
     ),
   );

@@ -875,9 +875,14 @@ void main() {
         of: find.byKey(const Key('previewAvatar')),
         matching: find.byType(Image),
       );
+      NetworkImage unwrapAvatar(ImageProvider provider) => switch (provider) {
+        ResizeImage(:final imageProvider) => imageProvider as NetworkImage,
+        _ => provider as NetworkImage,
+      };
+
       expect(avatarImg, findsOneWidget);
       expect(
-        (tester.widget<Image>(avatarImg).image as NetworkImage).url,
+        unwrapAvatar(tester.widget<Image>(avatarImg).image).url,
         'https://cdn.example.com/home-avatar.jpg',
       );
 
@@ -891,7 +896,7 @@ void main() {
       );
       expect(progressAvatarImg, findsOneWidget);
       expect(
-        (tester.widget<Image>(progressAvatarImg).image as NetworkImage).url,
+        unwrapAvatar(tester.widget<Image>(progressAvatarImg).image).url,
         'https://cdn.example.com/home-avatar.jpg',
       );
 
