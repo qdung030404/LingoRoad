@@ -297,6 +297,7 @@ class LearningController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _epoch++;
+    _activity?.dispose();
     super.dispose();
   }
 }
@@ -309,10 +310,15 @@ class LearningAttemptController extends ChangeNotifier {
   bool loading = true, busy = false, syncing = false;
   String? error, notice;
   Json? _pending;
+  String? _optimisticPhase;
+  int? _optimisticIndex;
   bool _disposed = false;
   int _loadEpoch = 0;
+  int _moveSeq = 0;
   Timer? _timer;
   Future<void> _storage = Future.value();
+  Future<void> _progressQueue = Future.value();
+  Future<void>? _pendingProgress;
   Future<bool>? _flush;
   Future<LearningAttempt> Function()? _failedAction;
   final Map<String, Json> _aiExplanations = {};
@@ -330,8 +336,8 @@ class LearningAttemptController extends ChangeNotifier {
     if (active) super.notifyListeners();
   }
 
-  String get phase => attempt!.phase;
-  int get index => attempt!.index;
+  String get phase => _optimisticPhase ?? attempt!.phase;
+  int get index => _optimisticIndex ?? attempt!.index;
   String? selected(String questionId) {
     final answer = attempt!.answer(questionId);
     if (answer?['checked'] == true) return answer?['optionId'] as String?;
@@ -341,8 +347,20 @@ class LearningAttemptController extends ChangeNotifier {
     return answer?['optionId'] as String?;
   }
 
+  Future<void> _waitForPendingProgress() async {
+    while (_pendingProgress != null) {
+      final pending = _pendingProgress!;
+      await pending.catchError((_) {});
+      if (!active) return;
+    }
+  }
+
   Future<void> load({String? lessonId, String? attemptId}) async {
     final epoch = ++_loadEpoch;
+    _moveSeq++;
+    _optimisticPhase = null;
+    _optimisticIndex = null;
+    _pendingProgress = null;
     _timer?.cancel();
     loading = true;
     error = null;
@@ -460,6 +478,8 @@ class LearningAttemptController extends ChangeNotifier {
 
   Future<bool> _flushPending() async {
     if (!active) return false;
+    await _waitForPendingProgress();
+    if (!active) return false;
     final pending = _pending;
     if (pending == null) return true;
     syncing = true;
@@ -502,7 +522,7 @@ class LearningAttemptController extends ChangeNotifier {
 
   Future<void> _action(
     Future<LearningAttempt> Function() action, {
-    bool flushPending = true,
+    bool Function()? flushPending,
   }) async {
     if (!active || busy) return;
     busy = true;
@@ -511,7 +531,11 @@ class LearningAttemptController extends ChangeNotifier {
     notice = null;
     notifyListeners();
     try {
-      if (flushPending && (!await flush() || !active)) return;
+      final hadPendingProgress = _pendingProgress != null;
+      await _waitForPendingProgress();
+      if (!active || attempt == null || attempt!.completed) return;
+      if (hadPendingProgress && error != null) return;
+      if ((flushPending?.call() ?? true) && (!await flush() || !active)) return;
       final result = await action();
       if (!active) return;
       attempt = result;
@@ -544,42 +568,137 @@ class LearningAttemptController extends ChangeNotifier {
   Future<void> retry() async {
     if (!active || busy || syncing) return;
     if (_failedAction != null) {
-      await _action(_failedAction!, flushPending: false);
+      await _action(_failedAction!, flushPending: () => false);
     } else if (_pending != null) {
       await flush();
     }
   }
 
-  Future<void> move(String phase, int index) => _action(() async {
-    _pending = {
+  /// Optimistically updates position in 0ms while serializing server syncs
+  /// so subsequent check/submit/move calls always read a fresh version.
+  Future<void> move(String targetPhase, int targetIndex) {
+    if (!active || busy || attempt == null || attempt!.completed) {
+      return Future.value();
+    }
+    final loadEpoch = _loadEpoch;
+    final moveToken = ++_moveSeq;
+    _timer?.cancel();
+    _optimisticPhase = targetPhase;
+    _optimisticIndex = targetIndex;
+    _failedAction = null;
+    error = null;
+    notice = null;
+    final Json moveDraft = {
       'expectedVersion': attempt!.version,
-      'phase': phase,
-      'index': index,
+      'phase': targetPhase,
+      'index': targetIndex,
     };
-    await _persist();
-    final result = await repository.progress(attempt!.id, _pending!);
-    if (active) {
-      _pending = null;
-      await _persist();
-    }
-    return result;
-  }, flushPending: false);
+    _pending = moveDraft;
+    notifyListeners();
 
-  Future<void> check(String questionId) => _action(() async {
-    final option = selected(questionId);
-    if (option == null) {
-      throw const ApiFailure('Chọn một đáp án trước khi kiểm tra.');
-    }
-    final result = await repository.check(attempt!.id, questionId, {
-      'expectedVersion': attempt!.version,
-      'optionId': option,
+    final next = _progressQueue.catchError((_) {}).then((_) async {
+      if (!active ||
+          loadEpoch != _loadEpoch ||
+          attempt == null ||
+          attempt!.completed) {
+        return;
+      }
+      if (moveToken != _moveSeq) return;
+      final current = attempt!;
+      final payload = <String, dynamic>{
+        'expectedVersion': current.version,
+        'phase': targetPhase,
+        'index': targetIndex,
+      };
+      if (identical(_pending, moveDraft)) {
+        _pending = payload;
+      }
+      try {
+        if (identical(_pending, payload)) {
+          await _persist();
+          if (!active || loadEpoch != _loadEpoch) return;
+        }
+        final result = await repository.progress(current.id, payload);
+        if (!active || loadEpoch != _loadEpoch) return;
+        attempt = result;
+        if (identical(_pending, payload) || identical(_pending, moveDraft)) {
+          if (moveToken == _moveSeq) {
+            _pending = null;
+            await _persist().catchError((_) {});
+          }
+        } else if (_pending != null) {
+          _pending!['expectedVersion'] = result.version;
+          await _persist().catchError((_) {});
+        }
+        if (active && loadEpoch == _loadEpoch && moveToken == _moveSeq) {
+          _optimisticPhase = null;
+          _optimisticIndex = null;
+          notifyListeners();
+        }
+      } catch (e) {
+        if (!active || loadEpoch != _loadEpoch) return;
+        if (e is ApiFailure && e.status == 409) {
+          _moveSeq++;
+          _optimisticPhase = null;
+          _optimisticIndex = null;
+          try {
+            attempt = await repository.attempt(current.id);
+            if (!active || loadEpoch != _loadEpoch) return;
+            await _reconcile();
+            notice = 'Tiến độ đã thay đổi. Đã tải dữ liệu mới nhất.';
+          } catch (reloadError) {
+            if (active && loadEpoch == _loadEpoch) {
+              error = _message(reloadError);
+              _failedAction = () => repository.attempt(current.id);
+            }
+          }
+          if (active && loadEpoch == _loadEpoch) notifyListeners();
+          return;
+        }
+        if (moveToken == _moveSeq) {
+          _optimisticPhase = null;
+          _optimisticIndex = null;
+          error = _message(e);
+          if (_pending == null || identical(_pending, moveDraft)) {
+            _pending = payload;
+          } else {
+            _pending!['expectedVersion'] = current.version;
+          }
+          await _persist().catchError((_) {});
+          if (active && loadEpoch == _loadEpoch) notifyListeners();
+        }
+      }
     });
-    if (active && _pending?['questionId'] == questionId) {
-      _pending = null;
-      await _persist();
-    }
-    return result;
-  }, flushPending: _pending != null && _pending?['questionId'] != questionId);
+    _progressQueue = next;
+    late final Future<void> tracked;
+    tracked = next.whenComplete(() {
+      if (identical(_pendingProgress, tracked)) {
+        _pendingProgress = null;
+      }
+    });
+    _pendingProgress = tracked;
+    return tracked;
+  }
+
+  Future<void> check(String questionId) => _action(
+    () async {
+      final option = selected(questionId);
+      if (option == null) {
+        throw const ApiFailure('Chọn một đáp án trước khi kiểm tra.');
+      }
+      final result = await repository.check(attempt!.id, questionId, {
+        'expectedVersion': attempt!.version,
+        'optionId': option,
+      });
+      if (active && _pending?['questionId'] == questionId) {
+        _pending = null;
+        await _persist();
+      }
+      return result;
+    },
+    flushPending: () =>
+        _pending != null && _pending?['questionId'] != questionId,
+  );
   Future<void> submit() => _action(() async {
     final submitted = await repository.submit(attempt!.id, attempt!.version);
     if (active) {
@@ -603,8 +722,13 @@ class LearningAttemptController extends ChangeNotifier {
     notice = null;
     notifyListeners();
     try {
+      await _waitForPendingProgress();
       await _flush?.catchError((_) => false);
-      if (!active || attempt?.id != current.id) return false;
+      if (!active ||
+          attempt?.id != current.id ||
+          attempt?.completed == true) {
+        return false;
+      }
       try {
         await repository.cancel(current.id);
       } on ApiFailure catch (e) {

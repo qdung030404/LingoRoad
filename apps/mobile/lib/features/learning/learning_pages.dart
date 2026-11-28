@@ -54,11 +54,13 @@ class LearningAttemptPage extends StatefulWidget {
     this.attemptId,
     this.audioEngineFactory,
     this.skipStudy = false,
+    @visibleForTesting this.stopwatchFactory,
   });
   final LearningController owner;
   final String? lessonId, attemptId;
   final ListeningAudioEngine Function()? audioEngineFactory;
   final bool skipStudy;
+  final Stopwatch Function()? stopwatchFactory;
   @override
   State<LearningAttemptPage> createState() => _LearningAttemptPageState();
 }
@@ -67,13 +69,20 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
     with WidgetsBindingObserver {
   late final controller = LearningAttemptController(owner: widget.owner);
   ActivityCollector? activity;
+  final ValueNotifier<ActivityCollector?> _activityNotifier =
+      ValueNotifier<ActivityCollector?>(null);
   ListeningAudioController? _audio;
+  final ValueNotifier<bool> _audioLoaded = ValueNotifier<bool>(false);
+  late final Stopwatch _moveTouchWatch;
+  late final Stopwatch _audioTouchWatch;
   String? _audioIdentity;
   bool _leaving = false;
   bool _viewingPassage = false;
   @override
   void initState() {
     super.initState();
+    _moveTouchWatch = widget.stopwatchFactory?.call() ?? Stopwatch();
+    _audioTouchWatch = widget.stopwatchFactory?.call() ?? Stopwatch();
     WidgetsBinding.instance.addObserver(this);
     controller.addListener(_attemptChanged);
     controller.load(lessonId: widget.lessonId, attemptId: widget.attemptId);
@@ -88,6 +97,36 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
     } else {
       activity?.resume();
     }
+  }
+
+  void _touchImmediately() {
+    _moveTouchWatch
+      ..reset()
+      ..start();
+    unawaited(activity?.touch());
+  }
+
+  void _touchThrottled() {
+    if (!_moveTouchWatch.isRunning ||
+        _moveTouchWatch.elapsedMilliseconds >= 500) {
+      _touchImmediately();
+    }
+  }
+
+  void _handleAudioProgress() {
+    if (controller.attempt?.completed != false) return;
+    if (!_audioTouchWatch.isRunning ||
+        _audioTouchWatch.elapsedMilliseconds >= 500) {
+      _audioTouchWatch
+        ..reset()
+        ..start();
+      unawaited(activity?.audioAdvanced());
+    }
+  }
+
+  void _handleAudioStopped() {
+    _audioTouchWatch.reset();
+    activity?.audioStopped();
   }
 
   void _attemptChanged() {
@@ -111,7 +150,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
           !controller.loading &&
           controller.attempt?.completed == false,
     );
-    activity!.addListener(_activityChanged);
+    _activityNotifier.value = activity;
     activity!.start();
   }
 
@@ -122,26 +161,26 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
     if (_audioIdentity == identity) return;
     _audio?.removeListener(_audioChanged);
     _audio?.dispose();
+    _audioTouchWatch.reset();
     _audioIdentity = identity;
     _audio = ListeningAudioController(
       url: widget.owner.repository.audioUrl(url),
       isCurrent: () => mounted && widget.owner.active,
       engine: widget.audioEngineFactory?.call(),
       durationMs: (attempt.content['audioDurationMs'] as num?)?.toInt(),
-      onProgress: () {
-        if (controller.attempt?.completed == false) activity?.audioAdvanced();
-      },
-      onStopped: () => activity?.audioStopped(),
+      onProgress: _handleAudioProgress,
+      onStopped: _handleAudioStopped,
     )..addListener(_audioChanged);
+    _audioLoaded.value = _audio!.loaded;
     if (attempt.completed) unawaited(widget.owner.refresh());
   }
 
   void _audioChanged() {
-    if (mounted && widget.owner.active) setState(() {});
-  }
-
-  void _activityChanged() {
-    if (mounted) setState(() {});
+    if (!mounted || !widget.owner.active) return;
+    final loaded = _audio?.loaded ?? false;
+    if (_audioLoaded.value != loaded) {
+      _audioLoaded.value = loaded;
+    }
   }
 
   Future<void> _checkpointActivity() async {
@@ -159,26 +198,31 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
     _audio?.removeListener(_audioChanged);
     _audio?.dispose();
     activity?.dispose();
+    _activityNotifier.dispose();
+    _audioLoaded.dispose();
     controller.dispose();
     super.dispose();
   }
 
   Future<void> leave() async {
     if (_leaving) return;
-    await _audio?.pause();
-    if (!mounted) return;
     final current = controller.attempt;
     if (current == null || current.completed) {
       _leaving = true;
       try {
-        await _checkpointActivity();
-        await controller.flush();
+        unawaited(_audio?.pause());
+        if (current?.completed == true) {
+          unawaited(activity?.finish());
+          unawaited(widget.owner.activity?.flush(refreshOnAck: false));
+        }
         if (mounted) Navigator.pop(context);
       } finally {
         _leaving = false;
       }
       return;
     }
+    await _audio?.pause();
+    if (!mounted) return;
     _leaving = true;
     try {
       final confirmed = await showDialog<bool>(
@@ -208,6 +252,7 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
         if (controller.attempt?.completed == true) return;
         activity?.dispose();
         activity = null;
+        _activityNotifier.value = null;
         _attemptChanged();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -286,9 +331,9 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
       final blocked = controller.busy;
       final last = index == items.length - 1;
       return Listener(
-        onPointerDown: (_) => activity?.touch(),
-        onPointerMove: (_) => activity?.touch(),
-        onPointerSignal: (_) => activity?.touch(),
+        onPointerDown: (_) => _touchImmediately(),
+        onPointerMove: (_) => _touchThrottled(),
+        onPointerSignal: (_) => _touchThrottled(),
         child: PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, _) {
@@ -318,40 +363,21 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
             bottom: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!isReadingLesson && !listening) ...[
-                  if (controller.unsynced && controller.error != null)
-                    Text(
-                      'Chưa đồng bộ · Bản nháp đã giữ trên thiết bị',
-                      style: designText(12, color: AppColors.grey800),
-                    ),
-                  if ((widget.owner.activity?.pendingSeconds ?? 0) > 0)
-                    Text(
-                      'Chờ đồng bộ thời gian: ${widget.owner.activity!.pendingSeconds} giây',
-                      key: const Key('activityPending'),
-                      style: designText(12),
-                    ),
-                ],
-                if (listening &&
-                    controller.error == null &&
-                    (activity?.error != null ||
-                        widget.owner.activity?.error != null))
-                  LearningError(
-                    'Chưa lưu được tiến độ. Bạn thử lại nhé.',
-                    retry: () {
-                      if (activity?.error != null) {
-                        activity?.start();
-                      } else {
-                        widget.owner.activity?.flush();
-                      }
-                    },
+                if (!isReadingLesson &&
+                    !listening &&
+                    controller.unsynced &&
+                    controller.error != null)
+                  Text(
+                    'Chưa đồng bộ · Bản nháp đã giữ trên thiết bị',
+                    style: designText(12, color: AppColors.grey800),
                   ),
-                if (!listening && activity?.error != null)
-                  LearningError(activity!.error!, retry: activity!.start),
-                if (!listening && widget.owner.activity?.error != null)
-                  LearningError(
-                    widget.owner.activity!.error!,
-                    retry: () => widget.owner.activity!.flush(),
-                  ),
+                _AttemptActivityStatus(
+                  activityNotifier: _activityNotifier,
+                  outbox: widget.owner.activity,
+                  isReadingLesson: isReadingLesson,
+                  listening: listening,
+                  hasControllerError: controller.error != null,
+                ),
                 if (controller.error != null)
                   LearningError(controller.error!, retry: controller.retry),
                 if (controller.notice != null)
@@ -412,45 +438,52 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                       const SizedBox(width: 8),
                     ],
                     Expanded(
-                      child: CustomAppButton(
-                        key: const Key('learningPrimaryAction'),
-                        isLoading: controller.busy,
-                        borderRadius: reading || listening
-                            ? AppRadius.tagRadius
-                            : null,
-                        text: study
-                            ? (last ? 'Bắt đầu luyện tập' : 'Tiếp theo')
-                            : (!checked
-                                  ? 'Kiểm tra'
-                                  : (last ? 'Nộp bài' : 'Tiếp theo')),
-                        onPressed:
-                            blocked ||
-                                (!study &&
-                                    !checked &&
-                                    (controller.selected(questionId!) == null ||
-                                        (attempt.lesson.kind == 'LISTENING' &&
-                                            _audio?.loaded != true))) ||
-                                (!study &&
-                                    checked &&
-                                    last &&
-                                    !attempt.allChecked)
-                            ? null
-                            : () async {
-                                await activity?.touch();
-                                if (study) {
-                                  controller.move(
-                                    last ? 'QUIZ' : 'STUDY',
-                                    last ? 0 : index + 1,
-                                  );
-                                } else if (!checked) {
-                                  controller.check(questionId!);
-                                } else if (last) {
-                                  await _checkpointActivity();
-                                  await controller.submit();
-                                } else {
-                                  controller.move('QUIZ', index + 1);
-                                }
-                              },
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: _audioLoaded,
+                        builder: (context, audioLoaded, _) => CustomAppButton(
+                          key: const Key('learningPrimaryAction'),
+                          isLoading: controller.busy,
+                          borderRadius: reading || listening
+                              ? AppRadius.tagRadius
+                              : null,
+                          text: study
+                              ? (last ? 'Bắt đầu luyện tập' : 'Tiếp theo')
+                              : (!checked
+                                    ? 'Kiểm tra'
+                                    : (last ? 'Nộp bài' : 'Tiếp theo')),
+                          onPressed:
+                              blocked ||
+                                  (!study &&
+                                      !checked &&
+                                      (controller.selected(questionId!) ==
+                                              null ||
+                                          (attempt.lesson.kind == 'LISTENING' &&
+                                              !audioLoaded))) ||
+                                  (!study &&
+                                      checked &&
+                                      last &&
+                                      !attempt.allChecked)
+                              ? null
+                              : () async {
+                                  if (study) {
+                                    unawaited(activity?.touch());
+                                    controller.move(
+                                      last ? 'QUIZ' : 'STUDY',
+                                      last ? 0 : index + 1,
+                                    );
+                                  } else if (!checked) {
+                                    unawaited(activity?.touch());
+                                    controller.check(questionId!);
+                                  } else if (last) {
+                                    await activity?.touch();
+                                    await _checkpointActivity();
+                                    await controller.submit();
+                                  } else {
+                                    unawaited(activity?.touch());
+                                    controller.move('QUIZ', index + 1);
+                                  }
+                                },
+                        ),
                       ),
                     ),
                   ],
@@ -516,8 +549,8 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                         LearningAudio(
                           key: ValueKey('${attempt.id}-step-${item['id']}'),
                           url: widget.owner.repository.audioUrl(url),
-                          onProgress: () => activity?.audioAdvanced(),
-                          onStopped: () => activity?.audioStopped(),
+                          onProgress: _handleAudioProgress,
+                          onStopped: _handleAudioStopped,
                         ),
                       if (item['meaning'] case final String text)
                         learningHeading(text),
@@ -581,8 +614,8 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
                           LearningAudio(
                             key: ValueKey('${attempt.id}-$questionId'),
                             url: widget.owner.repository.audioUrl(url),
-                            onProgress: () => activity?.audioAdvanced(),
-                            onStopped: () => activity?.audioStopped(),
+                            onProgress: _handleAudioProgress,
+                            onStopped: _handleAudioStopped,
                           ),
                           learningBody(
                             'Nghe lại và tua không giới hạn.',
@@ -827,5 +860,72 @@ class _LearningAttemptPageState extends State<LearningAttemptPage>
     if (mounted && index != null && index != current) {
       await controller.move('QUIZ', index);
     }
+  }
+}
+
+class _AttemptActivityStatus extends StatelessWidget {
+  const _AttemptActivityStatus({
+    required this.activityNotifier,
+    required this.outbox,
+    required this.isReadingLesson,
+    required this.listening,
+    required this.hasControllerError,
+  });
+
+  final ValueNotifier<ActivityCollector?> activityNotifier;
+  final ActivityOutbox? outbox;
+  final bool isReadingLesson;
+  final bool listening;
+  final bool hasControllerError;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ActivityCollector?>(
+      valueListenable: activityNotifier,
+      builder: (context, activity, _) {
+        if (activity == null && outbox == null) {
+          return const SizedBox.shrink();
+        }
+        return AnimatedBuilder(
+          animation: Listenable.merge([activity, outbox]),
+          builder: (context, _) {
+            final pendingSeconds = outbox?.pendingSeconds ?? 0;
+            final activityError = activity?.error;
+            final outboxError = outbox?.error;
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!isReadingLesson && !listening && pendingSeconds > 0)
+                  Text(
+                    'Chờ đồng bộ thời gian: $pendingSeconds giây',
+                    key: const Key('activityPending'),
+                    style: designText(12),
+                  ),
+                if (listening &&
+                    !hasControllerError &&
+                    (activityError != null || outboxError != null))
+                  LearningError(
+                    'Chưa lưu được tiến độ. Bạn thử lại nhé.',
+                    retry: () {
+                      if (activityError != null) {
+                        activity?.start();
+                      } else {
+                        outbox?.flush();
+                      }
+                    },
+                  ),
+                if (!listening && activityError != null)
+                  LearningError(activityError, retry: activity!.start),
+                if (!listening && outboxError != null)
+                  LearningError(
+                    outboxError,
+                    retry: () => outbox!.flush(),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
