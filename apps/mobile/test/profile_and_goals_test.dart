@@ -183,7 +183,9 @@ void main() {
         ctaBtn.style?.backgroundColor?.resolve({}),
         const Color(0xFF1A2029),
       );
-      expect(find.text('Mức khởi đầu'), findsNWidgets(4));
+      expect(find.text('Theo kỹ năng'), findsOneWidget);
+      expect(find.text('Chưa đánh giá'), findsNWidgets(4));
+      expect(find.byKey(const Key('retakePlacementButton')), findsNothing);
       expect(find.text('anna@example.com'), findsOneWidget);
       expect(find.byKey(const Key('profileProviderIcon')), findsOneWidget);
       expect(find.text('Google'), findsNothing);
@@ -314,9 +316,10 @@ void main() {
       expect(find.text('Đầu vào'), findsOneWidget);
       expect(find.text('Mục tiêu'), findsOneWidget);
       expect(find.text('Xem kết quả'), findsOneWidget);
+      expect(find.text('Theo kỹ năng'), findsOneWidget);
       expect(find.text('Cập nhật từ bài học'), findsOneWidget);
-      expect(find.text('Kết quả đầu vào'), findsOneWidget);
-      expect(find.text('Theo đầu vào'), findsNWidgets(2));
+      expect(find.text('Từ kết quả đầu vào'), findsNWidgets(3));
+      expect(find.text('Đánh giá lại'), findsOneWidget);
       expect(find.text('Chỉnh sửa'), findsOneWidget);
       expect(find.text('Công việc'), findsOneWidget);
       expect(find.text('15 phút/ngày'), findsOneWidget);
@@ -347,6 +350,7 @@ void main() {
         const Key('changeAvatarButton'),
         const Key('editIdentityButton'),
         const Key('viewPlacementResultButton'),
+        const Key('retakePlacementButton'),
         const Key('editLearningGoalsButton'),
         const Key('reminderToggleSwitch'),
         const Key('reminderTimeRow'),
@@ -367,18 +371,27 @@ void main() {
   );
 
   testWidgets(
-    'Standard width (>= 340px) renders skills as a balanced 2x2 grid',
+    'Standard width (>= 340px) renders Figma Theo kỹ năng vertical list with retake button and pill logout button',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final api = _InterceptingApi(completed: true);
+      final api = _InterceptingApi(
+        completed: true,
+        readingLevel: {'cefrLevel': 'B1', 'source': 'ADAPTIVE'},
+      );
       final session = await bootSession(api);
 
       await tester.pumpWidget(MaterialApp(home: ProfilePage(session: session)));
       await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('profileSkillsCard')), findsOneWidget);
+      expect(find.text('Theo kỹ năng'), findsOneWidget);
+      expect(find.text('Cập nhật từ bài học'), findsOneWidget);
+      expect(find.text('Từ kết quả đầu vào'), findsNWidgets(3));
+      expect(find.byKey(const Key('retakePlacementButton')), findsOneWidget);
 
       final readRect = tester.getRect(
         find.byKey(const ValueKey('skillTile-READING')),
@@ -392,10 +405,19 @@ void main() {
       final vocabRect = tester.getRect(
         find.byKey(const ValueKey('skillTile-VOCABULARY')),
       );
-      expect(readRect.top, equals(listenRect.top));
-      expect(readRect.left, lessThan(listenRect.left));
-      expect(gramRect.top, equals(vocabRect.top));
-      expect(gramRect.top, greaterThan(readRect.top));
+      expect(readRect.width, equals(listenRect.width));
+      expect(readRect.top, lessThan(listenRect.top));
+      expect(listenRect.top, lessThan(gramRect.top));
+      expect(gramRect.top, lessThan(vocabRect.top));
+
+      // Verify Figma pill shape on logoutButton
+      final logoutMaterial = tester.widget<Material>(
+        find.ancestor(
+          of: find.byKey(const Key('logoutButton')),
+          matching: find.byType(Material),
+        ).first,
+      );
+      expect(logoutMaterial.shape, isA<StadiumBorder>());
 
       // Verify distinct CEFR pillar palettes and balanced 2x2 priority skills grid in Goals Summary
       final palettes = allPreferredLearningKinds
