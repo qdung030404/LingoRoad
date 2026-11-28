@@ -80,6 +80,12 @@ class AppTheme {
       useMaterial3: true,
       fontFamily: AppTextStyles.fontFamily,
       fontFamilyFallback: AppTextStyles.fontFallback,
+      textTheme: ThemeData.dark().textTheme.apply(
+        fontFamily: AppTextStyles.fontFamily,
+        fontFamilyFallback: AppTextStyles.fontFallback,
+        bodyColor: AppColors.textPrimaryDark,
+        displayColor: AppColors.textPrimaryDark,
+      ),
       brightness: Brightness.dark,
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,

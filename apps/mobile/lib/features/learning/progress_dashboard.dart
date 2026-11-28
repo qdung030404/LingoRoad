@@ -20,7 +20,10 @@ class ProgressDashboard extends StatefulWidget {
   const ProgressDashboard({
     super.key,
     required this.model,
-    required this.onLevelTap,
+    this.onLevelTap,
+    this.onProfile,
+    this.displayName = 'Anna',
+    this.avatarUrl,
     this.level = 'A1',
     this.learning,
     this.daily,
@@ -31,7 +34,10 @@ class ProgressDashboard extends StatefulWidget {
   });
 
   final PreviewModel model;
-  final VoidCallback onLevelTap;
+  final VoidCallback? onLevelTap;
+  final VoidCallback? onProfile;
+  final String displayName;
+  final String? avatarUrl;
   final String? level;
   final LearningController? learning;
   final DailyLearningController? daily;
@@ -62,6 +68,51 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
   }
 
   bool get _isSample => widget.learning == null;
+
+  Widget _initialAvatarCircle(String initial) => Container(
+    width: 44,
+    height: 44,
+    decoration: const BoxDecoration(
+      color: AppColors.primary50,
+      shape: BoxShape.circle,
+    ),
+    alignment: Alignment.center,
+    child: Text(
+      initial,
+      style: designHeading(18, color: AppColors.primary700),
+    ),
+  );
+
+  Widget _buildHeaderAvatar() {
+    final trimmed = widget.avatarUrl?.trim() ?? '';
+    if (_isSample && trimmed.isEmpty) {
+      return const ClipOval(
+        child: FigmaAsset('home-v2/imgEllipse5', size: 48),
+      );
+    }
+    final name = widget.displayName.trim();
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : 'L';
+    return Container(
+      width: 48,
+      height: 48,
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.9),
+        shape: BoxShape.circle,
+      ),
+      child: ClipOval(
+        child: trimmed.isNotEmpty
+            ? Image.network(
+                trimmed,
+                width: 44,
+                height: 44,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _initialAvatarCircle(initial),
+              )
+            : _initialAvatarCircle(initial),
+      ),
+    );
+  }
 
   List<Json> _sampleUnits() => const [
     {
@@ -225,9 +276,18 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                         ),
                       ),
                     ),
-                    LevelCupBadge(
-                      label: widget.level ?? 'Chưa đánh giá',
-                      onTap: widget.onLevelTap,
+                    Semantics(
+                      button: true,
+                      label: 'Tài khoản',
+                      child: Tooltip(
+                        message: 'Hồ sơ của tôi',
+                        child: InkWell(
+                          key: const Key('progressAvatar'),
+                          customBorder: const CircleBorder(),
+                          onTap: widget.onProfile ?? widget.onLevelTap,
+                          child: _buildHeaderAvatar(),
+                        ),
+                      ),
                     ),
                   ],
                 ),

@@ -13,6 +13,8 @@ String learningKindLabel(String kind) => switch (kind) {
   'VOCABULARY' => 'Từ vựng',
   'READING' => 'Đọc',
   'LISTENING' => 'Nghe',
+  'SPEAKING' => 'Nói',
+  'WRITING' => 'Viết',
   _ => kind,
 };
 

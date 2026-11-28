@@ -12,24 +12,56 @@ abstract class ReminderNotificationPlatform {
   Future<NotificationPermissionState> requestPermission();
 
   /// `localTime` is HH:mm in the device local wall-clock timezone.
+  /// `completedDate` (YYYY-MM-DD) controls Smart Suppression:
+  /// - non-empty: saves completed date for `accountId`
+  /// - null: preserves previously saved completed date
+  /// - empty string: clears saved completed date
   Future<void> syncSchedule({
     required String accountId,
     required bool enabled,
     required String localTime,
+    String? completedDate,
   });
 
   Future<void> cancelForAccount(String accountId);
+
+  Future<String?> consumeLaunchTarget();
+}
+
+Future<void> syncAccountReminderSchedule({
+  required ReminderNotificationPlatform platform,
+  required String accountId,
+  required bool enabled,
+  required String localTime,
+  String? completedDate,
+}) async {
+  final permission = await platform.checkPermission();
+  if (permission == NotificationPermissionState.granted) {
+    await platform.syncSchedule(
+      accountId: accountId,
+      enabled: enabled,
+      localTime: localTime,
+      completedDate: completedDate,
+    );
+  } else if (!enabled) {
+    await platform.cancelForAccount(accountId);
+  }
 }
 
 class SharedPrefsReminderPlatform implements ReminderNotificationPlatform {
   SharedPrefsReminderPlatform({
     this.initialPermission = NotificationPermissionState.granted,
-  });
+    String? initialLaunchTarget,
+  }) : _pendingLaunchTarget = initialLaunchTarget;
 
   final NotificationPermissionState initialPermission;
+  String? _pendingLaunchTarget;
 
   static String _scheduleKey(String accountId) =>
       'reminder.local_schedule.v1.$accountId';
+
+  static String _completedDateKey(String accountId) =>
+      'reminder.completed_date.v1.$accountId';
 
   @override
   Future<NotificationPermissionState> checkPermission() async =>
@@ -44,18 +76,31 @@ class SharedPrefsReminderPlatform implements ReminderNotificationPlatform {
     required String accountId,
     required bool enabled,
     required String localTime,
+    String? completedDate,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     if (!enabled) {
       await prefs.remove(_scheduleKey(accountId));
+      await prefs.remove(_completedDateKey(accountId));
       return;
     }
+    if (completedDate != null) {
+      if (completedDate.isNotEmpty) {
+        await prefs.setString(_completedDateKey(accountId), completedDate);
+      } else {
+        await prefs.remove(_completedDateKey(accountId));
+      }
+    }
+    final effectiveCompletedDate = prefs.getString(
+      _completedDateKey(accountId),
+    );
     await prefs.setString(
       _scheduleKey(accountId),
       jsonEncode({
         'enabled': true,
         'localTime': localTime,
         'timeZoneMode': 'DEVICE_LOCAL_WALL_CLOCK',
+        'completedDate': ?effectiveCompletedDate,
       }),
     );
   }
@@ -64,6 +109,14 @@ class SharedPrefsReminderPlatform implements ReminderNotificationPlatform {
   Future<void> cancelForAccount(String accountId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_scheduleKey(accountId));
+    await prefs.remove(_completedDateKey(accountId));
+  }
+
+  @override
+  Future<String?> consumeLaunchTarget() async {
+    final target = _pendingLaunchTarget;
+    _pendingLaunchTarget = null;
+    return target;
   }
 }
 
@@ -112,11 +165,13 @@ class MethodChannelReminderPlatform implements ReminderNotificationPlatform {
     required String accountId,
     required bool enabled,
     required String localTime,
+    String? completedDate,
   }) async {
     await _fallback.syncSchedule(
       accountId: accountId,
       enabled: enabled,
       localTime: localTime,
+      completedDate: completedDate,
     );
     if (!_supportsAndroidChannel) return;
     try {
@@ -124,6 +179,7 @@ class MethodChannelReminderPlatform implements ReminderNotificationPlatform {
         'accountId': accountId,
         'enabled': enabled,
         'localTime': localTime,
+        'completedDate': ?completedDate,
       });
     } on MissingPluginException {
       // Running in unit tests or without the Android host plugin.
@@ -144,6 +200,18 @@ class MethodChannelReminderPlatform implements ReminderNotificationPlatform {
       // Running in unit tests or without the Android host plugin.
     } on PlatformException {
       // Ignore native scheduling errors when falling back to local prefs.
+    }
+  }
+
+  @override
+  Future<String?> consumeLaunchTarget() async {
+    if (!_supportsAndroidChannel) return _fallback.consumeLaunchTarget();
+    try {
+      return await _channel.invokeMethod<String>('consumeLaunchTarget');
+    } on MissingPluginException {
+      return _fallback.consumeLaunchTarget();
+    } on PlatformException {
+      return _fallback.consumeLaunchTarget();
     }
   }
 }

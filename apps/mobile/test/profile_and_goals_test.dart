@@ -19,7 +19,11 @@ class _ScriptedPlatform implements ReminderNotificationPlatform {
 
   NotificationPermissionState permission;
   NotificationPermissionState afterRequest;
-  final List<({String accountId, bool enabled, String time})> synced = [];
+  String? launchTarget;
+  final List<
+    ({String accountId, bool enabled, String time, String? completedDate})
+  >
+  synced = [];
   final List<String> cancelledAccounts = [];
 
   @override
@@ -36,13 +40,26 @@ class _ScriptedPlatform implements ReminderNotificationPlatform {
     required String accountId,
     required bool enabled,
     required String localTime,
+    String? completedDate,
   }) async {
-    synced.add((accountId: accountId, enabled: enabled, time: localTime));
+    synced.add((
+      accountId: accountId,
+      enabled: enabled,
+      time: localTime,
+      completedDate: completedDate,
+    ));
   }
 
   @override
   Future<void> cancelForAccount(String accountId) async {
     cancelledAccounts.add(accountId);
+  }
+
+  @override
+  Future<String?> consumeLaunchTarget() async {
+    final target = launchTarget;
+    launchTarget = null;
+    return target;
   }
 }
 
@@ -376,6 +393,21 @@ void main() {
       expect(readRect.left, lessThan(listenRect.left));
       expect(gramRect.top, equals(vocabRect.top));
       expect(gramRect.top, greaterThan(readRect.top));
+
+      // Verify distinct CEFR pillar palettes and balanced 2x2 priority skills grid in Goals Summary
+      final palettes = allPreferredLearningKinds
+          .map((k) => skillPillarPalette(k).accent)
+          .toSet();
+      expect(palettes.length, 6);
+      expect(find.text('Kỹ năng ưu tiên'), findsOneWidget);
+      expect(find.text('3/6 đã chọn'), findsOneWidget);
+      final goalGramRect = tester.getRect(
+        find.byKey(const ValueKey('goalSkillBadge-GRAMMAR')),
+      );
+      final goalVocabRect = tester.getRect(
+        find.byKey(const ValueKey('goalSkillBadge-VOCABULARY')),
+      );
+      expect(goalGramRect.top, equals(goalVocabRect.top));
       expect(tester.takeException(), isNull);
     },
   );
@@ -498,11 +530,25 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('learningGoalsEditDialog')), findsOneWidget);
-      expect(find.byType(Dialog), findsOneWidget);
+      expect(find.byType(BottomSheet), findsOneWidget);
+      expect(find.byKey(const Key('goalsCefrSlider')), findsOneWidget);
+      expect(find.byKey(const Key('goalsMinutesSlider')), findsOneWidget);
 
       expect(find.text('Chưa có thay đổi'), findsOneWidget);
 
-      await tapGoalChip(tester, const ValueKey('minutes-chip-20'));
+      // Drag CEFR slider all the way right to C2 and select 1 hour (60p) on duration slider
+      final cefrSlider = find.byKey(const Key('goalsCefrSlider'));
+      await tester.scrollUntilVisible(
+        cefrSlider,
+        120,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.drag(cefrSlider, const Offset(260, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('C2 · Thành thạo'), findsOneWidget);
+
+      await tapGoalChip(tester, const ValueKey('minutes-chip-60'));
+      expect(find.text('60 phút (1 giờ)'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('goalsBackButton')));
       await tester.pumpAndSettle();
@@ -526,7 +572,9 @@ void main() {
 
       expect(find.byKey(const Key('profileSuccessToast')), findsNothing);
       expect(find.text('Đã lưu mục tiêu học tập'), findsNothing);
-      expect(find.text('20 phút/ngày'), findsOneWidget);
+      expect(find.text('60 phút/ngày'), findsOneWidget);
+      expect(find.text('Mục tiêu C2'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -735,7 +783,7 @@ void main() {
   );
 
   testWidgets(
-    'Home avatar opens ProfilePage directly and reflects updated avatarUrl upon return',
+    'Home and Progress avatars open ProfilePage directly and reflect updated avatarUrl upon return',
     (tester) async {
       final api = _InterceptingApi(completed: true, displayName: 'Anna Nguyễn');
       final session = SessionController(api);
@@ -764,6 +812,24 @@ void main() {
         (tester.widget<Image>(avatarImg).image as NetworkImage).url,
         'https://cdn.example.com/home-avatar.jpg',
       );
+
+      // Switch to Progress tab (index 4): avatar replaces old A1 badge and opens ProfilePage
+      await tester.tap(find.byKey(const Key('previewTab4')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('progressAvatar')), findsOneWidget);
+      final progressAvatarImg = find.descendant(
+        of: find.byKey(const Key('progressAvatar')),
+        matching: find.byType(Image),
+      );
+      expect(progressAvatarImg, findsOneWidget);
+      expect(
+        (tester.widget<Image>(progressAvatarImg).image as NetworkImage).url,
+        'https://cdn.example.com/home-avatar.jpg',
+      );
+
+      await tester.tap(find.byKey(const Key('progressAvatar')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProfilePage), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

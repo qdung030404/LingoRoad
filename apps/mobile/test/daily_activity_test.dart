@@ -20,6 +20,7 @@ class TestClock implements ActivityClock {
 class TestDailyRepository implements DailyRepository {
   int? conflictSeq;
   int goal = 10, version = 0;
+  List<String> savedKinds = ['READING'];
   bool offline = false, expired = false, partialAck = false;
   final received = <String, List<Json>>{};
   final runs = <String>[];
@@ -75,6 +76,7 @@ class TestDailyRepository implements DailyRepository {
   @override
   Future<Json> savePreferences(Json body) async {
     goal = body['dailyGoalMinutes'] as int;
+    savedKinds = (body['preferredKinds'] as List).cast<String>();
     version++;
     return body;
   }
@@ -144,9 +146,10 @@ void main() {
   testWidgets(
     'confirmed seconds and task completion stay separate from minute goal',
     (tester) async {
+      final repo = TestDailyRepository();
       final daily =
           DailyLearningController(
-              repository: TestDailyRepository(),
+              repository: repo,
               accountId: 'a',
               isCurrent: () => true,
             )
@@ -182,6 +185,322 @@ void main() {
       expect(find.textContaining('1/1 bài kế hoạch'), findsOneWidget);
       expect(find.byKey(const Key('dailyGoalMet')), findsNothing);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      learning.dispose();
+      daily.dispose();
+    },
+  );
+  testWidgets(
+    'Home timeline DailyPlanCard renders completed, active and SRS due steps cleanly on narrow screen',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final repo = TestDailyRepository();
+      final daily =
+          DailyLearningController(
+              repository: repo,
+              accountId: 'a',
+              isCurrent: () => true,
+            )
+            ..preferences = {
+              'version': 1,
+              'dailyGoalMinutes': 15,
+              'preferredKinds': ['GRAMMAR', 'LISTENING'],
+            }
+            ..progress = {
+              'today': {
+                'activeSeconds': 300,
+                'dailyGoalMinutes': 15,
+                'goalMet': false,
+              },
+            }
+            ..plan = {
+              'completedCount': 1,
+              'totalCount': 2,
+              'estimatedMinutes': 15,
+              'items': [
+                {
+                  'id': 'p1',
+                  'lessonId': 'lesson-grammar-1',
+                  'title': 'Subject pronouns & to be',
+                  'kind': 'GRAMMAR',
+                  'estimatedMinutes': 10,
+                  'reasonCode': 'COMPLETED_TODAY',
+                  'reason': 'Đã hoàn thành hôm nay',
+                  'completed': true,
+                  'completedAttemptId': 'att-1',
+                },
+                {
+                  'id': 'p2',
+                  'lessonId': 'lesson-listening-1',
+                  'title': 'Greetings and Introductions',
+                  'kind': 'LISTENING',
+                  'estimatedMinutes': 5,
+                  'reasonCode': 'NEW',
+                  'reason': 'Bài mới',
+                  'completed': false,
+                },
+              ],
+            };
+      final learning = LearningController(
+        repository: ApiLearningRepository(FakeApi()),
+        accountId: 'a',
+        daily: daily,
+      );
+      var tappedReview = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DailyPlanCard(
+                learning: learning,
+                showActivitySummary: false,
+                defaultCefrLevel: 'A1',
+                onReviewVocabulary: () => tappedReview = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('Lộ trình trong ngày'), findsOneWidget);
+      expect(find.text('Điều chỉnh'), findsOneWidget);
+      expect(find.byKey(const Key('dailyHomeMinutesStrip')), findsNothing);
+      expect(find.text('Subject pronouns & to be'), findsOneWidget);
+      expect(find.text('Ngữ pháp · Đã hoàn thành'), findsOneWidget);
+      expect(find.text('TIẾP THEO · 5 PHÚT'), findsOneWidget);
+      expect(find.text('Nghe A1'), findsOneWidget);
+      expect(find.text('Greetings and Introductions'), findsOneWidget);
+      expect(find.text('Bắt đầu bài này'), findsOneWidget);
+      expect(find.byKey(const Key('dailyActiveMinutes')), findsNothing);
+      expect(tappedReview, isFalse);
+      expect(tester.takeException(), isNull);
+
+      // Tap 'Điều chỉnh' opens ranked 1->6 priority Bottom Sheet (clean, no preview box or duration picker)
+      await tester.tap(find.byKey(const Key('dailyPreferences')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('dailyPreferencesSheet')), findsOneWidget);
+      expect(find.text('Điều chỉnh lộ trình ngày'), findsOneWidget);
+      expect(find.text('Thời lượng mỗi ngày'), findsNothing);
+      expect(find.byKey(const Key('dailyKindOrderPreview')), findsNothing);
+      expect(find.text('Đã chọn 2/6'), findsOneWidget);
+      expect(find.text('Viết'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Reset order and tap Đọc (#1) -> Nghe (#2) -> Nói (#3) -> Viết (#4)
+      Future<void> tapSheetItem(Key key) async {
+        final target = find.byKey(key);
+        await tester.ensureVisible(target);
+        await tester.pumpAndSettle();
+        await tester.tap(target);
+        await tester.pumpAndSettle();
+      }
+
+      await tapSheetItem(const Key('dailyResetKindOrder'));
+      await tapSheetItem(const ValueKey('daily-kind-READING'));
+      await tapSheetItem(const ValueKey('daily-kind-LISTENING'));
+      await tapSheetItem(const ValueKey('daily-kind-SPEAKING'));
+      await tapSheetItem(const ValueKey('daily-kind-WRITING'));
+      expect(find.text('Đã chọn 4/6'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('dailySavePreferences')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('dailyPreferencesSheet')), findsNothing);
+      expect(repo.savedKinds, ['READING', 'LISTENING', 'SPEAKING', 'WRITING']);
+      expect(tester.takeException(), isNull);
+
+      // Verify > 3 timeline steps collapse from 4th onward into faux-skeleton stack and expand/collapse on tap
+      daily.plan = {
+        'completedCount': 1,
+        'totalCount': 5,
+        'estimatedMinutes': 35,
+        'items': [
+          {
+            'id': 'p1',
+            'lessonId': 'spk-1',
+            'title': 'My day',
+            'kind': 'SPEAKING',
+            'estimatedMinutes': 5,
+            'reasonCode': 'COMPLETED_TODAY',
+            'reason': 'Đã hoàn thành hôm nay',
+            'completed': true,
+          },
+          {
+            'id': 'p2',
+            'lessonId': 'gram-1',
+            'title': 'Subject pronouns and to be',
+            'kind': 'GRAMMAR',
+            'estimatedMinutes': 10,
+            'reasonCode': 'NEW',
+            'reason': 'Bài mới',
+            'completed': false,
+          },
+          {
+            'id': 'p3',
+            'lessonId': 'vocab-1',
+            'title': 'Family and relationships',
+            'kind': 'VOCABULARY',
+            'estimatedMinutes': 10,
+            'reasonCode': 'NEW',
+            'reason': 'Bài mới',
+            'completed': false,
+          },
+          {
+            'id': 'p4',
+            'lessonId': 'read-1',
+            'title': 'Ordering Breakfast at Sunny Bakery',
+            'kind': 'READING',
+            'estimatedMinutes': 5,
+            'reasonCode': 'NEW',
+            'reason': 'Bài mới',
+            'completed': false,
+          },
+          {
+            'id': 'p5',
+            'lessonId': 'listen-1',
+            'title': 'Checking Tomorrow Timetable',
+            'kind': 'LISTENING',
+            'estimatedMinutes': 5,
+            'reasonCode': 'NEW',
+            'reason': 'Bài mới',
+            'completed': false,
+          },
+          {
+            'id': 'p6',
+            'lessonId': 'wrt-1',
+            'title': 'Forgotten Jacket at a Hotel',
+            'kind': 'WRITING',
+            'cefrLevel': 'A2',
+            'estimatedMinutes': 8,
+            'reasonCode': 'NEW',
+            'reason': 'Thư / Email',
+            'completed': false,
+          },
+        ],
+      };
+      String? openedWritingId;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: DailyPlanCard(
+                learning: learning,
+                showActivitySummary: false,
+                defaultCefrLevel: 'A1',
+                onOpenWritingItem: (id) async => openedWritingId = id,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('My day'), findsOneWidget);
+      expect(find.text('Subject pronouns and to be'), findsOneWidget);
+      expect(find.text('Family and relationships'), findsOneWidget);
+      expect(find.text('Ordering Breakfast at Sunny Bakery'), findsNothing);
+      expect(find.text('Checking Tomorrow Timetable'), findsNothing);
+      expect(find.text('Forgotten Jacket at a Hotel'), findsNothing);
+      expect(find.byKey(const Key('dailyExpandSkeleton')), findsOneWidget);
+      expect(find.text('Xem thêm 3'), findsOneWidget);
+      expect(find.text('+3'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.ensureVisible(find.byKey(const Key('dailyExpandSkeleton')));
+      await tester.tap(find.byKey(const Key('dailyExpandSkeleton')));
+      await tester.pumpAndSettle();
+      expect(find.text('Ordering Breakfast at Sunny Bakery'), findsOneWidget);
+      expect(find.text('Checking Tomorrow Timetable'), findsOneWidget);
+      expect(find.text('Forgotten Jacket at a Hotel'), findsOneWidget);
+      expect(find.textContaining('Luyện viết A2 · Thư / Email'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const ValueKey('daily-plan-wrt-1')));
+      await tester.tap(find.byKey(const ValueKey('daily-plan-wrt-1')));
+      await tester.pumpAndSettle();
+      expect(openedWritingId, 'wrt-1');
+      expect(find.byKey(const Key('dailyCollapseSteps')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.ensureVisible(find.byKey(const Key('dailyCollapseSteps')));
+      await tester.tap(find.byKey(const Key('dailyCollapseSteps')));
+      await tester.pumpAndSettle();
+      expect(find.text('Ordering Breakfast at Sunny Bakery'), findsNothing);
+      expect(find.byKey(const Key('dailyExpandSkeleton')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Verify DailyStudyMinutesStrip (used in Tiến độ học tập card on Home)
+      daily.preferences = {
+        'version': 2,
+        'dailyGoalMinutes': 15,
+        'preferredKinds': ['GRAMMAR', 'LISTENING'],
+      };
+      daily.progress = {
+        'today': {
+          'activeSeconds': 300,
+          'dailyGoalMinutes': 15,
+          'goalMet': false,
+        },
+      };
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: DailyStudyMinutesStrip(daily: daily),
+          ),
+        ),
+      );
+      expect(find.byKey(const Key('dailyHomeMinutesStrip')), findsOneWidget);
+      expect(find.text('Thời gian học hôm nay'), findsOneWidget);
+      expect(find.text('5 / 15 phút'), findsOneWidget);
+      expect(find.byKey(const Key('dailyGoalMet')), findsNothing);
+
+      // Sub-minute formatting + goalMet celebration state on 320px width
+      daily.progress = {
+        'today': {
+          'activeSeconds': 45,
+          'dailyGoalMinutes': 15,
+          'goalMet': false,
+        },
+      };
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(320, 640),
+              textScaler: TextScaler.linear(1.6),
+            ),
+            child: Scaffold(
+              body: DailyStudyMinutesStrip(daily: daily),
+            ),
+          ),
+        ),
+      );
+      expect(find.text('45 giây / 15 phút'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      daily.progress = {
+        'today': {
+          'activeSeconds': 960,
+          'dailyGoalMinutes': 15,
+          'goalMet': true,
+        },
+      };
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: DailyStudyMinutesStrip(daily: daily),
+          ),
+        ),
+      );
+      expect(find.byKey(const Key('dailyGoalMet')), findsOneWidget);
+      expect(find.text('Đã đạt mục tiêu ngày'), findsOneWidget);
+      expect(find.text('16 / 15 phút'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
       await tester.pumpWidget(const SizedBox.shrink());
       learning.dispose();
       daily.dispose();

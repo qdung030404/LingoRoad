@@ -141,18 +141,18 @@ describe('ProfileService', () => {
     { learningPurpose: null }, { learningPurpose: 'OTHER' },
     { dailyGoalMinutes: null }, { dailyGoalMinutes: 4 }, { dailyGoalMinutes: 121 },
     { dailyGoalMinutes: 10.5 }, { selfAssessedCefr: 'C2' },
-    { targetCefr: 'C2' }, { reminderTime: '25:00' }, { reminderTime: '9:30' },
+    { targetCefr: 'C3' }, { reminderTime: '25:00' }, { reminderTime: '9:30' },
   ])('rejects invalid profile fields %p', async (input) => {
     expect(await validate(plainToInstance(UpdateProfileDto, input))).not.toHaveLength(0);
   });
 
-  it('accepts unknown self-assessment, valid reminderTime, public/null avatarUrl and trims the name', async () => {
+  it('accepts unknown self-assessment, C2 targetCefr, 60-min daily goal, valid reminderTime, public/null avatarUrl and trims the name', async () => {
     const dto = plainToInstance(UpdateProfileDto, {
       name: '  Learner  ',
       avatarUrl: 'https://cdn.example.com/avatar.png',
       learningPurpose: 'EXAM',
-      targetCefr: 'B2',
-      dailyGoalMinutes: 5,
+      targetCefr: 'C2',
+      dailyGoalMinutes: 60,
       selfAssessedCefr: null,
       reminderTime: '07:45',
     });

@@ -1,7 +1,8 @@
 import { BadRequestException, ConflictException, GoneException, NotFoundException } from '@nestjs/common';
 import { CefrLevel, LearningAttempt, LearningKind } from '@prisma/client';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { buildProgressUnits, chooseDailyItems, computeScoreStats, isCefrEligible, learningDate, learningDayStart, PlannedLesson, PlanningService } from './planning.service';
+import { buildDailyRoadmapItems, buildProgressUnits, chooseDailyItems, computeScoreStats, isCefrEligible, learningDate, learningDayStart, PlannedLesson, PlanningService } from './planning.service';
 
 const now = new Date('2026-11-02T06:00:00Z');
 function lesson(
@@ -92,11 +93,41 @@ describe('Daily planning policy', () => {
     expect(result[0].lessonId).toBe('old');
     expect(result[0].reasonCode).toBe('ROTATION');
   });
-  it('uses preferred groups, then weaker reading/listening placement to break unseen ordering', () => {
+  it('uses preferred groups in exact priority order and round-robins diverse skills across the daily budget', () => {
     const lessons = [lesson('listen', 'LISTENING'), lesson('read', 'READING')];
     const placement = { reading: { correctCount: 1, totalItems: 5 }, listening: { correctCount: 4, totalItems: 5 } };
     expect(chooseDailyItems(lessons, [], '2026-11-02', 5, kinds, [], placement)[0].lessonId).toBe('read');
     expect(chooseDailyItems(lessons, [], '2026-11-02', 5, ['LISTENING'], [], placement)[0].lessonId).toBe('listen');
+    expect(chooseDailyItems(lessons, [], '2026-11-02', 5, ['LISTENING', 'READING'], [], placement)[0].lessonId).toBe('listen');
+
+    const curriculum = [
+      lesson('grammar-1', 'GRAMMAR', 10, 1, 'u-a1', 'A1'),
+      lesson('vocab-1', 'VOCABULARY', 10, 2, 'u-a1', 'A1'),
+      lesson('read-1', 'READING', 5, 3, 'u-a1', 'A1'),
+      lesson('listen-1', 'LISTENING', 5, 4, 'u-a1', 'A1'),
+      lesson('read-2', 'READING', 5, 5, 'u-a2', 'A2'),
+    ];
+    // Ranking #1 READING -> #2 LISTENING surfaces both 5m lessons inside a 10m budget without read-2 crowding out listen-1
+    expect(
+      chooseDailyItems(curriculum, [], '2026-11-02', 10, ['READING', 'LISTENING', 'GRAMMAR', 'VOCABULARY']).map(i => i.lessonId),
+    ).toEqual(['read-1', 'listen-1']);
+    // Completing #1 READING today keeps #2 LISTENING next instead of repeating READING
+    expect(
+      chooseDailyItems(
+        curriculum,
+        [attempt('done-r1', 'read-1', 5, now)],
+        '2026-11-02',
+        10,
+        ['READING', 'LISTENING', 'GRAMMAR', 'VOCABULARY'],
+      ).map(i => [i.lessonId, i.reasonCode]),
+    ).toEqual([
+      ['read-1', 'COMPLETED_TODAY'],
+      ['listen-1', 'NEW'],
+    ]);
+    // 20m budget interleaves #1 LISTENING (5m) -> #2 READING (5m) -> #3 GRAMMAR (10m)
+    expect(
+      chooseDailyItems(curriculum, [], '2026-11-02', 20, ['LISTENING', 'READING', 'GRAMMAR', 'VOCABULARY']).map(i => i.lessonId),
+    ).toEqual(['listen-1', 'read-1', 'grammar-1']);
   });
   it('defaults placement ceiling to A2 when placement is missing or A1, while allowing unassigned-unit lessons', () => {
     const catalog = [
@@ -833,6 +864,84 @@ describe('Progress roadmap units and score stats', () => {
       });
       expect(planRow.preferencesVersion).toBe(3);
 
+      // Reordering the same set of preferredKinds (including SPEAKING & WRITING) increments version and persists exact priority order
+      const reordered = await svc.updatePreferences('u', {
+        expectedVersion: 3,
+        dailyGoalMinutes: 20,
+        preferredKinds: ['WRITING', 'SPEAKING', 'LISTENING', 'VOCABULARY'],
+      });
+      expect(reordered).toMatchObject({
+        preferredKinds: ['WRITING', 'SPEAKING', 'LISTENING', 'VOCABULARY'],
+        version: 4,
+      });
+      expect(planRow.preferencesVersion).toBe(4);
+
+      // Verify buildDailyRoadmapItems covers all selected skills (1..6) in priority order within budget,
+      // enforces dailyGoalMinutes on tight budgets, and never duplicates completed-today snapshots.
+      const fullCurriculum = [
+        lesson('gram-1', 'GRAMMAR', 10, 1, 'u-a1', 'A1'),
+        lesson('vocab-1', 'VOCABULARY', 10, 2, 'u-a1', 'A1'),
+        lesson('read-1', 'READING', 5, 3, 'u-a1', 'A1'),
+        lesson('listen-1', 'LISTENING', 5, 4, 'u-a1', 'A1'),
+      ];
+      const roadmap = buildDailyRoadmapItems(
+        fullCurriculum,
+        [],
+        '2026-11-16',
+        45,
+        ['GRAMMAR', 'VOCABULARY', 'LISTENING', 'READING', 'SPEAKING', 'WRITING'],
+        [],
+        null,
+        null,
+        undefined,
+        [{ id: 'spk-1', code: 'topic-1', title: 'Introduce yourself', text: 'Introduce yourself', sortOrder: 1 }],
+        new Set(),
+        new Map(),
+        [{
+          id: 'wrt-1',
+          externalId: 'cefr-write-a2-001',
+          skillCode: 'writing.transactional_letter',
+          cefrLevel: 'A2',
+          prompt: 'Write an email to the hotel receptionist.',
+        }],
+      );
+      expect(roadmap.map(i => [i.kind, i.lessonId])).toEqual([
+        ['GRAMMAR', 'gram-1'],
+        ['VOCABULARY', 'vocab-1'],
+        ['LISTENING', 'listen-1'],
+        ['READING', 'read-1'],
+        ['SPEAKING', 'spk-1'],
+        ['WRITING', 'wrt-1'],
+      ]);
+      expect(roadmap[5]).toMatchObject({
+        title: 'Forgotten Jacket at a Hotel',
+        cefrLevel: 'A2',
+        reason: 'Thư / Email',
+      });
+
+      // Tight 5-minute budget skips 10m GRAMMAR/VOCABULARY and picks a single 5m lesson.
+      const tightPlan = buildDailyRoadmapItems(
+        fullCurriculum,
+        [],
+        '2026-11-16',
+        5,
+        ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'],
+      );
+      expect(tightPlan.map(i => i.lessonId)).toEqual(['read-1']);
+
+      // Recomputing after completing a lesson today never duplicates the completed item.
+      const doneTodayAttempt = attempt('att-read-1', 'read-1', 5, new Date('2026-11-16T05:00:00Z'));
+      const afterDone = buildDailyRoadmapItems(
+        fullCurriculum,
+        [doneTodayAttempt],
+        '2026-11-16',
+        10,
+        ['READING', 'LISTENING'],
+        tightPlan,
+      );
+      expect(afterDone.filter(i => i.lessonId === 'read-1')).toHaveLength(1);
+      expect(afterDone.reduce((sum, i) => sum + i.estimatedMinutes, 0)).toBe(10);
+
       await expect(
         svc.updatePreferences('u', {
           expectedVersion: 2,
@@ -843,5 +952,240 @@ describe('Progress roadmap units and score stats', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+});
+
+describe('PlanningService notification triggers and home unread count', () => {
+  const fixedNow = new Date('2026-11-16T06:00:00Z'); // 13:00 VN on 2026-11-16
+
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('creates PLACEMENT_COMPLETED notification on placement.completed event', async () => {
+    const notifications = { createNotification: jest.fn(async () => ({ created: true })) };
+    const tx: any = {
+      $queryRaw: jest.fn(async () => [{ id: 'u' }]),
+      placementSession: {
+        findFirst: jest.fn(async () => ({
+          id: 'placement-sess-1',
+          estimatedCefr: CefrLevel.B1,
+          completedAt: fixedNow,
+          skillResults: { reading: { estimatedCefr: 'B1', correctCount: 4, totalItems: 5 } },
+        })),
+      },
+      learningSkillLevel: {
+        findUnique: jest.fn(async () => null),
+        create: jest.fn(async ({ data }: any) => ({ id: 'sl-1', ...data })),
+      },
+      learningDayPlan: { findUnique: jest.fn(async () => null) },
+    };
+    tx.$transaction = jest.fn(async (cb: (client: any) => Promise<any>) => cb(tx));
+    const svc = new PlanningService(
+      tx as unknown as PrismaService,
+      notifications as unknown as NotificationsService,
+    );
+
+    await svc.onPlacementCompleted({ userId: 'u', sessionId: 'placement-sess-1', estimatedCefr: 'B1' });
+
+    expect(notifications.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u',
+        type: 'PLACEMENT_COMPLETED',
+        targetType: 'DAILY_PLAN',
+        targetPayload: { estimatedCefr: 'B1' },
+        dedupeKey: 'placement:placement-sess-1',
+      }),
+      tx,
+    );
+  });
+
+  it('creates SKILL_LEVEL_CHANGED inside tx when evaluateReadingLevel changes READING level', async () => {
+    const notifications = { createNotification: jest.fn(async () => ({ created: true })) };
+    const readingAttempts: LearningAttempt[] = [
+      {
+        ...attempt('att-2', 'r-a2-2', 5, new Date('2026-11-16T05:00:00Z')),
+        lessonSnapshot: { kind: 'READING', cefrLevel: 'A2', code: 'r-a2-2' },
+      },
+      {
+        ...attempt('att-1', 'r-a2-1', 5, new Date('2026-11-16T04:00:00Z')),
+        lessonSnapshot: { kind: 'READING', cefrLevel: 'A2', code: 'r-a2-1' },
+      },
+    ];
+    const tx: any = {
+      learningSkillLevel: {
+        findUnique: jest.fn(async () => ({
+          id: 'sl-1',
+          userId: 'u',
+          kind: LearningKind.READING,
+          cefrLevel: CefrLevel.A2,
+          source: 'PLACEMENT',
+          previousCefr: null,
+          changedAt: new Date('2026-11-10T00:00:00Z'),
+        })),
+        update: jest.fn(async ({ data }: any) => ({
+          id: 'sl-1',
+          userId: 'u',
+          kind: LearningKind.READING,
+          ...data,
+        })),
+      },
+      placementSession: { findFirst: jest.fn(async () => null) },
+      learningAttempt: { findMany: jest.fn(async () => readingAttempts) },
+      learningAnswerExposure: {
+        findMany: jest.fn(async () => [
+          { lessonId: 'r-a2-1', firstAttemptId: 'att-1' },
+          { lessonId: 'r-a2-2', firstAttemptId: 'att-2' },
+        ]),
+      },
+      learningLesson: {
+        findMany: jest.fn(async () => [
+          { id: 'r-a2-1', unit: { cefrLevel: CefrLevel.A2 } },
+          { id: 'r-a2-2', unit: { cefrLevel: CefrLevel.A2 } },
+          { id: 'r-b1-1', unit: { cefrLevel: CefrLevel.B1 } },
+        ]),
+      },
+      learningSkillLevelEvent: { create: jest.fn(async ({ data }: any) => data) },
+      learningDayPlan: { findUnique: jest.fn(async () => null) },
+    };
+    const svc = new PlanningService(
+      tx as unknown as PrismaService,
+      notifications as unknown as NotificationsService,
+    );
+
+    const change = await svc.evaluateReadingLevel(tx, 'u', readingAttempts[0]);
+
+    expect(change).toEqual({ kind: 'READING', from: 'A2', to: 'B1', direction: 'UP' });
+    expect(tx.learningSkillLevelEvent.create).toHaveBeenCalledTimes(1);
+    expect(notifications.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u',
+        type: 'SKILL_LEVEL_CHANGED',
+        targetType: 'PROFILE',
+        targetPayload: { kind: 'READING', fromCefr: 'A2', toCefr: 'B1', direction: 'UP' },
+        dedupeKey: 'skill_level:att-2',
+      }),
+      tx,
+    );
+  });
+
+  it('calls ensureDailyNotifications and returns unreadNotificationCount in home() with safe fallback', async () => {
+    const notifications = {
+      ensureDailyNotifications: jest.fn(async () => undefined),
+      unreadCount: jest.fn(async () => 3),
+    };
+    const db: any = {
+      userProfile: {
+        findUnique: jest.fn(async () => ({
+          userId: 'u',
+          learningPurpose: null,
+          targetCefr: CefrLevel.B1,
+          dailyGoalMinutes: 10,
+          preferredKinds: [LearningKind.READING],
+          preferencesVersion: 0,
+        })),
+      },
+      learningDayPlan: { findMany: jest.fn(async () => []) },
+      learningAttempt: { findMany: jest.fn(async () => []) },
+      learningLesson: { count: jest.fn(async () => 0), findFirst: jest.fn(async () => null) },
+      learningActivitySession: { findFirst: jest.fn(async () => null) },
+      placementSession: { findFirst: jest.fn(async () => null) },
+      learningSkillLevel: { findUnique: jest.fn(async () => null) },
+      $queryRaw: jest.fn(async () => []),
+    };
+    const svc = new PlanningService(
+      db as unknown as PrismaService,
+      notifications as unknown as NotificationsService,
+    );
+
+    const homeRes = await svc.home('u');
+    expect(notifications.ensureDailyNotifications).toHaveBeenCalledWith('u');
+    expect(homeRes.unreadNotificationCount).toBe(3);
+
+    // Failure in notification helper must not break home()
+    notifications.ensureDailyNotifications.mockRejectedValueOnce(new Error('db mock missing'));
+    const fallbackRes = await svc.home('u');
+    expect(fallbackRes.unreadNotificationCount).toBe(0);
+  });
+
+  it('sets goalJustMet true only on the first segment batch that meets the daily goal', async () => {
+    const anchor = new Date('2026-11-16T05:00:00Z');
+    const receipts: any[] = [];
+    let todaySeconds = 590;
+    const createdKeys = new Set<string>();
+    const notifications = {
+      createNotification: jest.fn(async (input: any) => {
+        if (createdKeys.has(input.dedupeKey)) return { created: false };
+        createdKeys.add(input.dedupeKey);
+        return { created: true };
+      }),
+    };
+    const db: any = {
+      learningActivitySession: {
+        findFirst: jest.fn(async () => ({
+          id: 'session',
+          userId: 'u',
+          anchorAt: anchor,
+          attempt: { submittedAt: null },
+        })),
+      },
+      learningActivitySegment: {
+        findUnique: jest.fn(async ({ where }: any) => receipts.find((r) => r.seq === where.sessionId_seq.seq) ?? null),
+        create: jest.fn(async ({ data }: any) => {
+          receipts.push(data);
+          return data;
+        }),
+      },
+      learningDayPlan: { findUnique: jest.fn(async () => ({ dailyGoalMinutes: 10 })) },
+      userProfile: { findUnique: jest.fn(async () => ({ dailyGoalMinutes: 10 })) },
+      $queryRaw: jest.fn(async (strings: TemplateStringsArray) => {
+        const sql = strings.join('');
+        if (sql.includes('learning_activity_segments')) {
+          return [{ idx: 0, seconds: todaySeconds }];
+        }
+        return [];
+      }),
+    };
+    db.$transaction = jest.fn(async (cb: (tx: any) => Promise<any>) => cb(db));
+
+    const svc = new PlanningService(
+      db as unknown as PrismaService,
+      notifications as unknown as NotificationsService,
+    );
+
+    // 1) Still below 600s -> goalJustMet = false
+    const below = await svc.segments('u', 'session', {
+      segments: [{ seq: 1, startOffsetMs: 0, endOffsetMs: 10000 }],
+    });
+    expect(below.goalJustMet).toBe(false);
+    expect(notifications.createNotification).not.toHaveBeenCalled();
+
+    // 2) Crosses 600s -> goalJustMet = true and creates DAILY_GOAL_MET
+    todaySeconds = 605;
+    const reached = await svc.segments('u', 'session', {
+      segments: [{ seq: 2, startOffsetMs: 10000, endOffsetMs: 25000 }],
+    });
+    expect(reached.goalJustMet).toBe(true);
+    expect(notifications.createNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'u',
+        type: 'DAILY_GOAL_MET',
+        targetType: 'DAILY_PLAN',
+        targetPayload: { date: '2026-11-16', dailyGoalMinutes: 10 },
+        dedupeKey: 'daily_goal_met:2026-11-16',
+      }),
+      db,
+    );
+
+    // 3) Subsequent segment later same day -> goalJustMet = false (already created)
+    todaySeconds = 620;
+    const after = await svc.segments('u', 'session', {
+      segments: [{ seq: 3, startOffsetMs: 25000, endOffsetMs: 40000 }],
+    });
+    expect(after.goalJustMet).toBe(false);
   });
 });

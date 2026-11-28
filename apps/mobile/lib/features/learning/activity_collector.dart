@@ -17,9 +17,10 @@ String activityRunId() {
 
 /// One account's durable receipts. ACK individual sequences, never a watermark.
 class ActivityOutbox {
-  ActivityOutbox({required this.owner, this.clock});
+  ActivityOutbox({required this.owner, this.clock, this.onGoalJustMet});
   final DailyLearningController owner;
   final ActivityClock? clock;
+  final VoidCallback? onGoalJustMet;
   List<Json> entries = [];
   Future<void> _writes = Future.value();
   Future<void>? _sending;
@@ -86,6 +87,7 @@ class ActivityOutbox {
       await restore();
       await _writes;
       var acknowledged = false;
+      var goalJustMet = false;
       final sessions = entries
           .where((e) => e['expired'] != true && e['rejected'] != true)
           .map((e) => e['sessionId'] as String)
@@ -142,6 +144,9 @@ class ActivityOutbox {
                     },
                   ]);
                   if (!owner.active) return;
+                  if (single['goalJustMet'] == true) {
+                    goalJustMet = true;
+                  }
                   if ((single['acks'] as List).any(
                     (a) => (a as Map)['seq'] == row['seq'],
                   )) {
@@ -164,6 +169,9 @@ class ActivityOutbox {
             rethrow;
           }
           if (!owner.active) return;
+          if (result['goalJustMet'] == true) {
+            goalJustMet = true;
+          }
           final ack = (result['acks'] as List)
               .map((a) => (a as Map)['seq'])
               .toSet();
@@ -180,6 +188,9 @@ class ActivityOutbox {
           : entries.any((e) => e['expired'] == true)
           ? 'Một số bản ghi đã quá hạn đồng bộ 7 ngày và không được cộng vào thời gian đã xác nhận.'
           : null;
+      if (owner.active && goalJustMet) {
+        onGoalJustMet?.call();
+      }
       if (owner.active && acknowledged) await owner.refresh();
     } catch (e) {
       error = e is ApiFailure

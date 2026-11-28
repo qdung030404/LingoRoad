@@ -215,10 +215,14 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
   Future<void> _openGoalsEditor() async {
     final p = widget.session.profile;
     final snap = _preferencesSnapshot;
-    final saved = await showDialog<bool>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      enableDrag: false,
+      isDismissible: false,
+      backgroundColor: Colors.transparent,
       barrierColor: AppColors.overlayPopup,
-      barrierDismissible: false,
       builder: (_) => LearningGoalsEditDialog(
         session: widget.session,
         initialVersion:
@@ -545,8 +549,8 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
             final heroBackdropHeight =
                 topInset +
                 (showStatsStrip
-                    ? (isNarrow ? 248.0 : 256.0)
-                    : (isNarrow ? 222.0 : 228.0));
+                    ? (isNarrow ? 398.0 : 416.0)
+                    : (isNarrow ? 346.0 : 362.0));
 
             return SingleChildScrollView(
               child: Stack(
@@ -684,24 +688,37 @@ class _ProfileHeroBackdrop extends StatelessWidget {
       DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment(-0.35, -1.0),
-            end: Alignment(0.35, 1.0),
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              ProfilePalette.heroGradientStart,
-              ProfilePalette.heroGradientMid,
-              ProfilePalette.heroGradientEnd,
+              Color(0xFF1B3F26),
+              Color(0xFF255B37),
+              Color(0xFF357D4C),
+              Color(0xFF54A56C),
+              Color(0xFF8EC99F),
+              Color(0xFFC8E6D2),
+              Color(0xFFE7F3ED),
               ProfilePalette.background,
             ],
-            stops: [0.0, 0.44, 0.78, 1.0],
+            stops: [0.0, 0.24, 0.43, 0.57, 0.71, 0.84, 0.93, 1.0],
           ),
         ),
       ),
       DecoratedBox(
         decoration: BoxDecoration(
           gradient: RadialGradient(
-            center: Alignment(0.76, -0.78),
-            radius: 0.9,
-            colors: [ProfilePalette.heroGlow, Color(0x009DE8B8)],
+            center: Alignment(0.72, -0.82),
+            radius: 0.72,
+            colors: [Color(0x36A6F0C0), Color(0x00A6F0C0)],
+          ),
+        ),
+      ),
+      DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(-0.78, -0.88),
+            radius: 0.68,
+            colors: [Color(0x28102B19), Color(0x00102B19)],
           ),
         ),
       ),
@@ -738,8 +755,8 @@ class _HeroTopBar extends StatelessWidget {
                     ),
                     onPressed: onBack,
                     icon: Container(
-                      width: 38,
-                      height: 38,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: ProfilePalette.heroGlassBg,
                         shape: BoxShape.circle,
@@ -750,7 +767,7 @@ class _HeroTopBar extends StatelessWidget {
                       alignment: Alignment.center,
                       child: const ConceptSvgIcon(
                         ConceptGlyph.back,
-                        size: 20,
+                        size: 21,
                         color: ProfilePalette.heroTextPrimary,
                       ),
                     ),
@@ -762,7 +779,7 @@ class _HeroTopBar extends StatelessWidget {
               'Hồ sơ của tôi',
               textAlign: TextAlign.center,
               style: designText(
-                17,
+                20,
                 weight: FontWeight.w700,
                 color: ProfilePalette.heroTextPrimary,
               ).copyWith(letterSpacing: -0.4),
@@ -807,14 +824,14 @@ class _CenteredIdentityHero extends StatelessWidget {
     child: Text(
       displayName.isNotEmpty ? displayName[0].toUpperCase() : 'L',
       style: designHeading(
-        isNarrow ? 22 : 25,
+        isNarrow ? 24 : 28,
         color: ProfilePalette.heroGradientStart,
       ).copyWith(fontWeight: FontWeight.w800),
     ),
   );
 
   Widget _avatarButton() {
-    final size = isNarrow ? 64.0 : 72.0;
+    final size = isNarrow ? 72.0 : 82.0;
     final trimmed = avatarUrl?.trim() ?? '';
     return Semantics(
       button: true,
@@ -883,8 +900,8 @@ class _CenteredIdentityHero extends StatelessWidget {
                     right: -2,
                     bottom: -2,
                     child: Container(
-                      width: 26,
-                      height: 26,
+                      width: 28,
+                      height: 28,
                       decoration: BoxDecoration(
                         color: ProfilePalette.ink,
                         shape: BoxShape.circle,
@@ -893,7 +910,7 @@ class _CenteredIdentityHero extends StatelessWidget {
                       alignment: Alignment.center,
                       child: const ConceptSvgIcon(
                         ConceptGlyph.camera,
-                        size: 13,
+                        size: 14,
                         color: Colors.white,
                       ),
                     ),
@@ -912,7 +929,7 @@ class _CenteredIdentityHero extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.center,
     children: [
       _avatarButton(),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       Row(
         mainAxisAlignment: MainAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
@@ -924,7 +941,7 @@ class _CenteredIdentityHero extends StatelessWidget {
               textAlign: TextAlign.center,
               softWrap: true,
               style: designHeading(
-                isNarrow ? 19 : 21,
+                isNarrow ? 22 : 25,
                 color: ProfilePalette.heroTextPrimary,
                 height: 1.25,
               ).copyWith(fontWeight: FontWeight.w700, letterSpacing: -0.5),
@@ -937,8 +954,8 @@ class _CenteredIdentityHero extends StatelessWidget {
             padding: EdgeInsets.zero,
             onPressed: onStartEdit,
             icon: Container(
-              width: 30,
-              height: 30,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: ProfilePalette.heroGlassBg,
                 shape: BoxShape.circle,
@@ -947,7 +964,7 @@ class _CenteredIdentityHero extends StatelessWidget {
               alignment: Alignment.center,
               child: const ConceptSvgIcon(
                 ConceptGlyph.pen,
-                size: 14,
+                size: 15,
                 color: ProfilePalette.heroTextPrimary,
               ),
             ),
@@ -965,18 +982,18 @@ class _CenteredIdentityHero extends StatelessWidget {
               key: const Key('profileProviderIcon'),
               child: isGoogle
                   ? Container(
-                      width: 18,
-                      height: 18,
+                      width: 20,
+                      height: 20,
                       decoration: const BoxDecoration(
                         color: Colors.white,
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
-                      child: const FigmaAsset('google/imgLogos', size: 12),
+                      child: const FigmaAsset('google/imgLogos', size: 13),
                     )
                   : const ConceptSvgIcon(
                       ConceptGlyph.mail,
-                      size: 14.5,
+                      size: 16,
                       color: ProfilePalette.heroTextMuted,
                     ),
             ),
@@ -988,7 +1005,7 @@ class _CenteredIdentityHero extends StatelessWidget {
               textAlign: TextAlign.center,
               softWrap: true,
               style: designText(
-                isNarrow ? 12.5 : 13.5,
+                isNarrow ? 13.5 : 15,
                 weight: FontWeight.w500,
                 color: ProfilePalette.heroTextMuted,
                 height: 1.35,
@@ -1033,7 +1050,7 @@ class _ProfileStatsStrip extends StatelessWidget {
               value,
               style:
                   designHeading(
-                    isNarrow ? 17 : 19,
+                    isNarrow ? 20 : 23,
                     color: valueColor,
                     height: 1.15,
                   ).copyWith(
@@ -1042,14 +1059,14 @@ class _ProfileStatsStrip extends StatelessWidget {
                   ),
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               label,
               maxLines: 1,
               style: designText(
-                isNarrow ? 10.5 : 11.5,
+                isNarrow ? 12 : 13.5,
                 weight: FontWeight.w600,
                 color: ProfilePalette.muted,
                 height: 1.2,
@@ -1064,7 +1081,7 @@ class _ProfileStatsStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     key: const Key('profileStatsStrip'),
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
     decoration: BoxDecoration(
       color: ProfilePalette.paper,
       borderRadius: AppRadius.cardRadius,
@@ -1113,7 +1130,7 @@ class ProfileSectionHeader extends StatelessWidget {
       Expanded(
         child: Text(
           title,
-          style: designHeading(16.5, color: ProfilePalette.ink).copyWith(
+          style: designHeading(21, color: ProfilePalette.ink).copyWith(
             fontWeight: FontWeight.w700,
             letterSpacing: -0.4,
           ),
@@ -1155,7 +1172,7 @@ class _CefrOverviewCard extends StatelessWidget {
   }
 
   Widget _gapPill() => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     decoration: BoxDecoration(
       color: hasPlacement
           ? ProfilePalette.cefrGapBg
@@ -1169,7 +1186,7 @@ class _CefrOverviewCard extends StatelessWidget {
       _gapPillLabel(),
       style:
           designText(
-            11.5,
+            13,
             weight: FontWeight.w700,
             color: hasPlacement
                 ? ProfilePalette.accent
@@ -1189,9 +1206,9 @@ class _CefrOverviewCard extends StatelessWidget {
         title: 'Lộ trình tiếng Anh',
         trailing: _gapPill(),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       Container(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         decoration: BoxDecoration(
           color: ProfilePalette.paper,
           borderRadius: AppRadius.cardRadius,
@@ -1213,12 +1230,12 @@ class _CefrOverviewCard extends StatelessWidget {
               targetLevel: targetCefr,
             ),
             if (!hasPlacement) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text(
                 'Chưa có kết quả đầu vào',
                 key: const Key('cefrPlacementSummary'),
                 style: designText(
-                  13.5,
+                  15,
                   weight: FontWeight.w600,
                   color: ProfilePalette.muted,
                 ),
@@ -1243,7 +1260,7 @@ class _CefrOverviewCard extends StatelessWidget {
                       child: Text(
                         'Xem kết quả',
                         style: designText(
-                          14.5,
+                          15.5,
                           weight: FontWeight.w700,
                           color: ProfilePalette.routeGreen,
                         ),
@@ -1251,7 +1268,7 @@ class _CefrOverviewCard extends StatelessWidget {
                     ),
                     const ConceptSvgIcon(
                       ConceptGlyph.arrow,
-                      size: 18,
+                      size: 20,
                       color: ProfilePalette.routeGreen,
                     ),
                   ],
@@ -1259,7 +1276,7 @@ class _CefrOverviewCard extends StatelessWidget {
               )
             else
               Padding(
-                padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
+                padding: const EdgeInsets.fromLTRB(0, 12, 0, 8),
                 child: SizedBox(
                   height: 50,
                   width: double.infinity,
@@ -1269,7 +1286,7 @@ class _CefrOverviewCard extends StatelessWidget {
                       backgroundColor: ProfilePalette.unassessedCta,
                       foregroundColor: Colors.white,
                       elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1282,7 +1299,7 @@ class _CefrOverviewCard extends StatelessWidget {
                           child: Text(
                             'Kiểm tra đầu vào',
                             style: designText(
-                              14.5,
+                              15.5,
                               weight: FontWeight.w700,
                               color: Colors.white,
                             ),
@@ -1291,7 +1308,7 @@ class _CefrOverviewCard extends StatelessWidget {
                         const SizedBox(width: 8),
                         const ConceptSvgIcon(
                           ConceptGlyph.arrow,
-                          size: 18,
+                          size: 20,
                           color: Colors.white,
                         ),
                       ],
@@ -1413,19 +1430,19 @@ class _SkillsSection extends StatelessWidget {
           trailing: Text(
             '4 trụ cột CEFR',
             style: designText(
-              12,
+              13.5,
               weight: FontWeight.w600,
               color: ProfilePalette.muted,
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         if (isNarrow)
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (var i = 0; i < skills.length; i++) ...[
-                if (i > 0) const SizedBox(height: 10),
+                if (i > 0) const SizedBox(height: 12),
                 _SkillTileCard(skill: skills[i], compactRow: true),
               ],
             ],
@@ -1435,7 +1452,7 @@ class _SkillsSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (var i = 0; i < skills.length; i += 2) ...[
-                if (i > 0) const SizedBox(height: 10),
+                if (i > 0) const SizedBox(height: 12),
                 IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1446,7 +1463,7 @@ class _SkillsSection extends StatelessWidget {
                           compactRow: false,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: i + 1 < skills.length
                             ? _SkillTileCard(
@@ -1472,77 +1489,64 @@ class _SkillTileCard extends StatelessWidget {
   final _SkillDisplay skill;
   final bool compactRow;
 
-  Widget _badge() => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+  Widget _badge(SkillPillarPalette palette) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
     decoration: BoxDecoration(
-      color: skill.isAdaptive
-          ? ProfilePalette.badgeAdaptiveBg
-          : ProfilePalette.badgeBg,
+      color: palette.badgeBg,
       borderRadius: AppRadius.tagRadius,
-      border: Border.all(
-        color: skill.isAdaptive
-            ? ProfilePalette.badgeAdaptiveBorder
-            : ProfilePalette.badgeBorder,
-      ),
+      border: Border.all(color: palette.badgeBorder),
     ),
     child: Text(
       skill.level,
       style:
           designText(
-            13,
+            14.5,
             weight: FontWeight.w800,
-            color: skill.isAdaptive
-                ? ProfilePalette.badgeAdaptiveFg
-                : ProfilePalette.accent,
+            color: palette.accent,
             height: 1.15,
           ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
     ),
   );
 
-  Widget _iconBox() => Container(
-    width: 34,
-    height: 34,
+  Widget _iconBox(SkillPillarPalette palette) => Container(
+    width: 42,
+    height: 42,
     decoration: BoxDecoration(
-      color: skill.isAdaptive
-          ? ProfilePalette.skillAdaptiveBg
-          : ProfilePalette.skillIconBg,
-      borderRadius: BorderRadius.circular(10),
+      color: palette.iconBg,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: palette.badgeBorder.withValues(alpha: 0.7)),
     ),
     alignment: Alignment.center,
     child: ConceptSvgIcon(
       skill.glyph,
-      size: 18,
-      color: skill.isAdaptive
-          ? ProfilePalette.skillAdaptiveFg
-          : ProfilePalette.skillIconFg,
+      size: 21,
+      color: palette.accent,
     ),
   );
 
-  Widget _sourceLine() => Row(
+  Widget _sourceLine(SkillPillarPalette palette) => Row(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.center,
     children: [
-      if (skill.isAdaptive) ...[
-        Container(
-          width: 6,
-          height: 6,
-          decoration: const BoxDecoration(
-            color: AppColors.primary,
-            shape: BoxShape.circle,
-          ),
+      Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(
+          color: skill.isAdaptive
+              ? palette.stripe
+              : palette.stripe.withValues(alpha: 0.45),
+          shape: BoxShape.circle,
         ),
-        const SizedBox(width: 5),
-      ],
+      ),
+      const SizedBox(width: 6),
       Flexible(
         child: Text(
           skill.sourceText,
           softWrap: true,
           style: designText(
-            12,
-            weight: skill.isAdaptive ? FontWeight.w600 : FontWeight.w400,
-            color: skill.isAdaptive
-                ? ProfilePalette.accent
-                : ProfilePalette.muted,
+            13.5,
+            weight: skill.isAdaptive ? FontWeight.w600 : FontWeight.w500,
+            color: skill.isAdaptive ? palette.accent : ProfilePalette.muted,
             height: 1.3,
           ),
         ),
@@ -1553,33 +1557,32 @@ class _SkillTileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final adaptive = skill.isAdaptive;
+    final palette = skillPillarPalette(skill.kind);
     return Container(
       key: ValueKey('skillTile-${skill.kind}'),
-      constraints: const BoxConstraints(minHeight: 56),
-      padding: const EdgeInsets.all(13),
+      constraints: const BoxConstraints(minHeight: 60),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: adaptive
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  ProfilePalette.skillAdaptiveSurface,
-                  ProfilePalette.paper,
-                ],
-              )
-            : null,
-        color: adaptive ? null : ProfilePalette.paper,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            palette.cardTint,
+            ProfilePalette.paper,
+          ],
+        ),
         borderRadius: AppRadius.cardRadius,
         border: Border.all(
           color: adaptive
-              ? ProfilePalette.skillAdaptiveCardBorder
-              : ProfilePalette.heroBorder,
+              ? palette.stripe.withValues(alpha: 0.55)
+              : palette.badgeBorder.withValues(alpha: 0.8),
+          width: adaptive ? 1.3 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: ProfilePalette.cardShadow,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
@@ -1587,8 +1590,8 @@ class _SkillTileCard extends StatelessWidget {
           ? Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _iconBox(),
-                const SizedBox(width: 11),
+                _iconBox(palette),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1597,19 +1600,19 @@ class _SkillTileCard extends StatelessWidget {
                       Text(
                         skill.title,
                         style: designText(
-                          14.5,
+                          17,
                           weight: FontWeight.w700,
                           color: ProfilePalette.ink,
                           height: 1.25,
                         ),
                       ),
-                      const SizedBox(height: 3),
-                      _sourceLine(),
+                      const SizedBox(height: 4),
+                      _sourceLine(palette),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
-                _badge(),
+                _badge(palette),
               ],
             )
           : Column(
@@ -1618,9 +1621,9 @@ class _SkillTileCard extends StatelessWidget {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [_iconBox(), _badge()],
+                  children: [_iconBox(palette), _badge(palette)],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -1628,14 +1631,14 @@ class _SkillTileCard extends StatelessWidget {
                     Text(
                       skill.title,
                       style: designText(
-                        14.5,
+                        17,
                         weight: FontWeight.w700,
                         color: ProfilePalette.ink,
                         height: 1.25,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    _sourceLine(),
+                    const SizedBox(height: 4),
+                    _sourceLine(palette),
                   ],
                 ),
               ],
@@ -1665,25 +1668,25 @@ class _GoalsSummaryCard extends StatelessWidget {
     required String value,
     Key? valueKey,
   }) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-    decoration: BoxDecoration(
+    padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 13),
+    decoration: const BoxDecoration(
       color: ProfilePalette.bentoSurface,
       borderRadius: AppRadius.cardSm,
     ),
     child: Row(
       children: [
         Container(
-          width: 30,
-          height: 30,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             color: ProfilePalette.paper,
-            borderRadius: AppRadius.tagRadius,
-            border: Border.all(color: ProfilePalette.heroBorder),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: ProfilePalette.line),
           ),
           alignment: Alignment.center,
-          child: ConceptSvgIcon(glyph, size: 15, color: ProfilePalette.accent),
+          child: ConceptSvgIcon(glyph, size: 19, color: ProfilePalette.accent),
         ),
-        const SizedBox(width: 9),
+        const SizedBox(width: 11),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1692,20 +1695,20 @@ class _GoalsSummaryCard extends StatelessWidget {
               Text(
                 label,
                 style: designText(
-                  11,
+                  13,
                   weight: FontWeight.w500,
                   color: ProfilePalette.muted,
                   height: 1.2,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 3),
               Text(
                 value,
                 key: valueKey,
                 softWrap: true,
                 style:
                     designText(
-                      13.5,
+                      15.5,
                       weight: FontWeight.w700,
                       color: ProfilePalette.ink,
                       height: 1.25,
@@ -1720,15 +1723,112 @@ class _GoalsSummaryCard extends StatelessWidget {
     ),
   );
 
+  Widget _skillPillarBadge(String kind, int rank) {
+    final isPrimary = rank == 1;
+    return Container(
+      key: ValueKey('goalSkillBadge-$kind'),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: isPrimary ? AppColors.primary25 : AppColors.grey5,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isPrimary ? AppColors.primary100 : ProfilePalette.line,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: isPrimary ? AppColors.primary : AppColors.primary50,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '#$rank',
+              style: designText(
+                11,
+                weight: FontWeight.w800,
+                color: isPrimary ? Colors.white : ProfilePalette.accent,
+                height: 1.1,
+              ).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ConceptSvgIcon(
+            learningKindGlyph(kind),
+            size: 17,
+            color: ProfilePalette.accent,
+          ),
+          const SizedBox(width: 7),
+          Expanded(
+            child: FittedBox(
+              alignment: Alignment.centerLeft,
+              fit: BoxFit.scaleDown,
+              child: Text(
+                learningKindLabelVi(kind),
+                maxLines: 1,
+                style: designText(
+                  14.5,
+                  weight: isPrimary ? FontWeight.w700 : FontWeight.w600,
+                  color: ProfilePalette.ink,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKindsGrid(List<String> orderedKinds) {
+    if (orderedKinds.length == 1) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: IntrinsicWidth(child: _skillPillarBadge(orderedKinds.first, 1)),
+      );
+    }
+    final rows = <Widget>[];
+    for (var i = 0; i < orderedKinds.length; i += 2) {
+      final left = orderedKinds[i];
+      final right = i + 1 < orderedKinds.length ? orderedKinds[i + 1] : null;
+      if (rows.isNotEmpty) rows.add(const SizedBox(height: 10));
+      rows.add(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _skillPillarBadge(left, i + 1)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: right != null
+                    ? _skillPillarBadge(right, i + 2)
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final seenKinds = <String>{};
     final orderedKinds = [
-      for (final kind in allPreferredLearningKinds)
-        if (preferredKinds.contains(kind)) kind,
+      for (final kind in preferredKinds)
+        if (allPreferredLearningKinds.contains(kind) && seenKinds.add(kind))
+          kind,
     ];
-    final horizontalPad = isNarrow ? 12.0 : 15.0;
+    final horizontalPad = isNarrow ? 14.0 : 16.0;
     final purposeTile = _bentoTile(
-      glyph: ConceptGlyph.briefcase,
+      glyph: learningPurposeGlyph(purpose ?? 'WORK'),
       label: 'Mục đích',
       value: learningPurposeLabelVi(purpose),
       valueKey: const Key('summaryPurposeValue'),
@@ -1756,15 +1856,15 @@ class _GoalsSummaryCard extends StatelessWidget {
                   Text(
                     'Chỉnh sửa',
                     style: designText(
-                      13.5,
+                      15,
                       weight: FontWeight.w700,
                       color: ProfilePalette.accent,
                     ),
                   ),
-                  const SizedBox(width: 3),
+                  const SizedBox(width: 4),
                   const ConceptSvgIcon(
                     ConceptGlyph.arrow,
-                    size: 16,
+                    size: 18,
                     color: ProfilePalette.accent,
                   ),
                 ],
@@ -1772,83 +1872,95 @@ class _GoalsSummaryCard extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        Material(
-          color: ProfilePalette.paper,
-          shape: RoundedRectangleBorder(
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
             borderRadius: AppRadius.cardRadius,
-            side: const BorderSide(color: ProfilePalette.heroBorder),
+            boxShadow: [
+              BoxShadow(
+                color: ProfilePalette.heroShadow,
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            key: const Key('editLearningGoalsButton'),
-            hoverColor: ProfilePalette.hoverTint,
-            onTap: onEditGoals,
-            child: Padding(
-              padding: EdgeInsets.all(horizontalPad),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (isNarrow) ...[
-                    purposeTile,
-                    const SizedBox(height: 8),
-                    durationTile,
-                  ] else
-                    IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(child: purposeTile),
-                          const SizedBox(width: 8),
-                          Expanded(child: durationTile),
-                        ],
+          child: Material(
+            color: ProfilePalette.paper,
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadius.cardRadius,
+              side: const BorderSide(color: ProfilePalette.heroBorder),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              key: const Key('editLearningGoalsButton'),
+              hoverColor: ProfilePalette.hoverTint,
+              onTap: onEditGoals,
+              child: Padding(
+                padding: EdgeInsets.all(horizontalPad),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (isNarrow) ...[
+                      purposeTile,
+                      const SizedBox(height: 10),
+                      durationTile,
+                    ] else
+                      IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(child: purposeTile),
+                            const SizedBox(width: 10),
+                            Expanded(child: durationTile),
+                          ],
+                        ),
                       ),
+                    const SizedBox(height: 14),
+                    const Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: ProfilePalette.line,
                     ),
-                  const SizedBox(height: 11),
-                  if (orderedKinds.isEmpty)
-                    Text(
-                      'Không đặt ưu tiên',
-                      style: designText(13, color: ProfilePalette.muted),
-                    )
-                  else
-                    Wrap(
-                      spacing: 7,
-                      runSpacing: 7,
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        for (final kind in orderedKinds)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: ProfilePalette.tagSurface,
-                              borderRadius: AppRadius.tagRadius,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                ConceptSvgIcon(
-                                  learningKindGlyph(kind),
-                                  size: 14,
-                                  color: ProfilePalette.accent,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  learningKindLabelVi(kind),
-                                  style: designText(
-                                    12.5,
-                                    weight: FontWeight.w600,
-                                    color: ProfilePalette.ink,
-                                    height: 1.2,
-                                  ),
-                                ),
-                              ],
+                        Expanded(
+                          child: Text(
+                            'Kỹ năng ưu tiên',
+                            style: designText(
+                              14,
+                              weight: FontWeight.w600,
+                              color: ProfilePalette.muted,
                             ),
                           ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${orderedKinds.length}/${allPreferredLearningKinds.length} đã chọn',
+                          style:
+                              designText(
+                                13.5,
+                                weight: FontWeight.w600,
+                                color: ProfilePalette.muted,
+                              ).copyWith(
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                        ),
                       ],
                     ),
-                ],
+                    const SizedBox(height: 10),
+                    if (orderedKinds.isEmpty)
+                      Text(
+                        'Không đặt ưu tiên',
+                        style: designText(14.5, color: ProfilePalette.muted),
+                      )
+                    else
+                      _buildKindsGrid(orderedKinds),
+                  ],
+                ),
               ),
             ),
           ),

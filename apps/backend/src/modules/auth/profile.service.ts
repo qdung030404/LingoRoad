@@ -1,7 +1,12 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
-import { PlanningService } from '../planning/planning.service';
+import {
+  PlanningService,
+  readPreferredSkillsForUser,
+  writePreferredSkillsForUser,
+} from '../planning/planning.service';
+import { PreferredSkill } from '../planning/planning.dto';
 import { LearningKind, Prisma } from '@prisma/client';
 
 const safeAccount = {
@@ -10,6 +15,29 @@ const safeAccount = {
   createdAt: true, profile: true,
 } as const;
 
+const LESSON_KIND_SET = new Set<string>(Object.values(LearningKind));
+function isLessonKind(value: string): value is LearningKind {
+  return LESSON_KIND_SET.has(value);
+}
+
+function normalizeAccountProfile<T extends { profile?: Record<string, any> | null } | null>(
+  account: T,
+  storedSkills?: PreferredSkill[] | null,
+): T {
+  if (!account?.profile) return account;
+  const skills = storedSkills ?? account.profile.preferredSkills;
+  if (Array.isArray(skills) && skills.length > 0) {
+    return {
+      ...account,
+      profile: {
+        ...account.profile,
+        preferredKinds: skills,
+      },
+    };
+  }
+  return account;
+}
+
 @Injectable()
 export class ProfileService {
   constructor(private readonly prisma: PrismaService, @Optional() private readonly planning?: PlanningService) {}
@@ -17,7 +45,12 @@ export class ProfileService {
   async get(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: safeAccount });
     if (!user) throw new NotFoundException({ code: 'AUTH_USER_NOT_FOUND', message: 'Không tìm thấy tài khoản.' });
-    return user;
+    const storedSkills = await readPreferredSkillsForUser(
+      this.prisma,
+      userId,
+      user.profile?.preferredKinds,
+    );
+    return normalizeAccountProfile(user, storedSkills);
   }
 
   private hasGoalMutation(dto: UpdateProfileDto): boolean {
@@ -40,14 +73,21 @@ export class ProfileService {
       learningPurpose?: string | null;
       targetCefr?: string;
       dailyGoalMinutes?: number;
-      preferredKinds?: LearningKind[];
+      preferredKinds?: string[];
+      preferredSkills?: string[];
       selfAssessedCefr?: string | null;
     } | null | undefined,
-    preferredKinds?: LearningKind[],
+    preferredSkills?: string[],
   ): boolean {
     if (!current) return this.hasGoalMutation(dto);
-    const sameKinds = preferredKinds === undefined
-      || [...(current.preferredKinds ?? [])].sort().join() === [...preferredKinds].sort().join();
+    const existingSkills =
+      Array.isArray(current.preferredSkills) && current.preferredSkills.length > 0
+        ? current.preferredSkills
+        : (current.preferredKinds ?? []);
+    const sameKinds =
+      preferredSkills === undefined ||
+      (existingSkills.length === preferredSkills.length &&
+        existingSkills.every((k, i) => k === preferredSkills[i]));
     return (
       (dto.learningPurpose !== undefined && dto.learningPurpose !== current.learningPurpose) ||
       (dto.targetCefr !== undefined && dto.targetCefr !== current.targetCefr) ||
@@ -67,10 +107,11 @@ export class ProfileService {
       preferredKinds: rawPreferredKinds,
       ...restFields
     } = dto;
-    const preferredKinds = rawPreferredKinds ? [...new Set(rawPreferredKinds)] : undefined;
+    const preferredSkills = rawPreferredKinds ? [...new Set(rawPreferredKinds)] : undefined;
+    const lessonKinds = preferredSkills?.filter(isLessonKind);
     const profileFields = {
       ...restFields,
-      ...(preferredKinds === undefined ? {} : { preferredKinds }),
+      ...(lessonKinds && lessonKinds.length > 0 ? { preferredKinds: lessonKinds } : {}),
     };
     const completed = dto.learningPurpose != null && dto.dailyGoalMinutes != null;
     const touchesGoals = this.hasGoalMutation(dto);
@@ -121,13 +162,13 @@ export class ProfileService {
         }
       }
 
-      const goalChanged = this.didGoalChange(dto, current, preferredKinds);
+      const goalChanged = this.didGoalChange(dto, current, preferredSkills);
       const reminderChanged =
         (dto.reminderEnabled !== undefined && dto.reminderEnabled !== (current?.reminderEnabled ?? true)) ||
         (dto.reminderTime !== undefined && dto.reminderTime !== (current?.reminderTime ?? '19:30'));
       shouldReconcilePlan = goalChanged;
 
-      return db.user.update({
+      const updatedUser = await db.user.update({
         where: { id: userId },
         data: {
           ...(name === undefined ? {} : { name }),
@@ -149,6 +190,15 @@ export class ProfileService {
         },
         select: safeAccount,
       });
+      if (preferredSkills !== undefined) {
+        await writePreferredSkillsForUser(
+          db,
+          userId,
+          preferredSkills,
+          updatedUser.profile?.preferencesVersion,
+        );
+      }
+      return normalizeAccountProfile(updatedUser, preferredSkills);
     };
     return this.planning
       ? this.planning.updateAccountProfile(userId, write, () => shouldReconcilePlan)

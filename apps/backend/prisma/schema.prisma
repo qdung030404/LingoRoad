@@ -77,6 +77,7 @@ model User {
   speakingGameProgress SpeakingGameProgress[]
   voiceConversations   VoiceConversation[]
   auditLogs            AuditLog[]
+  notifications        UserNotification[]
 
   @@map("users")
 }
@@ -754,4 +755,42 @@ model AuditLog {
   @@index([adminUserId, createdAt])
   @@index([resourceType, createdAt])
   @@map("audit_logs")
+}
+
+enum NotificationType {
+  DAILY_PLAN_READY
+  DAILY_GOAL_MET
+  SKILL_LEVEL_CHANGED
+  PLACEMENT_COMPLETED
+  VOCABULARY_REVIEW_DUE
+  SPEAKING_RESULT_READY
+}
+
+enum NotificationTargetType {
+  DAILY_PLAN
+  LESSON
+  VOCABULARY_REVIEW
+  PROFILE
+  SPEAKING
+  NONE
+}
+
+model UserNotification {
+  id            String                 @id @default(uuid()) @db.Uuid
+  userId        String                 @map("user_id") @db.Uuid
+  type          NotificationType
+  title         String                 @db.VarChar(200)
+  body          String                 @db.Text
+  targetType    NotificationTargetType @default(NONE) @map("target_type")
+  targetPayload Json?                  @map("target_payload") @db.JsonB
+  dedupeKey     String                 @map("dedupe_key") @db.VarChar(160)
+  readAt        DateTime?              @map("read_at")
+  createdAt     DateTime               @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt, id])
+  @@index([userId, readAt])
+  @@map("user_notifications")
 }
