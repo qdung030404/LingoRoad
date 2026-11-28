@@ -2,6 +2,8 @@ import { HttpException, Injectable, Logger, OnApplicationBootstrap, OnModuleDest
 import { HttpAdapterHost } from '@nestjs/core';
 import { Prisma, VoiceHistoryStatus } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
+import type { IncomingMessage } from 'node:http';
+import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,46 +13,16 @@ import {
 } from './voice-live.config';
 import { MlClientService } from '../ml/ml-client.service';
 import { validateSpeakingWav } from './wav';
-import { contentRequestFailure, validContentResult, validTopicResult } from './speaking.service';
-import { AudioSegment, ConversationTurn, conversationAnswers, conversationPronunciation, parseAudioSegments, splitConversationAudio } from './conversation-assessment';
+import { AudioSegment, ConversationTurn, conversationAnswers, conversationPronunciation, parseAudioSegments } from './conversation-assessment';
+import {
+  computeAssessmentStatus,
+  processConversationAssessment,
+  StoredConversationAssessment,
+  wholeAudioScore,
+} from './voice-conversations-assessment.helper';
+import { runVoiceWebSocketSession } from './voice-conversations-ws.helper';
 
 const pendingHistoryLifetimeMs = 24 * 60 * 60 * 1000;
-const emptySegmentHash = createHash('sha256').update('[]').digest('hex');
-
-interface StoredAssessedTurn {
-  itemId: string;
-  pronunciation?: Record<string, unknown> | null;
-  content?: Record<string, unknown> | null;
-  [key: string]: unknown;
-}
-
-interface StoredConversationAssessment {
-  schemaVersion?: number;
-  segmentHash?: string | null;
-  pronunciationScope?: string;
-  pronunciation?: Record<string, unknown> | null;
-  content?: Record<string, unknown> | null;
-  turns?: StoredAssessedTurn[];
-  audioSource?: string | null;
-  [key: string]: unknown;
-}
-
-function wholeAudioScore(assessment: StoredConversationAssessment) {
-  if (assessment.pronunciationScope === 'per_turn') return null;
-  if (assessment.pronunciationScope === 'whole_audio' || (
-    !assessment.turns?.some((turn) => turn.pronunciation) &&
-    (!assessment.segmentHash || assessment.segmentHash === emptySegmentHash)
-  )) return assessment.pronunciation ?? null;
-  return null;
-}
-
-function assessmentStatus(row: { assessmentStatus: string; assessment: unknown }) {
-  const stored = row.assessment as StoredConversationAssessment | null;
-  if (row.assessmentStatus === 'READY' && stored?.schemaVersion === 2 &&
-      Array.isArray(stored.turns) && stored.turns.some((turn) => !turn.pronunciation) &&
-      !wholeAudioScore(stored)) return 'PARTIAL';
-  return row.assessmentStatus;
-}
 
 @Injectable()
 export class VoiceConversationsService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -100,7 +72,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
     await this.prisma.voiceConversation.updateMany({ where: { assessmentStatus: 'PROCESSING' },
       data: { assessmentStatus: 'UNKNOWN' } });
     this.server = new WebSocketServer({ noServer: true, maxPayload: 128 * 1024 });
-    this.adapter.httpAdapter.getHttpServer().on('upgrade', (request: any, socket: any, head: Buffer) => {
+    this.adapter.httpAdapter.getHttpServer().on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
       if (request.url !== '/speaking/conversations/connect') { socket.destroy(); return; }
       this.server!.handleUpgrade(request, socket, head, client => this.accept(client));
     });
@@ -137,7 +109,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       row.assessment = stored as Prisma.JsonValue;
     }
     const { activeUserId, ...result } = row;
-    return { ...result, assessmentStatus: assessmentStatus(row), supportsPronunciationRetry: true };
+    return { ...result, assessmentStatus: computeAssessmentStatus(row), supportsPronunciationRetry: true };
   }
 
   async summary(userId: string, id: string) {
@@ -153,7 +125,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       stored.pronunciation = conversationPronunciation(stored.turns) ?? stored.pronunciation;
     }
     const { activeUserId, _count, ...result } = row;
-    return { ...result, assessmentStatus: assessmentStatus(row), hasUserTurns: _count.turns > 0, supportsPronunciationRetry: true };
+    return { ...result, assessmentStatus: computeAssessmentStatus(row), hasUserTurns: _count.turns > 0, supportsPronunciationRetry: true };
   }
 
   async transcript(userId: string, id: string) {
@@ -263,90 +235,21 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
   private async processAssessment(id: string, userId: string, topic: string,
     turns: ConversationTurn[], audio: Buffer | undefined, segments: AudioSegment[], previous: StoredConversationAssessment, assessmentStartedAt: Date,
     pronunciationRetry = false) {
-    const started = Date.now();
-    const answers = conversationAnswers(turns);
-    const clips = audio && segments.length ? splitConversationAudio(audio, segments) : new Map<string, Buffer>();
-    const scoreAudio = async (bytes: Buffer): Promise<Record<string, unknown> | null> => {
-      try {
-        const result = await this.ml.scoreConversationAudio(bytes) as Record<string, unknown>;
-        const hash = createHash('sha256').update(bytes).digest('hex');
-        if (validTopicResult(result, hash, 180, 'conversation-speaking-v1')) return result;
-      } catch { /* Individual failure leaves the other replies available. */ }
-      return null;
-    };
-    const scoreReplies = async () => {
-      const results = new Map<string, Record<string, unknown> | null>();
-      // Sequential provider calls respect the speech resource's concurrency limit.
-      for (const answer of answers) {
-        const clip = clips.get(answer.itemId);
-        const saved = previous.turns?.find((turn) => turn.itemId === answer.itemId)?.pronunciation;
-        results.set(answer.itemId, saved ?? (clip ? await scoreAudio(clip) : null));
-      }
-      return results;
-    };
-    const reuseContent = pronunciationRetry;
-    this.logger.log(JSON.stringify({ event: 'conversation_assessment_started', conversationId: id,
-      pronunciationCalls: segments.length ? answers.filter(answer => clips.has(answer.itemId) &&
-        !previous.turns?.some((turn) => turn.itemId === answer.itemId && turn.pronunciation)).length : audio ? 1 : 0,
-      contentCalls: reuseContent ? 0 : 1 }));
-    const contentPromise = reuseContent ? Promise.resolve(previous.content ?? { status: 'unavailable' }) :
-      this.ml.scoreConversationContent(topic, turns.filter(turn => turn.transcript.trim())).catch(contentRequestFailure);
-    const [replies, contentResult, legacySpeech] = await Promise.all([
-      scoreReplies(), contentPromise,
-      audio && !segments.length ? scoreAudio(audio) : Promise.resolve(wholeAudioScore(previous)),
-    ]);
-    const transcript = turns.filter(turn => turn.role === 'USER').map(turn => turn.transcript).join('\n');
-    const content: Record<string, unknown> = reuseContent && previous.content
-      ? previous.content
-      : validContentResult(contentResult, transcript, 'conversation-content-v1')
-        ? contentResult as Record<string, unknown> : { status: 'unavailable', errorCode: 'content_invalid_response' };
-    const results = answers.map(answer => {
-      const candidate = Array.isArray(content.turns)
-        ? (content.turns as StoredAssessedTurn[]).find((item) => item.itemId === answer.itemId)?.content
-        : null;
-      const saved = reuseContent ? previous.turns?.find((turn) => turn.itemId === answer.itemId)?.content : null;
-      const turnContent = saved ?? (candidate && validContentResult(candidate, answer.answer, 'conversation-content-v1')
-        ? candidate : { status: 'unavailable', errorCode: 'content_assessment_failed' });
-      return { ...answer, pronunciation: replies.get(answer.itemId), content: turnContent };
+    return processConversationAssessment({
+      prisma: this.prisma,
+      ml: this.ml,
+      logger: this.logger,
+      notifications: this.notifications,
+      id,
+      userId,
+      topic,
+      turns,
+      audio,
+      segments,
+      previous,
+      assessmentStartedAt,
+      pronunciationRetry,
     });
-    const hasSpeech = legacySpeech || results.some(turn => turn.pronunciation);
-    const hasContent = content.status === 'succeeded';
-    const complete = hasContent && (legacySpeech || (results.length > 0 && results.every(turn => turn.pronunciation)));
-    const status = complete ? 'READY' : hasSpeech || hasContent ? 'PARTIAL' : 'FAILED';
-    const assessment = { schemaVersion: 2, pronunciation: conversationPronunciation(results) ?? legacySpeech, content, turns: results,
-      pronunciationScope: legacySpeech ? 'whole_audio' : 'per_turn',
-      segmentHash: previous.segmentHash ?? null, contentBasis: 'learner_reply_with_question',
-      audioSource: audio ? 'local_microphone_vad' : previous.audioSource ?? null, assessedAt: new Date().toISOString() };
-    const updated = await this.prisma.voiceConversation.updateMany({ where: { id, userId, assessmentStatus: 'PROCESSING', assessmentStartedAt },
-      data: { assessmentStatus: status, assessment: assessment as Prisma.InputJsonValue } });
-    if (updated.count && (status === 'READY' || status === 'PARTIAL') && this.notifications) {
-      try {
-        await this.notifications.createNotification({
-          userId,
-          type: 'SPEAKING_RESULT_READY',
-          title: 'Kết quả hội thoại AI đã sẵn sàng',
-          body:
-            status === 'READY'
-              ? 'Phiên hội thoại luyện nói của bạn đã có kết quả đánh giá đầy đủ.'
-              : 'Phiên hội thoại luyện nói của bạn đã có kết quả đánh giá một phần.',
-          targetType: 'SPEAKING',
-          targetPayload: { conversationId: id, assessmentStatus: status },
-          dedupeKey: `voice_conversation:${id}`,
-        });
-      } catch (error) {
-        this.logger.warn(
-          JSON.stringify({
-            event: 'conversation_notification_failed',
-            conversationId: id,
-            error: error instanceof Error ? error.message : String(error),
-          }),
-        );
-      }
-    }
-    this.logger.log(JSON.stringify({ event: 'conversation_assessment_completed', conversationId: id,
-      status, contentStatus: content.status, contentErrorCode: content.errorCode,
-      totalReplies: answers.length, scoredReplies: results.filter(turn => turn.pronunciation).length,
-      latencyMs: Date.now() - started }));
   }
 
   private async discardHistory(where: Prisma.VoiceConversationWhereInput) {
@@ -397,7 +300,7 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       ] } : {}) },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 21,
     });
-    return { items: rows.slice(0, 20).map(({ activeUserId, ...row }) => ({ ...row, assessmentStatus: assessmentStatus(row) })),
+    return { items: rows.slice(0, 20).map(({ activeUserId, ...row }) => ({ ...row, assessmentStatus: computeAssessmentStatus(row) })),
       nextCursor: rows.length > 20 ? rows[19].id : null };
   }
 
@@ -552,162 +455,14 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
     const id = ticket.id;
     const claim = await this.prisma.voiceConversation.updateMany({ where: { id, status: 'CREATED' }, data: { status: 'CONNECTING' } });
     if (!claim.count) { client.close(1008, 'Session already claimed'); return; }
-    const row = await this.prisma.voiceConversation.findUniqueOrThrow({ where: { id } });
-    const topic = row.topicSnapshot as Record<string, any>;
-    const settings = this.config.read();
-    const endpoint = new URL(settings.endpoint);
-    endpoint.protocol = 'wss:';
-    endpoint.pathname = '/voice-live/realtime/calls';
-    endpoint.search = new URLSearchParams({ 'api-version': settings.apiVersion, model: topic.model }).toString();
-    const provider = new WebSocket(endpoint, { headers: { 'api-key': settings.key }, handshakeTimeout: 15000, maxPayload: 2 * 1024 * 1024 });
-    let closed: Promise<void> | undefined;
-    let acceptingEvents = true;
-    let timer: NodeJS.Timeout;
-    let deadline: NodeJS.Timeout;
-    let greeted = false;
-    let pendingSettings: { requestId: string; silenceDurationMs: number; rate: string; timeout: NodeJS.Timeout } | undefined;
-    const turnDetection = (silenceDurationMs: number) => ({
-      type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300,
-      silence_duration_ms: silenceDurationMs,
-    });
-    const sendSettingsResult = (requestId: string, applied: boolean) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({ type: applied ? 'settings.updated' : 'settings.rejected', requestId }));
-      }
-    };
-    const finishSettingsUpdate = (applied: boolean) => {
-      if (!pendingSettings) return;
-      const { requestId, timeout } = pendingSettings;
-      pendingSettings = undefined;
-      clearTimeout(timeout);
-      sendSettingsResult(requestId, applied);
-    };
-    let sequence = 0;
-    let writing = Promise.resolve();
-    const indices = new Map<string, number>();
-    const index = (item: string) => { if (!indices.has(item)) indices.set(item, sequence++); return indices.get(item)!; };
-    const close = (reason: string): Promise<void> => {
-      if (closed) return closed;
-      acceptingEvents = false;
-      finishSettingsUpdate(false);
-      closed = (async () => {
-        try {
-          await writing;
-          await this.prisma.voiceConversation.updateMany({
-            where: { id, status: { in: ['CONNECTING', 'ACTIVE'] } },
-            data: { activeUserId: null, status: ['user_finished', 'time_limit'].includes(reason) ? 'ENDED' : 'INTERRUPTED',
-              endReason: reason, endedAt: new Date() },
-          });
-          this.logger.log(JSON.stringify({ conversationId: id, status: 'closed', reason }));
-        } finally {
-          clearTimeout(timer); clearTimeout(deadline);
-          provider.close();
-          if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify({ type: 'conversation.ended', reason }));
-          client.close();
-          this.calls.delete(id);
-        }
-      })();
-      return closed;
-    };
-    this.calls.set(id, { close });
-    const safelyClose = (reason: string) => void close(reason).catch(() => this.logger.warn(`Voice session ${id} closure failed`));
-    deadline = setTimeout(() => safelyClose('connection_timeout'), 45000);
-    provider.on('error', () => safelyClose('provider_error'));
-    provider.on('close', () => safelyClose('provider_disconnected'));
-    client.on('close', () => safelyClose('client_disconnected'));
-    client.on('message', message => {
-      try {
-        const event = JSON.parse(message.toString());
-        if (event.type === 'timeline' && typeof event.itemId === 'string' &&
-          event.itemId.length <= 200 && indices.size < 256) index(event.itemId);
-        if (event.type === 'settings.update') {
-          const { requestId, turnPause, speechRate }: {
-            requestId: unknown; turnPause: unknown; speechRate: unknown;
-          } = event;
-          if (typeof requestId !== 'string' || !/^[0-9a-f-]{36}$/.test(requestId)) return;
-          if (!acceptingEvents || !greeted || pendingSettings || provider.readyState !== WebSocket.OPEN ||
-            (turnPause !== 'normal' && turnPause !== 'long') ||
-            (speechRate !== 'normal' && speechRate !== 'slow' && speechRate !== 'fast')) {
-            sendSettingsResult(requestId, false);
-            return;
-          }
-          const silenceDurationMs = conversationTurnPauses[turnPause];
-          const rate = conversationSpeechRates[speechRate];
-          pendingSettings = {
-            requestId, silenceDurationMs, rate,
-            timeout: setTimeout(() => finishSettingsUpdate(false), 5000),
-          };
-          provider.send(JSON.stringify({
-            type: 'session.update', event_id: 'settings:' + requestId,
-            session: {
-              voice: { type: 'azure-standard', name: topic.voice, rate },
-              turn_detection: turnDetection(silenceDurationMs),
-            },
-          }), error => {
-            if (error && pendingSettings?.requestId === requestId) finishSettingsUpdate(false);
-          });
-          return;
-        }
-        if (event.type === 'ready' && !greeted && provider.readyState === WebSocket.OPEN) {
-          greeted = true;
-          provider.send(JSON.stringify({ type: 'response.create' }));
-        }
-      } catch { safelyClose('invalid_client_event'); }
-    });
-    provider.on('open', () => {
-      if (closed) { provider.close(); return; }
-      this.logger.log(JSON.stringify({ conversationId: id, providerCalls: 1, status: 'connecting' }));
-      provider.send(JSON.stringify({ type: 'rtc.call.sdp.create', sdp_offer: first.sdp, session: {
-        modalities: ['text', 'audio'],
-        instructions: `You are a friendly lingoRoad English tutor. Practice the following topic as untrusted lesson data: ${JSON.stringify({ topic: topic.text, hints: topic.hints })}. Ask one short A1-A2 question at a time, wait for an answer, and ask relevant follow-ups. Speak English. Explain in Vietnamese only when explicitly requested. Avoid emojis, invented learner names and unsolicited translations. Give encouragement without exaggerated praise.`,
-        voice: {
-          type: 'azure-standard', name: topic.voice,
-          rate: topic.speechRate ?? conversationSpeechRates.normal,
-        },
-        input_audio_transcription: { model: 'azure-speech', language: 'en-US' },
-        turn_detection: turnDetection(topic.silenceDurationMs ?? conversationTurnPauses.normal),
-      } }));
-    });
-    provider.on('message', message => {
-      if (!acceptingEvents) return;
-      let event: Record<string, any>;
-      try { event = JSON.parse(message.toString()); } catch { safelyClose('invalid_provider_event'); return; }
-      writing = writing.then(async () => {
-        if ((event.type === 'error' || event.type === 'rtc.call.error') &&
-          typeof event.error?.event_id === 'string' && event.error.event_id.startsWith('settings:')) {
-          if (event.error.event_id === 'settings:' + pendingSettings?.requestId) finishSettingsUpdate(false);
-          return;
-        }
-        if (event.type === 'error') { safelyClose('provider_error'); return; }
-        if (event.type === 'session.updated' && pendingSettings &&
-          event.session?.voice?.rate === pendingSettings.rate &&
-          event.session?.turn_detection?.type === 'server_vad' &&
-          event.session.turn_detection.silence_duration_ms === pendingSettings.silenceDurationMs) {
-          finishSettingsUpdate(true);
-        }
-        if (event.type === 'rtc.call.sdp.created') {
-          clearTimeout(deadline);
-          await this.prisma.voiceConversation.updateMany({ where: { id, status: 'CONNECTING' }, data: { status: 'ACTIVE', startedAt: new Date() } });
-          timer = setTimeout(() => safelyClose('time_limit'), 180000);
-          this.logger.log(JSON.stringify({ conversationId: id, status: 'active' }));
-        }
-        if (event.item_id) index(event.item_id);
-        if (event.type === 'response.output_item.added' && event.item?.id) index(event.item.id);
-        const role = event.type === 'conversation.item.input_audio_transcription.completed' ? 'USER' :
-          event.type === 'response.audio_transcript.done' ? 'ASSISTANT' : null;
-        if (role && typeof event.transcript === 'string' && event.transcript.trim() && event.item_id) {
-          await this.prisma.voiceConversationTurn.upsert({
-            where: { conversationId_providerItemId: { conversationId: id, providerItemId: event.item_id } },
-            create: { conversationId: id, providerItemId: event.item_id, role, transcript: event.transcript.slice(0, 12000), sequence: index(event.item_id) },
-            update: {},
-          });
-        }
-        if (client.readyState === WebSocket.OPEN) {
-          // Forward only display/control events, never the provider session object.
-          if (event.type === 'rtc.call.sdp.created') client.send(JSON.stringify({ type: event.type, sdp_answer: event.sdp_answer }));
-          else if (role) client.send(JSON.stringify({ type: event.type, transcript: event.transcript, item_id: event.item_id, sequence: index(event.item_id) }));
-        }
-      }).catch(() => safelyClose('persistence_failed'));
+    await runVoiceWebSocketSession({
+      id,
+      firstSdp: first.sdp,
+      client,
+      prisma: this.prisma,
+      config: this.config,
+      logger: this.logger,
+      calls: this.calls,
     });
   }
 }

@@ -17,26 +17,12 @@ import {
 import { AdminShell } from '@/components/admin/AdminShell';
 import { LegacyStatCard } from '@/components/admin/LegacyStatCard';
 import { getDashboardOverview } from '@/lib/admin-api';
-import type {
-  CefrAttemptStat,
-  DashboardOverview,
-  DashboardTimeframe,
-  LearningTrendPoint,
-} from '@/types/admin';
-
-function formatDateTime(iso: string): string {
-  try {
-    return new Intl.DateTimeFormat('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
+import type { DashboardOverview, DashboardTimeframe } from '@/types/admin';
+import {
+  CefrBarChart,
+  TrendSvgChart,
+  formatDashboardDateTime,
+} from './DashboardCharts';
 
 const TIMEFRAME_OPTIONS: Array<{ value: DashboardTimeframe; label: string }> = [
   { value: '7_DAYS', label: '7 ngày' },
@@ -44,167 +30,6 @@ const TIMEFRAME_OPTIONS: Array<{ value: DashboardTimeframe; label: string }> = [
   { value: '90_DAYS', label: '90 ngày' },
   { value: 'ALL_TIME', label: 'Toàn thời gian' },
 ];
-
-function TrendSvgChart({
-  data,
-}: {
-  data: LearningTrendPoint[];
-}): React.ReactElement {
-  if (data.length === 0) {
-    return (
-      <div className="flex h-48 items-center justify-center rounded-xl bg-slateDark-25 text-xs text-slateDark-600">
-        Chưa có dữ liệu xu hướng học tập trong khoảng thời gian này.
-      </div>
-    );
-  }
-
-  const width = 640;
-  const height = 190;
-  const padX = 36;
-  const padY = 22;
-  const maxAttempts = Math.max(1, ...data.map((d) => d.attempts));
-  const stepX =
-    data.length > 1 ? (width - padX * 2) / (data.length - 1) : width / 2;
-
-  const attemptPoints = data.map((d, idx) => {
-    const x = data.length > 1 ? padX + idx * stepX : width / 2;
-    const y =
-      height - padY - (d.attempts / maxAttempts) * (height - padY * 2);
-    return { x, y, ...d };
-  });
-
-  const userPoints = data.map((d, idx) => {
-    const x = data.length > 1 ? padX + idx * stepX : width / 2;
-    const y =
-      height - padY - (d.activeUsers / maxAttempts) * (height - padY * 2);
-    return { x, y, ...d };
-  });
-
-  const attemptPolyline = attemptPoints.map((p) => `${p.x},${p.y}`).join(' ');
-  const userPolyline = userPoints.map((p) => `${p.x},${p.y}`).join(' ');
-
-  return (
-    <div className="w-full overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-48 w-full min-w-[420px]"
-        role="img"
-        aria-label="Biểu đồ xu hướng lượt học và học viên hoạt động"
-      >
-        {[0, 0.5, 1].map((ratio) => {
-          const y = height - padY - ratio * (height - padY * 2);
-          const val = Math.round(maxAttempts * ratio);
-          return (
-            <g key={ratio}>
-              <line
-                x1={padX}
-                y1={y}
-                x2={width - padX}
-                y2={y}
-                stroke="#E2E8F0"
-                strokeDasharray="3 3"
-              />
-              <text
-                x={padX - 6}
-                y={y + 3}
-                textAnchor="end"
-                className="fill-slate-500 text-[10px]"
-              >
-                {val}
-              </text>
-            </g>
-          );
-        })}
-
-        <polyline
-          fill="none"
-          stroke="#16A34A"
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={attemptPolyline}
-        />
-        <polyline
-          fill="none"
-          stroke="#F59E0B"
-          strokeWidth={2}
-          strokeDasharray="4 3"
-          points={userPolyline}
-        />
-
-        {attemptPoints.map((p, idx) => (
-          <g key={p.bucket}>
-            <circle cx={p.x} cy={p.y} r={3.5} fill="#16A34A">
-              <title>{`${p.bucket}: ${p.attempts} lượt học, ${p.activeUsers} học viên`}</title>
-            </circle>
-            {(idx === 0 ||
-              idx === attemptPoints.length - 1 ||
-              idx % Math.max(1, Math.floor(attemptPoints.length / 5)) === 0) && (
-              <text
-                x={p.x}
-                y={height - 4}
-                textAnchor="middle"
-                className="fill-slate-500 text-[9px]"
-              >
-                {p.bucket.slice(5)}
-              </text>
-            )}
-          </g>
-        ))}
-      </svg>
-      <div className="mt-2 flex items-center gap-4 text-[11px] text-slateDark-700">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-4 rounded bg-emerald-600" /> Lượt học (Attempts)
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-0.5 w-4 border-t-2 border-dashed border-amber-500" />{' '}
-          Học viên hoạt động (Active Users)
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function CefrBarChart({
-  data,
-}: {
-  data: CefrAttemptStat[];
-}): React.ReactElement {
-  if (data.length === 0) {
-    return (
-      <div className="flex h-48 items-center justify-center rounded-xl bg-slateDark-25 text-xs text-slateDark-600">
-        Chưa có lượt học phân bổ theo bậc CEFR.
-      </div>
-    );
-  }
-  const max = Math.max(1, ...data.map((d) => d.count));
-  return (
-    <div className="flex h-48 items-end justify-around gap-3 px-2 pt-6">
-      {data.map((item) => {
-        const pct = Math.max(6, Math.round((item.count / max) * 100));
-        return (
-          <div
-            key={item.cefrLevel}
-            className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
-          >
-            <span className="text-[11px] font-bold text-slateDark-900">
-              {item.count}
-            </span>
-            <div className="flex w-full max-w-[44px] flex-1 items-end rounded-t-lg bg-slateDark-50">
-              <div
-                className="w-full rounded-t-lg bg-brand-600 transition-all"
-                style={{ height: `${pct}%` }}
-              />
-            </div>
-            <span className="text-[11px] font-bold text-slateDark-700">
-              {item.cefrLevel === 'UNASSIGNED' ? 'Khác' : item.cefrLevel}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 export default function AdminDashboardPage(): React.ReactElement {
   const [authReady, setAuthReady] = useState(false);
@@ -270,7 +95,9 @@ export default function AdminDashboardPage(): React.ReactElement {
             onClick={() => void loadData(true)}
             className="inline-flex items-center gap-2 rounded-xl border border-slateDark-200 bg-white px-4 py-2.5 text-xs font-semibold text-slateDark-900 hover:bg-slateDark-50"
           >
-            <RefreshCw className={loading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+            <RefreshCw
+              className={loading ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'}
+            />
             <span>Làm mới</span>
           </button>
           <Link
@@ -302,7 +129,6 @@ export default function AdminDashboardPage(): React.ReactElement {
             </div>
           ) : overview ? (
             <>
-              {/* Hàng 1: KPI Hoạt động học tập */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <LegacyStatCard
                   label="Tổng người học"
@@ -338,7 +164,6 @@ export default function AdminDashboardPage(): React.ReactElement {
                 />
               </div>
 
-              {/* Hàng 2: Tổng quan nội dung + Lessons by Kind */}
               <section className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -347,7 +172,7 @@ export default function AdminDashboardPage(): React.ReactElement {
                     </h2>
                     <p className="text-xs text-slateDark-700">
                       {overview.generatedAt
-                        ? `Cập nhật lúc ${formatDateTime(overview.generatedAt)}`
+                        ? `Cập nhật lúc ${formatDashboardDateTime(overview.generatedAt)}`
                         : 'Cấu trúc học liệu đang được vận hành.'}
                     </p>
                   </div>
@@ -395,7 +220,6 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </div>
               </section>
 
-              {/* Hàng 3: Biểu đồ xu hướng & Phân bổ CEFR */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
                 <div className="rounded-2xl border border-slateDark-100 bg-white p-6 shadow-sm lg:col-span-7">
                   <h2 className="text-base font-extrabold text-slateDark-900">
@@ -422,14 +246,14 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Hàng 4: Mastery & Cảnh báo câu hỏi khó */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
                 <div className="rounded-2xl border border-slateDark-100 bg-white p-6 shadow-sm lg:col-span-6">
                   <h2 className="text-base font-extrabold text-slateDark-900">
                     Mastery theo nhóm kỹ năng
                   </h2>
                   <p className="mt-0.5 text-xs text-slateDark-700">
-                    Tỉ lệ chính xác / điểm trung bình gồm cả kỹ năng Nói (Speaking).
+                    Tỉ lệ chính xác / điểm trung bình gồm cả kỹ năng Nói
+                    (Speaking).
                   </p>
 
                   <div className="mt-5 space-y-4">
@@ -458,9 +282,10 @@ export default function AdminDashboardPage(): React.ReactElement {
                   </div>
 
                   <p className="mt-4 rounded-xl border border-slateDark-100 bg-slateDark-25 px-3.5 py-2.5 text-[11px] leading-relaxed text-slateDark-700">
-                    Lưu ý: Chỉ số <strong>Writing</strong> hiện chỉ tổng hợp từ các câu
-                    hỏi đánh giá trắc nghiệm (assessment MCQ), do bài viết tự luận chấm
-                    bằng AI hoạt động không lưu trạng thái (stateless).
+                    Lưu ý: Chỉ số <strong>Writing</strong> hiện chỉ tổng hợp từ
+                    các câu hỏi đánh giá trắc nghiệm (assessment MCQ), do bài
+                    viết tự luận chấm bằng AI hoạt động không lưu trạng thái
+                    (stateless).
                   </p>
                 </div>
 
@@ -480,8 +305,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                     </Link>
                   </div>
                   <p className="mt-0.5 text-xs text-slateDark-700">
-                    Các câu hỏi có ≥ 5 lượt trả lời với tỉ lệ sai bất thường cần rà
-                    soát đáp án hoặc độ khó IRT.
+                    Các câu hỏi có ≥ 5 lượt trả lời với tỉ lệ sai bất thường cần
+                    rà soát đáp án hoặc độ khó IRT.
                   </p>
 
                   <div className="mt-4 divide-y divide-slateDark-100">
@@ -517,7 +342,6 @@ export default function AdminDashboardPage(): React.ReactElement {
                 </div>
               </div>
 
-              {/* Hàng 5: Người dùng mới nhất & Hoạt động học viên gần đây */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
                 <div className="rounded-2xl border border-slateDark-100 bg-white p-6 shadow-sm lg:col-span-6">
                   <div className="flex items-center justify-between">
@@ -542,14 +366,16 @@ export default function AdminDashboardPage(): React.ReactElement {
                           <p className="truncate font-bold text-slateDark-900">
                             {u.name}
                           </p>
-                          <p className="truncate text-slateDark-600">{u.email}</p>
+                          <p className="truncate text-slateDark-600">
+                            {u.email}
+                          </p>
                         </div>
                         <div className="shrink-0 text-right">
                           <span className="rounded-full bg-slateDark-50 px-2 py-0.5 font-semibold text-slateDark-800">
                             {u.role}
                           </span>
                           <p className="mt-0.5 text-[10px] text-slateDark-600">
-                            {formatDateTime(u.createdAt)}
+                            {formatDashboardDateTime(u.createdAt)}
                           </p>
                         </div>
                       </Link>
@@ -564,7 +390,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                         Hoạt động học viên gần đây
                       </h2>
                       <p className="mt-0.5 text-[11px] text-slateDark-600">
-                        Bài học hoàn thành, đánh giá placement và tài khoản mới đăng ký.
+                        Bài học hoàn thành, đánh giá placement và tài khoản mới
+                        đăng ký.
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3 text-xs font-semibold">
@@ -603,7 +430,8 @@ export default function AdminDashboardPage(): React.ReactElement {
                               </span>
                             </p>
                             <p className="mt-0.5 truncate text-[11px] text-slateDark-700">
-                              {item.actorEmail} · {formatDateTime(item.createdAt)}
+                              {item.actorEmail} ·{' '}
+                              {formatDashboardDateTime(item.createdAt)}
                             </p>
                           </div>
                         </div>
