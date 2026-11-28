@@ -186,6 +186,15 @@ void main() {
       expect(find.text('Theo kỹ năng'), findsOneWidget);
       expect(find.text('Chưa đánh giá'), findsNWidgets(4));
       expect(find.byKey(const Key('retakePlacementButton')), findsNothing);
+      for (final kind in ['READING', 'LISTENING', 'GRAMMAR', 'VOCABULARY']) {
+        final iconBox = tester.widget<Container>(
+          find.byKey(ValueKey('skillIconBox-$kind')),
+        );
+        expect(
+          (iconBox.decoration as BoxDecoration).color,
+          ProfilePalette.skillRowInactiveIconBg,
+        );
+      }
       expect(find.text('anna@example.com'), findsOneWidget);
       expect(find.byKey(const Key('profileProviderIcon')), findsOneWidget);
       expect(find.text('Google'), findsNothing);
@@ -387,11 +396,34 @@ void main() {
       await tester.pumpWidget(MaterialApp(home: ProfilePage(session: session)));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('profileSkillsCard')), findsOneWidget);
+      expect(find.byKey(const Key('cefrOverviewCard')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('cefrOverviewCard')),
+          matching: find.byKey(const Key('profileSkillsCard')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('cefrOverviewCard')),
+          matching: find.byType(Divider),
+        ),
+        findsNothing,
+      );
       expect(find.text('Theo kỹ năng'), findsOneWidget);
       expect(find.text('Cập nhật từ bài học'), findsOneWidget);
       expect(find.text('Từ kết quả đầu vào'), findsNWidgets(3));
       expect(find.byKey(const Key('retakePlacementButton')), findsOneWidget);
+      for (final kind in ['READING', 'LISTENING', 'GRAMMAR', 'VOCABULARY']) {
+        final iconBox = tester.widget<Container>(
+          find.byKey(ValueKey('skillIconBox-$kind')),
+        );
+        expect(
+          (iconBox.decoration as BoxDecoration).color,
+          ProfilePalette.skillRowAdaptiveBg,
+        );
+      }
 
       final readRect = tester.getRect(
         find.byKey(const ValueKey('skillTile-READING')),

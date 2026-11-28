@@ -615,7 +615,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                                   _CefrOverviewCard(
                                     hasPlacement: hasPlacement,
                                     placementCefr: placementCefr,
+                                    placementSkills: placementSkills,
+                                    readingSnap: readingSnap,
                                     targetCefr: targetCefr,
+                                    isNarrow: isNarrow,
                                     onViewPlacement: placementSessionId == null
                                         ? null
                                         : () => Navigator.of(context).push<void>(
@@ -627,16 +630,6 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                                             ),
                                           ),
                                     onStartPlacement: _openPlacementAssessment,
-                                  ),
-                                  const SizedBox(height: 22),
-                                  _SkillsSection(
-                                    hasPlacement: hasPlacement,
-                                    placementCefr: placementCefr,
-                                    placementSkills: placementSkills,
-                                    readingSnap: readingSnap,
-                                    targetCefr: targetCefr,
-                                    isNarrow: isNarrow,
-                                    onRetakePlacement: _openPlacementAssessment,
                                   ),
                                   const SizedBox(height: 22),
                                   _GoalsSummaryCard(
@@ -1154,14 +1147,20 @@ class _CefrOverviewCard extends StatelessWidget {
   const _CefrOverviewCard({
     required this.hasPlacement,
     required this.placementCefr,
+    required this.placementSkills,
+    required this.readingSnap,
     required this.targetCefr,
+    required this.isNarrow,
     required this.onViewPlacement,
     required this.onStartPlacement,
   });
 
   final bool hasPlacement;
   final String? placementCefr;
+  final Json? placementSkills;
+  final Json? readingSnap;
   final String targetCefr;
+  final bool isNarrow;
   final VoidCallback? onViewPlacement;
   final VoidCallback onStartPlacement;
 
@@ -1214,7 +1213,8 @@ class _CefrOverviewCard extends StatelessWidget {
       ),
       const SizedBox(height: 12),
       Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        key: const Key('cefrOverviewCard'),
+        padding: EdgeInsets.all(isNarrow ? 14 : 16),
         decoration: BoxDecoration(
           color: ProfilePalette.paper,
           borderRadius: AppRadius.cardRadius,
@@ -1246,8 +1246,48 @@ class _CefrOverviewCard extends StatelessWidget {
                   color: ProfilePalette.muted,
                 ),
               ),
-            ],
-            if (hasPlacement)
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 50,
+                width: double.infinity,
+                child: ElevatedButton(
+                  key: const Key('startPlacementButton'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ProfilePalette.unassessedCta,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: onStartPlacement,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'Kiểm tra đầu vào',
+                          style: designText(
+                            15.5,
+                            weight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const ConceptSvgIcon(
+                        ConceptGlyph.arrow,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+            ] else ...[
+              const SizedBox(height: 4),
               TextButton(
                 key: const Key('viewPlacementResultButton'),
                 style: TextButton.styleFrom(
@@ -1279,49 +1319,18 @@ class _CefrOverviewCard extends StatelessWidget {
                     ),
                   ],
                 ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 12, 0, 8),
-                child: SizedBox(
-                  height: 50,
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    key: const Key('startPlacementButton'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: ProfilePalette.unassessedCta,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: onStartPlacement,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            'Kiểm tra đầu vào',
-                            style: designText(
-                              15.5,
-                              weight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const ConceptSvgIcon(
-                          ConceptGlyph.arrow,
-                          size: 20,
-                          color: Colors.white,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ),
+              const SizedBox(height: 10),
+            ],
+            _SkillsSection(
+              hasPlacement: hasPlacement,
+              placementCefr: placementCefr,
+              placementSkills: placementSkills,
+              readingSnap: readingSnap,
+              targetCefr: targetCefr,
+              isNarrow: isNarrow,
+              onRetakePlacement: onStartPlacement,
+            ),
           ],
         ),
       ),
@@ -1431,71 +1440,56 @@ class _SkillsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final skills = _buildSkills();
-    return Container(
+    return Column(
       key: const Key('profileSkillsCard'),
-      padding: EdgeInsets.all(isNarrow ? 14 : 16),
-      decoration: BoxDecoration(
-        color: ProfilePalette.paper,
-        borderRadius: AppRadius.cardRadius,
-        border: Border.all(color: ProfilePalette.heroBorder),
-        boxShadow: [
-          BoxShadow(
-            color: ProfilePalette.heroShadow,
-            blurRadius: 16,
-            offset: const Offset(0, 4),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Theo kỹ năng',
+          style: designHeading(
+            17,
+            color: ProfilePalette.ink,
+          ).copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.35),
+        ),
+        const SizedBox(height: 14),
+        for (var i = 0; i < skills.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          _FigmaSkillRow(
+            skill: skills[i],
+            targetCefr: targetCefr,
+            isNarrow: isNarrow,
           ),
         ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Theo kỹ năng',
-            style: designHeading(
-              17,
-              color: ProfilePalette.ink,
-            ).copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.35),
-          ),
-          const SizedBox(height: 14),
-          for (var i = 0; i < skills.length; i++) ...[
-            if (i > 0) const SizedBox(height: 12),
-            _FigmaSkillRow(
-              skill: skills[i],
-              targetCefr: targetCefr,
-              isNarrow: isNarrow,
-            ),
-          ],
-          if (hasPlacement) ...[
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 48,
-              width: double.infinity,
-              child: OutlinedButton(
-                key: const Key('retakePlacementButton'),
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: ProfilePalette.paper,
-                  foregroundColor: ProfilePalette.ink,
-                  side: const BorderSide(
-                    color: ProfilePalette.retakeButtonBorder,
-                  ),
-                  shape: const StadiumBorder(),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+        if (hasPlacement) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 48,
+            width: double.infinity,
+            child: OutlinedButton(
+              key: const Key('retakePlacementButton'),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: ProfilePalette.paper,
+                foregroundColor: ProfilePalette.ink,
+                side: const BorderSide(
+                  color: ProfilePalette.retakeButtonBorder,
                 ),
-                onPressed: onRetakePlacement,
-                child: Text(
-                  'Đánh giá lại',
-                  style: designText(
-                    14.5,
-                    weight: FontWeight.w600,
-                    color: ProfilePalette.ink,
-                    height: 1.2,
-                  ),
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+              ),
+              onPressed: onRetakePlacement,
+              child: Text(
+                'Đánh giá lại',
+                style: designText(
+                  14.5,
+                  weight: FontWeight.w600,
+                  color: ProfilePalette.ink,
+                  height: 1.2,
                 ),
               ),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -1515,10 +1509,10 @@ class _FigmaSkillRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final adaptive = skill.isAdaptive;
     final assessed = skill.level != null;
-    final iconColor = adaptive
+    final iconColor = assessed
         ? ProfilePalette.skillRowAdaptiveColor
         : ProfilePalette.skillRowInactiveIconColor;
-    final iconBg = adaptive
+    final iconBg = assessed
         ? ProfilePalette.skillRowAdaptiveBg
         : ProfilePalette.skillRowInactiveIconBg;
 
@@ -1529,6 +1523,7 @@ class _FigmaSkillRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
+            key: ValueKey('skillIconBox-${skill.kind}'),
             width: 44,
             height: 44,
             decoration: BoxDecoration(
