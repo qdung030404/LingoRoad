@@ -671,7 +671,6 @@ describe('Progress roadmap units and score stats', () => {
       }));
       expect(todayRes.plan?.items.map((i: any) => [i.lessonId, i.reason])).toEqual([
         ['read-b1', 'Bài mới · đúng mức B1'],
-        ['listen-a1', 'Bài mới'],
       ]);
 
       // 3) progress() also self-heals DEFAULT A1 -> PLACEMENT B1
@@ -877,7 +876,8 @@ describe('Progress roadmap units and score stats', () => {
       });
       expect(planRow.preferencesVersion).toBe(4);
 
-      // Verify buildDailyRoadmapItems guarantees 1 item per selected skill (1..6) even when #1 is 10m under a 10m goal
+      // Verify buildDailyRoadmapItems covers all selected skills (1..6) in priority order within budget,
+      // enforces dailyGoalMinutes on tight budgets, and never duplicates completed-today snapshots.
       const fullCurriculum = [
         lesson('gram-1', 'GRAMMAR', 10, 1, 'u-a1', 'A1'),
         lesson('vocab-1', 'VOCABULARY', 10, 2, 'u-a1', 'A1'),
@@ -888,7 +888,7 @@ describe('Progress roadmap units and score stats', () => {
         fullCurriculum,
         [],
         '2026-11-16',
-        10,
+        45,
         ['GRAMMAR', 'VOCABULARY', 'LISTENING', 'READING', 'SPEAKING', 'WRITING'],
         [],
         null,
@@ -918,6 +918,29 @@ describe('Progress roadmap units and score stats', () => {
         cefrLevel: 'A2',
         reason: 'Thư / Email',
       });
+
+      // Tight 5-minute budget skips 10m GRAMMAR/VOCABULARY and picks a single 5m lesson.
+      const tightPlan = buildDailyRoadmapItems(
+        fullCurriculum,
+        [],
+        '2026-11-16',
+        5,
+        ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'],
+      );
+      expect(tightPlan.map(i => i.lessonId)).toEqual(['read-1']);
+
+      // Recomputing after completing a lesson today never duplicates the completed item.
+      const doneTodayAttempt = attempt('att-read-1', 'read-1', 5, new Date('2026-11-16T05:00:00Z'));
+      const afterDone = buildDailyRoadmapItems(
+        fullCurriculum,
+        [doneTodayAttempt],
+        '2026-11-16',
+        10,
+        ['READING', 'LISTENING'],
+        tightPlan,
+      );
+      expect(afterDone.filter(i => i.lessonId === 'read-1')).toHaveLength(1);
+      expect(afterDone.reduce((sum, i) => sum + i.estimatedMinutes, 0)).toBe(10);
 
       await expect(
         svc.updatePreferences('u', {

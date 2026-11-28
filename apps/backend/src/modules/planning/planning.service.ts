@@ -113,6 +113,13 @@ export async function readPreferredSkillsForUser(
     }
     return skills;
   }
+  const hasCustomSubset =
+    Array.isArray(fallbackKinds) &&
+    fallbackKinds.length > 0 &&
+    fallbackKinds.length < LESSON_KIND_SET.size;
+  if (hasCustomSubset) {
+    return [...new Set<PreferredSkill>(fallbackKinds as PreferredSkill[])];
+  }
   const base = Array.isArray(fallbackKinds) && fallbackKinds.length > 0
     ? (fallbackKinds as PreferredSkill[])
     : (['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'] as PreferredSkill[]);
@@ -915,17 +922,11 @@ export class PlanningService {
       })(),
     ]);
     const storedSkills = await readPreferredSkillsForUser(this.prisma, userId, profile.preferredKinds);
-    const preferredSkills = resolvePreferredSkills(profile, storedSkills);
     const byDate = new Map(plans.map(plan => [plan.date, plan]));
     const current = byDate.get(date);
-    const currentItems = (current?.items as unknown as PlanItem[] | undefined) ?? [];
-    const missingSelectedSkills =
-      current != null &&
-      preferredSkills.some(skill => !currentItems.some(item => item.kind === skill));
     const initial = initialReadingLevel(placement?.skillResults as Record<string, unknown> | undefined, placement?.completedAt);
     const planStatus = !current ? 'missing' : current.policyVersion !== CURRENT_PLAN_POLICY_VERSION ||
       current.preferencesVersion !== profile.preferencesVersion || current.dailyGoalMinutes !== profile.dailyGoalMinutes ||
-      missingSelectedSkills ||
       (placement?.completedAt != null && current.updatedAt < placement.completedAt) ||
       (skill != null && this.shouldUpgradeFromPlacement(skill, initial)) ? 'stale' : 'ready';
     const plan = current && planStatus === 'ready' ? await this.planDto(current) : null;

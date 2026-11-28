@@ -534,22 +534,26 @@ export function buildDailyRoadmapItems(
         : prev.kind === 'WRITING'
           ? completedWritingIdsToday.has(prev.lessonId)
           : completeLessonToday.has(prev.lessonId);
-    if (isDone && seenIds.add(prev.lessonId)) {
+    if (isDone && !seenIds.has(prev.lessonId)) {
+      seenIds.add(prev.lessonId);
       selected.push(prev);
     }
   }
   for (const lesson of lessons) {
-    if (completeLessonToday.has(lesson.id) && seenIds.add(lesson.id)) {
+    if (completeLessonToday.has(lesson.id) && !seenIds.has(lesson.id)) {
+      seenIds.add(lesson.id);
       selected.push(makeLessonPlanItem(lesson, 'COMPLETED_TODAY', 'Đã hoàn thành hôm nay'));
     }
   }
   for (const topic of speakingTopics) {
-    if (completedSpeakingIdsToday.has(topic.id) && seenIds.add(topic.id)) {
+    if (completedSpeakingIdsToday.has(topic.id) && !seenIds.has(topic.id)) {
+      seenIds.add(topic.id);
       selected.push(makeSpeakingPlanItem(topic, 'COMPLETED_TODAY', 'Đã hoàn thành hôm nay'));
     }
   }
   for (const w of writingItems) {
-    if (isWritingCompletedToday(w) && seenIds.add(w.id)) {
+    if (isWritingCompletedToday(w) && !seenIds.has(w.id)) {
+      seenIds.add(w.id);
       selected.push(makeWritingPlanItem(w, 'COMPLETED_TODAY', 'Đã hoàn thành hôm nay'));
     }
   }
@@ -623,7 +627,10 @@ export function buildDailyRoadmapItems(
     const deduped: PlanItem[] = [];
     const seenInKind = new Set<string>();
     for (const item of [...doneToday, ...onTargetNew, ...weakReview, ...offTargetNew, ...rotation]) {
-      if (seenInKind.add(item.lessonId)) deduped.push(item);
+      if (!seenInKind.has(item.lessonId)) {
+        seenInKind.add(item.lessonId);
+        deduped.push(item);
+      }
     }
     candidatesBySkill.set(kind, deduped);
   }
@@ -679,20 +686,23 @@ export function buildDailyRoadmapItems(
     candidatesBySkill.set('WRITING', []);
   }
 
-  // Phase 1: Guarantee at least 1 step for EVERY selected priority skill in exact order 1 -> k
+  // Phase 1: Give each selected priority skill up to 1 step in exact order 1 -> k within dailyGoalMinutes
+  let usedMinutes = selected.reduce((sum, item) => sum + item.estimatedMinutes, 0);
   for (const skill of uniqueSkills) {
     if (selected.some(item => item.kind === skill)) continue;
     const queue = candidatesBySkill.get(skill) ?? [];
-    const nextIdx = queue.findIndex(item => !seenIds.has(item.lessonId));
+    const nextIdx = queue.findIndex(
+      item => !seenIds.has(item.lessonId) && usedMinutes + item.estimatedMinutes <= minutes,
+    );
     if (nextIdx >= 0) {
       const [next] = queue.splice(nextIdx, 1);
       seenIds.add(next.lessonId);
       selected.push(next);
+      usedMinutes += next.estimatedMinutes;
     }
   }
 
   // Phase 2: If total estimated minutes is still below dailyGoalMinutes, round-robin remaining items
-  let usedMinutes = selected.reduce((sum, item) => sum + item.estimatedMinutes, 0);
   let addedInPass = true;
   while (usedMinutes < minutes && addedInPass) {
     addedInPass = false;
@@ -707,6 +717,20 @@ export function buildDailyRoadmapItems(
         selected.push(picked);
         usedMinutes += picked.estimatedMinutes;
         addedInPass = true;
+      }
+    }
+  }
+
+  // Fallback: never return an empty plan when eligible content exists even if the shortest item exceeds dailyGoalMinutes
+  if (selected.length === 0) {
+    for (const skill of uniqueSkills) {
+      const queue = candidatesBySkill.get(skill) ?? [];
+      const nextIdx = queue.findIndex(item => !seenIds.has(item.lessonId));
+      if (nextIdx >= 0) {
+        const [next] = queue.splice(nextIdx, 1);
+        seenIds.add(next.lessonId);
+        selected.push(next);
+        break;
       }
     }
   }
