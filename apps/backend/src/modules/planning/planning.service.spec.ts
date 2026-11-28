@@ -1015,6 +1015,53 @@ describe('Progress roadmap units and score stats', () => {
       );
       expect(healedSpeaking.filter(i => i.lessonId === 'spk-my-day')).toHaveLength(1);
 
+      // Places a NEW lesson ahead of at most one <80% REVIEW even when unseen lessons remain in that skill.
+      const multiPool = [
+        lesson('read-1', 'READING', 5, 1, 'u-a1', 'A1'),
+        lesson('gram-weak', 'GRAMMAR', 10, 2, 'u-a1', 'A1'),
+        lesson('gram-new', 'GRAMMAR', 10, 3, 'u-a1', 'A1'),
+        lesson('vocab-strong', 'VOCABULARY', 10, 4, 'u-a1', 'A1'),
+        lesson('vocab-new', 'VOCABULARY', 10, 5, 'u-a1', 'A1'),
+        lesson('listen-1', 'LISTENING', 5, 6, 'u-a1', 'A1'),
+      ];
+      const reviewMix = buildDailyRoadmapItems(
+        multiPool,
+        [
+          attempt('att-g-weak', 'gram-weak', 3, new Date('2026-11-15T05:00:00Z')),
+          attempt('att-v-strong', 'vocab-strong', 4, new Date('2026-11-15T05:00:00Z')),
+        ],
+        '2026-11-16',
+        20,
+        ['READING', 'GRAMMAR', 'VOCABULARY', 'LISTENING'],
+      );
+      expect(reviewMix.map(i => [i.lessonId, i.reasonCode])).toEqual([
+        ['read-1', 'NEW'],
+        ['gram-weak', 'REVIEW'],
+        ['listen-1', 'NEW'],
+      ]);
+
+      // Selects the first ranked weak REVIEW that fits the remaining budget instead of falling back to NEW when weakReview[0] is oversized.
+      const budgetFitReviewPool = [
+        lesson('read-new-5m', 'READING', 5, 1, 'u-a1', 'A1'),
+        lesson('gram-weak-15m', 'GRAMMAR', 15, 2, 'u-a1', 'A1'),
+        lesson('gram-weak-5m', 'GRAMMAR', 5, 3, 'u-a1', 'A1'),
+        lesson('gram-new-5m', 'GRAMMAR', 5, 4, 'u-a1', 'A1'),
+      ];
+      const budgetFitReviewPlan = buildDailyRoadmapItems(
+        budgetFitReviewPool,
+        [
+          attempt('att-gw-15', 'gram-weak-15m', 1, new Date('2026-11-15T04:00:00Z')),
+          attempt('att-gw-5', 'gram-weak-5m', 2, new Date('2026-11-15T05:00:00Z')),
+        ],
+        '2026-11-16',
+        10,
+        ['READING', 'GRAMMAR'],
+      );
+      expect(budgetFitReviewPlan.map(i => [i.lessonId, i.reasonCode])).toEqual([
+        ['read-new-5m', 'NEW'],
+        ['gram-weak-5m', 'REVIEW'],
+      ]);
+
       await expect(
         svc.updatePreferences('u', {
           expectedVersion: 2,

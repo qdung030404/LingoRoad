@@ -641,20 +641,49 @@ export function buildDailyRoadmapItems(
     candidatesBySkill.set('WRITING', []);
   }
 
-  // Phase 1: Give each selected priority skill up to 1 step in exact order 1 -> k within dailyGoalMinutes
+  // Phase 1: Give each selected priority skill up to 1 step in exact order 1 -> k within dailyGoalMinutes,
+  // surfacing at most one low-score (<80%) REVIEW after at least one NEW item has been placed.
   let usedMinutes = selected.reduce((sum, item) => sum + item.estimatedMinutes, 0);
+  let hasNewItem = selected.some(item => item.reasonCode === 'NEW');
+  let reviewCount = selected.filter(item => item.reasonCode === 'REVIEW').length;
+
+  const pickNextForSkill = (skill: PreferredSkill): PlanItem | null => {
+    const queue = candidatesBySkill.get(skill) ?? [];
+    if (hasNewItem && reviewCount < 1) {
+      const weakIdx = queue.findIndex(
+        item =>
+          item.reasonCode === 'REVIEW' &&
+          !seenIds.has(item.lessonId) &&
+          usedMinutes + item.estimatedMinutes <= minutes,
+      );
+      if (weakIdx >= 0) {
+        const [weak] = queue.splice(weakIdx, 1);
+        seenIds.add(weak.lessonId);
+        selected.push(weak);
+        usedMinutes += weak.estimatedMinutes;
+        reviewCount += 1;
+        return weak;
+      }
+    }
+    const nextIdx = queue.findIndex(
+      item =>
+        !seenIds.has(item.lessonId) &&
+        usedMinutes + item.estimatedMinutes <= minutes &&
+        (item.reasonCode !== 'REVIEW' || reviewCount < 1 || !queue.some(other => other.reasonCode !== 'REVIEW' && !seenIds.has(other.lessonId) && usedMinutes + other.estimatedMinutes <= minutes)),
+    );
+    if (nextIdx < 0) return null;
+    const [picked] = queue.splice(nextIdx, 1);
+    seenIds.add(picked.lessonId);
+    selected.push(picked);
+    usedMinutes += picked.estimatedMinutes;
+    if (picked.reasonCode === 'NEW') hasNewItem = true;
+    if (picked.reasonCode === 'REVIEW') reviewCount += 1;
+    return picked;
+  };
+
   for (const skill of uniqueSkills) {
     if (selected.some(item => item.kind === skill)) continue;
-    const queue = candidatesBySkill.get(skill) ?? [];
-    const nextIdx = queue.findIndex(
-      item => !seenIds.has(item.lessonId) && usedMinutes + item.estimatedMinutes <= minutes,
-    );
-    if (nextIdx >= 0) {
-      const [next] = queue.splice(nextIdx, 1);
-      seenIds.add(next.lessonId);
-      selected.push(next);
-      usedMinutes += next.estimatedMinutes;
-    }
+    pickNextForSkill(skill);
   }
 
   // Phase 2: If total estimated minutes is still below dailyGoalMinutes, round-robin remaining items
@@ -662,15 +691,7 @@ export function buildDailyRoadmapItems(
   while (usedMinutes < minutes && addedInPass) {
     addedInPass = false;
     for (const skill of uniqueSkills) {
-      const queue = candidatesBySkill.get(skill) ?? [];
-      const fitIdx = queue.findIndex(
-        item => !seenIds.has(item.lessonId) && usedMinutes + item.estimatedMinutes <= minutes,
-      );
-      if (fitIdx >= 0) {
-        const [picked] = queue.splice(fitIdx, 1);
-        seenIds.add(picked.lessonId);
-        selected.push(picked);
-        usedMinutes += picked.estimatedMinutes;
+      if (pickNextForSkill(skill)) {
         addedInPass = true;
       }
     }

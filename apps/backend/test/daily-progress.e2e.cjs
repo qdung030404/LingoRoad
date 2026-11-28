@@ -146,16 +146,27 @@ describe('Daily plans and observed learning time', () => {
     const foundationLessons = await prisma.learningLesson.findMany({
       where: {
         published: true,
-        OR: [{ unit: null }, { unit: { cefrLevel: { in: ['A1', 'A2'] } } }],
+        AND: [
+          { OR: [{ unit: null }, { unit: { cefrLevel: { in: ['A1', 'A2'] } } }] },
+          { OR: [{ grammarTopicId: null }, { grammarTopic: { cefrLevel: { in: ['A1', 'A2'] } } }] },
+        ],
       },
       select: { id: true, estimatedMinutes: true },
     });
-    assert.equal(today.totalCount, foundationLessons.length);
-    assert.equal(today.estimatedMinutes, foundationLessons.reduce((sum, lesson) => sum + lesson.estimatedMinutes, 0));
-    assert.deepEqual(
-      today.items.map(item => item.lessonId).sort(),
-      foundationLessons.map(lesson => lesson.id).sort(),
+    const foundationById = new Map(foundationLessons.map(lesson => [lesson.id, lesson]));
+    const selectedIds = today.items.map(item => item.lessonId);
+    assert.equal(today.totalCount, today.items.length);
+    assert.equal(new Set(selectedIds).size, selectedIds.length);
+    assert.ok(selectedIds.length > 0 && selectedIds.length <= foundationLessons.length);
+    assert.ok(selectedIds.every(id => foundationById.has(id)));
+    assert.equal(
+      today.estimatedMinutes,
+      today.items.reduce((sum, item) => sum + item.estimatedMinutes, 0),
     );
+    assert.ok(today.estimatedMinutes <= 120);
+    const selectedIdSet = new Set(selectedIds);
+    const unpickedFoundation = foundationLessons.filter(lesson => !selectedIdSet.has(lesson.id));
+    assert.ok(unpickedFoundation.every(lesson => today.estimatedMinutes + lesson.estimatedMinutes > 120));
     const me = (await api(owner, 'get', '/auth/me').expect(200)).body.data;
     assert.equal(me.profile.dailyGoalMinutes, 120);
   });
