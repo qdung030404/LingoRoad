@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/theme/app_theme.dart';
@@ -298,4 +299,283 @@ void main() {
       expect(find.text('S + V(s/es)'), findsOneWidget);
     },
   );
+
+  test(
+    'load(force: true) overrides in-flight load (RC-2), supports TTL cache and stale-while-error',
+    () async {
+      final Completer<List<GrammarTreeNode>> slowTree =
+          Completer<List<GrammarTreeNode>>();
+      int treeCall = 0;
+      bool shouldFail = false;
+
+      final _ConfigurableGrammarRepository repo =
+          _ConfigurableGrammarRepository(
+            onFetchLevels: () async {
+              if (shouldFail) throw Exception('network fail');
+              return const <GrammarLevelSummary>[
+                GrammarLevelSummary(
+                  cefrLevel: 'B1',
+                  topicCount: 1,
+                  lessonCount: 1,
+                  completedCount: 0,
+                ),
+              ];
+            },
+            onFetchTree: () async {
+              treeCall++;
+              if (shouldFail) throw Exception('network fail');
+              if (treeCall == 1) {
+                return slowTree.future;
+              }
+              return const <GrammarTreeNode>[
+                GrammarTreeNode(
+                  id: 'g-fresh',
+                  code: 'grammar.fresh',
+                  parentCode: null,
+                  cefrLevel: 'B1',
+                  isLeaf: false,
+                  titleEn: 'Fresh Group',
+                  titleVi: 'Nhóm Mới',
+                  summaryVi: '',
+                  orderIndex: 1,
+                  prerequisiteCodes: <String>[],
+                  lessonCount: 1,
+                  learnerStatus: null,
+                  children: <GrammarTreeNode>[
+                    GrammarTreeNode(
+                      id: 'leaf-fresh',
+                      code: 'grammar.fresh.topic',
+                      parentCode: 'grammar.fresh',
+                      cefrLevel: 'B1',
+                      isLeaf: true,
+                      titleEn: 'Fresh Topic',
+                      titleVi: 'Chủ điểm Mới',
+                      summaryVi: '',
+                      orderIndex: 2,
+                      prerequisiteCodes: <String>[],
+                      lessonCount: 1,
+                      learnerStatus: 'AVAILABLE',
+                      children: <GrammarTreeNode>[],
+                    ),
+                  ],
+                ),
+              ];
+            },
+          );
+
+      final GrammarController controller = GrammarController(repository: repo);
+
+      // Start initial load (in-flight).
+      final Future<void> firstLoad = controller.load();
+      // Coalesces when force: false.
+      expect(identical(controller.load(), firstLoad), isTrue);
+
+      // Override with force: true.
+      final Future<void> forcedLoad = controller.load(force: true);
+      await forcedLoad;
+
+      expect(controller.findTopicByCode('grammar.fresh.topic'), isNotNull);
+      expect(controller.loading, isFalse);
+
+      // Complete the stale first load later — must NOT overwrite fresh state.
+      slowTree.complete(const <GrammarTreeNode>[
+        GrammarTreeNode(
+          id: 'g-stale',
+          code: 'grammar.stale',
+          parentCode: null,
+          cefrLevel: 'A1',
+          isLeaf: false,
+          titleEn: 'Stale Group',
+          titleVi: 'Nhóm Cũ',
+          summaryVi: '',
+          orderIndex: 1,
+          prerequisiteCodes: <String>[],
+          lessonCount: 1,
+          learnerStatus: null,
+          children: <GrammarTreeNode>[
+            GrammarTreeNode(
+              id: 'leaf-stale',
+              code: 'grammar.stale.topic',
+              parentCode: 'grammar.stale',
+              cefrLevel: 'A1',
+              isLeaf: true,
+              titleEn: 'Stale Topic',
+              titleVi: 'Chủ điểm Cũ',
+              summaryVi: '',
+              orderIndex: 2,
+              prerequisiteCodes: <String>[],
+              lessonCount: 1,
+              learnerStatus: 'AVAILABLE',
+              children: <GrammarTreeNode>[],
+            ),
+          ],
+        ),
+      ]);
+      await firstLoad;
+
+      expect(controller.findTopicByCode('grammar.fresh.topic'), isNotNull);
+      expect(controller.findTopicByCode('grammar.stale.topic'), isNull);
+
+      // Within cacheTtl, load() does not re-fetch.
+      final int callsBeforeCached = treeCall;
+      await controller.load();
+      expect(treeCall, callsBeforeCached);
+
+      // Stale-while-error: forced refresh error keeps existing groups & levels.
+      shouldFail = true;
+      await controller.load(force: true);
+      expect(controller.error, isNotNull);
+      expect(controller.totalLeafCount, 1);
+      expect(controller.levels, isNotEmpty);
+      expect(controller.findTopicByCode('grammar.fresh.topic'), isNotNull);
+    },
+  );
+
+  test(
+    'topicsForLevel ignores filters and uncompletedPrerequisites exempts < placementCefr',
+    () async {
+      final GrammarController controller = GrammarController(
+        repository: FakeGrammarRepository(),
+      );
+      await controller.load();
+
+      controller.setMinimumVisibleCefr('B1');
+      controller.setSelectedCefr('C1');
+      controller.setSearchQuery('Đảo ngữ');
+
+      // visibleLeafCount excludes A1, ignores C1 filter & search.
+      expect(controller.totalLeafCount, 3);
+      expect(controller.visibleLeafCount, 2);
+
+      // topicsForLevel('A1') ignores minimumVisibleCefr, selectedCefr, searchQuery.
+      final List<GrammarTreeNode> a1Topics = controller.topicsForLevel('A1');
+      expect(a1Topics.length, 1);
+      expect(a1Topics.single.code, 'grammar.tenses.present_simple');
+
+      final GrammarTreeNode b1Topic = controller.findTopicByCode(
+        'grammar.tenses.present_perfect',
+      )!;
+      // Without minimumBlockingCefr, A1 prereq blocks B1 topic.
+      expect(controller.uncompletedPrerequisites(b1Topic).length, 1);
+      // With minimumBlockingCefr: 'B1', A1 prereq is exempted.
+      expect(
+        controller.uncompletedPrerequisites(
+          b1Topic,
+          minimumBlockingCefr: 'B1',
+        ),
+        isEmpty,
+      );
+    },
+  );
+
+  testWidgets(
+    'hides < placementCefr topics & chips by default and toggles via grammarTogglePreviousLevels',
+    (WidgetTester tester) async {
+      final GrammarController controller = GrammarController(
+        repository: FakeGrammarRepository(),
+      );
+      bool showPreviousLevels = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return Scaffold(
+                body: SingleChildScrollView(
+                  child: GrammarRoadSection(
+                    grammarController: controller,
+                    placementCefr: 'B1',
+                    showPreviousLevels: showPreviousLevels,
+                    onTogglePreviousLevels: () {
+                      setState(() => showPreviousLevels = !showPreviousLevels);
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Header & subtitle reflect hidden < B1 levels.
+      expect(find.text('2 cấu trúc'), findsOneWidget);
+      expect(
+        find.text('Tra cứu công thức, cách dùng và lộ trình từ B1 đến C2'),
+        findsOneWidget,
+      );
+
+      // A1/A2 filter chips & A1 topic are hidden.
+      expect(
+        find.byKey(const ValueKey<String>('grammar-filter-A1')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('grammar-filter-A2')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('grammar-filter-B1')),
+        findsOneWidget,
+      );
+      expect(find.text('Thì Hiện tại đơn'), findsNothing);
+      expect(find.text('Thì Hiện tại hoàn thành'), findsOneWidget);
+
+      // Toggle button shows "Xem các bậc trước đó".
+      expect(
+        find.byKey(const Key('grammarTogglePreviousLevels')),
+        findsOneWidget,
+      );
+      expect(find.text('Xem các bậc trước đó'), findsOneWidget);
+
+      // Tap toggle -> shows A1/A2 chips & A1 topic, updates header & button text.
+      await tester.tap(find.byKey(const Key('grammarTogglePreviousLevels')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('3 cấu trúc'), findsOneWidget);
+      expect(
+        find.text('Tra cứu công thức, cách dùng và lộ trình từ A1 đến C2'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('grammar-filter-A1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('grammar-filter-A2')),
+        findsOneWidget,
+      );
+      expect(find.text('Thì Hiện tại đơn'), findsOneWidget);
+      expect(find.text('Ẩn các bậc trước đó'), findsOneWidget);
+
+      // Tapping B1 LOCKED topic whose only prereq is A1 opens detail directly (exempted).
+      final Finder lockedB1Topic = find.byKey(
+        const ValueKey<String>(
+          'grammar-topic-grammar.tenses.present_perfect',
+        ),
+      );
+      await tester.ensureVisible(lockedB1Topic);
+      await tester.pumpAndSettle();
+      await tester.tap(lockedB1Topic);
+      await tester.pumpAndSettle();
+      expect(find.text('Chi tiết ngữ pháp'), findsOneWidget);
+    },
+  );
+}
+
+class _ConfigurableGrammarRepository extends FakeGrammarRepository {
+  _ConfigurableGrammarRepository({
+    required this.onFetchLevels,
+    required this.onFetchTree,
+  });
+
+  final Future<List<GrammarLevelSummary>> Function() onFetchLevels;
+  final Future<List<GrammarTreeNode>> Function() onFetchTree;
+
+  @override
+  Future<List<GrammarLevelSummary>> fetchLevels() => onFetchLevels();
+
+  @override
+  Future<List<GrammarTreeNode>> fetchTree() => onFetchTree();
 }

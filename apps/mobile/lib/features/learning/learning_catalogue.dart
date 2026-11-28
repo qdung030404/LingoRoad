@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import '../../shared/learning_media_image.dart';
+import '../grammar/grammar_controller.dart';
 import 'learning_controller.dart';
 import 'learning_pages.dart';
 import 'learning_repository.dart';
@@ -24,10 +27,16 @@ class LearningCatalogue extends StatefulWidget {
     required this.controller,
     required this.kinds,
     this.onOpenHistory,
+    this.placementCefr,
+    this.showPreviousLevels = false,
+    this.onTogglePreviousLevels,
   });
   final LearningController controller;
   final List<String> kinds;
   final VoidCallback? onOpenHistory;
+  final String? placementCefr;
+  final bool showPreviousLevels;
+  final VoidCallback? onTogglePreviousLevels;
 
   @override
   State<LearningCatalogue> createState() => _LearningCatalogueState();
@@ -97,9 +106,23 @@ class _LearningCatalogueState extends State<LearningCatalogue> {
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
-    final lessons = controller.lessons.where(
+    final int placementRank = GrammarController.cefrRank(widget.placementCefr);
+    final bool filterBelowPlacement = placementRank > 0 && !widget.showPreviousLevels;
+    final Iterable<LearningLesson> allKindLessons = controller.lessons.where(
       (lesson) => widget.kinds.contains(lesson.kind),
     );
+    final bool hasPreviousLessons =
+        placementRank > 0 &&
+        allKindLessons.any((lesson) {
+          final int r = GrammarController.cefrRank(lesson.cefrLevel);
+          return r >= 0 && r < placementRank;
+        });
+    final lessons = filterBelowPlacement
+        ? allKindLessons.where((lesson) {
+            final int r = GrammarController.cefrRank(lesson.cefrLevel);
+            return r < 0 || r >= placementRank;
+          })
+        : allKindLessons;
     final isReading =
         widget.kinds.length == 1 && widget.kinds.single == 'READING';
     final isListening =
@@ -171,8 +194,22 @@ class _LearningCatalogueState extends State<LearningCatalogue> {
           else
             LearningCard(
               key: ValueKey('learning-lesson-${lesson.id}'),
-              onTap: () =>
-                  openLearningLesson(context, controller, lessonId: lesson.id),
+              onTap: () {
+                if (lesson.kind == 'GRAMMAR' &&
+                    lesson.state != 'COMPLETED' &&
+                    controller.grammar != null) {
+                  openUncompletedGrammarCard(
+                    context,
+                    controller,
+                    lessonId: lesson.id,
+                    lessonCode: lesson.code,
+                    grammarTopicCode: lesson.grammarTopicCode,
+                    title: lesson.title,
+                  );
+                  return;
+                }
+                openLearningLesson(context, controller, lessonId: lesson.id);
+              },
               children: [
                 learningHeading(lesson.title),
                 learningBody(lesson.description),
@@ -198,18 +235,33 @@ class _LearningCatalogueState extends State<LearningCatalogue> {
             ),
           const SizedBox(height: 12),
         ],
-        if (lessons.isEmpty &&
+        if (allKindLessons.isEmpty &&
             controller.catalogueLoaded &&
             !controller.catalogueLoading &&
             !controller.loading &&
             controller.catalogueError == null &&
             controller.error == null)
           learningBody('Chưa có bài học được xuất bản.'),
+        if (allKindLessons.isNotEmpty && lessons.isEmpty && hasPreviousLessons) ...[
+          learningBody(
+            'Chưa có bài học từ bậc ${widget.placementCefr} trở lên. Nhấn "Xem các bậc trước đó" để ôn lại.',
+          ),
+          AppSpacing.gapSm,
+        ],
         if ((isListening || isReading) && lessons.isNotEmpty && visible.isEmpty)
           learningBody(
             isReading
                 ? 'Chưa có bài đọc ở cấp độ này.'
                 : 'Chưa có bài nghe ở cấp độ này.',
+          ),
+        if (hasPreviousLessons && widget.onTogglePreviousLevels != null)
+          CustomAppButton(
+            key: const Key('catalogueTogglePreviousLevels'),
+            text: widget.showPreviousLevels
+                ? 'Ẩn các bậc trước đó'
+                : 'Xem các bậc trước đó',
+            isSecondary: true,
+            onPressed: widget.onTogglePreviousLevels,
           ),
       ],
     );

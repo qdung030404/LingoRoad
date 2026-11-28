@@ -151,4 +151,99 @@ void main() {
       );
     },
   );
+  test('429 returns RATE_LIMITED with Retry-After seconds', () async {
+    final dio = Dio()
+      ..httpClientAdapter = StubAdapter((options) async {
+        return ResponseBody.fromString(
+          jsonEncode({'statusCode': 429, 'message': 'ThrottlerException'}),
+          429,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+            'retry-after': ['30'],
+          },
+        );
+      });
+    final api = ApiClient(
+      config: AppConfig(),
+      store: MemoryTokenStore(),
+      dio: dio,
+    );
+    await expectLater(
+      api.request('GET', '/grammar/tree', auth: false),
+      throwsA(
+        isA<ApiFailure>()
+            .having((ApiFailure f) => f.status, 'status', 429)
+            .having((ApiFailure f) => f.code, 'code', 'RATE_LIMITED')
+            .having(
+              (ApiFailure f) => f.message,
+              'message',
+              'Bạn đang thao tác quá nhanh. Vui lòng đợi 30s rồi thử lại.',
+            ),
+      ),
+    );
+  });
+  test('429 without Retry-After uses fallback Vietnamese message', () async {
+    final dio = Dio()
+      ..httpClientAdapter = StubAdapter((options) async {
+        return ResponseBody.fromString(
+          jsonEncode({'success': false}),
+          429,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      });
+    final api = ApiClient(
+      config: AppConfig(),
+      store: MemoryTokenStore(),
+      dio: dio,
+    );
+    await expectLater(
+      api.request('GET', '/grammar/tree', auth: false),
+      throwsA(
+        isA<ApiFailure>()
+            .having((ApiFailure f) => f.status, 'status', 429)
+            .having((ApiFailure f) => f.code, 'code', 'RATE_LIMITED')
+            .having(
+              (ApiFailure f) => f.message,
+              'message',
+              'Bạn đang thao tác quá nhanh. Vui lòng đợi vài giây rồi thử lại.',
+            ),
+      ),
+    );
+  });
+  test('429 preserves custom server error.message when provided', () async {
+    final dio = Dio()
+      ..httpClientAdapter = StubAdapter((options) async {
+        return ResponseBody.fromString(
+          jsonEncode({
+            'success': false,
+            'error': {'message': 'Quá giới hạn hôm nay.'},
+          }),
+          429,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+            'retry-after': ['15'],
+          },
+        );
+      });
+    final api = ApiClient(
+      config: AppConfig(),
+      store: MemoryTokenStore(),
+      dio: dio,
+    );
+    await expectLater(
+      api.request('GET', '/grammar/tree', auth: false),
+      throwsA(
+        isA<ApiFailure>()
+            .having((ApiFailure f) => f.status, 'status', 429)
+            .having((ApiFailure f) => f.code, 'code', 'RATE_LIMITED')
+            .having(
+              (ApiFailure f) => f.message,
+              'message',
+              'Quá giới hạn hôm nay.',
+            ),
+      ),
+    );
+  });
 }

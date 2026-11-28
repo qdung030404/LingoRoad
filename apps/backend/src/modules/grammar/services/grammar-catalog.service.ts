@@ -40,7 +40,7 @@ export class GrammarCatalogService {
   constructor(private readonly prisma: PrismaService) {}
 
   private async loadContext(userId?: string): Promise<CatalogContext> {
-    const [topics, edges, lessons, practiceCounts, attempts] = await Promise.all([
+    const [topics, edges, lessons, practiceCounts, attempts, placement] = await Promise.all([
       this.prisma.grammarTopic.findMany({
         where: { published: true },
         orderBy: [{ orderIndex: 'asc' }, { code: 'asc' }],
@@ -65,6 +65,13 @@ export class GrammarCatalogService {
             where: { userId, lesson: { kind: 'GRAMMAR' } },
             select: { lessonId: true, status: true },
           })
+        : Promise.resolve(null),
+      userId
+        ? (this.prisma.placementSession?.findFirst({
+            where: { userId, status: 'COMPLETED' },
+            orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
+            select: { estimatedCefr: true },
+          }) ?? Promise.resolve(null))
         : Promise.resolve(null),
     ]);
 
@@ -126,10 +133,22 @@ export class GrammarCatalogService {
         }
       }
 
+      const placementRank = placement?.estimatedCefr ? CEFR_ORDER.indexOf(placement.estimatedCefr) : -1;
+
       for (const topic of topics) {
         if (!topic.isLeaf || learnerStatusById.has(topic.id)) continue;
+        if (placementRank > 0 && CEFR_ORDER.indexOf(topic.cefrLevel) < placementRank) {
+          learnerStatusById.set(topic.id, 'AVAILABLE');
+          continue;
+        }
         const prereqIds = prereqIdsById.get(topic.id) ?? [];
         const blocked = prereqIds.some((pid) => {
+          if (placementRank > 0) {
+            const prereqTopic = byId.get(pid);
+            if (prereqTopic && CEFR_ORDER.indexOf(prereqTopic.cefrLevel) < placementRank) {
+              return false;
+            }
+          }
           const pLessons = lessonIdsByTopicId.get(pid) ?? [];
           return pLessons.length > 0 && learnerStatusById!.get(pid) !== 'COMPLETED';
         });

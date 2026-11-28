@@ -232,4 +232,19 @@ describe('GrammarController, GrammarAdminController & Guards', () => {
     );
     await expect(adminGuard.canActivate(makeCtx('Bearer admin-jwt').ctx)).resolves.toBe(true);
   });
+
+  it('configures 120 req/min Throttle metadata on the 4 read-only GET handlers', () => {
+    const reflector = new Reflector();
+    const readOnlyHandlers = [
+      GrammarController.prototype.getLevels,
+      GrammarController.prototype.getTree,
+      GrammarController.prototype.listTopics,
+      GrammarController.prototype.getTopicDetail,
+    ];
+    for (const handler of readOnlyHandlers) {
+      expect(reflector.get<number>('THROTTLER:LIMITdefault', handler)).toBe(120);
+      expect(reflector.get<number>('THROTTLER:TTLdefault', handler)).toBe(60000);
+    }
+    expect(reflector.get<number>('THROTTLER:LIMITdefault', GrammarController.prototype.getPracticeItems)).toBeUndefined();
+  });
 });

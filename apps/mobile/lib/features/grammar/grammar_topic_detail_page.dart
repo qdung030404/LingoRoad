@@ -145,6 +145,7 @@ class GrammarTopicDetailPage extends StatefulWidget {
     required this.initialTitleVi,
     required this.initialCefrLevel,
     this.learningController,
+    this.placementCefr,
   });
 
   final GrammarController controller;
@@ -152,6 +153,7 @@ class GrammarTopicDetailPage extends StatefulWidget {
   final String initialTitleVi;
   final String initialCefrLevel;
   final LearningController? learningController;
+  final String? placementCefr;
 
   @override
   State<GrammarTopicDetailPage> createState() => _GrammarTopicDetailPageState();
@@ -198,8 +200,11 @@ class _GrammarTopicDetailPageState extends State<GrammarTopicDetailPage> {
       final GrammarTreeNode? node =
           widget.controller.findTopicByCode(related.code);
       if (node != null) {
-        final List<GrammarTreeNode> prereqs =
-            widget.controller.uncompletedPrerequisites(node);
+        final List<GrammarTreeNode> prereqs = widget.controller
+            .uncompletedPrerequisites(
+              node,
+              minimumBlockingCefr: widget.placementCefr,
+            );
         if (prereqs.isNotEmpty) {
           final GrammarTreeNode? target = await showGrammarLockedDialog(
             context: context,
@@ -214,6 +219,7 @@ class _GrammarTopicDetailPageState extends State<GrammarTopicDetailPage> {
               initialTitleVi: target.titleVi,
               initialCefrLevel: target.cefrLevel,
               learningController: widget.learningController,
+              placementCefr: widget.placementCefr,
             ),
           );
           return;
@@ -228,6 +234,7 @@ class _GrammarTopicDetailPageState extends State<GrammarTopicDetailPage> {
         initialTitleVi: related.titleVi,
         initialCefrLevel: related.cefrLevel,
         learningController: widget.learningController,
+        placementCefr: widget.placementCefr,
       ),
     );
   }

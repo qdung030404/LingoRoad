@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/app_startup_timing.dart';
 import '../../core/theme/app_colors.dart';
-import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import '../auth/session_controller.dart';
 import '../grammar/grammar_catalogue_view.dart';
@@ -39,6 +38,8 @@ import 'lesson_pages.dart';
 import 'practice_pages.dart';
 import 'preview_model.dart';
 import 'preview_navigation_bar.dart';
+import 'preview_profile_sheet.dart';
+import 'preview_sample_sections.dart';
 import 'progress_dashboard.dart';
 import 'srs_review_page.dart';
 import 'weekly_plan_pages.dart';
@@ -143,6 +144,7 @@ class _LearningPreviewState extends State<LearningPreview>
       );
   late final library = WordLibrary(accountId: _accountId);
   final selectedTab = ValueNotifier<int>(0);
+  final ValueNotifier<bool> showPreviousLevels = ValueNotifier<bool>(false);
   late final LearningController? learning =
       widget.account == null || _accountId == null
       ? null
@@ -151,6 +153,7 @@ class _LearningPreviewState extends State<LearningPreview>
           accountId: _accountId,
           daily: daily,
           vocabulary: vocabularyController,
+          grammar: grammarController,
           fetchHome: ApiLearningRepository(widget.account!.api).home,
           onHome: (value) {
             widget.account!.rememberHome(value);
@@ -277,6 +280,7 @@ class _LearningPreviewState extends State<LearningPreview>
     library.dispose();
     tabs.dispose();
     selectedTab.dispose();
+    showPreviousLevels.dispose();
     if (widget.model == null) model.dispose();
     super.dispose();
   }
@@ -313,6 +317,7 @@ class _LearningPreviewState extends State<LearningPreview>
 
   void _loadTab(int index) {
     if (index == 1 || index == 3) learning?.loadCatalogue();
+    if (index == 1) vocabularyController?.fetchCuratedTopics();
     if (index == 4) daily?.loadDetails();
     if (index == 2) _refreshVocabulary();
   }
@@ -500,57 +505,13 @@ class _LearningPreviewState extends State<LearningPreview>
       });
       return;
     }
-    showModalBottomSheet<void>(
+    showPreviewProfileSheet(
       context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (context) => SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                learningHeading('Anna · tài khoản mẫu', size: 24),
-                const SizedBox(height: 12),
-                learningBody(
-                  'Bạn đang xem giao diện với dữ liệu mẫu trên thiết bị. Phản hồi Nói/Viết là minh họa; không thu micro hay cập nhật kết quả kiểm tra thật.',
-                ),
-                const SizedBox(height: 20),
-                CustomAppButton(
-                  text: 'Lộ trình tuần đầu tiên',
-                  onPressed: () {
-                    Navigator.pop(context);
-                    previewPush(this.context, WeeklyPlanPage(model: model));
-                  },
-                ),
-                const SizedBox(height: 12),
-                CustomAppButton(
-                  text: 'Đóng bản xem trước',
-                  isSecondary: true,
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.of(this.context).maybePop();
-                  },
-                ),
-                const SizedBox(height: 12),
-                CustomAppButton(
-                  key: const Key('previewLogout'),
-                  text: 'Đăng xuất',
-                  isSecondary: true,
-                  onPressed: loggingOut
-                      ? null
-                      : () {
-                          Navigator.pop(context);
-                          logout();
-                        },
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      account: null,
+      model: model,
+      learning: learning,
+      loggingOut: loggingOut,
+      onLogout: logout,
     );
   }
 
@@ -638,6 +599,8 @@ class _LearningPreviewState extends State<LearningPreview>
                       if (index != 2) learning,
                       if (index == 0 || index == 4) daily,
                       if (index != 3) vocabularyController,
+                      if (index == 0 || index == 1 || index == 4)
+                        showPreviousLevels,
                     ]),
                     builder: (context, _) => tabContent(index),
                   ),
@@ -713,7 +676,20 @@ class _LearningPreviewState extends State<LearningPreview>
             final lesson = learning?.continueLesson;
             if (learning != null) {
               if (lesson != null) {
-                openLearningLesson(context, learning!, lessonId: lesson.id);
+                if (lesson.kind == 'GRAMMAR' &&
+                    lesson.state != 'COMPLETED' &&
+                    learning!.grammar != null) {
+                  openUncompletedGrammarCard(
+                    context,
+                    learning!,
+                    lessonId: lesson.id,
+                    lessonCode: lesson.code,
+                    grammarTopicCode: lesson.grammarTopicCode,
+                    title: lesson.title,
+                  );
+                } else {
+                  openLearningLesson(context, learning!, lessonId: lesson.id);
+                }
               } else {
                 switchTab(1);
               }
@@ -798,18 +774,24 @@ class _LearningPreviewState extends State<LearningPreview>
           learning: learning,
           daily: daily,
           vocabularyController: vocabularyController,
+          grammarController: grammarController,
+          showPreviousLevels: showPreviousLevels.value,
+          onTogglePreviousLevels: () =>
+              showPreviousLevels.value = !showPreviousLevels.value,
           onProfile: openProfile,
+          onLevelTap: widget.account != null
+              ? openProfile
+              : () => previewMessage(
+                  context,
+                  'A1 là mức minh họa của bản xem trước.',
+                ),
           onOpenDailyPlan: learning != null && daily != null
               ? () => previewPush(context, DailyPlanPage(learning: learning!))
               : null,
           onOpenHistory: learning != null
-              ? () => previewPush(
-                  context,
-                  LearningHistoryPage(controller: learning!),
-                )
+              ? () => previewPush(context, LearningHistoryPage(controller: learning!))
               : null,
-          onOpenWeeklyPlan: () =>
-              previewPush(context, WeeklyPlanPage(model: model)),
+          onOpenWeeklyPlan: () => previewPush(context, WeeklyPlanPage(model: model)),
         ),
       );
     }
@@ -860,104 +842,47 @@ class _LearningPreviewState extends State<LearningPreview>
 
   List<Widget> road() {
     if (learning != null) {
-      final vocabLessons = learning!.lessons
-          .where((l) => l.kind == 'VOCABULARY')
-          .toList();
+      final String? placementCefr = widget.account?.placementCefr;
+      final bool hasVocabLessons = learning!.lessons.any(
+        (l) => l.kind == 'VOCABULARY',
+      );
       return [
-        learningSegments(
-          ['Ngữ pháp', 'Từ vựng'],
-          vocabulary ? 1 : 0,
-          (i) => setState(() => vocabulary = i == 1),
-        ),
+        learningSegments(['Ngữ pháp', 'Từ vựng'], vocabulary ? 1 : 0, (i) => setState(() => vocabulary = i == 1)),
         const SizedBox(height: 24),
         if (!vocabulary)
           grammarController != null
               ? GrammarRoadSection(
                   grammarController: grammarController!,
                   learningController: learning,
+                  placementCefr: placementCefr,
+                  showPreviousLevels: showPreviousLevels.value,
+                  onTogglePreviousLevels: () => showPreviousLevels.value = !showPreviousLevels.value,
                 )
-              : LearningCatalogue(
-                  controller: learning!,
-                  kinds: const ['GRAMMAR'],
-                )
+              : LearningCatalogue(controller: learning!, kinds: const ['GRAMMAR'])
         else ...[
-          if (vocabLessons.isNotEmpty) ...[
+          if (hasVocabLessons) ...[
             LearningCatalogue(
               controller: learning!,
               kinds: const ['VOCABULARY'],
+              placementCefr: placementCefr,
+              showPreviousLevels: showPreviousLevels.value,
+              onTogglePreviousLevels: () =>
+                  showPreviousLevels.value = !showPreviousLevels.value,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
           ],
-          CuratedTopicsCatalogue(
-            controller: vocabularyController,
-            onOpenDeck: openWordDeck,
-          ),
+          CuratedTopicsCatalogue(controller: vocabularyController, onOpenDeck: openWordDeck),
         ],
       ];
     }
-    final names = vocabulary
-        ? [
-            'Greetings and introductions',
-            'Days, months and time',
-            'Numbers',
-            'Personal information',
-            'Family and relationships',
-          ]
-        : [
-            "Subject pronouns and 'to be'",
-            'Basic sentence structure',
-            'Possessive adjectives',
-          ];
-    final subtitles = vocabulary
-        ? [
-            'Chào hỏi và giới thiệu',
-            'Thứ, tháng và giờ giấc',
-            'Số đếm',
-            'Thông tin cá nhân',
-            'Gia đình và các mối quan hệ',
-          ]
-        : [
-            'Đại từ chủ ngữ và to be',
-            'Cấu trúc câu cơ bản',
-            'Cấu trúc câu cơ bản',
-          ];
-    return [
-      learningSegments(
-        ['Ngữ pháp', 'Từ vựng'],
-        vocabulary ? 1 : 0,
-        (i) => setState(() => vocabulary = i == 1),
-      ),
-      const SizedBox(height: 24),
-      if (vocabulary && vocabularyController != null)
-        CuratedTopicsCatalogue(
-          controller: vocabularyController,
-          onOpenDeck: openWordDeck,
-        )
-      else ...[
-        Row(
-          children: [
-            Expanded(child: learningHeading('Chặng 1')),
-            learningBody(vocabulary ? '1/4' : '1/3', size: 20),
-          ],
-        ),
-        const SizedBox(height: 12),
-        for (var i = 0; i < names.length; i++) ...[
-          learningCatalogCard(
-            names[i],
-            subtitles[i],
-            i,
-            () => previewPush(
-              context,
-              vocabulary
-                  ? VocabularyLessonPage(model: model)
-                  : GrammarLessonPage(model: model),
-            ),
-            source: vocabulary ? 'vocabulary-road' : 'grammar-road',
-          ),
-          const SizedBox(height: 12),
-        ],
-      ],
-    ];
+    return buildSampleRoadSections(
+      context: context,
+      vocabulary: vocabulary,
+      model: model,
+      vocabularyController: vocabularyController,
+      onSelectVocabulary: (value) => setState(() => vocabulary = value),
+      onOpenDeck: openWordDeck,
+    );
   }
 
   Widget practiceCatalogue(String kind) => LearningCatalogue(
@@ -1003,34 +928,11 @@ class _LearningPreviewState extends State<LearningPreview>
       )
     else if (skill == PracticeSkill.writing)
       WritingPracticeSection(model: model, evaluationService: writing)
-    else ...[
-      Row(
-        children: [
-          Expanded(child: learningHeading('Chặng 1')),
-          learningBody('1/3', size: 20),
-        ],
+    else
+      ...buildSamplePracticeSections(
+        context: context,
+        skill: skill,
+        model: model,
       ),
-      const SizedBox(height: 12),
-      for (var i = 0; i < 3; i++) ...[
-        learningCatalogCard(
-          i == 0
-              ? skill.title
-              : i == 1
-              ? 'Personal Information'
-              : 'Family and Relationships',
-          i == 0
-              ? skill.description
-              : i == 1
-              ? 'Luyện tập với thông tin về tên, tuổi, nơi sống và nghề nghiệp.'
-              : 'Luyện tập từ vựng và cấu trúc về gia đình và các mối quan hệ.',
-          i,
-          () => previewPush(
-            context,
-            PracticeIntroPage(skill: skill, model: model),
-          ),
-        ),
-        const SizedBox(height: 12),
-      ],
-    ],
   ];
 }

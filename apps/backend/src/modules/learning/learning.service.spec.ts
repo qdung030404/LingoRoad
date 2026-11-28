@@ -41,7 +41,7 @@ function extractSqlParts(args: unknown[]) {
 
 function fixture(
   ml?: Partial<MlClientService>,
-  extraLessons: Array<LearningLesson & { unit?: { cefrLevel: string } | null }> = [],
+  extraLessons: Array<LearningLesson & { unit?: { cefrLevel: string } | null; grammarTopic?: { code: string } | null }> = [],
 ) {
   const now = new Date('2026-11-01T00:00:00Z');
   const lesson: LearningLesson = {
@@ -109,6 +109,9 @@ function fixture(
         .sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code))
         .map((row) => {
           const lessonContent = row.content as Partial<LearningContent> | null;
+          const withMeta = row as LearningLesson & { unit?: { cefrLevel: string } | null; grammarTopic?: { code: string } | null };
+          const grammarTopicCode = withMeta.grammarTopic?.code
+            ?? (row.code === 'grammar-pronouns-to-be' ? 'grammar.pronouns' : null);
           return {
             id: row.id,
             code: row.code,
@@ -119,8 +122,9 @@ function fixture(
             contentVersion: row.contentVersion,
             questionCount: Array.isArray(lessonContent?.questions) ? lessonContent.questions.length : 5,
             audioDurationMs: typeof lessonContent?.audioDurationMs === 'number' ? lessonContent.audioDurationMs : null,
-            cefrLevel: row.unit?.cefrLevel ?? null,
+            cefrLevel: withMeta.unit?.cefrLevel ?? null,
             coverImageUrl: typeof lessonContent?.coverImageUrl === 'string' ? lessonContent.coverImageUrl : null,
+            grammarTopicCode,
           };
         });
     }),
@@ -888,6 +892,56 @@ describe('LearningService', () => {
 
       const detail = await service.lesson('owner', 'rd-cover');
       expect(detail.content.coverImageUrl).toBe('/media/learning/v1/images/scene-reading-book-club.jpg');
+    });
+
+    it('exposes grammarTopicCode in catalogue for linked grammar lessons and legacy fallback while omitting null', async () => {
+      const now = new Date('2026-11-01T00:00:00Z');
+      const linkedGrammar: LearningLesson & { unit?: { cefrLevel: string } | null; grammarTopic?: { code: string } | null } = {
+        id: 'gr-linked',
+        code: 'qz-grammar-tenses-present-perfect',
+        kind: 'GRAMMAR',
+        title: 'Present Perfect',
+        description: 'Linked grammar lesson',
+        estimatedMinutes: 6,
+        sortOrder: 2,
+        published: true,
+        contentVersion: 1,
+        unitId: 'b1-u1',
+        grammarTopicId: 'topic-pp',
+        content: structuredClone(content) as unknown as Prisma.JsonValue,
+        createdAt: now,
+        updatedAt: now,
+        unit: { cefrLevel: 'B1' },
+        grammarTopic: { code: 'grammar.tenses.present_perfect' },
+      };
+      const legacyGrammar: LearningLesson & { unit?: { cefrLevel: string } | null; grammarTopic?: { code: string } | null } = {
+        id: 'gr-legacy',
+        code: 'grammar-pronouns-to-be',
+        kind: 'GRAMMAR',
+        title: 'Pronouns and to be',
+        description: 'Legacy grammar lesson',
+        estimatedMinutes: 5,
+        sortOrder: 3,
+        published: true,
+        contentVersion: 1,
+        unitId: 'a1-u1',
+        grammarTopicId: null,
+        content: structuredClone(content) as unknown as Prisma.JsonValue,
+        createdAt: now,
+        updatedAt: now,
+        unit: { cefrLevel: 'A1' },
+        grammarTopic: null,
+      };
+      const { service } = fixture(undefined, [linkedGrammar, legacyGrammar]);
+
+      const catalogue = await service.catalogue('owner', 'GRAMMAR');
+      const unlinkedItem = catalogue.items.find((i) => i.id === 'lesson');
+      const linkedItem = catalogue.items.find((i) => i.id === 'gr-linked');
+      const legacyItem = catalogue.items.find((i) => i.id === 'gr-legacy');
+
+      expect(unlinkedItem?.grammarTopicCode).toBeUndefined();
+      expect(linkedItem?.grammarTopicCode).toBe('grammar.tenses.present_perfect');
+      expect(legacyItem?.grammarTopicCode).toBe('grammar.pronouns');
     });
   });
 });
