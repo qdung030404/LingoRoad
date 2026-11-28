@@ -24,6 +24,8 @@ import {
   AdminLoginDto,
   AdminLogoutDto,
   AdminRefreshDto,
+  AdminUpdateProfileDto,
+  isSafeAdminAvatarUrl,
 } from '../dto/admin-auth.dto';
 
 export interface AdminUserView {
@@ -578,5 +580,84 @@ export class AdminAuthService {
       });
     }
     return user;
+  }
+
+  async updateProfile(
+    userId: string,
+    dto: AdminUpdateProfileDto,
+  ): Promise<AdminUserView> {
+    const existing = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        status: true,
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'ADMIN_USER_NOT_FOUND',
+        message: 'Không tìm thấy tài khoản quản trị.',
+      });
+    }
+    if (existing.role !== UserRole.ADMIN || existing.status !== UserStatus.ACTIVE) {
+      throw new ForbiddenException({
+        code: 'ADMIN_FORBIDDEN',
+        message: 'Tài khoản không có quyền cập nhật hồ sơ quản trị.',
+      });
+    }
+
+    const updateData: { name?: string; avatarUrl?: string | null } = {};
+
+    if (dto.name !== undefined) {
+      const trimmedName = dto.name.trim();
+      if (trimmedName.length < 2 || trimmedName.length > 100) {
+        throw new BadRequestException({
+          code: 'ADMIN_INVALID_NAME',
+          message: 'Tên hiển thị phải có độ dài từ 2 đến 100 ký tự.',
+        });
+      }
+      updateData.name = trimmedName;
+    }
+
+    if (dto.avatarUrl !== undefined) {
+      const normalizedAvatar =
+        dto.avatarUrl === null ? null : dto.avatarUrl.trim();
+      if (
+        normalizedAvatar !== null &&
+        normalizedAvatar !== '' &&
+        !isSafeAdminAvatarUrl(normalizedAvatar)
+      ) {
+        throw new BadRequestException({
+          code: 'ADMIN_INVALID_AVATAR_URL',
+          message:
+            'URL ảnh đại diện không hợp lệ (chỉ chấp nhận ảnh JPG, PNG, WEBP tải lên hoặc liên kết HTTPS an toàn).',
+        });
+      }
+      updateData.avatarUrl =
+        normalizedAvatar === null || normalizedAvatar === ''
+          ? null
+          : normalizedAvatar;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      throw new BadRequestException({
+        code: 'ADMIN_PROFILE_EMPTY_UPDATE',
+        message: 'Vui lòng cung cấp thông tin cần cập nhật.',
+      });
+    }
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        status: true,
+        avatarUrl: true,
+      },
+    });
   }
 }

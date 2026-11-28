@@ -13,8 +13,10 @@ import {
   createReadStream,
   existsSync,
   mkdirSync,
+  readdirSync,
   renameSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { basename, dirname, extname, join, resolve, sep } from 'node:path';
@@ -647,5 +649,131 @@ export class MediaStorageService implements OnModuleInit {
       etag,
       lastModified: stat.mtime,
     };
+  }
+
+  async listManagedBlobs(
+    prefixes: readonly string[] = ['learning/v1/', 'placement/'],
+  ): Promise<Array<{ key: string; size: number; lastModified: Date | null }>> {
+    const seen = new Set<string>();
+    const results: Array<{ key: string; size: number; lastModified: Date | null }> = [];
+
+    if (this.isAzureConfigured()) {
+      const client = this.initClients();
+      if (!client) {
+        throw new ServiceUnavailableException({
+          code: 'MEDIA_STORAGE_UNAVAILABLE',
+          message: 'Không thể kết nối dịch vụ lưu trữ media.',
+        });
+      }
+
+      try {
+        for (const rawPrefix of prefixes) {
+          const cleanPrefix = rawPrefix.trim().replace(/^\/+/, '');
+          if (!cleanPrefix) continue;
+          for await (const blob of client.listBlobsFlat({ prefix: cleanPrefix })) {
+            const normalized = tryNormalizeBlobKey(blob.name);
+            if (!normalized || seen.has(normalized)) continue;
+            seen.add(normalized);
+            results.push({
+              key: normalized,
+              size: blob.properties.contentLength ?? 0,
+              lastModified: blob.properties.lastModified ?? null,
+            });
+          }
+        }
+        return results;
+      } catch (err) {
+        if (err instanceof ServiceUnavailableException) throw err;
+        this.logger.error(
+          `Lỗi liệt kê danh sách Blob: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        throw new ServiceUnavailableException({
+          code: 'MEDIA_STORAGE_UNAVAILABLE',
+          message: 'Dịch vụ lưu trữ media tạm thời không khả dụng.',
+        });
+      }
+    }
+
+    const root = resolve(backendMediaRoot());
+    if (!existsSync(root)) {
+      return [];
+    }
+
+    const walkLocal = (dirPath: string, relPrefix: string): void => {
+      if (!existsSync(dirPath)) return;
+      const entries = readdirSync(dirPath, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        const fullPath = join(dirPath, entry.name);
+        const relKey = relPrefix ? `${relPrefix}/${entry.name}` : entry.name;
+        if (entry.isDirectory()) {
+          walkLocal(fullPath, relKey);
+        } else if (entry.isFile()) {
+          const normalized = tryNormalizeBlobKey(relKey);
+          if (!normalized || seen.has(normalized)) continue;
+          seen.add(normalized);
+          const stat = statSync(fullPath);
+          results.push({
+            key: normalized,
+            size: stat.size,
+            lastModified: stat.mtime,
+          });
+        }
+      }
+    };
+
+    for (const rawPrefix of prefixes) {
+      const cleanPrefix = rawPrefix.trim().replace(/^\/+|\/+$/g, '');
+      if (!cleanPrefix) continue;
+      walkLocal(resolve(root, cleanPrefix), cleanPrefix);
+    }
+
+    return results;
+  }
+
+  async deleteBlob(key: string): Promise<boolean> {
+    const normalizedKey = tryNormalizeBlobKey(key);
+    if (!normalizedKey) return false;
+
+    this.metadataCache.delete(normalizedKey);
+
+    if (this.isAzureConfigured()) {
+      const client = this.initClients();
+      if (!client) {
+        throw new ServiceUnavailableException({
+          code: 'MEDIA_STORAGE_UNAVAILABLE',
+          message: 'Không thể kết nối dịch vụ lưu trữ media.',
+        });
+      }
+
+      try {
+        const res = await client
+          .getBlockBlobClient(normalizedKey)
+          .deleteIfExists();
+        return Boolean(res.succeeded);
+      } catch (err) {
+        if (isAzureNotFoundError(err)) return false;
+        this.logger.error(
+          `Lỗi xoá Blob (${normalizedKey}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        throw new ServiceUnavailableException({
+          code: 'MEDIA_STORAGE_UNAVAILABLE',
+          message: 'Không thể xoá tệp media trên đám mây lúc này.',
+        });
+      }
+    }
+
+    const localPath = this.resolveLocalPath(normalizedKey);
+    if (!existsSync(localPath)) return false;
+    try {
+      unlinkSync(localPath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 }

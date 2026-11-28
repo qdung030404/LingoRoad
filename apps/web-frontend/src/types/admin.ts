@@ -802,6 +802,34 @@ export interface AdminMediaAudioUploadResult {
   size: number;
 }
 
+export interface AdminOrphanMediaItem {
+  key: string;
+  url: string;
+  size: number;
+  lastModified: string | null;
+}
+
+export interface AdminOrphanMediaScanResult {
+  scannedAt: string;
+  storage: 'azure' | 'local';
+  minAgeHours: number;
+  totalBlobs: number;
+  referencedCount: number;
+  protectedRecentCount: number;
+  orphanCount: number;
+  orphanBytes: number;
+  orphans: AdminOrphanMediaItem[];
+}
+
+export interface AdminOrphanMediaCleanupResult {
+  cleanedAt: string;
+  minAgeHours: number;
+  deletedCount: number;
+  deletedBytes: number;
+  skippedCount: number;
+  deletedKeys: string[];
+}
+
 export interface ImportErrorItem {
   path: string;
   message: string;

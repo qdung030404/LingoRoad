@@ -25,7 +25,11 @@ import {
   canDismissConfirmDialog,
   getConfirmDialogToneConfig,
 } from '../src/components/admin/ConfirmDialog';
-import { formatAppVersion } from '../src/lib/admin-validation';
+import {
+  formatAppVersion,
+  formatBytesCompact,
+  parseMlSubsystemStatus,
+} from '../src/lib/admin-validation';
 
 function loadClientModule(file: string, mocks: Record<string, unknown>) {
   const filename = resolve(__dirname, '../src', file);
@@ -687,5 +691,63 @@ describe('formatAppVersion helper (/admin/system SHA overflow fix)', () => {
       fullText: 'unknown',
       isCommitSha: false,
     });
+  });
+});
+
+describe('parseMlSubsystemStatus & formatBytesCompact (/admin/system polish)', () => {
+  test('renders neutral muted badge for optional rag missing_artifact when ML service is HTTP 200 ready, and error when service is degraded', () => {
+    assert.deepEqual(
+      parseMlSubsystemStatus('missing_artifact', {
+        optional: true,
+        serviceReady: true,
+      }),
+      {
+        label: 'Tùy chọn · Chưa bật',
+        tone: 'muted',
+      },
+    );
+
+    assert.deepEqual(
+      parseMlSubsystemStatus('missing_artifact', {
+        optional: true,
+        serviceReady: false,
+      }),
+      {
+        label: 'missing_artifact',
+        tone: 'error',
+      },
+    );
+
+    assert.deepEqual(
+      parseMlSubsystemStatus('missing_artifact', {
+        optional: false,
+        serviceReady: true,
+      }),
+      {
+        label: 'missing_artifact',
+        tone: 'error',
+      },
+    );
+
+    assert.deepEqual(
+      parseMlSubsystemStatus(
+        { status: 'missing_artifact', reason: 'RAG index not built' },
+        { optional: true, serviceReady: true },
+      ),
+      {
+        label: 'Tùy chọn · Chưa bật',
+        tone: 'muted',
+        detail: 'RAG index not built',
+      },
+    );
+  });
+
+  test('formatBytesCompact formats byte sizes accurately', () => {
+    assert.equal(formatBytesCompact(0), '0 B');
+    assert.equal(formatBytesCompact(-10), '0 B');
+    assert.equal(formatBytesCompact(512), '512 B');
+    assert.equal(formatBytesCompact(2048), '2.0 KB');
+    assert.equal(formatBytesCompact(1.5 * 1024 * 1024), '1.50 MB');
+    assert.equal(formatBytesCompact(2 * 1024 * 1024 * 1024), '2.00 GB');
   });
 });

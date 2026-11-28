@@ -8,19 +8,54 @@ import {
   KeyRound,
   Loader2,
   LogOut,
+  Save,
   ShieldCheck,
+  User as UserIcon,
   X,
 } from 'lucide-react';
-import { adminChangePassword, adminLogoutAll } from '../../lib/admin-api';
+import {
+  adminChangePassword,
+  adminLogoutAll,
+  resolveAdminMediaUrl,
+  updateAdminMeProfile,
+} from '../../lib/admin-api';
 import type { AdminAuthSession, AdminUser } from '../../types/admin';
 import { useAdminToast } from './AdminToast';
+import { MediaUploadField } from './MediaUploadField';
 
 export interface AdminProfileModalProps {
   open: boolean;
   admin: AdminUser;
   onClose: () => void;
+  onProfileUpdated?: (user: AdminUser) => void;
   onSessionUpdated?: (session: AdminAuthSession) => void;
   onLoggedOutAll?: () => void;
+}
+
+export function validateAdminProfileForm(input: {
+  name: string;
+  avatarUrl: string;
+}): string | null {
+  const trimmedName = input.name.trim();
+  if (trimmedName.length < 2 || trimmedName.length > 100) {
+    return 'Tên hiển thị phải có từ 2 đến 100 ký tự.';
+  }
+  const trimmedAvatar = input.avatarUrl.trim();
+  if (!trimmedAvatar) return null;
+  if (trimmedAvatar.length > 500 || trimmedAvatar.includes('..') || /\s/.test(trimmedAvatar)) {
+    return 'Đường dẫn ảnh đại diện không hợp lệ.';
+  }
+  const isManagedImage =
+    /^\/media\/learning\/v1\/images\/[a-z0-9-]+\.(?:png|webp|jpg|jpeg)$/i.test(
+      trimmedAvatar,
+    );
+  const isHttpsImage =
+    /^https:\/\/[^\s]+$/i.test(trimmedAvatar) &&
+    !/\.svg(?:[?#]|$)/i.test(trimmedAvatar);
+  if (!isManagedImage && !isHttpsImage) {
+    return 'Ảnh đại diện chỉ hỗ trợ JPG, PNG, WEBP tải lên hoặc liên kết HTTPS an toàn (không dùng SVG).';
+  }
+  return null;
 }
 
 export function validateAdminPasswordChange(input: {
@@ -57,15 +92,29 @@ function getProfileInitials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
+function resolveSafeAvatarSrc(avatarUrl: string | null | undefined): string {
+  const trimmed = avatarUrl?.trim() ?? '';
+  if (!trimmed) return '';
+  return typeof resolveAdminMediaUrl === 'function'
+    ? resolveAdminMediaUrl(trimmed)
+    : trimmed;
+}
+
 export function AdminProfileModal({
   open,
   admin,
   onClose,
+  onProfileUpdated,
   onSessionUpdated,
   onLoggedOutAll,
 }: AdminProfileModalProps): React.ReactElement | null {
   const titleId = useId();
   const toast = useAdminToast();
+  const [profileName, setProfileName] = useState(admin.name);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState(admin.avatarUrl ?? '');
+  const [avatarPreviewFailed, setAvatarPreviewFailed] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -77,7 +126,7 @@ export function AdminProfileModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const busy = savingPassword || loggingOutAll;
+  const busy = savingProfile || savingPassword || loggingOutAll;
 
   useEffect(() => {
     if (!open) {
@@ -91,7 +140,13 @@ export function AdminProfileModal({
       setSuccessMessage(null);
       return;
     }
-    if (typeof window === 'undefined') return;
+    setProfileName(admin.name);
+    setProfileAvatarUrl(admin.avatarUrl ?? '');
+    setAvatarPreviewFailed(false);
+  }, [open, admin.name, admin.avatarUrl]);
+
+  useEffect(() => {
+    if (!open || typeof window === 'undefined') return;
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key === 'Escape' && !busy) {
         event.preventDefault();
@@ -106,11 +161,54 @@ export function AdminProfileModal({
 
   if (!open) return null;
 
+  const headerAvatarSrc = avatarPreviewFailed
+    ? ''
+    : resolveSafeAvatarSrc(admin.avatarUrl);
+
   const handleBackdropClick = (
     event: React.MouseEvent<HTMLDivElement>,
   ): void => {
     if (event.target === event.currentTarget && !busy) {
       onClose();
+    }
+  };
+
+  const handleSaveProfile = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
+    event.preventDefault();
+    if (busy) return;
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const validationError = validateAdminProfileForm({
+      name: profileName,
+      avatarUrl: profileAvatarUrl,
+    });
+    if (validationError) {
+      setErrorMessage(validationError);
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const updatedUser = await updateAdminMeProfile({
+        name: profileName.trim(),
+        avatarUrl: profileAvatarUrl.trim() || null,
+      });
+      setAvatarPreviewFailed(false);
+      onProfileUpdated?.(updatedUser);
+      const message = 'Đã cập nhật hồ sơ Quản trị viên thành công.';
+      setSuccessMessage(message);
+      toast.success(message);
+    } catch (err) {
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : 'Không thể cập nhật hồ sơ lúc này. Vui lòng thử lại.',
+      );
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -198,9 +296,19 @@ export function AdminProfileModal({
       >
         <div className="flex items-start justify-between gap-3 border-b border-slateDark-100 pb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#123820] text-sm font-bold text-white">
-              {getProfileInitials(admin.name)}
-            </div>
+            {headerAvatarSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={headerAvatarSrc}
+                alt={admin.name}
+                onError={() => setAvatarPreviewFailed(true)}
+                className="h-11 w-11 shrink-0 rounded-full border border-slateDark-200 object-cover"
+              />
+            ) : (
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#123820] text-sm font-bold text-white">
+                {getProfileInitials(admin.name)}
+              </div>
+            )}
             <div className="min-w-0">
               <h2
                 id={titleId}
@@ -263,6 +371,64 @@ export function AdminProfileModal({
             <span>{successMessage}</span>
           </div>
         )}
+
+        {/* Form cập nhật Tên hiển thị & Ảnh đại diện */}
+        <form
+          onSubmit={(event) => void handleSaveProfile(event)}
+          className="mt-5 space-y-3.5 border-b border-slateDark-100 pb-5"
+        >
+          <div className="flex items-center gap-2">
+            <UserIcon className="h-4 w-4 text-brand-600" />
+            <h3 className="text-sm font-bold text-slateDark-900">
+              Thông tin hiển thị
+            </h3>
+          </div>
+
+          <div>
+            <label
+              htmlFor="admin-display-name"
+              className="mb-1 block text-xs font-semibold text-slateDark-800"
+            >
+              Tên hiển thị
+            </label>
+            <input
+              id="admin-display-name"
+              type="text"
+              required
+              minLength={2}
+              maxLength={100}
+              disabled={busy}
+              value={profileName}
+              onChange={(e) => setProfileName(e.target.value)}
+              placeholder="Nhập tên hiển thị của Quản trị viên"
+              className="w-full rounded-xl border-[1.5px] border-slateDark-200 bg-slateDark-50 px-3.5 py-2.5 text-sm text-slateDark-900 focus:border-brand-500 focus:bg-white focus:outline-none disabled:opacity-60"
+            />
+          </div>
+
+          <MediaUploadField
+            kind="image"
+            slugHint="admin-avatar"
+            label="Ảnh đại diện (tùy chọn)"
+            value={profileAvatarUrl}
+            onChange={(url) => setProfileAvatarUrl(url)}
+            helperText="Tải ảnh JPG, PNG, WEBP (tối đa 5 MB) hoặc để trống để dùng chữ viết tắt."
+          />
+
+          <div className="flex justify-end pt-1">
+            <button
+              type="submit"
+              disabled={busy}
+              className="btn-primary inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {savingProfile ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                <Save className="h-4 w-4" aria-hidden="true" />
+              )}
+              <span>{savingProfile ? 'Đang lưu...' : 'Lưu hồ sơ'}</span>
+            </button>
+          </div>
+        </form>
 
         {/* Form đổi mật khẩu */}
         <form
