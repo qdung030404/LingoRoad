@@ -8,12 +8,18 @@ import {
   adminChangePassword,
   adminLogout,
   adminLogoutAll,
+  cleanupAdminOrphanMedia,
   getAdminMe,
   getStoredAdminSession,
   listLearningUnits,
   saveAdminSession,
+  scanAdminOrphanMedia,
+  updateAdminMeProfile,
 } from '../src/lib/admin-api';
-import { validateAdminPasswordChange } from '../src/components/admin/AdminProfileModal';
+import {
+  validateAdminPasswordChange,
+  validateAdminProfileForm,
+} from '../src/components/admin/AdminProfileModal';
 import type { AdminAuthSession } from '../src/types/admin';
 
 const SESSION_KEY = 'lingoroad_admin_session';
@@ -585,5 +591,130 @@ describe('Wave 2 Frontend Security Hardening', () => {
         delete (globalThis as Record<string, unknown>).window;
       }
     }
+  });
+
+  test('updateAdminMeProfile syncs localStorage session user while preserving tokens, and orphan media endpoints call expected paths', async () => {
+    await withMockBrowserEnv(async ({ setFetch }) => {
+      saveAdminSession(sampleSession('token-keep', 'refresh-keep'));
+
+      setFetch((async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? 'GET';
+        if (url.endsWith('/admin/auth/me') && method === 'PATCH') {
+          const body = JSON.parse(String(init?.body ?? '{}')) as {
+            name?: string;
+            avatarUrl?: string | null;
+          };
+          return jsonResponse(200, {
+            success: true,
+            data: {
+              ...sampleSession().user,
+              name: body.name ?? 'Admin User',
+              avatarUrl: body.avatarUrl ?? null,
+            },
+          });
+        }
+        if (url.includes('/admin/media/orphans?minAgeHours=72') && method === 'GET') {
+          return jsonResponse(200, {
+            success: true,
+            data: {
+              scannedAt: '2026-11-28T00:00:00.000Z',
+              storage: 'azure',
+              minAgeHours: 72,
+              totalBlobs: 10,
+              referencedCount: 8,
+              protectedRecentCount: 1,
+              orphanCount: 1,
+              orphanBytes: 4096,
+              orphans: [
+                {
+                  key: 'learning/v1/old.wav',
+                  url: '/media/learning/v1/old.wav',
+                  size: 4096,
+                  lastModified: '2026-11-20T00:00:00.000Z',
+                },
+              ],
+            },
+          });
+        }
+        if (url.endsWith('/admin/media/orphans/cleanup') && method === 'POST') {
+          return jsonResponse(200, {
+            success: true,
+            data: {
+              cleanedAt: '2026-11-28T00:01:00.000Z',
+              minAgeHours: 72,
+              deletedCount: 1,
+              deletedBytes: 4096,
+              skippedCount: 0,
+              deletedKeys: ['learning/v1/old.wav'],
+            },
+          });
+        }
+        throw new Error(`Unexpected URL: ${method} ${url}`);
+      }) as typeof fetch);
+
+      const updatedUser = await updateAdminMeProfile({
+        name: 'Quản trị LingoRoad',
+        avatarUrl: '/media/learning/v1/images/admin-avatar-abc123.png',
+      });
+      assert.equal(updatedUser.name, 'Quản trị LingoRoad');
+      assert.equal(
+        updatedUser.avatarUrl,
+        '/media/learning/v1/images/admin-avatar-abc123.png',
+      );
+      const synced = getStoredAdminSession();
+      assert.equal(synced?.accessToken, 'token-keep');
+      assert.equal(synced?.refreshToken, 'refresh-keep');
+      assert.equal(synced?.user.name, 'Quản trị LingoRoad');
+      assert.equal(
+        synced?.user.avatarUrl,
+        '/media/learning/v1/images/admin-avatar-abc123.png',
+      );
+
+      const scan = await scanAdminOrphanMedia(72);
+      assert.equal(scan.orphanCount, 1);
+      assert.equal(scan.minAgeHours, 72);
+
+      const cleanup = await cleanupAdminOrphanMedia({
+        keys: ['learning/v1/old.wav'],
+        minAgeHours: 72,
+      });
+      assert.equal(cleanup.deletedCount, 1);
+      assert.deepEqual(cleanup.deletedKeys, ['learning/v1/old.wav']);
+    });
+  });
+
+  test('validateAdminProfileForm enforces name bounds and blocks unsafe avatar URLs', () => {
+    assert.ok(
+      validateAdminProfileForm({ name: 'A', avatarUrl: '' })?.includes(
+        '2 đến 100',
+      ),
+    );
+    assert.ok(
+      validateAdminProfileForm({
+        name: 'Admin Hợp Lệ',
+        avatarUrl: 'https://cdn.example.com/xss.svg',
+      })?.includes('không dùng SVG'),
+    );
+    assert.ok(
+      validateAdminProfileForm({
+        name: 'Admin Hợp Lệ',
+        avatarUrl: 'http://insecure.example.com/avatar.png',
+      }),
+    );
+    assert.equal(
+      validateAdminProfileForm({
+        name: 'Admin Hợp Lệ',
+        avatarUrl: '/media/learning/v1/images/admin-avatar-998877.webp',
+      }),
+      null,
+    );
+    assert.equal(
+      validateAdminProfileForm({
+        name: 'Admin Hợp Lệ',
+        avatarUrl: '',
+      }),
+      null,
+    );
   });
 });

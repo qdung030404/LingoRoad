@@ -26,6 +26,7 @@ import {
   clearAdminSession,
   getAdminMe,
   getStoredAdminSession,
+  resolveAdminMediaUrl,
   saveAdminSession,
 } from '@/lib/admin-api';
 import type { AdminUser } from '@/types/admin';
@@ -143,6 +144,7 @@ export function AdminShell({
   const [checking, setChecking] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const onAuthenticatedRef = useRef(onAuthenticated);
   onAuthenticatedRef.current = onAuthenticated;
 
@@ -210,6 +212,10 @@ export function AdminShell({
     };
   }, [router]);
 
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [admin?.avatarUrl]);
+
   const handleLogout = async (): Promise<void> => {
     await adminLogout();
     router.replace('/admin/login');
@@ -227,6 +233,13 @@ export function AdminShell({
       </div>
     );
   }
+
+  const resolvedAvatarUrl =
+    !avatarFailed && admin.avatarUrl?.trim()
+      ? typeof resolveAdminMediaUrl === 'function'
+        ? resolveAdminMediaUrl(admin.avatarUrl)
+        : admin.avatarUrl.trim()
+      : '';
 
   const renderNavItem = (
     item: NavItem,
@@ -381,9 +394,19 @@ export function AdminShell({
               aria-label="Mở hồ sơ và đổi mật khẩu quản trị viên"
               className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-slateDark-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#123820] text-xs font-bold text-white">
-                {getInitials(admin.name)}
-              </div>
+              {resolvedAvatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={resolvedAvatarUrl}
+                  alt={admin.name}
+                  onError={() => setAvatarFailed(true)}
+                  className="h-9 w-9 shrink-0 rounded-full border border-slateDark-200 object-cover"
+                />
+              ) : (
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#123820] text-xs font-bold text-white">
+                  {getInitials(admin.name)}
+                </div>
+              )}
               <div className="hidden text-left sm:block">
                 <p className="text-xs font-bold leading-tight text-slateDark-900">
                   {admin.name}
@@ -423,6 +446,7 @@ export function AdminShell({
           open={profileModalOpen}
           admin={admin}
           onClose={() => setProfileModalOpen(false)}
+          onProfileUpdated={(updated) => setAdmin(updated)}
           onSessionUpdated={(session) => setAdmin(session.user)}
           onLoggedOutAll={() => {
             setProfileModalOpen(false);

@@ -10,6 +10,8 @@ import type {
   AdminLessonItem,
   AdminMediaAudioUploadResult,
   AdminMediaImageUploadResult,
+  AdminOrphanMediaCleanupResult,
+  AdminOrphanMediaScanResult,
   AdminPlacementSessionDetail,
   AdminSpeakingPrompt,
   AdminSpeakingSubmissionDetail,
@@ -367,6 +369,24 @@ export async function getAdminMe(): Promise<AdminUser> {
   return adminFetch<AdminUser>('/admin/auth/me');
 }
 
+export async function updateAdminMeProfile(input: {
+  name?: string;
+  avatarUrl?: string | null;
+}): Promise<AdminUser> {
+  const updated = await adminFetch<AdminUser>('/admin/auth/me', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+  const existing = getStoredAdminSession();
+  if (existing && existing.user.id === updated.id) {
+    saveAdminSession({
+      ...existing,
+      user: updated,
+    });
+  }
+  return updated;
+}
+
 // ===================== MEDIA UPLOAD =====================
 
 export async function uploadAdminImage(
@@ -398,6 +418,29 @@ export async function uploadAdminAudio(
     {
       method: 'POST',
       body: form,
+    },
+  );
+}
+
+export async function scanAdminOrphanMedia(
+  minAgeHours = 24,
+): Promise<AdminOrphanMediaScanResult> {
+  const qs = new URLSearchParams({
+    minAgeHours: String(minAgeHours),
+  });
+  return adminFetch<AdminOrphanMediaScanResult>(
+    `/admin/media/orphans?${qs.toString()}`,
+  );
+}
+
+export async function cleanupAdminOrphanMedia(
+  input: { keys?: string[]; minAgeHours?: number } = {},
+): Promise<AdminOrphanMediaCleanupResult> {
+  return adminFetch<AdminOrphanMediaCleanupResult>(
+    '/admin/media/orphans/cleanup',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
     },
   );
 }
