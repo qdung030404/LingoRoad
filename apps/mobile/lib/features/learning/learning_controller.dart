@@ -319,6 +319,7 @@ class LearningAttemptController extends ChangeNotifier {
   Future<void> _storage = Future.value();
   Future<void> _progressQueue = Future.value();
   Future<void>? _pendingProgress;
+  Future<void>? _inFlightFlushProgress;
   Future<bool>? _flush;
   Future<LearningAttempt> Function()? _failedAction;
   final Map<String, Json> _aiExplanations = {};
@@ -361,6 +362,7 @@ class LearningAttemptController extends ChangeNotifier {
     _optimisticPhase = null;
     _optimisticIndex = null;
     _pendingProgress = null;
+    _inFlightFlushProgress = null;
     _timer?.cancel();
     loading = true;
     error = null;
@@ -482,6 +484,18 @@ class LearningAttemptController extends ChangeNotifier {
     if (!active) return false;
     final pending = _pending;
     if (pending == null) return true;
+    final flushFuture = _executeFlushPending(pending);
+    _inFlightFlushProgress = flushFuture;
+    try {
+      return await flushFuture;
+    } finally {
+      if (identical(_inFlightFlushProgress, flushFuture)) {
+        _inFlightFlushProgress = null;
+      }
+    }
+  }
+
+  Future<bool> _executeFlushPending(Json pending) async {
     syncing = true;
     error = null;
     notifyListeners();
@@ -534,7 +548,7 @@ class LearningAttemptController extends ChangeNotifier {
       final hadPendingProgress = _pendingProgress != null;
       await _waitForPendingProgress();
       if (!active || attempt == null || attempt!.completed) return;
-      if (hadPendingProgress && error != null) return;
+      if (hadPendingProgress && (error != null || notice != null)) return;
       if ((flushPending?.call() ?? true) && (!await flush() || !active)) return;
       final result = await action();
       if (!active) return;
@@ -597,10 +611,16 @@ class LearningAttemptController extends ChangeNotifier {
     notifyListeners();
 
     final next = _progressQueue.catchError((_) {}).then((_) async {
+      await _inFlightFlushProgress?.catchError((_) {});
       if (!active ||
           loadEpoch != _loadEpoch ||
           attempt == null ||
           attempt!.completed) {
+        if (active && loadEpoch == _loadEpoch && moveToken == _moveSeq) {
+          _optimisticPhase = null;
+          _optimisticIndex = null;
+          notifyListeners();
+        }
         return;
       }
       if (moveToken != _moveSeq) return;

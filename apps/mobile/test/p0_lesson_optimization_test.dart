@@ -100,10 +100,13 @@ class _CountingCatalogueRepository extends MemoryLearningRepository {
 
 class _QueuedProgressRepository extends MemoryLearningRepository {
   final List<Completer<void>> progressGates = [];
+  final List<Json> progressBodies = [];
   bool failNextProgress = false;
+  int submits = 0;
 
   @override
   Future<LearningAttempt> progress(String id, Json body) async {
+    progressBodies.add(copy(body));
     final gate = Completer<void>();
     progressGates.add(gate);
     await gate.future;
@@ -112,6 +115,12 @@ class _QueuedProgressRepository extends MemoryLearningRepository {
       throw const ApiFailure('Mạng chập chờn');
     }
     return super.progress(id, body);
+  }
+
+  @override
+  Future<LearningAttempt> submit(String id, int version) async {
+    submits++;
+    return super.submit(id, version);
   }
 }
 
@@ -617,6 +626,129 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       owner.dispose();
       daily.dispose();
+    },
+  );
+
+  test(
+    '409 Conflict in move() aborts queued check() and submit() and preserves notice',
+    () async {
+      // Case A: check() queued behind move() that hits 409 Conflict aborts cleanly.
+      final repo = _QueuedProgressRepository();
+      final owner = LearningController(repository: repo, accountId: 'alice');
+      final controller = LearningAttemptController(owner: owner);
+      await controller.load(attemptId: 'attempt');
+
+      // Another device advances server version while client still has version 0.
+      repo.state['version'] = 5;
+      final moveFuture = controller.move('QUIZ', 1);
+      expect(controller.index, 1);
+
+      await controller.select('q1', 'a');
+      final checkFuture = controller.check('q1');
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.progressGates, hasLength(1));
+
+      repo.progressGates.removeAt(0).complete();
+      await Future.wait([moveFuture, checkFuture]);
+
+      expect(repo.checks, 0);
+      expect(controller.busy, isFalse);
+      expect(controller.attempt!.version, 5);
+      expect(controller.index, 0);
+      expect(controller.notice, 'Tiến độ đã thay đổi. Đã tải dữ liệu mới nhất.');
+      expect(controller.error, isNull);
+
+      controller.dispose();
+      owner.dispose();
+
+      // Case B: submit() queued behind move() that hits 409 Conflict aborts cleanly.
+      final submitRepo = _QueuedProgressRepository();
+      submitRepo.state['answers'] = [
+        for (var i = 0; i < 5; i++)
+          {
+            'questionId': 'q$i',
+            'optionId': 'a',
+            'checked': true,
+            'isCorrect': true,
+          },
+      ];
+      submitRepo.state['version'] = 5;
+      submitRepo.state['position'] = {'phase': 'QUIZ', 'index': 3};
+      final submitOwner = LearningController(
+        repository: submitRepo,
+        accountId: 'alice',
+      );
+      final submitController = LearningAttemptController(owner: submitOwner);
+      await submitController.load(attemptId: 'attempt');
+
+      // Another device edits server version to 6 after client loaded version 5.
+      submitRepo.state['version'] = 6;
+      final moveToLast = submitController.move('QUIZ', 4);
+      final submitFuture = submitController.submit();
+      await Future<void>.delayed(Duration.zero);
+      expect(submitRepo.progressGates, hasLength(1));
+
+      submitRepo.progressGates.removeAt(0).complete();
+      await Future.wait([moveToLast, submitFuture]);
+
+      expect(submitRepo.submits, 0);
+      expect(submitController.busy, isFalse);
+      expect(submitController.attempt!.completed, isFalse);
+      expect(submitController.attempt!.version, 6);
+      expect(submitController.index, 3);
+      expect(
+        submitController.notice,
+        'Tiến độ đã thay đổi. Đã tải dữ liệu mới nhất.',
+      );
+
+      submitController.dispose();
+      submitOwner.dispose();
+    },
+  );
+
+  test(
+    'concurrent flush() + move() waits for in-flight flush before sending move expectedVersion',
+    () async {
+      final repo = _QueuedProgressRepository();
+      final owner = LearningController(repository: repo, accountId: 'alice');
+      final controller = LearningAttemptController(owner: owner);
+      await controller.load(attemptId: 'attempt');
+
+      await controller.select('q0', 'b');
+      final flushFuture = controller.flush();
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.syncing, isTrue);
+      expect(repo.progressGates, hasLength(1));
+      expect(repo.progressBodies.single['expectedVersion'], 0);
+
+      // While flush() is still in-flight, user taps move() -> 0ms UI update, serialized HTTP.
+      final moveFuture = controller.move('QUIZ', 1);
+      expect(controller.index, 1);
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.progressGates, hasLength(1));
+
+      // Complete flush() -> version becomes 1; move() then sends expectedVersion: 1.
+      repo.progressGates.removeAt(0).complete();
+      expect(await flushFuture, isTrue);
+      for (var i = 0; i < 20 && repo.progressGates.isEmpty; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(repo.progressGates, hasLength(1));
+      expect(repo.progressBodies, hasLength(2));
+      expect(repo.progressBodies[1]['expectedVersion'], 1);
+      expect(repo.progressBodies[1]['index'], 1);
+
+      repo.progressGates.removeAt(0).complete();
+      await moveFuture;
+
+      expect(controller.error, isNull);
+      expect(controller.notice, isNull);
+      expect(controller.attempt!.version, 2);
+      expect(controller.attempt!.index, 1);
+      expect(controller.attempt!.answer('q0')?['optionId'], 'b');
+
+      controller.dispose();
+      owner.dispose();
     },
   );
 }
