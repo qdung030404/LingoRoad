@@ -336,6 +336,47 @@ describe('NotificationsService', () => {
     expect(store.rows).toHaveLength(0);
   });
 
+  it('memoizes empty ensureDailyNotifications checks within TTL, coalesces concurrent calls, and resets on invalidateDailyCheck or next Vietnam day', async () => {
+    const store = makeNotificationDb();
+    store.setDayPlan({ items: [{ lessonId: 'lesson-1' }] });
+    store.setCompletedLessonsToday(['lesson-1']);
+    store.setNeedsReviewCount(0);
+    store.setActiveAttempt(null);
+
+    const service = new NotificationsService(store.db as unknown as PrismaService);
+
+    // Concurrent calls coalesce into a single DB pass
+    await Promise.all([
+      service.ensureDailyNotifications('user-1'),
+      service.ensureDailyNotifications('user-1'),
+    ]);
+    expect(store.db.userNotification.findMany).toHaveBeenCalledTimes(1);
+    expect(store.db.vocabularyWord.count).toHaveBeenCalledTimes(1);
+
+    // Repeat call within 60s hits in-memory memoization (0 SQL queries)
+    await service.ensureDailyNotifications('user-1');
+    expect(store.db.userNotification.findMany).toHaveBeenCalledTimes(1);
+    expect(store.db.vocabularyWord.count).toHaveBeenCalledTimes(1);
+
+    // Explicit invalidation allows immediate re-check when new plan/vocab data arrives
+    store.setNeedsReviewCount(3);
+    service.invalidateDailyCheck('user-1');
+    await service.ensureDailyNotifications('user-1');
+    expect(store.db.userNotification.findMany).toHaveBeenCalledTimes(2);
+    expect(store.rows).toHaveLength(1);
+    expect(store.rows[0].type).toBe(NotificationType.VOCABULARY_REVIEW_DUE);
+
+    // Advancing past 60s re-checks incomplete day; crossing Vietnam midnight uses new date key
+    jest.setSystemTime(new Date('2026-11-28T03:02:00Z'));
+    await service.ensureDailyNotifications('user-1');
+    expect(store.db.userNotification.findMany).toHaveBeenCalledTimes(3);
+
+    jest.setSystemTime(new Date('2026-11-28T17:00:05Z')); // 00:00:05 VN on 2026-11-29
+    await service.ensureDailyNotifications('user-1');
+    expect(store.db.userNotification.findMany).toHaveBeenCalledTimes(4);
+    expect(store.rows.some((r) => r.dedupeKey === 'vocab_due:2026-11-29')).toBe(true);
+  });
+
   it('paginates with cursor (createdAt DESC, id DESC), enforces ownership, and marks read / read-all', async () => {
     const t1 = new Date('2026-11-28T01:00:00Z');
     const t2 = new Date('2026-11-28T02:00:00Z');

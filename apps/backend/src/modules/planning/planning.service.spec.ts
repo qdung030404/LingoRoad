@@ -1180,6 +1180,12 @@ describe('PlanningService notification triggers and home unread count', () => {
     const change = await svc.evaluateReadingLevel(tx, 'u', readingAttempts[0]);
 
     expect(change).toEqual({ kind: 'READING', from: 'A2', to: 'B1', direction: 'UP' });
+    expect(tx.learningAttempt.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: 'u', status: 'COMPLETED' },
+        select: expect.not.objectContaining({ contentSnapshot: true }),
+      }),
+    );
     expect(tx.learningSkillLevelEvent.create).toHaveBeenCalledTimes(1);
     expect(notifications.createNotification).toHaveBeenCalledWith(
       expect.objectContaining({

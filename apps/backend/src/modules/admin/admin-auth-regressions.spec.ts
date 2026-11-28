@@ -15,6 +15,7 @@ import { validate } from 'class-validator';
 import { AssessmentCacheService } from '../assessment/services/assessment-cache.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseTokenService } from '../auth/firebase/firebase-token.service';
+import { FirebaseUserService } from '../auth/firebase/firebase-user.service';
 import { PasswordService } from '../security/password.service';
 import { TokenService } from '../security/token.service';
 import {
@@ -553,9 +554,13 @@ describe('Wave 2 Admin Auth Security Hardening', () => {
         $transaction: jest.fn(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
       };
       const password = { hash: jest.fn().mockResolvedValue('hashed-pw') };
+      const firebaseUsers = { invalidateCache: jest.fn() };
       const service = new AdminUsersService(
         prisma as unknown as PrismaService,
         password as unknown as PasswordService,
+        undefined,
+        undefined,
+        firebaseUsers as unknown as FirebaseUserService,
       );
 
       await service.updateUser('admin-1', user.id, { name: 'Updated Name' });
@@ -564,13 +569,18 @@ describe('Wave 2 Admin Auth Security Hardening', () => {
           data: expect.not.objectContaining({ tokenVersion: { increment: 1 } }),
         }),
       );
+      expect(firebaseUsers.invalidateCache).toHaveBeenCalledWith(user.firebaseUid);
+      expect(firebaseUsers.invalidateCache).toHaveBeenCalledWith(user.id);
 
+      firebaseUsers.invalidateCache.mockClear();
       await service.updateUser('admin-1', user.id, { status: UserStatus.SUSPENDED });
       expect(tx.user.update).toHaveBeenLastCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({ tokenVersion: { increment: 1 } }),
         }),
       );
+      expect(firebaseUsers.invalidateCache).toHaveBeenCalledWith(user.firebaseUid);
+      expect(firebaseUsers.invalidateCache).toHaveBeenCalledWith(user.id);
     });
   });
 

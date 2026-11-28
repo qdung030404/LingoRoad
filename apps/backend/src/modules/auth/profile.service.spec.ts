@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { FirebaseUserService } from './firebase/firebase-user.service';
 import { ProfileService } from './profile.service';
 
 describe('ProfileService', () => {
@@ -20,10 +21,16 @@ describe('ProfileService', () => {
   };
   let service: ProfileService;
   let user: { findUnique: jest.Mock; update: jest.Mock };
+  let firebaseUsers: { invalidateCache: jest.Mock };
 
   beforeEach(() => {
     user = { findUnique: jest.fn(async () => account), update: jest.fn(async () => account) };
-    service = new ProfileService({ user } as unknown as PrismaService);
+    firebaseUsers = { invalidateCache: jest.fn() };
+    service = new ProfileService(
+      { user } as unknown as PrismaService,
+      undefined,
+      firebaseUsers as unknown as FirebaseUserService,
+    );
   });
 
   it('loads only safe account fields', async () => {
@@ -48,6 +55,7 @@ describe('ProfileService', () => {
     expect(args.data.name).toBe('Updated Name');
     expect(args.data.profile.upsert.update).not.toHaveProperty('onboardingCompletedAt');
     expect(args.data.profile.upsert.update).not.toHaveProperty('preferencesVersion');
+    expect(firebaseUsers.invalidateCache).toHaveBeenCalledWith('owner');
   });
 
   it('updates user avatarUrl directly without requiring expectedVersion or touching goals', async () => {

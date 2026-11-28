@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { FirebaseUserService } from './firebase/firebase-user.service';
 import {
   PlanningService,
   readPreferredSkillsForUser,
@@ -40,7 +41,11 @@ function normalizeAccountProfile<T extends { profile?: Record<string, any> | nul
 
 @Injectable()
 export class ProfileService {
-  constructor(private readonly prisma: PrismaService, @Optional() private readonly planning?: PlanningService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly planning?: PlanningService,
+    @Optional() private readonly firebaseUsers?: FirebaseUserService,
+  ) {}
 
   async get(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: safeAccount });
@@ -200,8 +205,10 @@ export class ProfileService {
       }
       return normalizeAccountProfile(updatedUser, preferredSkills);
     };
-    return this.planning
-      ? this.planning.updateAccountProfile(userId, write, () => shouldReconcilePlan)
-      : write(this.prisma);
+    const updated = this.planning
+      ? await this.planning.updateAccountProfile(userId, write, () => shouldReconcilePlan)
+      : await write(this.prisma);
+    this.firebaseUsers?.invalidateCache(userId);
+    return updated;
   }
 }

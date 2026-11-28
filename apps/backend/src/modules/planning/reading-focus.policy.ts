@@ -1,4 +1,4 @@
-import { CefrLevel, LearningAttempt, LearningAttemptAnswer } from '@prisma/client';
+import { CefrLevel, LearningAttempt, LearningAttemptAnswer, Prisma } from '@prisma/client';
 import { isEligibleReadingEvidence, ReadingEvidenceCandidate } from './skill-level.policy';
 
 export const READING_FOCUS_LABELS = {
@@ -10,8 +10,25 @@ export type ReadingFocusCode = keyof typeof READING_FOCUS_LABELS;
 const LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_ATTEMPTS = 10;
 
+export type ReadingEvidenceAttempt = Pick<
+  LearningAttempt,
+  | 'id'
+  | 'lessonId'
+  | 'contentVersion'
+  | 'status'
+  | 'submittedAt'
+  | 'correctCount'
+  | 'totalQuestions'
+  | 'eligibleForLevelEval'
+  | 'lessonSnapshot'
+>;
+
+export type ReadingFocusAttempt = ReadingEvidenceAttempt & {
+  contentSnapshot?: Prisma.JsonValue | null;
+};
+
 export function readingEvidence(
-  attempt: LearningAttempt,
+  attempt: ReadingEvidenceAttempt,
   exposedAttemptId: string | null,
 ): ReadingEvidenceCandidate {
   const snapshot = attempt.lessonSnapshot as { kind?: string; cefrLevel?: CefrLevel; code?: string } | null;
@@ -47,30 +64,45 @@ export function countFocusQuestions(content: unknown, code: ReadingFocusCode): n
   return [...focusQuestions(content).values()].filter(tag => tag === code).length;
 }
 
-export function selectReadingFocusAttempts(
-  attempts: readonly LearningAttempt[],
+export function isReadingFocusCandidate(
+  attempt: ReadingEvidenceAttempt,
   exposureByLesson: ReadonlyMap<string, string>,
   level: { cefrLevel: CefrLevel; changedAt: Date | null },
   now: Date,
-): LearningAttempt[] {
+): boolean {
   const earliest = now.getTime() - LOOKBACK_MS;
-  return attempts.filter(attempt =>
-    attempt.submittedAt != null && attempt.submittedAt.getTime() >= earliest
-    && attempt.submittedAt <= now
-    && isEligibleReadingEvidence(
+  return (
+    attempt.submittedAt != null &&
+    attempt.submittedAt.getTime() >= earliest &&
+    attempt.submittedAt <= now &&
+    isEligibleReadingEvidence(
       readingEvidence(attempt, exposureByLesson.get(attempt.lessonId) ?? null),
       level.cefrLevel,
       level.changedAt,
     )
-    && focusQuestions(attempt.contentSnapshot).size > 0,
-  ).sort((a, b) => b.submittedAt!.getTime() - a.submittedAt!.getTime() || b.id.localeCompare(a.id))
+  );
+}
+
+export function selectReadingFocusAttempts<T extends ReadingFocusAttempt>(
+  attempts: readonly T[],
+  exposureByLesson: ReadonlyMap<string, string>,
+  level: { cefrLevel: CefrLevel; changedAt: Date | null },
+  now: Date,
+): T[] {
+  return attempts
+    .filter(
+      (attempt) =>
+        isReadingFocusCandidate(attempt, exposureByLesson, level, now) &&
+        focusQuestions(attempt.contentSnapshot).size > 0,
+    )
+    .sort((a, b) => b.submittedAt!.getTime() - a.submittedAt!.getTime() || b.id.localeCompare(a.id))
     .slice(0, MAX_ATTEMPTS);
 }
 
 type FocusAnswer = Pick<LearningAttemptAnswer, 'attemptId' | 'questionId' | 'isCorrect'>;
 
 export function chooseReadingFocus(
-  attempts: readonly Pick<LearningAttempt, 'id' | 'lessonId' | 'contentSnapshot'>[],
+  attempts: readonly Pick<ReadingFocusAttempt, 'id' | 'lessonId' | 'contentSnapshot'>[],
   checkedAnswers: readonly FocusAnswer[],
 ): ReadingFocusCode | undefined {
   const snapshots = new Map(attempts.map(attempt => [attempt.id, {
