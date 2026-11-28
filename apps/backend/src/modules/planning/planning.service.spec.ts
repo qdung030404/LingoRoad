@@ -404,29 +404,53 @@ describe('Progress roadmap units and score stats', () => {
         userProfile: { findUnique: jest.fn(async () => ({ userId: 'u', dailyGoalMinutes: 10, preferredKinds: ['READING'], preferencesVersion: 0 })) },
         learningDayPlan: { findMany: jest.fn(async () => []) },
         learningAttempt: {
-          findMany: jest.fn(async () => [
-            { ...attempt('a1', 'l1', 4, new Date('2026-11-13T02:00:00Z')), lessonSnapshot: { kind: 'READING', title: 'R1' } },
-            { ...attempt('a0', 'l1', 3, new Date('2026-11-05T02:00:00Z')), lessonSnapshot: { kind: 'READING', title: 'R1' } },
-          ]),
+          findMany: jest.fn(async () => []),
         },
         learningLesson: { findMany: jest.fn(async () => lessons) },
         learningUnit: { findMany: jest.fn(async () => units) },
         learningActivitySession: { findFirst: jest.fn(async () => ({ anchorAt: new Date('2026-11-12T00:00:00Z') })) },
         placementSession: { findFirst: jest.fn(async () => ({ skillResults: { reading: { estimatedCefr: 'B1' } }, completedAt: new Date('2026-11-01T00:00:00Z') })) },
         learningSkillLevel: { findUnique: jest.fn(async () => ({ cefrLevel: 'B2', source: 'ADAPTIVE', previousCefr: 'B1', changedAt: new Date('2026-11-12T10:00:00Z') })) },
-        $queryRaw: jest.fn(async () => [
-          { idx: 5, seconds: 120 },
-          { idx: 6, seconds: 120 },
-          { idx: 7, seconds: 240 },
-        ]),
+        $queryRaw: jest.fn(async (strings: TemplateStringsArray) => {
+          const sql = Array.isArray(strings) ? strings.join('?') : String(strings);
+          if (sql.includes('WITH user_attempts AS')) {
+            return [
+              {
+                completedAttemptCount: 2,
+                activeAttemptCount: 0,
+                completedPublishedIds: ['l1'],
+                validScoreCount: 2,
+                allScoreSum: 140,
+                currentWeekCount: 1,
+                currentWeekSum: 80,
+                previousWeekCount: 1,
+                previousWeekSum: 60,
+                dailyCounts: [
+                  { date: '2026-11-13', completedLessonCount: 1, completedAttemptCount: 1 },
+                ],
+                latestByKind: [
+                  {
+                    kind: 'READING',
+                    correctCount: 4,
+                    totalQuestions: 5,
+                    submittedAtIso: '2026-11-13T02:00:00.000Z',
+                    lessonTitle: 'R1',
+                  },
+                ],
+              },
+            ];
+          }
+          return [
+            { idx: 5, seconds: 120 },
+            { idx: 6, seconds: 120 },
+            { idx: 7, seconds: 240 },
+          ];
+        }),
       };
       const svc = new PlanningService(db as unknown as PrismaService);
       const res = await svc.progress('u');
-      expect(db.$queryRaw).toHaveBeenCalledTimes(1);
-      expect(db.learningAttempt.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { userId: 'u' },
-        select: expect.not.objectContaining({ contentSnapshot: true }),
-      }));
+      expect(db.$queryRaw).toHaveBeenCalledTimes(2);
+      expect(db.learningAttempt.findMany).not.toHaveBeenCalled();
       expect(db.learningDayPlan.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({ userId: 'u', date: expect.any(Object) }),
         select: { date: true, dailyGoalMinutes: true },
@@ -440,6 +464,16 @@ describe('Progress roadmap units and score stats', () => {
         previousWeekAverage: 60,
         deltaPercent: 20,
       });
+      expect(res.latestResults).toEqual([
+        {
+          kind: 'READING',
+          correctCount: 4,
+          totalQuestions: 5,
+          scoreRatio: 0.8,
+          submittedAt: new Date('2026-11-13T02:00:00.000Z'),
+          lessonTitle: 'R1',
+        },
+      ]);
       expect(res.recommendedLevels.reading).toEqual({
         cefrLevel: 'B2',
         source: 'ADAPTIVE',

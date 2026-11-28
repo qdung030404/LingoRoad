@@ -99,7 +99,17 @@ class _DailyPlanCardState extends State<DailyPlanCard> {
                 10)
             .toInt();
     final ratio = goal > 0 ? (seconds / (goal * 60)).clamp(0.0, 1.0) : 0.0;
-    final items = plan == null ? const <Json>[] : learningItems(plan['items']);
+    final rawItems = plan == null
+        ? const <Json>[]
+        : learningItems(plan['items']);
+    final seenStepKeys = <String>{};
+    final items = <Json>[
+      for (final item in rawItems)
+        if (seenStepKeys.add(
+          '${item['kind'] ?? ''}:${item['lessonId'] ?? item['id'] ?? ''}',
+        ))
+          item,
+    ];
     final firstIncompleteIndex = items.indexWhere(
       (item) => item['completed'] != true,
     );

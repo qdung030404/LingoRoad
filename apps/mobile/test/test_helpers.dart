@@ -131,6 +131,7 @@ class FakeApi extends ApiClient {
       'reminderVersion': reminderVersion,
     };
     status = completed ? 'COMPLETED' : null;
+    hasCompleted = completed;
   }
 
   late Json profile;
@@ -139,6 +140,7 @@ class FakeApi extends ApiClient {
   String provider;
   Json? readingLevel;
   String? status;
+  late bool hasCompleted;
   int index = 0;
   bool failAnswer = false;
   final List<Json> submitted = [];
@@ -275,17 +277,25 @@ class FakeApi extends ApiClient {
       };
     }
     if (path == '/placement/status') {
+      final isRetaking = hasCompleted && status != 'COMPLETED';
       return {
+        'hasCompleted': hasCompleted,
         'status': status,
         'currentIndex': index,
-        'currentSessionId': 'session',
+        'currentSessionId': isRetaking ? 'retake-session' : 'session',
+        if (hasCompleted) 'completedSessionId': 'session',
         'totalItems': 10,
+        if (isRetaking) ...{
+          'estimatedCefr': 'B1',
+          'skillResults': testResult()['skills'],
+        },
       };
     }
     if (path == '/placement/start') {
+      if (status != 'IN_PROGRESS') index = 0;
       status = 'IN_PROGRESS';
       return {
-        'sessionId': 'session',
+        'sessionId': hasCompleted ? 'retake-session' : 'session',
         'totalItems': 10,
         'firstItem': testItem(index),
       };
@@ -296,6 +306,7 @@ class FakeApi extends ApiClient {
       index++;
       if (index == 10) {
         status = 'COMPLETED';
+        hasCompleted = true;
         return {'isFinished': true, 'result': testResult()};
       }
       return {'isFinished': false, 'nextItem': testItem(index)};

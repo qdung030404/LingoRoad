@@ -9,9 +9,10 @@ import {
   buildLearningWeekWindows,
   buildProgressUnits,
   buildWeekDaySummaries,
-  computeScoreStats,
   CURRENT_PLAN_POLICY_VERSION,
+  DAY_MS,
   learningDate,
+  learningDayStart,
   MILESTONE_CEFR_ORDER,
   MilestoneLessonInput,
   resolveGrammarTopicCode,
@@ -246,9 +247,193 @@ export async function buildHomeResponseHelper(params: {
   };
 }
 
+async function progressAttemptSummaryHelper(
+  prisma: PrismaService,
+  userId: string,
+  weekStartFrom: Date,
+  afterTodayEnd: Date,
+  currentWeekStart: Date,
+  previousWeekStart: Date,
+  now: Date,
+) {
+  const [row] = await prisma.$queryRaw<
+    Array<{
+      completedAttemptCount: number;
+      activeAttemptCount: number;
+      completedPublishedIds: string[] | null;
+      validScoreCount: number;
+      allScoreSum: number | null;
+      currentWeekCount: number;
+      currentWeekSum: number | null;
+      previousWeekCount: number;
+      previousWeekSum: number | null;
+      dailyCounts: Array<{
+        date: string;
+        completedLessonCount: number;
+        completedAttemptCount: number;
+      }> | null;
+      latestByKind: Array<{
+        kind: LearningKind;
+        correctCount: number;
+        totalQuestions: number;
+        submittedAtIso: string | null;
+        lessonTitle: string;
+      }> | null;
+    }>
+  >`
+    WITH user_attempts AS (
+      SELECT
+        a.id,
+        a.lesson_id,
+        a.status,
+        a.correct_count,
+        a.total_questions,
+        a.submitted_at,
+        a.history_hidden_at,
+        (a.lesson_snapshot ->> 'kind') AS snapshot_kind,
+        (a.lesson_snapshot ->> 'title') AS snapshot_title
+      FROM learning_attempts a
+      WHERE a.user_id = ${userId}::uuid
+    ),
+    counts_and_scores AS (
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'COMPLETED')::int AS completed_attempt_count,
+        COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')::int AS active_attempt_count,
+        COUNT(*) FILTER (
+          WHERE status = 'COMPLETED'
+            AND submitted_at IS NOT NULL
+            AND correct_count IS NOT NULL
+            AND total_questions > 0
+        )::int AS valid_score_count,
+        SUM(
+          ((correct_count::double precision / total_questions::double precision) * 100.0)
+          ORDER BY submitted_at DESC, id DESC
+        ) FILTER (
+          WHERE status = 'COMPLETED'
+            AND submitted_at IS NOT NULL
+            AND correct_count IS NOT NULL
+            AND total_questions > 0
+        )::double precision AS all_score_sum,
+        COUNT(*) FILTER (
+          WHERE status = 'COMPLETED'
+            AND submitted_at IS NOT NULL
+            AND correct_count IS NOT NULL
+            AND total_questions > 0
+            AND (submitted_at AT TIME ZONE 'UTC') >= ${currentWeekStart}::timestamptz
+            AND (submitted_at AT TIME ZONE 'UTC') <= ${now}::timestamptz
+        )::int AS current_week_count,
+        SUM(
+          ((correct_count::double precision / total_questions::double precision) * 100.0)
+          ORDER BY submitted_at DESC, id DESC
+        ) FILTER (
+          WHERE status = 'COMPLETED'
+            AND submitted_at IS NOT NULL
+            AND correct_count IS NOT NULL
+            AND total_questions > 0
+            AND (submitted_at AT TIME ZONE 'UTC') >= ${currentWeekStart}::timestamptz
+            AND (submitted_at AT TIME ZONE 'UTC') <= ${now}::timestamptz
+        )::double precision AS current_week_sum,
+        COUNT(*) FILTER (
+          WHERE status = 'COMPLETED'
+            AND submitted_at IS NOT NULL
+            AND correct_count IS NOT NULL
+            AND total_questions > 0
+            AND (submitted_at AT TIME ZONE 'UTC') >= ${previousWeekStart}::timestamptz
+            AND (submitted_at AT TIME ZONE 'UTC') < ${currentWeekStart}::timestamptz
+        )::int AS previous_week_count,
+        SUM(
+          ((correct_count::double precision / total_questions::double precision) * 100.0)
+          ORDER BY submitted_at DESC, id DESC
+        ) FILTER (
+          WHERE status = 'COMPLETED'
+            AND submitted_at IS NOT NULL
+            AND correct_count IS NOT NULL
+            AND total_questions > 0
+            AND (submitted_at AT TIME ZONE 'UTC') >= ${previousWeekStart}::timestamptz
+            AND (submitted_at AT TIME ZONE 'UTC') < ${currentWeekStart}::timestamptz
+        )::double precision AS previous_week_sum
+      FROM user_attempts
+    ),
+    daily_rows AS (
+      SELECT
+        to_char(submitted_at + interval '7 hours', 'YYYY-MM-DD') AS day_date,
+        COUNT(DISTINCT lesson_id)::int AS completed_lesson_count,
+        COUNT(*)::int AS completed_attempt_count
+      FROM user_attempts
+      WHERE status = 'COMPLETED'
+        AND submitted_at IS NOT NULL
+        AND (submitted_at AT TIME ZONE 'UTC') >= ${weekStartFrom}::timestamptz
+        AND (submitted_at AT TIME ZONE 'UTC') < ${afterTodayEnd}::timestamptz
+      GROUP BY 1
+    ),
+    latest_rows AS (
+      SELECT DISTINCT ON (snapshot_kind)
+        snapshot_kind AS kind,
+        correct_count,
+        total_questions,
+        CASE
+          WHEN submitted_at IS NULL THEN NULL
+          ELSE to_char(submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+        END AS submitted_at_iso,
+        snapshot_title AS lesson_title
+      FROM user_attempts
+      WHERE status = 'COMPLETED'
+        AND history_hidden_at IS NULL
+        AND snapshot_kind IN ('GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING')
+      ORDER BY snapshot_kind, submitted_at DESC, id DESC
+    )
+    SELECT
+      cs.completed_attempt_count AS "completedAttemptCount",
+      cs.active_attempt_count AS "activeAttemptCount",
+      ARRAY(
+        SELECT DISTINCT ua.lesson_id::text
+        FROM user_attempts ua
+        INNER JOIN learning_lessons l ON l.id = ua.lesson_id AND l.published = true
+        WHERE ua.status = 'COMPLETED'
+      ) AS "completedPublishedIds",
+      cs.valid_score_count AS "validScoreCount",
+      cs.all_score_sum AS "allScoreSum",
+      cs.current_week_count AS "currentWeekCount",
+      cs.current_week_sum AS "currentWeekSum",
+      cs.previous_week_count AS "previousWeekCount",
+      cs.previous_week_sum AS "previousWeekSum",
+      COALESCE(
+        (
+          SELECT json_agg(
+            json_build_object(
+              'date', dr.day_date,
+              'completedLessonCount', dr.completed_lesson_count,
+              'completedAttemptCount', dr.completed_attempt_count
+            )
+          )
+          FROM daily_rows dr
+        ),
+        '[]'::json
+      ) AS "dailyCounts",
+      COALESCE(
+        (
+          SELECT json_agg(
+            json_build_object(
+              'kind', lr.kind,
+              'correctCount', lr.correct_count,
+              'totalQuestions', lr.total_questions,
+              'submittedAtIso', lr.submitted_at_iso,
+              'lessonTitle', lr.lesson_title
+            )
+          )
+          FROM latest_rows lr
+        ),
+        '[]'::json
+      ) AS "latestByKind"
+    FROM counts_and_scores cs
+  `;
+  return row;
+}
+
 export async function buildProgressResponseHelper(params: {
   prisma: PrismaService;
   userId: string;
+  now?: Date;
   getProfile: (db: Prisma.TransactionClient | PrismaService, uid: string) => Promise<UserProfile>;
   shouldUpgradeFromPlacement: (
     existing: Pick<LearningSkillLevel, 'source' | 'changedAt'>,
@@ -263,18 +448,22 @@ export async function buildProgressResponseHelper(params: {
   const {
     prisma,
     userId,
+    now = new Date(),
     getProfile,
     shouldUpgradeFromPlacement,
     syncPlacementSkillLevel,
   } = params;
-  const now = new Date();
   const today = learningDate(now);
+  const start = learningDayStart(today);
+  const currentWeekStart = new Date(start.getTime() - 6 * DAY_MS);
+  const previousWeekStart = new Date(start.getTime() - 13 * DAY_MS);
+  const afterTodayEnd = new Date(start.getTime() + DAY_MS);
   const week = buildLearningWeekWindows(now, today);
 
   const [
     profile,
     plans,
-    attempts,
+    attemptStats,
     totalLessons,
     units,
     first,
@@ -287,20 +476,15 @@ export async function buildProgressResponseHelper(params: {
       where: { userId, date: { gte: week[0].date, lte: today } },
       select: { date: true, dailyGoalMinutes: true },
     }),
-    prisma.learningAttempt.findMany({
-      where: { userId },
-      select: {
-        id: true,
-        lessonId: true,
-        status: true,
-        lessonSnapshot: true,
-        correctCount: true,
-        totalQuestions: true,
-        submittedAt: true,
-        historyHiddenAt: true,
-      },
-      orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
-    }),
+    progressAttemptSummaryHelper(
+      prisma,
+      userId,
+      currentWeekStart,
+      afterTodayEnd,
+      currentWeekStart,
+      previousWeekStart,
+      now,
+    ),
     prisma.learningLesson.findMany({
       where: { published: true },
       select: {
@@ -331,19 +515,30 @@ export async function buildProgressResponseHelper(params: {
   ]);
 
   const goalByDate = new Map(plans.map((p) => [p.date, p.dailyGoalMinutes]));
-  const completed = attempts.filter((a) => a.status === 'COMPLETED');
-  const days = buildWeekDaySummaries(
-    week,
-    today,
-    profile.dailyGoalMinutes,
-    goalByDate,
-    completed,
-    seconds,
-    first?.anchorAt ?? null,
+  const dailyByDate = new Map(
+    (attemptStats?.dailyCounts ?? []).map((d) => [d.date, d]),
   );
-  const publishedIds = new Set(totalLessons.map((l) => l.id));
-  const completedPublishedIds = new Set(
-    completed.filter((a) => publishedIds.has(a.lessonId)).map((a) => a.lessonId),
+  const days = week.map((day, index) => {
+    const dayStats = dailyByDate.get(day.date);
+    const completedLessonCount = Number(dayStats?.completedLessonCount ?? 0);
+    const completedAttemptCount = Number(dayStats?.completedAttemptCount ?? 0);
+    const activeSeconds = seconds.get(index) ?? 0;
+    const target =
+      goalByDate.get(day.date) ??
+      (day.date === today ? profile.dailyGoalMinutes : null);
+    return {
+      date: day.date,
+      dailyGoalMinutes: target,
+      activeSeconds,
+      goalMet: target != null && activeSeconds >= target * 60,
+      completedLessonCount,
+      completedAttemptCount,
+      hasActivity: activeSeconds > 0 || completedAttemptCount > 0,
+      timeMeasured: first != null && learningDate(first.anchorAt) <= day.date,
+    };
+  });
+  const completedPublishedIds = new Set<string>(
+    attemptStats?.completedPublishedIds ?? [],
   );
   const measuredDays = days.filter((d) => d.timeMeasured);
   const averageActiveSeconds = measuredDays.length
@@ -352,25 +547,50 @@ export async function buildProgressResponseHelper(params: {
           measuredDays.length,
       )
     : 0;
+  const latestByKindMap = new Map(
+    (attemptStats?.latestByKind ?? []).map((r) => [r.kind, r]),
+  );
   const latestResults = Object.values(LearningKind).flatMap((kind) => {
-    const a = completed.find(
-      (row) =>
-        row.historyHiddenAt == null &&
-        (row.lessonSnapshot as { kind?: string })?.kind === kind,
-    );
-    return a
-      ? [
-          {
-            kind,
-            correctCount: a.correctCount!,
-            totalQuestions: a.totalQuestions,
-            scoreRatio: a.correctCount! / a.totalQuestions,
-            submittedAt: a.submittedAt,
-            lessonTitle: (a.lessonSnapshot as { title: string }).title,
-          },
-        ]
-      : [];
+    const a = latestByKindMap.get(kind);
+    if (!a) return [];
+    const correctCount = Number(a.correctCount);
+    const totalQuestions = Number(a.totalQuestions);
+    return [
+      {
+        kind,
+        correctCount,
+        totalQuestions,
+        scoreRatio: correctCount / totalQuestions,
+        submittedAt: a.submittedAtIso ? new Date(a.submittedAtIso) : null,
+        lessonTitle: a.lessonTitle,
+      },
+    ];
   });
+  const validScoreCount = Number(attemptStats?.validScoreCount ?? 0);
+  const currentWeekCount = Number(attemptStats?.currentWeekCount ?? 0);
+  const previousWeekCount = Number(attemptStats?.previousWeekCount ?? 0);
+  const averageScore =
+    validScoreCount > 0
+      ? Math.round(Number(attemptStats?.allScoreSum ?? 0) / validScoreCount)
+      : null;
+  const currentWeekAverage =
+    currentWeekCount > 0
+      ? Math.round(Number(attemptStats?.currentWeekSum ?? 0) / currentWeekCount)
+      : null;
+  const previousWeekAverage =
+    previousWeekCount > 0
+      ? Math.round(Number(attemptStats?.previousWeekSum ?? 0) / previousWeekCount)
+      : null;
+  const scoreStats = {
+    averageScore,
+    completedAttemptCount: validScoreCount,
+    currentWeekAverage,
+    previousWeekAverage,
+    deltaPercent:
+      currentWeekAverage != null && previousWeekAverage != null
+        ? currentWeekAverage - previousWeekAverage
+        : null,
+  };
 
   const placementInit = initialReadingLevel(
     placement?.skillResults as Record<string, unknown> | undefined,
@@ -400,8 +620,8 @@ export async function buildProgressResponseHelper(params: {
     totals: {
       totalLessons: totalLessons.length,
       completedLessonCount: completedPublishedIds.size,
-      completedAttemptCount: completed.length,
-      activeAttemptCount: attempts.filter((a) => a.status === 'IN_PROGRESS').length,
+      completedAttemptCount: Number(attemptStats?.completedAttemptCount ?? 0),
+      activeAttemptCount: Number(attemptStats?.activeAttemptCount ?? 0),
       activeSeconds: seconds.get(week.length) ?? 0,
       averageActiveSeconds,
       averageStudyMinutes: Math.floor(averageActiveSeconds / 60),
@@ -413,7 +633,7 @@ export async function buildProgressResponseHelper(params: {
       completedPublishedIds,
       placementCefr,
     ),
-    scoreStats: computeScoreStats(completed, now),
+    scoreStats,
     latestResults,
     placement: placement?.skillResults ?? null,
     placementCefr,

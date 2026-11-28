@@ -680,4 +680,96 @@ describe('Personal vocabulary and persisted review', () => {
     assert.equal(otherDecks.items[0].totalWords, 1);
     assert.equal(otherDecks.nextCursor, null);
   });
+
+  it('deduplicates mixed batch words case-insensitively and preserves receipt.result.wordIds order across commandId replay', async () => {
+    const owner = await account();
+    const deck = await createDeck(owner, 'Lô từ vựng hỗn hợp');
+
+    await createWord(owner, deck, 'apple', { partOfSpeech: 'noun' });
+    await createWord(owner, deck, 'run', { partOfSpeech: 'verb' });
+    const removed = await createWord(owner, deck, 'ghost', { partOfSpeech: 'noun' });
+    await api(owner, 'delete', `/vocabulary/words/${removed.id}`, {
+      commandId: randomUUID(),
+      expectedVersion: removed.version,
+    }).expect(200);
+
+    const batchPayload = {
+      commandId: randomUUID(),
+      words: [
+        { english: 'zebra', meaning: 'ngựa vằn', partOfSpeech: 'noun' },
+        { english: 'APPLE', meaning: 'quả táo trùng khác hoa thường', partOfSpeech: 'NOUN' },
+        { english: 'mango', meaning: 'quả xoài', partOfSpeech: 'noun' },
+        { english: 'ZEBRA', meaning: 'ngựa vằn trùng trong lô', partOfSpeech: 'Noun' },
+        { english: 'apple', meaning: 'quả táo trùng y hệt', partOfSpeech: 'noun' },
+        { english: 'Run', meaning: 'cuộc chạy (danh từ)', partOfSpeech: 'NOUN' },
+        { english: 'Ghost', meaning: 'bóng ma thêm lại sau xóa mềm', partOfSpeech: 'noun' },
+        { english: 'apricot', meaning: 'quả mơ', partOfSpeech: 'noun' },
+        { english: 'mAnGo', meaning: 'quả xoài trùng lần hai', partOfSpeech: 'NOUN' },
+      ],
+    };
+
+    const first = (await api(owner, 'post', `/vocabulary/decks/${deck.id}/words/batch`, batchPayload).expect(201)).body.data;
+    assert.equal(first.receipt.result.count, 5);
+    assert.equal(first.receipt.result.wordIds.length, 5);
+    assert.deepEqual(first.words.map(w => w.id), first.receipt.result.wordIds);
+    assert.deepEqual(
+      first.words.map(w => [w.english, w.partOfSpeech]),
+      [
+        ['zebra', 'noun'],
+        ['mango', 'noun'],
+        ['Run', 'NOUN'],
+        ['Ghost', 'noun'],
+        ['apricot', 'noun'],
+      ],
+    );
+
+    const countAfterFirst = await prisma.vocabularyWord.count({
+      where: { deckId: deck.id, deletedAt: null },
+    });
+    assert.equal(countAfterFirst, 7);
+
+    const replay = (await api(owner, 'post', `/vocabulary/decks/${deck.id}/words/batch`, batchPayload).expect(201)).body.data;
+    assert.deepEqual(replay.receipt, first.receipt);
+    assert.deepEqual(replay.words.map(w => w.id), replay.receipt.result.wordIds);
+    assert.deepEqual(replay.words.map(w => w.id), first.receipt.result.wordIds);
+    assert.deepEqual(replay.words, first.words);
+
+    const countAfterReplay = await prisma.vocabularyWord.count({
+      where: { deckId: deck.id, deletedAt: null },
+    });
+    assert.equal(countAfterReplay, countAfterFirst);
+
+    // Regression: tuple serialization avoids delimiter collisions between ("a:::b", "c") and ("a", "b:::c")
+    const delimDeck = await createDeck(owner, 'Kiểm tra phân tách khóa');
+    await createWord(owner, delimDeck, 'a:::b', { partOfSpeech: 'c' });
+    const delimPayload = {
+      commandId: randomUUID(),
+      words: [
+        { english: 'a', meaning: 'nghĩa thứ nhất', partOfSpeech: 'b:::c' },
+        { english: 'a:::b', meaning: 'nghĩa thứ hai', partOfSpeech: 'verb' },
+      ],
+    };
+    const delimFirst = (
+      await api(owner, 'post', `/vocabulary/decks/${delimDeck.id}/words/batch`, delimPayload).expect(201)
+    ).body.data;
+    assert.equal(delimFirst.receipt.result.count, 2);
+    assert.equal(delimFirst.receipt.result.wordIds.length, 2);
+    assert.deepEqual(delimFirst.words.map(w => w.id), delimFirst.receipt.result.wordIds);
+    assert.deepEqual(
+      delimFirst.words.map(w => [w.english, w.partOfSpeech]),
+      [
+        ['a', 'b:::c'],
+        ['a:::b', 'verb'],
+      ],
+    );
+
+    const delimReplay = (
+      await api(owner, 'post', `/vocabulary/decks/${delimDeck.id}/words/batch`, delimPayload).expect(201)
+    ).body.data;
+    assert.deepEqual(delimReplay.words.map(w => w.id), delimFirst.receipt.result.wordIds);
+    assert.equal(
+      await prisma.vocabularyWord.count({ where: { deckId: delimDeck.id, deletedAt: null } }),
+      3,
+    );
+  });
 });

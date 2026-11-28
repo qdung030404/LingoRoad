@@ -52,6 +52,23 @@ class _WritingTaskPageState extends State<WritingTaskPage> {
       text: widget.model.getDraft(widget.item.id, widget.itemIndex),
     );
     isSubmitted = widget.model.getEvaluation(widget.item.id) != null;
+    if (!widget.model.isRestored) {
+      unawaited(
+        widget.model.ensureRestored().then((_) {
+          if (!mounted) return;
+          final restoredDraft = widget.model.getDraft(
+            widget.item.id,
+            widget.itemIndex,
+          );
+          if (controller.text.isEmpty && restoredDraft.isNotEmpty) {
+            controller.text = restoredDraft;
+          }
+          setState(() {
+            isSubmitted = widget.model.getEvaluation(widget.item.id) != null;
+          });
+        }).catchError((Object _) {}),
+      );
+    }
   }
 
   @override

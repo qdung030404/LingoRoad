@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -8,6 +9,24 @@ Future<void> _deleteSpeakingFile(File file) async {
     await file.delete();
   } on PathNotFoundException {
     // Another session cleanup may already have removed this temporary file.
+  }
+}
+
+/// Reads, trims/normalizes, and atomically replaces a speaking WAV file.
+/// Designed to run inside `Isolate.run` so stopping a recording never stalls UI frames.
+Future<void> limitSpeakingWavFile(String path, {int maxSeconds = 30}) async {
+  final file = File(path);
+  final wav = limitSpeakingWav(
+    await file.readAsBytes(),
+    maxSeconds: maxSeconds,
+  );
+  final tempFile = File('$path.tmp');
+  try {
+    await tempFile.writeAsBytes(wav, flush: true);
+    await tempFile.rename(path);
+  } catch (_) {
+    await _deleteSpeakingFile(tempFile);
+    rethrow;
   }
 }
 
@@ -78,6 +97,7 @@ Future<void> cleanStaleSpeakingAudio({Directory? temporaryDirectory}) async {
   await for (final entity in owned.list(recursive: true, followLinks: false)) {
     if (entity is File &&
         (entity.path.endsWith('.wav') ||
+            entity.path.endsWith('.wav.tmp') ||
             entity.uri.pathSegments.last.startsWith(
                   'lingoroad-speaking-result-',
                 ) &&
@@ -158,12 +178,8 @@ class DeviceSpeakingRecorder implements SpeakingRecorder {
     _recording = false;
     final path = await _recorder.stop();
     if (path != null) {
-      final file = File(path);
-      final wav = limitSpeakingWav(
-        await file.readAsBytes(),
-        maxSeconds: maxSeconds,
-      );
-      await file.writeAsBytes(wav, flush: true);
+      final max = maxSeconds;
+      await Isolate.run(() => limitSpeakingWavFile(path, maxSeconds: max));
     }
     return path;
   }
@@ -180,6 +196,7 @@ class DeviceSpeakingRecorder implements SpeakingRecorder {
     await for (final file in directory.list(followLinks: false)) {
       if (file is File &&
           (file.path.endsWith('.wav') ||
+              file.path.endsWith('.wav.tmp') ||
               file.uri.pathSegments.last.startsWith(
                     'lingoroad-speaking-result-',
                   ) &&

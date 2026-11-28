@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
 import '../../core/auth/firebase_identity.dart';
 import '../learning/home_cache.dart';
@@ -27,7 +29,9 @@ class SessionController extends ChangeNotifier {
   StreamSubscription<String?>? _authChanges;
   String? error;
   HomeCache? _homeCache;
+  String? _accountMetaKey;
   Json? cachedHome;
+  Json? cachedAccount;
   Future<void>? _bootstrapping;
   Future<void> _cacheOperations = Future.value();
   Future<void> Function(String accountId)? onAccountCleared;
@@ -45,8 +49,36 @@ class SessionController extends ChangeNotifier {
     );
   }
 
+  bool get hasAuthenticatedContext =>
+      _currentUid != null ||
+      user != null ||
+      (api.identity?.signedIn ?? false) ||
+      api.accessToken != null;
+
+  bool get canRenderStartupSwr =>
+      stage == SessionStage.loading &&
+      cachedHome != null &&
+      validHomeSnapshot(cachedHome!) &&
+      hasAuthenticatedContext;
+
+  String? get activeAccountId {
+    final liveId = user?['id'] as String?;
+    if (liveId != null && liveId.isNotEmpty) return liveId;
+    final cachedId = cachedAccount?['id'] as String?;
+    if (cachedId != null && cachedId.isNotEmpty) return cachedId;
+    if (_currentUid != null && _currentUid!.isNotEmpty) return _currentUid;
+    return canRenderStartupSwr ? 'swr' : null;
+  }
+
+  bool get hasCompletedPlacement =>
+      placement['hasCompleted'] == true ||
+      placement['status'] == 'COMPLETED' ||
+      canRenderStartupSwr;
+
   String? get placementCefr =>
-      (placement['estimatedCefr'] ?? placementResult?['estimatedCefr'])
+      (placement['estimatedCefr'] ??
+              placementResult?['estimatedCefr'] ??
+              cachedAccount?['placementCefr'])
           as String?;
 
   void _cacheOperation(Future<void> Function() operation) {
@@ -57,8 +89,18 @@ class SessionController extends ChangeNotifier {
 
   void clearHome() {
     cachedHome = null;
+    cachedAccount = null;
     final store = _homeCache;
-    if (store != null) _cacheOperation(store.clear);
+    final metaKey = _accountMetaKey;
+    if (store != null || metaKey != null) {
+      _cacheOperation(() async {
+        if (store != null) await store.clear();
+        if (metaKey != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove(metaKey);
+        }
+      });
+    }
   }
 
   void rejectHomeSession() {
@@ -71,13 +113,32 @@ class SessionController extends ChangeNotifier {
 
   void rememberHome(Json snapshot) {
     if (_disposed ||
-        stage != SessionStage.ready ||
+        !(stage == SessionStage.ready || canRenderStartupSwr) ||
         !validHomeSnapshot(snapshot)) {
       return;
     }
     cachedHome = snapshot;
+    Json? meta;
+    if (stage == SessionStage.ready && user?['id'] is String) {
+      meta = <String, dynamic>{
+        'id': user!['id'],
+        if (user!['name'] != null) 'name': user!['name'],
+        if (user!['avatarUrl'] != null) 'avatarUrl': user!['avatarUrl'],
+        if (placementCefr != null) 'placementCefr': placementCefr,
+      };
+      cachedAccount = meta;
+    }
     final store = _homeCache;
-    if (store != null) _cacheOperation(() => store.write(snapshot));
+    final metaKey = _accountMetaKey;
+    if (store != null) {
+      _cacheOperation(() async {
+        await store.write(snapshot);
+        if (metaKey != null && meta != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(metaKey, jsonEncode(meta));
+        }
+      });
+    }
   }
 
   void _resetAccount(String? uid) {
@@ -89,6 +150,7 @@ class SessionController extends ChangeNotifier {
     }
     clearHome();
     _homeCache = null;
+    _accountMetaKey = null;
     _currentUid = uid;
     _epoch++;
     _bootstrapping = null;
@@ -96,6 +158,18 @@ class SessionController extends ChangeNotifier {
     user = null;
     placement = {};
     placementResult = null;
+  }
+
+  Future<Json?> _readAccountMeta(String metaKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(metaKey);
+      if (raw == null || raw.isEmpty) return null;
+      final decoded = jsonDecode(raw);
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _restoreHome(FirebaseIdentity identity, int epoch) async {
@@ -107,8 +181,15 @@ class SessionController extends ChangeNotifier {
       project: project,
       uid: uid,
     );
+    final metaKey = _accountMetaKey ??=
+        'learning.home.account.v1.${jsonEncode([api.config.apiBaseUrl, project, uid])}';
     await _cacheOperations;
-    final saved = await store.read();
+    final results = await Future.wait<Json?>([
+      store.read(),
+      _readAccountMeta(metaKey),
+    ]);
+    final saved = results[0];
+    final savedMeta = results[1];
     if (_disposed ||
         epoch != _epoch ||
         !identical(_homeCache, store) ||
@@ -118,6 +199,7 @@ class SessionController extends ChangeNotifier {
     }
     if (cachedHome == null && saved != null) {
       cachedHome = saved;
+      cachedAccount ??= savedMeta;
       notifyListeners();
     }
   }
@@ -338,12 +420,18 @@ class SessionController extends ChangeNotifier {
       );
     }
     // Older servers returned only the session ID.
+    final completedSessionId =
+        (assessment['completedSessionId'] ??
+                (assessment['status'] == 'COMPLETED'
+                    ? assessment['currentSessionId']
+                    : null))
+            as String?;
     final result =
-        assessment['status'] == 'COMPLETED' &&
+        completedSessionId != null &&
             !assessment.containsKey('estimatedCefr')
         ? await api.request(
             'GET',
-            '/placement/${assessment['currentSessionId']}/result',
+            '/placement/$completedSessionId/result',
           )
         : null;
     if (_disposed || expected != _epoch) return;
@@ -353,7 +441,10 @@ class SessionController extends ChangeNotifier {
     stage = profile['onboardingCompletedAt'] == null
         ? SessionStage.onboarding
         : SessionStage.ready;
-    if (stage != SessionStage.ready || assessment['status'] != 'COMPLETED') {
+    final completedPlacement =
+        assessment['hasCompleted'] == true ||
+        assessment['status'] == 'COMPLETED';
+    if (stage != SessionStage.ready || !completedPlacement) {
       clearHome();
     }
     error = null;
@@ -421,12 +512,39 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void acceptPlacementResult(String sessionId, Json result) {
+    if (_disposed) return;
+    placementResult = result;
+    placement = {
+      ...placement,
+      'hasCompleted': true,
+      'status': 'COMPLETED',
+      'currentSessionId': sessionId,
+      'completedSessionId': sessionId,
+      if (result['estimatedCefr'] != null)
+        'estimatedCefr': result['estimatedCefr'],
+      if (result['skills'] != null) 'skillResults': result['skills'],
+    };
+    clearHome();
+    notifyListeners();
+  }
+
   Future<void> refreshPlacement() async {
     final epoch = _epoch;
     final assessment = await api.request('GET', '/placement/status');
     if (_disposed || epoch != _epoch) return;
-    if (placement['currentSessionId'] != assessment['currentSessionId'] ||
-        placement['status'] != assessment['status']) {
+    final oldCompletedId =
+        placement['completedSessionId'] ??
+        (placement['status'] == 'COMPLETED'
+            ? placement['currentSessionId']
+            : null);
+    final newCompletedId =
+        assessment['completedSessionId'] ??
+        (assessment['status'] == 'COMPLETED'
+            ? assessment['currentSessionId']
+            : null);
+    if (oldCompletedId != newCompletedId ||
+        placement['estimatedCefr'] != assessment['estimatedCefr']) {
       clearHome();
       placementResult = null;
     }

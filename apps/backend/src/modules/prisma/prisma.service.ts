@@ -1,9 +1,15 @@
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { attachPrismaSqlTiming, isSqlTimingEnabled } from './sql-timing';
 
 export const PRISMA_CLIENT_OPTIONS = Symbol('PRISMA_CLIENT_OPTIONS');
 
-/** Normalizes Supabase Session Pooler URLs (max 15 clients) to Transaction Mode (port 6543 + pgbouncer=true). */
+const POSTGRES_PROTOCOLS = new Set(['postgres:', 'postgresql:']);
+
+/**
+ * Normalizes Supabase Session Pooler URLs (max 15 clients) to Transaction Mode (port 6543 + pgbouncer=true),
+ * and sets a default `connection_limit=10` on standard PostgreSQL URLs when omitted.
+ */
 export function resolveDatasourceUrl(rawUrl: string | undefined): string | undefined {
   if (!rawUrl) return undefined;
   try {
@@ -21,6 +27,10 @@ export function resolveDatasourceUrl(rawUrl: string | undefined): string | undef
       if (!parsed.searchParams.has('pool_timeout')) {
         parsed.searchParams.set('pool_timeout', '30');
       }
+      return parsed.toString();
+    }
+    if (POSTGRES_PROTOCOLS.has(parsed.protocol) && !parsed.searchParams.has('connection_limit')) {
+      parsed.searchParams.set('connection_limit', '10');
       return parsed.toString();
     }
   } catch {
@@ -41,6 +51,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         ? { ...options, datasources: { ...options?.datasources, db: { url } } }
         : options,
     );
+    if (isSqlTimingEnabled()) {
+      attachPrismaSqlTiming(this);
+    }
   }
 
   async onModuleInit(): Promise<void> {

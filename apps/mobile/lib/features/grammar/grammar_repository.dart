@@ -281,7 +281,22 @@ class GrammarTopicDetail {
   }
 }
 
+typedef GrammarCatalogueData = ({
+  List<GrammarLevelSummary> levels,
+  List<GrammarTreeNode> tree,
+});
+
 abstract class GrammarRepository {
+  Future<GrammarCatalogueData> fetchCatalogue() async {
+    final List<Object> results = await Future.wait<Object>(<Future<Object>>[
+      fetchLevels(),
+      fetchTree(),
+    ]);
+    return (
+      levels: results[0] as List<GrammarLevelSummary>,
+      tree: results[1] as List<GrammarTreeNode>,
+    );
+  }
   Future<List<GrammarLevelSummary>> fetchLevels();
   Future<List<GrammarTreeNode>> fetchTree();
   Future<GrammarTopicDetail> fetchTopicDetail(String code);
@@ -292,6 +307,34 @@ class ApiGrammarRepository implements GrammarRepository {
 
   final ApiClient api;
   final bool authenticated;
+
+  @override
+  Future<GrammarCatalogueData> fetchCatalogue() async {
+    try {
+      final Json res = await api.request(
+        'GET',
+        '/grammar/tree?groupBy=hierarchy&includeLevels=true',
+        auth: authenticated,
+      );
+      final List<GrammarTreeNode> tree = _asMapList(
+        res['tree'],
+      ).map(GrammarTreeNode.fromJson).toList();
+      final List<GrammarLevelSummary> levels = res['levels'] is List
+          ? _asMapList(res['levels']).map(GrammarLevelSummary.fromJson).toList()
+          : await fetchLevels();
+      return (levels: levels, tree: tree);
+    } on ApiFailure catch (error) {
+      if (error.status != 400) rethrow;
+      final List<Object> fallback = await Future.wait<Object>(<Future<Object>>[
+        fetchLevels(),
+        fetchTree(),
+      ]);
+      return (
+        levels: fallback[0] as List<GrammarLevelSummary>,
+        tree: fallback[1] as List<GrammarTreeNode>,
+      );
+    }
+  }
 
   @override
   Future<List<GrammarLevelSummary>> fetchLevels() async {

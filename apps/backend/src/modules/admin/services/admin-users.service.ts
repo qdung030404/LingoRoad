@@ -17,6 +17,7 @@ import {
   UserStatus,
 } from '@prisma/client';
 import { FirebaseTokenService } from '../../auth/firebase/firebase-token.service';
+import { FirebaseUserService } from '../../auth/firebase/firebase-user.service';
 import { PlanningService } from '../../planning/planning.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PasswordService } from '../../security/password.service';
@@ -66,6 +67,7 @@ export class AdminUsersService {
     private readonly passwordService: PasswordService,
     @Optional() private readonly firebase?: FirebaseTokenService,
     @Optional() private readonly planning?: PlanningService,
+    @Optional() private readonly firebaseUsers?: FirebaseUserService,
   ) {}
 
   async listUsers(
@@ -356,6 +358,9 @@ export class AdminUsersService {
         ? await this.planning.updateAccountProfile(targetId, runUpdate, () => true)
         : await this.prisma.$transaction(runUpdate);
 
+    this.firebaseUsers?.invalidateCache(existing.firebaseUid ?? targetId);
+    this.firebaseUsers?.invalidateCache(targetId);
+
     if (this.firebase?.enabled && existing.firebaseUid) {
       if (typeof this.firebase.setDisabled === 'function') {
         if (dto.status === UserStatus.ACTIVE && existing.status !== UserStatus.ACTIVE) {
@@ -414,6 +419,8 @@ export class AdminUsersService {
         }
       }
       await this.prisma.user.delete({ where: { id: targetId } });
+      this.firebaseUsers?.invalidateCache(existing.firebaseUid ?? targetId);
+      this.firebaseUsers?.invalidateCache(targetId);
       return { id: targetId, action: 'HARD_DELETED' };
     }
 
@@ -427,6 +434,9 @@ export class AdminUsersService {
         data: { isRevoked: true },
       });
     });
+
+    this.firebaseUsers?.invalidateCache(existing.firebaseUid ?? targetId);
+    this.firebaseUsers?.invalidateCache(targetId);
 
     if (this.firebase?.enabled && existing.firebaseUid) {
       if (typeof this.firebase.setDisabled === 'function') {
@@ -515,7 +525,7 @@ export class AdminUsersService {
   revokeAllUserSessions(
     userId: string,
   ): Promise<{ userId: string; revokedSessionsCount: number }> {
-    return revokeAllUserSessionsOp(this.prisma, userId, this.firebase);
+    return revokeAllUserSessionsOp(this.prisma, userId, this.firebase, this.firebaseUsers);
   }
 
   exportUserData(

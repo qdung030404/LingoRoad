@@ -17,30 +17,51 @@ export type RawWritingRow = {
   group: { title: string | null } | null;
 };
 
-/** Queries active study seconds aggregated by merged PostgreSQL tstzrange windows. */
+/** Queries active study seconds aggregated via a single user tstzmultirange intersected per window. */
 export async function queryHomeActiveSeconds(
   db: { $queryRaw: <T = unknown>(query: TemplateStringsArray | Prisma.Sql, ...values: unknown[]) => Promise<T> },
   userId: string,
   windows: { from: Date; to: Date }[],
 ): Promise<Map<number, number>> {
   if (!windows.length) return new Map<number, number>();
-  const values = windows.map(
-    ({ from, to }, index) => Prisma.sql`(${index}::int, ${from}::timestamptz, ${to}::timestamptz)`,
+  const validWindows = windows
+    .map((w, index) => ({ index, from: w.from, to: w.to }))
+    .filter((w) => w.from < w.to);
+  if (!validWindows.length) return new Map<number, number>();
+  const minFrom = new Date(Math.min(...validWindows.map((w) => w.from.getTime())));
+  const maxTo = new Date(Math.max(...validWindows.map((w) => w.to.getTime())));
+  const values = validWindows.map(
+    ({ index, from, to }) => Prisma.sql`(${index}::int, ${from}::timestamptz, ${to}::timestamptz)`,
   );
   const rows = await db.$queryRaw<{ idx: number; seconds: number }[]>`
     WITH windows(idx, starts, ends) AS (VALUES ${Prisma.join(values)}),
-    merged AS (
-      SELECT w.idx, range_agg(tstzrange(GREATEST(s.start_at AT TIME ZONE 'UTC', w.starts),
-        LEAST(s.end_at AT TIME ZONE 'UTC', w.ends), '[)')) AS spans
-      FROM learning_activity_segments s JOIN learning_activity_sessions a ON a.id = s.session_id
-      JOIN windows w ON w.starts < w.ends
-        AND s.end_at > (w.starts AT TIME ZONE 'UTC')
-        AND s.start_at < (w.ends AT TIME ZONE 'UTC')
-      WHERE a.user_id = ${userId}::uuid AND s.start_at IS NOT NULL
-      GROUP BY w.idx
+    user_spans AS (
+      SELECT range_agg(
+        tstzrange(
+          GREATEST(s.start_at AT TIME ZONE 'UTC', ${minFrom}::timestamptz),
+          LEAST(s.end_at AT TIME ZONE 'UTC', ${maxTo}::timestamptz),
+          '[)'
+        )
+      ) AS mr
+      FROM learning_activity_segments s
+      JOIN learning_activity_sessions a ON a.id = s.session_id
+      WHERE a.user_id = ${userId}::uuid
+        AND s.start_at IS NOT NULL
+        AND s.start_at < s.end_at
+        AND s.end_at > (${minFrom}::timestamptz AT TIME ZONE 'UTC')
+        AND s.start_at < (${maxTo}::timestamptz AT TIME ZONE 'UTC')
+    ),
+    window_clipped AS (
+      SELECT w.idx, (us.mr * tstzmultirange(tstzrange(w.starts, w.ends, '[)'))) AS clipped
+      FROM windows w
+      CROSS JOIN user_spans us
+      WHERE us.mr IS NOT NULL
     )
-    SELECT idx, FLOOR(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span)))))::double precision AS seconds
-    FROM merged CROSS JOIN LATERAL unnest(spans) AS pieces(span) GROUP BY idx`;
+    SELECT wc.idx, FLOOR(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span)))))::double precision AS seconds
+    FROM window_clipped wc
+    CROSS JOIN LATERAL unnest(wc.clipped) AS pieces(span)
+    WHERE NOT isempty(span)
+    GROUP BY wc.idx`;
   return new Map((rows ?? []).map((row) => [row.idx, Number(row.seconds ?? 0)]));
 }
 

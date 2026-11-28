@@ -168,6 +168,7 @@ describe('MediaStorageService, MediaProxyController & HealthController', () => {
       const mockBlockBlobClient = {
         url: 'https://teststorage.blob.core.windows.net/media/test-key',
         uploadData: jest.fn(async () => ({})),
+        deleteIfExists: jest.fn(async () => ({ succeeded: true })),
         exists: jest.fn(async () => true),
         getProperties: jest.fn(async () => ({
           contentLength: 100,
@@ -526,6 +527,56 @@ describe('MediaStorageService, MediaProxyController & HealthController', () => {
       expect(mediaMock.exists).toHaveBeenCalledWith(
         '/media/placement/cloud-placement.wav',
       );
+    });
+
+    it('caches getBlobProperties() across repeated lookups and invalidates on upload overwrite and deleteBlob()', async () => {
+      const { service, mockBlockBlobClient } = createAzureMockService({
+        AZURE_STORAGE_ACCOUNT_NAME: 'lingoroadprod',
+        AZURE_STORAGE_CONTAINER_NAME: 'media',
+      });
+      const key = 'vocabulary/a1b2c3-d4e5.jpg';
+
+      const first = await service.getBlobProperties(key);
+      expect(first).toMatchObject({
+        contentLength: 100,
+        contentType: 'audio/wav',
+        etag: '"etag-1"',
+      });
+      expect(mockBlockBlobClient.getProperties).toHaveBeenCalledTimes(1);
+
+      // Mutating returned object must not corrupt cached entry.
+      if (first?.metadata) first.metadata.scope = 'mutated';
+
+      const second = await service.getBlobProperties(key);
+      expect(second?.metadata?.scope).toBe('learning');
+      expect(mockBlockBlobClient.getProperties).toHaveBeenCalledTimes(1);
+
+      // Overwriting via uploadBuffer clears stale properties so next getBlobProperties reads fresh Azure headers.
+      mockBlockBlobClient.getProperties.mockResolvedValueOnce({
+        contentLength: 256,
+        contentType: 'image/jpeg',
+        etag: '"etag-2"',
+        lastModified: new Date('2026-11-28T00:00:00Z'),
+        metadata: {},
+      });
+      await service.uploadBuffer(key, Buffer.from([1, 2, 3]), 'image/jpeg');
+      const afterUpload = await service.getBlobProperties(key);
+      expect(afterUpload).toMatchObject({
+        contentLength: 256,
+        contentType: 'image/jpeg',
+        etag: '"etag-2"',
+      });
+      expect(mockBlockBlobClient.getProperties).toHaveBeenCalledTimes(2);
+
+      // Deleting clears cache entry.
+      await service.deleteBlob(key);
+      expect(mockBlockBlobClient.deleteIfExists).toHaveBeenCalledTimes(1);
+      mockBlockBlobClient.getProperties.mockRejectedValueOnce({
+        statusCode: 404,
+        code: 'BlobNotFound',
+      });
+      await expect(service.getBlobProperties(key)).resolves.toBeNull();
+      expect(mockBlockBlobClient.getProperties).toHaveBeenCalledTimes(3);
     });
   });
 

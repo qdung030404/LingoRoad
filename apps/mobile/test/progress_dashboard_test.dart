@@ -511,7 +511,23 @@ void main() {
       await tester.tap(find.byKey(const Key('previewTab1')));
       await tester.pumpAndSettle();
       expect(find.text('Động từ To Be (A1)'), findsOneWidget);
+      final roadScrollable = find
+          .descendant(
+            of: find.byKey(const PageStorageKey('preview-content-1')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.text('Hiện tại hoàn thành (B1)'),
+        200,
+        scrollable: roadScrollable,
+      );
+      await tester.pumpAndSettle();
       expect(find.text('Hiện tại hoàn thành (B1)'), findsOneWidget);
+
+      // Scroll back up so the segmented toggle is centered before tapping.
+      tester.state<ScrollableState>(roadScrollable).position.jumpTo(0);
+      await tester.pumpAndSettle();
 
       // Check Vocabulary sub-tab while showPreviousLevels = true vs false
       await tester.tap(find.text('Từ vựng'));

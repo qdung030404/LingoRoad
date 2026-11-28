@@ -1,10 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, Optional, ServiceUnavailableException } from '@nestjs/common';
 import { AssessmentItem, AssessmentResponse, AssessmentSkill, CefrLevel, PlacementSession, Prisma, SessionStatus } from '@prisma/client';
-import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MlClientService } from '../../ml/ml-client.service';
+import { InProcessCatFallback } from '../../ml/fallbacks/in-process-cat.fallback';
 import { MediaStorageService } from '../../media/media-storage.service';
 import { SubmitAnswerDto } from '../interfaces/placement.interface';
 import { PlacementCompletedEvent } from '../events/placement-completed.event';
@@ -14,6 +15,8 @@ export const DEMO_TEST_VERSION = 'READING_LISTENING_V1';
 export const SECTION_TOTAL = 5;
 export const PLACEMENT_TOTAL = 10;
 export const PLACEMENT_AUDIO_URL_REGEX = /^\/media\/placement\/([a-zA-Z0-9._-]+\.wav)$/;
+const BANK_CACHE_TTL_MS = 5 * 60 * 1000;
+const BANK_CACHE_MAX_VERSIONS = 10;
 
 export function isValidPlacementItem(
   item: Pick<AssessmentItem, 'type' | 'options' | 'correctOption' | 'prompt' | 'irtA' | 'irtB' | 'irtC' | 'skill' | 'passage' | 'audioUrl'>,
@@ -56,12 +59,38 @@ const sessionInclude = { currentItem: true, responses: { include: { item: true }
 
 @Injectable()
 export class DemoPlacementService {
+  private readonly fallbackCat = new InProcessCatFallback();
+  private readonly bankCache = new Map<string, { items: AssessmentItem[]; expiresAt: number }>();
+  private readonly bankInFlight = new Map<string, Promise<AssessmentItem[]>>();
+  private bankCacheGeneration = 0;
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly ml: MlClientService,
+    _ml: MlClientService,
     private readonly events: EventEmitter2,
     @Optional() private readonly mediaStorage?: MediaStorageService,
+    @Optional() private readonly inProcessCat?: InProcessCatFallback,
   ) {}
+
+  private get cat(): InProcessCatFallback {
+    return this.inProcessCat ?? this.fallbackCat;
+  }
+
+  @OnEvent('admin.data.mutated')
+  handleAdminDataMutated(): void {
+    this.invalidateBankCache();
+  }
+
+  invalidateBankCache(bankVersion?: string): void {
+    this.bankCacheGeneration++;
+    if (bankVersion) {
+      this.bankCache.delete(bankVersion);
+      this.bankInFlight.delete(bankVersion);
+      return;
+    }
+    this.bankCache.clear();
+    this.bankInFlight.clear();
+  }
 
   private unavailable(message = 'Ngân hàng câu hỏi chưa sẵn sàng. Vui lòng thử lại sau.'): never {
     throw new ServiceUnavailableException({ code: 'PLACEMENT_BANK_UNAVAILABLE', message });
@@ -93,12 +122,55 @@ export class DemoPlacementService {
   }
 
   private async bank(bankVersion = DEMO_BANK_VERSION) {
-    const items = await this.prisma.assessmentItem.findMany({ where: { bankVersion, groupId: null, usageScope: { in: ['PLACEMENT', 'ALL'] } }, orderBy: { externalId: 'asc' } });
-    if (!this.mediaStorage) {
-      return items.filter((item) => isValidPlacementItem(item));
+    const cached = this.bankCache.get(bankVersion);
+    if (cached) {
+      if (Date.now() < cached.expiresAt) {
+        this.bankCache.delete(bankVersion);
+        this.bankCache.set(bankVersion, cached);
+        return cached.items;
+      }
+      this.bankCache.delete(bankVersion);
     }
-    const checked = await Promise.all(items.map(async (item) => ((await this.validItem(item)) ? item : null)));
-    return checked.filter((item): item is AssessmentItem => item !== null);
+
+    const existingInFlight = this.bankInFlight.get(bankVersion);
+    if (existingInFlight) {
+      return existingInFlight;
+    }
+
+    const generation = this.bankCacheGeneration;
+    const pending = (async () => {
+      const items = await this.prisma.assessmentItem.findMany({ where: { bankVersion, groupId: null, usageScope: { in: ['PLACEMENT', 'ALL'] } }, orderBy: { externalId: 'asc' } });
+      let validItems: AssessmentItem[];
+      if (!this.mediaStorage) {
+        validItems = items.filter((item) => isValidPlacementItem(item));
+      } else {
+        const checked = await Promise.all(items.map(async (item) => ((await this.validItem(item)) ? item : null)));
+        validItems = checked.filter((item): item is AssessmentItem => item !== null);
+      }
+
+      if (this.bankCacheGeneration === generation && validItems.length > 0) {
+        if (this.bankCache.has(bankVersion)) {
+          this.bankCache.delete(bankVersion);
+        }
+        while (this.bankCache.size >= BANK_CACHE_MAX_VERSIONS) {
+          const oldestKey = this.bankCache.keys().next().value;
+          if (oldestKey === undefined) break;
+          this.bankCache.delete(oldestKey);
+        }
+        this.bankCache.set(bankVersion, {
+          items: validItems,
+          expiresAt: Date.now() + BANK_CACHE_TTL_MS,
+        });
+      }
+      return validItems;
+    })().finally(() => {
+      if (this.bankInFlight.get(bankVersion) === pending) {
+        this.bankInFlight.delete(bankVersion);
+      }
+    });
+
+    this.bankInFlight.set(bankVersion, pending);
+    return pending;
   }
 
   private async owned(sessionId: string, userId: string): Promise<Session> {
@@ -122,23 +194,18 @@ export class DemoPlacementService {
   async start(userId: string) {
     const active = await this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS }, include: sessionInclude });
     if (active) return this.startState(active);
-    const completed = await this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED } });
-    if (completed) this.conflict('Bạn đã hoàn tất bài kiểm tra. Vui lòng xem kết quả.');
     const bank = await this.bank();
     for (const skill of [AssessmentSkill.READING, AssessmentSkill.LISTENING]) {
       const candidates = bank.filter((i) => i.skill === skill);
       if (candidates.length < SECTION_TOTAL || !candidates.some((i) => i.cefrLevel === CefrLevel.A2)) this.unavailable();
     }
-    const first = await this.select(bank, [], 0);
+    const first = this.select(bank, [], 0);
     try {
       const created = await this.prisma.$transaction(async (tx) => {
-        // Serialize starts for this account; recheck after CAT so a concurrent
-        // completed session cannot accidentally become a new test attempt.
+        // Serialize starts for this account so concurrent starts share a single active attempt.
         await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
         const existing = await tx.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS }, include: sessionInclude });
         if (existing) return existing;
-        const done = await tx.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED } });
-        if (done) this.conflict('Bạn đã hoàn tất bài kiểm tra. Vui lòng xem kết quả.');
         return tx.placementSession.create({
           data: { userId, totalItems: PLACEMENT_TOTAL, testVersion: DEMO_TEST_VERSION, bankVersion: DEMO_BANK_VERSION, currentItemId: first.id },
           include: sessionInclude,
@@ -154,20 +221,26 @@ export class DemoPlacementService {
   }
 
   async status(userId: string) {
-    const select = { id: true, status: true, currentItemIndex: true, totalItems: true, estimatedCefr: true } as const;
+    const activeSelect = { id: true, status: true, currentItemIndex: true, totalItems: true, estimatedCefr: true } as const;
+    const completedSelect = { id: true, status: true, currentItemIndex: true, totalItems: true, estimatedCefr: true, skillResults: true } as const;
     const [active, completed] = await Promise.all([
-      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS }, select }),
-      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED }, orderBy: { completedAt: 'desc' }, select }),
+      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS }, select: activeSelect }),
+      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED }, orderBy: { completedAt: 'desc' }, select: completedSelect }),
     ]);
     const session = active ?? completed;
     return {
-      hasCompleted: !!completed, currentSessionId: session?.id ?? null,
-      status: session?.status ?? null, currentIndex: session?.currentItemIndex ?? 0,
-      totalItems: session?.totalItems ?? PLACEMENT_TOTAL, estimatedCefr: session?.estimatedCefr ?? null,
+      hasCompleted: !!completed,
+      currentSessionId: session?.id ?? null,
+      completedSessionId: completed?.id ?? null,
+      status: session?.status ?? null,
+      currentIndex: session?.currentItemIndex ?? 0,
+      totalItems: session?.totalItems ?? PLACEMENT_TOTAL,
+      estimatedCefr: completed?.estimatedCefr ?? session?.estimatedCefr ?? null,
+      skillResults: completed?.skillResults ?? null,
     };
   }
 
-  private async select(bank: AssessmentItem[], history: { itemId: string; isCorrect: boolean }[], index: number) {
+  private select(bank: AssessmentItem[], history: { itemId: string; isCorrect: boolean }[], index: number) {
     const skill = this.skill(index);
     const skillBank = bank.filter((i) => i.skill === skill);
     const skillHistory = history.filter((r) => skillBank.some((i) => i.id === r.itemId));
@@ -175,7 +248,7 @@ export class DemoPlacementService {
     if (skillHistory.length === 0) remaining = remaining.filter((i) => i.cefrLevel === CefrLevel.A2);
     if (remaining.length === 0) this.unavailable();
     try {
-      const selected = await this.ml.selectNextCatItem(
+      const selected = this.cat.select(
         skillHistory.map((r) => {
           const item = skillBank.find((i) => i.id === r.itemId)!;
           return { a: item.irtA, b: item.irtB, c: item.irtC, correct: r.isCorrect };

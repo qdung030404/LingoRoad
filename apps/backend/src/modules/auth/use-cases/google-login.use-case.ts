@@ -47,6 +47,7 @@ export class GoogleLoginUseCase {
 
     // The same verified UID always owns the same internal UUID. Never link by
     // email or issue a second token family alongside the Firebase SDK session.
+    this.users.invalidateCache?.(token.uid);
     const principal = await this.users.resolve(token);
     this.logger.log(`Hoàn tất xử lý đăng nhập Google cho user (sub: ${principal.sub})`);
     return { user: await this.profile.get(principal.sub) };

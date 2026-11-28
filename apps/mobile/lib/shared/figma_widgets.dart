@@ -50,34 +50,58 @@ class FigmaAsset extends StatelessWidget {
     this.height,
     this.fit = BoxFit.contain,
     this.cacheWidth,
+    this.colorFilter,
   });
   final String asset;
   final double size;
   final double? width, height;
   final BoxFit fit;
   final int? cacheWidth;
+  final ColorFilter? colorFilter;
+
+  int? _resolveCacheWidth(BuildContext context) {
+    if (cacheWidth != null) return cacheWidth;
+    final targetWidth = width ?? size;
+    final dpr = (MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0)
+        .clamp(1.0, 3.0);
+    if (targetWidth.isFinite && targetWidth > 0) {
+      return (targetWidth * dpr).round();
+    }
+    final viewportWidth = MediaQuery.maybeSizeOf(context)?.width;
+    if (viewportWidth != null && viewportWidth.isFinite && viewportWidth > 0) {
+      return (viewportWidth * dpr).round();
+    }
+    return 800;
+  }
+
   @override
   Widget build(BuildContext context) {
     final path =
         UpdatedFigmaAssets.files[asset] ??
         FigmaAssets.files[asset] ??
         LearningAssets.files[asset]!;
-    return ExcludeSemantics(
-      child: path.endsWith('.svg')
-          ? SvgPicture.asset(
-              path,
-              width: width ?? size,
-              height: height ?? size,
-              fit: fit,
-            )
-          : Image.asset(
-              path,
-              cacheWidth: cacheWidth,
-              width: width ?? size,
-              height: height ?? size,
-              fit: fit,
-            ),
+    if (path.endsWith('.svg')) {
+      return ExcludeSemantics(
+        child: SvgPicture.asset(
+          path,
+          width: width ?? size,
+          height: height ?? size,
+          fit: fit,
+          colorFilter: colorFilter,
+        ),
+      );
+    }
+    Widget image = Image.asset(
+      path,
+      cacheWidth: _resolveCacheWidth(context),
+      width: width ?? size,
+      height: height ?? size,
+      fit: fit,
     );
+    if (colorFilter != null) {
+      image = ColorFiltered(colorFilter: colorFilter!, child: image);
+    }
+    return ExcludeSemantics(child: image);
   }
 }
 
@@ -360,6 +384,16 @@ class PassageCard extends StatelessWidget {
 
   Future<void> _expand(BuildContext context) async {
     onExpandedChanged?.call(true);
+    final moveWatch = Stopwatch();
+    void handleThrottledInteraction() {
+      if (!moveWatch.isRunning || moveWatch.elapsedMilliseconds >= 500) {
+        moveWatch
+          ..reset()
+          ..start();
+        onInteraction?.call();
+      }
+    }
+
     try {
       await showModalBottomSheet<void>(
         context: context,
@@ -369,9 +403,14 @@ class PassageCard extends StatelessWidget {
           child: FractionallySizedBox(
             heightFactor: practice ? .82 : .75,
             child: Listener(
-              onPointerDown: (_) => onInteraction?.call(),
-              onPointerMove: (_) => onInteraction?.call(),
-              onPointerSignal: (_) => onInteraction?.call(),
+              onPointerDown: (_) {
+                moveWatch
+                  ..reset()
+                  ..start();
+                onInteraction?.call();
+              },
+              onPointerMove: (_) => handleThrottledInteraction(),
+              onPointerSignal: (_) => handleThrottledInteraction(),
               child: practice
                   ? _readingSheet(sheetContext)
                   : SingleChildScrollView(

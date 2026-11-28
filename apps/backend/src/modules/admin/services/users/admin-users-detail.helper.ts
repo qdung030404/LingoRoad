@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { SkillLevelSource } from '@prisma/client';
 import { FirebaseTokenService } from '../../../auth/firebase/firebase-token.service';
+import { FirebaseUserService } from '../../../auth/firebase/firebase-user.service';
 import { learningDate } from '../../../planning/planning.helpers';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { ResetPlacementRetakeDto } from '../../dto/admin-users.dto';
@@ -337,6 +338,7 @@ export async function revokeAllUserSessionsOp(
   prisma: PrismaService,
   userId: string,
   firebase?: FirebaseTokenService,
+  firebaseUsers?: FirebaseUserService,
 ): Promise<{ userId: string; revokedSessionsCount: number }> {
   const existing = await prisma.user.findUnique({
     where: { id: userId },
@@ -360,6 +362,9 @@ export async function revokeAllUserSessionsOp(
     });
     return res.count;
   });
+
+  firebaseUsers?.invalidateCache(existing.firebaseUid ?? userId);
+  firebaseUsers?.invalidateCache(userId);
 
   if (firebase?.enabled && existing.firebaseUid) {
     await firebase.revoke(existing.firebaseUid);

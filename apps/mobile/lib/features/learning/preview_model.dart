@@ -5,11 +5,16 @@ import 'writing_evaluation_service.dart';
 
 /// Isolated, local preview data. Never writes assessment or account records.
 class PreviewModel extends ChangeNotifier {
-  PreviewModel({String? accountId, int initialDailyMinutes = 10})
-    : _prefix = accountId == null ? prefix : '${prefix}user.$accountId.',
-      dailyMinutes = initialDailyMinutes;
+  PreviewModel({
+    String? accountId,
+    int initialDailyMinutes = 10,
+    Future<SharedPreferences> Function()? preferencesLoader,
+  }) : _prefix = accountId == null ? prefix : '${prefix}user.$accountId.',
+       dailyMinutes = initialDailyMinutes,
+       _preferencesLoader = preferencesLoader ?? SharedPreferences.getInstance;
   static const prefix = 'lingoroad.uiPreview.';
   final String _prefix;
+  final Future<SharedPreferences> Function() _preferencesLoader;
   int dailyMinutes;
   Set<String> focus = {'Đọc: Ngữ pháp', 'Nghe'};
   Set<String> completed = {};
@@ -18,7 +23,12 @@ class PreviewModel extends ChangeNotifier {
   final Map<String, double> itemScores = {};
   final Map<String, WritingEvaluationResult> itemEvaluations = {};
   SharedPreferences? _prefs;
+  Future<void>? _restoring;
+  bool _restored = false;
   bool _disposed = false;
+
+  bool get isRestored => _restored;
+
   @override
   void notifyListeners() {
     if (!_disposed) super.notifyListeners();
@@ -30,36 +40,55 @@ class PreviewModel extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> restore() async {
-    _prefs = await SharedPreferences.getInstance();
-    dailyMinutes = _prefs!.getInt('${_prefix}minutes') ?? dailyMinutes;
-    focus = (_prefs!.getStringList('${_prefix}focus') ?? focus.toList())
-        .toSet();
-    completed = (_prefs!.getStringList('${_prefix}completed') ?? []).toSet();
-    for (var i = 0; i < 2; i++) {
-      drafts[i] = _prefs!.getString('${_prefix}draft$i') ?? '';
-    }
-    final allKeys = _prefs!.getKeys();
-    for (final k in allKeys) {
-      if (k.startsWith('${_prefix}draft_')) {
-        final itemId = k.replaceFirst('${_prefix}draft_', '');
-        itemDrafts[itemId] = _prefs!.getString(k) ?? '';
-      } else if (k.startsWith('${_prefix}score_')) {
-        final itemId = k.replaceFirst('${_prefix}score_', '');
-        itemScores[itemId] = _prefs!.getDouble(k) ?? 0.0;
-      } else if (k.startsWith('${_prefix}eval_')) {
-        final itemId = k.replaceFirst('${_prefix}eval_', '');
-        final jsonStr = _prefs!.getString(k);
-        if (jsonStr != null && jsonStr.isNotEmpty) {
-          try {
-            itemEvaluations[itemId] = WritingEvaluationResult.fromJson(
-              jsonDecode(jsonStr) as Map<String, dynamic>,
-            );
-          } catch (_) {}
+  Future<void> ensureRestored() {
+    if (_restored) return Future.value();
+    return _restoring ??= _restoreInternal();
+  }
+
+  Future<void> restore() {
+    if (_restoring != null) return _restoring!;
+    _restored = false;
+    final future = _restoreInternal();
+    _restoring = future;
+    return future;
+  }
+
+  Future<void> _restoreInternal() async {
+    try {
+      final prefs = await _preferencesLoader();
+      _prefs = prefs;
+      dailyMinutes = prefs.getInt('${_prefix}minutes') ?? dailyMinutes;
+      focus = (prefs.getStringList('${_prefix}focus') ?? focus.toList())
+          .toSet();
+      completed = (prefs.getStringList('${_prefix}completed') ?? []).toSet();
+      for (var i = 0; i < 2; i++) {
+        drafts[i] = prefs.getString('${_prefix}draft$i') ?? '';
+      }
+      final allKeys = prefs.getKeys();
+      for (final k in allKeys) {
+        if (k.startsWith('${_prefix}draft_')) {
+          final itemId = k.replaceFirst('${_prefix}draft_', '');
+          itemDrafts[itemId] = prefs.getString(k) ?? '';
+        } else if (k.startsWith('${_prefix}score_')) {
+          final itemId = k.replaceFirst('${_prefix}score_', '');
+          itemScores[itemId] = prefs.getDouble(k) ?? 0.0;
+        } else if (k.startsWith('${_prefix}eval_')) {
+          final itemId = k.replaceFirst('${_prefix}eval_', '');
+          final jsonStr = prefs.getString(k);
+          if (jsonStr != null && jsonStr.isNotEmpty) {
+            try {
+              itemEvaluations[itemId] = WritingEvaluationResult.fromJson(
+                jsonDecode(jsonStr) as Map<String, dynamic>,
+              );
+            } catch (_) {}
+          }
         }
       }
+      _restored = true;
+      notifyListeners();
+    } finally {
+      _restoring = null;
     }
-    notifyListeners();
   }
 
   WritingEvaluationResult? getEvaluation(String key) {
@@ -111,12 +140,14 @@ class PreviewModel extends ChangeNotifier {
     String key,
     WritingEvaluationResult result,
   ) async {
+    await ensureRestored();
     itemEvaluations[key] = result;
     await _prefs?.setString('${_prefix}eval_$key', jsonEncode(result.toJson()));
     notifyListeners();
   }
 
   Future<void> clearEvaluation(String key) async {
+    await ensureRestored();
     itemEvaluations.remove(key);
     await _prefs?.remove('${_prefix}eval_$key');
     notifyListeners();
@@ -138,6 +169,7 @@ class PreviewModel extends ChangeNotifier {
   }
 
   Future<void> saveScore(String key, double score, [int? fallbackIndex]) async {
+    await ensureRestored();
     itemScores[key] = score;
     await _prefs?.setDouble('${_prefix}score_$key', score);
     if (fallbackIndex != null && fallbackIndex >= 0) {
@@ -163,12 +195,17 @@ class PreviewModel extends ChangeNotifier {
     String text, [
     int? fallbackIndex,
   ]) async {
+    await ensureRestored();
     itemDrafts[key] = text;
-    await _prefs?.setString('${_prefix}draft_$key', text);
     if (fallbackIndex != null &&
         fallbackIndex >= 0 &&
         fallbackIndex < drafts.length) {
       drafts[fallbackIndex] = text;
+    }
+    await _prefs?.setString('${_prefix}draft_$key', text);
+    if (fallbackIndex != null &&
+        fallbackIndex >= 0 &&
+        fallbackIndex < drafts.length) {
       await _prefs?.setString('${_prefix}draft$fallbackIndex', text);
     }
     notifyListeners();
@@ -176,6 +213,7 @@ class PreviewModel extends ChangeNotifier {
 
   Future<void> savePlan(int minutes, Set<String> skills) async {
     if (![5, 10, 20].contains(minutes) || skills.isEmpty) return;
+    await ensureRestored();
     dailyMinutes = minutes;
     focus = Set.of(skills);
     await _prefs?.setInt('${_prefix}minutes', minutes);
@@ -184,12 +222,14 @@ class PreviewModel extends ChangeNotifier {
   }
 
   Future<void> saveDraft(int index, String text) async {
+    await ensureRestored();
     drafts[index] = text;
     await _prefs?.setString('${_prefix}draft$index', text);
     notifyListeners();
   }
 
   Future<void> finish(String lesson) async {
+    await ensureRestored();
     completed.add(lesson);
     await _prefs?.setStringList('${_prefix}completed', completed.toList());
     notifyListeners();

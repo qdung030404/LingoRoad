@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/app_startup_timing.dart';
@@ -25,7 +26,6 @@ import '../vocabulary/curated_topics_widgets.dart';
 import '../vocabulary/vocabulary_controller.dart';
 import '../vocabulary/vocabulary_pages.dart';
 import '../vocabulary/vocabulary_repository.dart';
-import '../vocabulary/vocabulary_review_page.dart';
 import 'daily_learning.dart';
 import 'daily_pages.dart';
 import 'home_cache.dart';
@@ -76,7 +76,15 @@ class LearningPreview extends StatefulWidget {
 
 class _LearningPreviewState extends State<LearningPreview>
     with WidgetsBindingObserver {
-  late final String? _accountId = widget.account?.user?['id'] as String?;
+  late final String? _accountId = widget.account?.activeAccountId;
+  bool _isSessionAccountCurrent() {
+    final account = widget.account;
+    if (account == null || _accountId == null) return false;
+    if (!account.hasAuthenticatedContext) return false;
+    final liveId = account.user?['id'] as String?;
+    return liveId == null || liveId == _accountId;
+  }
+
   late final ReminderNotificationPlatform _reminderPlatform =
       widget.reminderPlatform ?? MethodChannelReminderPlatform();
   late final NotificationController notifications =
@@ -88,7 +96,7 @@ class _LearningPreviewState extends State<LearningPreview>
         accountId: _accountId ?? 'preview',
         isAccountCurrent: widget.account == null
             ? null
-            : () => widget.account!.user?['id'] == _accountId,
+            : _isSessionAccountCurrent,
       );
   String? _previousGoalMetDate;
   bool? _previousGoalMet;
@@ -102,7 +110,8 @@ class _LearningPreviewState extends State<LearningPreview>
           repository: ApiSpeakingRepository(widget.account!.api),
           recorder: DeviceSpeakingRecorder(_accountId),
           accountId: _accountId,
-          isCurrent: () => widget.account!.user?['id'] == speaking?.accountId,
+          isCurrent: () =>
+              _isSessionAccountCurrent() && speaking?.accountId == _accountId,
           onSubmissionSucceeded: _handleSpeakingSucceeded,
         );
   late final VocabularyController? vocabularyController =
@@ -112,7 +121,8 @@ class _LearningPreviewState extends State<LearningPreview>
           repository: ApiVocabularyRepository(widget.account!.api),
           accountId: _accountId,
           isCurrent: () =>
-              widget.account!.user?['id'] == vocabularyController?.accountId,
+              _isSessionAccountCurrent() &&
+              vocabularyController?.accountId == _accountId,
         );
   late final GrammarController? grammarController = widget.account == null
       ? null
@@ -128,7 +138,8 @@ class _LearningPreviewState extends State<LearningPreview>
       : DailyLearningController(
           repository: ApiDailyRepository(widget.account!.api),
           accountId: _accountId,
-          isCurrent: () => widget.account!.user?['id'] == daily?.accountId,
+          isCurrent: () =>
+              _isSessionAccountCurrent() && daily?.accountId == _accountId,
           onHomeChanged: _refreshAfterChange,
           onPreferences: (prefs) {
             final profile = widget.account!.user?['profile'];
@@ -142,11 +153,20 @@ class _LearningPreviewState extends State<LearningPreview>
       PreviewModel(
         accountId: _accountId,
         initialDailyMinutes:
-            widget.account?.profile['dailyGoalMinutes'] as int? ?? 10,
+            (widget.account?.profile['dailyGoalMinutes'] as num?)?.toInt() ??
+            ((widget.account?.cachedHome?['preferences']
+                        as Map?)?['dailyGoalMinutes']
+                    as num?)
+                ?.toInt() ??
+            10,
       );
-  late final library = WordLibrary(accountId: _accountId);
+  late final WordLibrary library = WordLibrary(accountId: _accountId);
+  bool _hadInitialCachedHome = false;
+  String? _initialLivePlanStatus;
   final selectedTab = ValueNotifier<int>(0);
   final ValueNotifier<bool> showPreviousLevels = ValueNotifier<bool>(false);
+  final ValueNotifier<int?> _rememberedWordsCount = ValueNotifier<int?>(null);
+  List<WritingPracticeItem>? _cachedWritingItems;
   late final LearningController? learning =
       widget.account == null || _accountId == null
       ? null
@@ -158,22 +178,65 @@ class _LearningPreviewState extends State<LearningPreview>
           grammar: grammarController,
           fetchHome: ApiLearningRepository(widget.account!.api).home,
           onHome: (value) {
+            final planStatus = value['planStatus']?.toString() ?? 'unknown';
+            _initialLivePlanStatus ??= planStatus;
             widget.account!.rememberHome(value);
-            AppStartupTiming.afterNextFrame('home-live');
+            AppStartupTiming.afterNextFrame(
+              'home-first-content',
+              metadata: {
+                'source': 'network',
+                'cache': _hadInitialCachedHome ? 'hit' : 'miss',
+                'planStatus': planStatus,
+              },
+            );
+            AppStartupTiming.afterNextFrame(
+              'home-live',
+              metadata: {
+                'cache': _hadInitialCachedHome ? 'hit' : 'miss',
+                'planStatus': planStatus,
+              },
+            );
             _handleHomeSnapshot(value);
+          },
+          onPlanReady: (value) {
+            AppStartupTiming.afterNextFrame(
+              'home-plan-ready',
+              metadata: {
+                'cache': _hadInitialCachedHome ? 'hit' : 'miss',
+                'planStatus':
+                    _initialLivePlanStatus ??
+                    value['planStatus']?.toString() ??
+                    'ready',
+              },
+            );
           },
           onHomeInvalidated: widget.account!.clearHome,
           onHomeForbidden: widget.account!.rejectHomeSession,
           onGoalJustMet: _handleGoalJustMet,
           onLevelChanged: _handleLevelChanged,
           isAccountCurrent: () =>
-              widget.account!.user?['id'] == learning?.accountId,
+              _isSessionAccountCurrent() && learning?.accountId == _accountId,
         );
   final tabs = PageController();
+  int? _jumpingToTab;
   void switchTab(int index) {
     if (!tabs.hasClients) return;
-    if (MediaQuery.disableAnimationsOf(context)) {
-      tabs.jumpToPage(index);
+    final current = tabs.page?.round() ?? selectedTab.value;
+    if (current == index && ((tabs.page ?? index) - index).abs() < 0.01) {
+      return;
+    }
+    if (MediaQuery.disableAnimationsOf(context) ||
+        (index - current).abs() > 1) {
+      _jumpingToTab = index;
+      try {
+        tabs.jumpToPage(index);
+      } finally {
+        _jumpingToTab = null;
+      }
+      if (selectedTab.value != index) {
+        selectedTab.value = index;
+        _loadTab(index);
+      }
     } else {
       tabs.animateToPage(
         index,
@@ -210,9 +273,20 @@ class _LearningPreviewState extends State<LearningPreview>
     WidgetsBinding.instance.addObserver(this);
     _accountId;
     widget.account?.addListener(_speakingSessionChanged);
+    vocabularyController?.addListener(_syncRememberedWordsCount);
+    _syncRememberedWordsCount();
     final cached = widget.account?.cachedHome;
+    _hadInitialCachedHome = cached != null;
     if (cached != null) {
       learning?.showCachedHome(cached);
+      AppStartupTiming.afterNextFrame(
+        'home-first-content',
+        metadata: {
+          'source': 'cache',
+          'cache': 'hit',
+          'planStatus': cached['planStatus']?.toString() ?? 'unknown',
+        },
+      );
       final cachedUnread = (cached['unreadNotificationCount'] as num?)?.toInt();
       if (cachedUnread != null) notifications.syncUnreadCount(cachedUnread);
     }
@@ -227,14 +301,16 @@ class _LearningPreviewState extends State<LearningPreview>
         unawaited(_checkLaunchNotificationTarget());
       }
     });
-    library.restore().catchError((Object error) {
-      if (mounted) {
-        setState(
-          () => restoreError = 'Không khôi phục được bộ từ mẫu trên thiết bị.',
-        );
-      }
-    });
-    if (widget.model == null) {
+    if (vocabularyController == null) {
+      library.restore().catchError((Object error) {
+        if (mounted) {
+          setState(
+            () => restoreError = 'Không khôi phục được bộ từ mẫu trên thiết bị.',
+          );
+        }
+      });
+    }
+    if (widget.account == null && widget.model == null) {
       model.restore().catchError((Object error, StackTrace stack) {
         // Keep preference values out of logs while retaining the failing stack.
         FlutterError.reportError(
@@ -268,11 +344,23 @@ class _LearningPreviewState extends State<LearningPreview>
     }
   }
 
+  void _syncRememberedWordsCount() {
+    final totals = vocabularyController?.summary?['totals'];
+    final next = totals is Map
+        ? (totals['rememberedWords'] as num?)?.toInt()
+        : null;
+    if (_rememberedWordsCount.value != next) {
+      _rememberedWordsCount.value = next;
+    }
+  }
+
   @override
   void dispose() {
     _learningDayTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     widget.account?.removeListener(_speakingSessionChanged);
+    vocabularyController?.removeListener(_syncRememberedWordsCount);
+    _rememberedWordsCount.dispose();
     speaking?.dispose();
     daily?.dispose();
     learning?.dispose();
@@ -335,7 +423,9 @@ class _LearningPreviewState extends State<LearningPreview>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _scheduleLearningDayRefresh();
-      learning?.activity?.flush();
+      learning?.activity?.flush(
+        refreshOnAck: ModalRoute.of(context)?.isCurrent == true,
+      );
       learning?.refreshIfStale();
       _loadTab(selectedTab.value);
       _refreshVocabulary();
@@ -489,12 +579,20 @@ class _LearningPreviewState extends State<LearningPreview>
   void openProfile() {
     final account = widget.account;
     if (account != null) {
-      final rememberedWords =
-          (vocabularyController?.summary?['totals']
-                  as Map?)?['rememberedWords']
-              as int?;
+      final rememberedWords = _rememberedWordsCount.value;
       final completedLessons =
           (learning?.summary['completedLessonCount'] as num?)?.toInt();
+      final beforePrefsVersion = account.profile['preferencesVersion'];
+      final beforeGoalMinutes = account.profile['dailyGoalMinutes'];
+      final beforeTargetCefr = account.profile['targetCefr'];
+      final beforePurpose = account.profile['learningPurpose'];
+      final beforeKinds = List<Object?>.from(
+        account.profile['preferredKinds'] as List? ?? const [],
+      );
+      final beforePlacementCefr = account.placementCefr;
+      final beforeCompletedPlacementId =
+          account.placement['completedSessionId'];
+      final beforeHasCompleted = account.hasCompletedPlacement;
       previewPush<void>(
         context,
         ProfilePage(
@@ -503,7 +601,23 @@ class _LearningPreviewState extends State<LearningPreview>
           completedLessonCount: completedLessons,
         ),
       ).then((_) {
-        if (mounted) _refreshAfterChange();
+        if (!mounted) return;
+        final afterKinds =
+            (account.profile['preferredKinds'] as List?)?.cast<Object?>() ??
+            const <Object?>[];
+        final learningChanged =
+            account.profile['preferencesVersion'] != beforePrefsVersion ||
+            account.profile['dailyGoalMinutes'] != beforeGoalMinutes ||
+            account.profile['targetCefr'] != beforeTargetCefr ||
+            account.profile['learningPurpose'] != beforePurpose ||
+            !listEquals(afterKinds, beforeKinds) ||
+            account.placementCefr != beforePlacementCefr ||
+            account.placement['completedSessionId'] !=
+                beforeCompletedPlacementId ||
+            account.hasCompletedPlacement != beforeHasCompleted;
+        if (learningChanged) {
+          _refreshAfterChange();
+        }
       });
       return;
     }
@@ -529,21 +643,15 @@ class _LearningPreviewState extends State<LearningPreview>
 
   void openReview() {
     if (vocabularyController != null) {
-      final decks = vocabularyController!.summary?['decks'] as List? ?? [];
-      final active = decks
-          .where((d) => (d as Map)['activeAttemptId'] != null)
-          .toList();
-      if (active.length == 1) {
-        previewPush(
+      unawaited(
+        openActiveVocabularyReview(
           context,
-          VocabularyReviewPage(
-            controller: vocabularyController!,
-            attemptId: (active.single as Map)['activeAttemptId'] as String,
-          ),
-        );
-        return;
-      }
-      switchTab(2);
+          vocabularyController!,
+          onNoActiveReview: () {
+            if (mounted) switchTab(2);
+          },
+        ),
+      );
       return;
     }
     previewPush(

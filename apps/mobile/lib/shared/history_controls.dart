@@ -173,11 +173,31 @@ class HistoryIcon extends StatelessWidget {
   final String paths;
   final Color? color;
 
+  static const int _maxCachedLoaders = 64;
+  static final Map<String, SvgStringLoader> _loaderCache =
+      <String, SvgStringLoader>{};
+
+  static SvgStringLoader _loaderFor(String paths) {
+    final existing = _loaderCache.remove(paths);
+    if (existing != null) {
+      _loaderCache[paths] = existing;
+      return existing;
+    }
+    if (_loaderCache.length >= _maxCachedLoaders) {
+      _loaderCache.remove(_loaderCache.keys.first);
+    }
+    final created = SvgStringLoader(
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+      'stroke="black" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">'
+      '$paths</svg>',
+    );
+    _loaderCache[paths] = created;
+    return created;
+  }
+
   @override
-  Widget build(BuildContext context) => SvgPicture.string(
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
-    'stroke="black" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round">'
-    '$paths</svg>',
+  Widget build(BuildContext context) => SvgPicture(
+    _loaderFor(paths),
     width: 24,
     height: 24,
     colorFilter: ColorFilter.mode(

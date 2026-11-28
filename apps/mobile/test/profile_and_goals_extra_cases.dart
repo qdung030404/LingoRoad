@@ -365,8 +365,12 @@ void _registerProfileAndGoalsExtraTests() {
         matching: find.byType(Image),
       );
       expect(avatarImg, findsOneWidget);
+      final avatarProvider = tester.widget<Image>(avatarImg).image;
+      final unwrappedAvatar = avatarProvider is ResizeImage
+          ? avatarProvider.imageProvider
+          : avatarProvider;
       expect(
-        (tester.widget<Image>(avatarImg).image as NetworkImage).url,
+        (unwrappedAvatar as NetworkImage).url,
         'https://cdn.example.com/home-avatar.jpg',
       );
 
@@ -379,8 +383,12 @@ void _registerProfileAndGoalsExtraTests() {
         matching: find.byType(Image),
       );
       expect(progressAvatarImg, findsOneWidget);
+      final progressProvider = tester.widget<Image>(progressAvatarImg).image;
+      final unwrappedProgress = progressProvider is ResizeImage
+          ? progressProvider.imageProvider
+          : progressProvider;
       expect(
-        (tester.widget<Image>(progressAvatarImg).image as NetworkImage).url,
+        (unwrappedProgress as NetworkImage).url,
         'https://cdn.example.com/home-avatar.jpg',
       );
 

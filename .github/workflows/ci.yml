@@ -61,11 +61,6 @@ jobs:
           cd apps/backend
           npm run build
 
-      - name: Run Backend Unit Tests
-        run: |
-          cd apps/backend
-          npm run test
-
       - name: Verify Prisma Schema Drift and SQL Constraints
         env:
           SHADOW_DATABASE_SERVER_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
@@ -73,6 +68,11 @@ jobs:
           cd apps/backend
           npx prisma migrate deploy
           npm run prisma:verify-schema
+
+      - name: Run Backend Unit Tests
+        run: |
+          cd apps/backend
+          npm run test
 
       - name: Validate Demo Content and HTTP E2E
         env:

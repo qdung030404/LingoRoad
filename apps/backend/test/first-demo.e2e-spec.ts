@@ -187,7 +187,16 @@ describe('First demo: real HTTP + PostgreSQL', () => {
     const review = await api(owner).get(`/placement/${sessionId}/review`).expect(200);
     expect(review.body.data.items).toHaveLength(10);
     expect(review.body.data.items.every((i: any) => i.isCorrect === true && i.correctOption && i.explanation)).toBe(true);
-    await api(owner).post('/placement/start').expect(409);
+    const retake = await api(owner).post('/placement/start').expect(201);
+    expect(retake.body.data.sessionId).not.toBe(sessionId);
+    const retakeStatus = await api(owner).get('/placement/status').expect(200);
+    expect(retakeStatus.body.data).toMatchObject({
+      hasCompleted: true,
+      currentSessionId: retake.body.data.sessionId,
+      completedSessionId: sessionId,
+      status: 'IN_PROGRESS',
+      estimatedCefr: 'B2',
+    });
   });
 
   it('commits just one of two different concurrent answers', async () => {

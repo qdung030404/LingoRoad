@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
@@ -502,7 +503,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     final isGoogle = user['provider'] == 'GOOGLE';
 
     final hasPlacement =
-        widget.session.placement['status'] == 'COMPLETED' &&
+        widget.session.hasCompletedPlacement &&
         widget.session.placementCefr != null;
     final placementCefr = widget.session.placementCefr;
     final placementSkills =
@@ -511,7 +512,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                 as Map?)
             ?.cast<String, dynamic>();
     final placementSessionId =
-        (widget.session.placement['currentSessionId'] ??
+        (widget.session.placement['completedSessionId'] ??
+                (widget.session.placement['status'] == 'COMPLETED'
+                    ? widget.session.placement['currentSessionId']
+                    : null) ??
                 widget.session.placementResult?['sessionId'])
             as String?;
 
@@ -616,7 +620,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                                   _CefrOverviewCard(
                                     hasPlacement: hasPlacement,
                                     placementCefr: placementCefr,
+                                    placementSkills: placementSkills,
+                                    readingSnap: readingSnap,
                                     targetCefr: targetCefr,
+                                    isNarrow: isNarrow,
                                     onViewPlacement: placementSessionId == null
                                         ? null
                                         : () => Navigator.of(context).push<void>(
@@ -628,14 +635,6 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                                             ),
                                           ),
                                     onStartPlacement: _openPlacementAssessment,
-                                  ),
-                                  const SizedBox(height: 22),
-                                  _SkillsSection(
-                                    hasPlacement: hasPlacement,
-                                    placementCefr: placementCefr,
-                                    placementSkills: placementSkills,
-                                    readingSnap: readingSnap,
-                                    isNarrow: isNarrow,
                                   ),
                                   const SizedBox(height: 22),
                                   _GoalsSummaryCard(
@@ -682,4 +681,3 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     );
   }
 }
-

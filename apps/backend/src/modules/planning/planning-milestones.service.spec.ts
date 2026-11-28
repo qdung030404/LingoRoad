@@ -153,7 +153,37 @@ describe('CEFR progress milestones and PlanningService home/progress integration
             changedAt: new Date('2026-11-01T00:00:00Z'),
           })),
         },
-        $queryRaw: jest.fn(async () => []),
+        $queryRaw: jest.fn(async (strings: TemplateStringsArray) => {
+          const sql = Array.isArray(strings) ? strings.join('?') : String(strings);
+          if (sql.includes('WITH user_attempts AS')) {
+            return [
+              {
+                completedAttemptCount: 1,
+                activeAttemptCount: 0,
+                completedPublishedIds: ['g-b1'],
+                validScoreCount: 1,
+                allScoreSum: 100,
+                currentWeekCount: 1,
+                currentWeekSum: 100,
+                previousWeekCount: 0,
+                previousWeekSum: null,
+                dailyCounts: [
+                  { date: '2026-11-13', completedLessonCount: 1, completedAttemptCount: 1 },
+                ],
+                latestByKind: [
+                  {
+                    kind: 'GRAMMAR',
+                    correctCount: 5,
+                    totalQuestions: 5,
+                    submittedAtIso: '2026-11-13T02:00:00.000Z',
+                    lessonTitle: 'Grammar B1',
+                  },
+                ],
+              },
+            ];
+          }
+          return [];
+        }),
       };
 
       const svc = new PlanningService(db as unknown as PrismaService);

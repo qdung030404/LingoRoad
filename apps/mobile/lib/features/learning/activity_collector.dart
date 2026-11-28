@@ -16,7 +16,7 @@ String activityRunId() {
 }
 
 /// One account's durable receipts. ACK individual sequences, never a watermark.
-class ActivityOutbox {
+class ActivityOutbox extends ChangeNotifier {
   ActivityOutbox({required this.owner, this.clock, this.onGoalJustMet});
   final DailyLearningController owner;
   final ActivityClock? clock;
@@ -26,7 +26,28 @@ class ActivityOutbox {
   Future<void>? _sending;
   Future<void>? _restoring;
   bool restored = false;
+  bool _disposed = false;
   String? error;
+  String? _notifiedError;
+  int _notifiedPendingSeconds = 0;
+
+  void _notifyIfStateChanged() {
+    if (_disposed) return;
+    final pending = pendingSeconds;
+    if (error == _notifiedError && pending == _notifiedPendingSeconds) {
+      return;
+    }
+    _notifiedError = error;
+    _notifiedPendingSeconds = pending;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   String get key => 'learning.activity.v1.${owner.accountId}';
   int get pendingSeconds =>
       entries
@@ -51,6 +72,7 @@ class ActivityOutbox {
           .toList();
     }
     restored = true;
+    _notifyIfStateChanged();
   }
 
   Future<void> persist() {
@@ -66,6 +88,7 @@ class ActivityOutbox {
   Future<void> add(Json receipt) async {
     await restore();
     entries.add(receipt);
+    _notifyIfStateChanged();
     await persist();
   }
 
@@ -75,13 +98,15 @@ class ActivityOutbox {
     final before = entries.length;
     entries.removeWhere((e) => e['sessionId'] == sessionId);
     if (entries.length != before) {
+      _notifyIfStateChanged();
       await persist();
     }
   }
 
-  Future<void> flush() =>
-      _sending ??= _flush().whenComplete(() => _sending = null);
-  Future<void> _flush() async {
+  Future<void> flush({bool refreshOnAck = true}) => _sending ??= _flush(
+    refreshOnAck: refreshOnAck,
+  ).whenComplete(() => _sending = null);
+  Future<void> _flush({required bool refreshOnAck}) async {
     if (!owner.active) return;
     try {
       await restore();
@@ -188,14 +213,18 @@ class ActivityOutbox {
           : entries.any((e) => e['expired'] == true)
           ? 'Một số bản ghi đã quá hạn đồng bộ 7 ngày và không được cộng vào thời gian đã xác nhận.'
           : null;
+      _notifyIfStateChanged();
       if (owner.active && goalJustMet) {
         onGoalJustMet?.call();
       }
-      if (owner.active && acknowledged) await owner.refresh();
+      if (owner.active && (goalJustMet || (refreshOnAck && acknowledged))) {
+        await owner.refresh();
+      }
     } catch (e) {
       error = e is ApiFailure
           ? e.message
           : 'Chưa đồng bộ thời gian. Bản ghi vẫn được giữ.';
+      _notifyIfStateChanged();
     }
   }
 }
@@ -227,6 +256,27 @@ class ActivityCollector extends ChangeNotifier {
   int? _audioAt;
   Timer? timer;
   String? error;
+  Future<void>? _touching;
+  Future<void>? _audioUpdating;
+  String? _notifiedError;
+  String? _notifiedOutboxError;
+  int _notifiedPendingSeconds = 0;
+
+  void _notifyIfStateChanged() {
+    if (disposed) return;
+    final outboxError = outbox.error;
+    final pending = outbox.pendingSeconds;
+    if (error == _notifiedError &&
+        outboxError == _notifiedOutboxError &&
+        pending == _notifiedPendingSeconds) {
+      return;
+    }
+    _notifiedError = error;
+    _notifiedOutboxError = outboxError;
+    _notifiedPendingSeconds = pending;
+    notifyListeners();
+  }
+
   Future<void> start() async {
     if (_discarded) return;
     try {
@@ -246,21 +296,34 @@ class ActivityCollector extends ChangeNotifier {
       _last = _interaction = _monoReference;
       timer?.cancel();
       timer = Timer.periodic(const Duration(seconds: 1), (_) => sample());
-      unawaited(outbox.flush());
+      _notifyIfStateChanged();
+      unawaited(outbox.flush(refreshOnAck: false));
     } catch (_) {
       error = 'Chưa bắt đầu ghi thời gian. Kết nối mạng rồi thử lại.';
-      if (!disposed) notifyListeners();
+      _notifyIfStateChanged();
     }
   }
 
-  Future<void> touch() async {
-    if (session == null || disposed) return;
-    _interaction = await clock.milliseconds();
+  Future<void> touch() {
+    if (session == null || disposed) return Future.value();
+    return _touching ??= _performTouch().whenComplete(() => _touching = null);
   }
 
-  Future<void> audioAdvanced() async {
-    if (session == null || disposed) return;
-    _audioAt = await clock.milliseconds();
+  Future<void> _performTouch() async {
+    final now = await clock.milliseconds();
+    if (!disposed) _interaction = now;
+  }
+
+  Future<void> audioAdvanced() {
+    if (session == null || disposed) return Future.value();
+    return _audioUpdating ??= _performAudioAdvanced().whenComplete(
+      () => _audioUpdating = null,
+    );
+  }
+
+  Future<void> _performAudioAdvanced() async {
+    final now = await clock.milliseconds();
+    if (!disposed) _audioAt = now;
   }
 
   void audioStopped() {
@@ -300,11 +363,11 @@ class ActivityCollector extends ChangeNotifier {
         if (now - _segmentStart! >= 5000) await closeSegment(now);
       }
       _last = now;
-      if (++_ticks % 15 == 0) unawaited(outbox.flush());
-      if (!disposed) notifyListeners();
+      if (++_ticks % 15 == 0) unawaited(outbox.flush(refreshOnAck: false));
+      _notifyIfStateChanged();
     } catch (_) {
       error = 'Không ghi được thời gian. Hãy thử lại.';
-      if (!disposed) notifyListeners();
+      _notifyIfStateChanged();
     } finally {
       _sampling = false;
     }
@@ -328,7 +391,8 @@ class ActivityCollector extends ChangeNotifier {
     foreground = false;
     audioStopped();
     await closeSegment(_last);
-    await outbox.flush();
+    await outbox.flush(refreshOnAck: false);
+    _notifyIfStateChanged();
   }
 
   Future<void> resume() async {
@@ -338,20 +402,22 @@ class ActivityCollector extends ChangeNotifier {
       return;
     }
     _last = _interaction = await clock.milliseconds();
-    unawaited(outbox.flush());
+    unawaited(outbox.flush(refreshOnAck: false));
   }
 
   Future<void> checkpoint() async {
     await sample();
     await closeSegment(_last);
-    await outbox.flush();
+    await outbox.flush(refreshOnAck: false);
+    _notifyIfStateChanged();
   }
 
   Future<void> finish() async {
     foreground = false;
     timer?.cancel();
     await closeSegment(_last);
-    unawaited(outbox.flush());
+    unawaited(outbox.flush(refreshOnAck: false));
+    _notifyIfStateChanged();
   }
 
   Future<void> discard() async {

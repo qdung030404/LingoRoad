@@ -6,7 +6,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityBatchDto, LearningPreferencesDto, PreferredSkill } from './planning.dto';
 import { decideReadingLevel, initialReadingLevel, isEligibleReadingEvidence } from './skill-level.policy';
-import { readingEvidence } from './reading-focus.policy';
+import { readingEvidence, ReadingEvidenceAttempt } from './reading-focus.policy';
 import {
   CURRENT_PLAN_POLICY_VERSION,
   learningDate,
@@ -41,6 +41,7 @@ export {
   chooseDailyItems,
   computeScoreStats,
   CURRENT_PLAN_POLICY_VERSION,
+  dedupePlanItems,
   deriveWritingTitle,
   isCefrEligible,
   LEARNING_TIME_ZONE,
@@ -51,9 +52,11 @@ export {
 export {
   PREFERRED_SKILLS_RECEIPT_ID,
   readPreferredSkillsForUser,
+  readStoredPreferredSkillsForUser,
   readWritingHistoryForUser,
   recordWritingCompletionForUser,
   resolvePreferredSkills,
+  resolvePreferredSkillsWithFallback,
   WRITING_HISTORY_RECEIPT_ID,
   writePreferredSkillsForUser,
 } from './planning-receipts.helpers';
@@ -71,6 +74,18 @@ export type {
 } from './planning.helpers';
 
 type Db = Prisma.TransactionClient;
+
+const PLAN_ATTEMPT_SELECT = {
+  id: true,
+  lessonId: true,
+  status: true,
+  submittedAt: true,
+  correctCount: true,
+  totalQuestions: true,
+  contentVersion: true,
+  eligibleForLevelEval: true,
+  lessonSnapshot: true,
+} as const;
 
 const LESSON_KIND_SET = new Set<string>(Object.values(LearningKind));
 
@@ -186,7 +201,7 @@ export class PlanningService {
     if (init.source !== 'PLACEMENT') return false;
     if (existing.source === 'DEFAULT') return true;
     return (
-      existing.source === 'PLACEMENT' &&
+      (existing.source === 'PLACEMENT' || existing.source === 'ADAPTIVE') &&
       init.changedAt != null &&
       (!existing.changedAt || init.changedAt > existing.changedAt)
     );
@@ -275,7 +290,7 @@ export class PlanningService {
   async evaluateReadingLevel(
     tx: Db,
     userId: string,
-    submittedAttempt: LearningAttempt,
+    submittedAttempt: ReadingEvidenceAttempt,
   ): Promise<SkillLevelChange | null> {
     const snapshot = submittedAttempt.lessonSnapshot as { kind?: string };
     if (snapshot?.kind !== 'READING') return null;
@@ -283,6 +298,7 @@ export class PlanningService {
     const [attempts, exposures, readingLessons] = await Promise.all([
       tx.learningAttempt.findMany({
         where: { userId, status: 'COMPLETED' },
+        select: PLAN_ATTEMPT_SELECT,
         orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
       }),
       tx.learningAnswerExposure.findMany({ where: { userId }, select: { lessonId: true, firstAttemptId: true } }),
@@ -401,7 +417,7 @@ export class PlanningService {
       preferredSkillsOverride: opts?.preferredSkillsOverride,
     });
     if (currentPlan && isDeepStrictEqual(items, existing.items)) return existing;
-    return db.learningDayPlan.upsert({
+    const savedPlan = await db.learningDayPlan.upsert({
       where: { userId_date: { userId, date } },
       create: {
         userId, date, dailyGoalMinutes: profile.dailyGoalMinutes, preferencesVersion: profile.preferencesVersion,
@@ -412,6 +428,8 @@ export class PlanningService {
         policyVersion: CURRENT_PLAN_POLICY_VERSION, items: items as unknown as Prisma.InputJsonValue, version: { increment: 1 },
       },
     });
+    this.notifications?.invalidateDailyCheck?.(userId);
+    return savedPlan;
   }
 
   async ensureToday(userId: string) {
@@ -504,10 +522,11 @@ export class PlanningService {
     });
   }
 
-  progress(userId: string) {
+  progress(userId: string, now: Date = new Date()) {
     return buildProgressResponseHelper({
       prisma: this.prisma,
       userId,
+      now,
       getProfile: (db, uid) => this.profile(db, uid),
       shouldUpgradeFromPlacement: (existing, init) =>
         this.shouldUpgradeFromPlacement(existing, init),

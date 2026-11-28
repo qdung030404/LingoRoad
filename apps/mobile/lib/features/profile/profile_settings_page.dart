@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
@@ -552,55 +553,92 @@ class _LogoutCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: ProfilePalette.paper,
-    shape: RoundedRectangleBorder(
-      borderRadius: AppRadius.cardRadius,
-      side: const BorderSide(color: ProfilePalette.dangerBorder),
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      borderRadius: AppRadius.pill,
+      boxShadow: [
+        BoxShadow(
+          color: ProfilePalette.cardShadow,
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
     ),
-    clipBehavior: Clip.antiAlias,
-    child: InkWell(
-      key: const Key('logoutButton'),
-      hoverColor: ProfilePalette.dangerBg,
-      splashColor: ProfilePalette.dangerBg,
-      onTap: busy ? null : onTap,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 56),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (busy)
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
+    child: Material(
+      color: ProfilePalette.paper,
+      shape: const StadiumBorder(
+        side: BorderSide(color: ProfilePalette.logoutBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: const Key('logoutButton'),
+        customBorder: const StadiumBorder(),
+        hoverColor: ProfilePalette.dangerBg,
+        splashColor: ProfilePalette.dangerBg,
+        onTap: busy ? null : onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (busy)
+                  const SizedBox(
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1.8,
+                      color: ProfilePalette.danger,
+                    ),
+                  )
+                else
+                  const _FigmaLogoutIcon(
+                    size: 17,
                     color: ProfilePalette.danger,
                   ),
-                )
-              else
-                const ConceptSvgIcon(
-                  ConceptGlyph.exit,
-                  size: 20,
-                  color: ProfilePalette.danger,
+                const SizedBox(width: 8),
+                Text(
+                  'Đăng xuất',
+                  style: designText(
+                    14.5,
+                    weight: FontWeight.w500,
+                    color: ProfilePalette.danger,
+                    height: 1.25,
+                  ),
                 ),
-              const SizedBox(width: 10),
-              Text(
-                'Đăng xuất',
-                style: designText(
-                  16,
-                  weight: FontWeight.w700,
-                  color: ProfilePalette.danger,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     ),
   );
+}
+
+class _FigmaLogoutIcon extends StatelessWidget {
+  const _FigmaLogoutIcon({required this.color, this.size = 17});
+
+  final Color color;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final hex = color
+        .toARGB32()
+        .toRadixString(16)
+        .padLeft(8, '0')
+        .substring(2);
+    final svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 17 17" fill="none">'
+        '<path d="M6.30417 5.355C6.52375 2.805 7.83417 1.76375 10.7029 1.76375H10.795C13.9612 1.76375 15.2292 3.03167 15.2292 6.19792V10.8163C15.2292 13.9825 13.9612 15.2504 10.795 15.2504H10.7029C7.85542 15.2504 6.545 14.2233 6.31125 11.7158" stroke="#$hex" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M10.625 8.5H2.56417" stroke="#$hex" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+        '<path d="M4.14375 6.12708L1.77083 8.5L4.14375 10.8729" stroke="#$hex" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+        '</svg>';
+    return ExcludeSemantics(
+      child: SvgPicture.string(svg, width: size, height: size),
+    );
+  }
 }
 
 class ConceptSwitchPill extends StatelessWidget {

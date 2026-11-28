@@ -35,6 +35,7 @@ class GrammarCatalogueView extends StatefulWidget {
     this.placementCefr,
     this.showPreviousLevels = false,
     this.onTogglePreviousLevels,
+    this.asSliver = false,
   });
 
   final GrammarController controller;
@@ -42,9 +43,36 @@ class GrammarCatalogueView extends StatefulWidget {
   final String? placementCefr;
   final bool showPreviousLevels;
   final VoidCallback? onTogglePreviousLevels;
+  final bool asSliver;
 
   @override
   State<GrammarCatalogueView> createState() => _GrammarCatalogueViewState();
+}
+
+sealed class _GrammarListEntry {
+  const _GrammarListEntry();
+}
+
+class _GrammarGroupHeaderEntry extends _GrammarListEntry {
+  const _GrammarGroupHeaderEntry({
+    required this.filteredGroup,
+    required this.expanded,
+    required this.topGap,
+  });
+  final GrammarFilteredGroup filteredGroup;
+  final bool expanded;
+  final double topGap;
+}
+
+class _GrammarTopicRowEntry extends _GrammarListEntry {
+  const _GrammarTopicRowEntry({
+    required this.topic,
+    required this.isFirst,
+    required this.isLast,
+  });
+  final GrammarTreeNode topic;
+  final bool isFirst;
+  final bool isLast;
 }
 
 class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
@@ -118,6 +146,91 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
     );
   }
 
+  List<_GrammarListEntry> _flattenEntries(
+    BuildContext context,
+    GrammarController ctrl,
+    List<GrammarFilteredGroup> groups,
+  ) {
+    final double gap = AppSpacing.item(context);
+    final List<_GrammarListEntry> entries = <_GrammarListEntry>[];
+    for (int gIndex = 0; gIndex < groups.length; gIndex++) {
+      final GrammarFilteredGroup fg = groups[gIndex];
+      final bool expanded = ctrl.isGroupExpanded(fg.group.code);
+      entries.add(
+        _GrammarGroupHeaderEntry(
+          filteredGroup: fg,
+          expanded: expanded,
+          topGap: gIndex > 0 ? gap : 0,
+        ),
+      );
+      if (expanded) {
+        for (int tIndex = 0; tIndex < fg.topics.length; tIndex++) {
+          entries.add(
+            _GrammarTopicRowEntry(
+              topic: fg.topics[tIndex],
+              isFirst: tIndex == 0,
+              isLast: tIndex == fg.topics.length - 1,
+            ),
+          );
+        }
+      }
+    }
+    return entries;
+  }
+
+  Widget _buildEntryWidget(GrammarController ctrl, _GrammarListEntry entry) {
+    return switch (entry) {
+      _GrammarGroupHeaderEntry(:final filteredGroup, :final expanded, :final topGap) =>
+        Padding(
+          padding: EdgeInsets.only(top: topGap),
+          child: _GrammarGroupHeaderBox(
+            filteredGroup: filteredGroup,
+            expanded: expanded,
+            onToggle: () => ctrl.toggleGroup(filteredGroup.group.code),
+          ),
+        ),
+      _GrammarTopicRowEntry(:final topic, :final isFirst, :final isLast) =>
+        _GrammarGroupTopicBox(
+          topic: topic,
+          isFirst: isFirst,
+          isLast: isLast,
+          onTap: () => _openTopic(topic),
+        ),
+    };
+  }
+
+  Widget _buildControlsColumn(GrammarController ctrl) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _buildHeader(ctrl),
+        AppSpacing.gapMd,
+        _buildSearchInput(ctrl),
+        AppSpacing.gapMd,
+        _buildCefrFilterBar(ctrl),
+        if (GrammarController.cefrRank(widget.placementCefr) > 0 &&
+            widget.onTogglePreviousLevels != null) ...<Widget>[
+          AppSpacing.gapMd,
+          CustomAppButton(
+            key: const Key('grammarTogglePreviousLevels'),
+            text: widget.showPreviousLevels
+                ? 'Ẩn các bậc trước đó'
+                : 'Xem các bậc trước đó',
+            isSecondary: true,
+            icon: Icon(
+              widget.showPreviousLevels
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+              color: AppColors.grey900,
+            ),
+            onPressed: widget.onTogglePreviousLevels,
+          ),
+        ],
+        AppSpacing.gapMd,
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -126,23 +239,29 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
         final GrammarController ctrl = widget.controller;
 
         if (ctrl.loading && !ctrl.loaded) {
-          return const Padding(
+          const loadingBox = Padding(
             padding: AppSpacing.allLg,
             child: Center(
               child: CircularProgressIndicator(color: AppColors.primary500),
             ),
           );
+          return widget.asSliver
+              ? const SliverToBoxAdapter(child: loadingBox)
+              : loadingBox;
         }
 
         if (ctrl.error != null && ctrl.totalLeafCount == 0) {
-          return LearningError(
+          final errorBox = LearningError(
             ctrl.error!,
             retry: () => ctrl.load(force: true),
           );
+          return widget.asSliver
+              ? SliverToBoxAdapter(child: errorBox)
+              : errorBox;
         }
 
         if (ctrl.loaded && ctrl.totalLeafCount == 0) {
-          return Container(
+          final emptyBox = Container(
             width: double.infinity,
             padding: AppSpacing.allLg,
             decoration: BoxDecoration(
@@ -166,49 +285,75 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
               ],
             ),
           );
+          return widget.asSliver
+              ? SliverToBoxAdapter(child: emptyBox)
+              : emptyBox;
         }
 
         final List<GrammarFilteredGroup> groups = ctrl.visibleGroups;
+        final controls = _buildControlsColumn(ctrl);
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _buildHeader(ctrl),
-            AppSpacing.gapMd,
-            _buildSearchInput(ctrl),
-            AppSpacing.gapMd,
-            _buildCefrFilterBar(ctrl),
-            if (GrammarController.cefrRank(widget.placementCefr) > 0 &&
-                widget.onTogglePreviousLevels != null) ...<Widget>[
-              AppSpacing.gapMd,
-              CustomAppButton(
-                key: const Key('grammarTogglePreviousLevels'),
-                text: widget.showPreviousLevels
-                    ? 'Ẩn các bậc trước đó'
-                    : 'Xem các bậc trước đó',
-                isSecondary: true,
-                icon: Icon(
-                  widget.showPreviousLevels
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
-                  color: AppColors.grey900,
-                ),
-                onPressed: widget.onTogglePreviousLevels,
+        if (groups.isEmpty) {
+          final emptyFilter = _buildEmptyFilterState(ctrl);
+          if (widget.asSliver) {
+            return SliverMainAxisGroup(
+              slivers: <Widget>[
+                SliverToBoxAdapter(child: controls),
+                SliverToBoxAdapter(child: emptyFilter),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[controls, emptyFilter],
+          );
+        }
+
+        final List<_GrammarListEntry> entries = _flattenEntries(
+          context,
+          ctrl,
+          groups,
+        );
+
+        if (widget.asSliver) {
+          return SliverMainAxisGroup(
+            slivers: <Widget>[
+              SliverToBoxAdapter(child: controls),
+              SliverList.builder(
+                itemCount: entries.length,
+                itemBuilder: (BuildContext context, int index) =>
+                    _buildEntryWidget(ctrl, entries[index]),
               ),
             ],
-            AppSpacing.gapMd,
-            if (groups.isEmpty)
-              _buildEmptyFilterState(ctrl)
-            else
-              for (int i = 0; i < groups.length; i++) ...<Widget>[
-                if (i > 0) SizedBox(height: AppSpacing.item(context)),
-                _GrammarGroupCard(
-                  filteredGroup: groups[i],
-                  expanded: ctrl.isGroupExpanded(groups[i].group.code),
-                  onToggle: () => ctrl.toggleGroup(groups[i].group.code),
-                  onSelectTopic: _openTopic,
-                ),
-              ],
+          );
+        }
+
+        final bool hasAncestorScroll = Scrollable.maybeOf(context) != null;
+        if (hasAncestorScroll) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              controls,
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: entries.length,
+                itemBuilder: (BuildContext context, int index) =>
+                    _buildEntryWidget(ctrl, entries[index]),
+              ),
+            ],
+          );
+        }
+
+        return CustomScrollView(
+          slivers: <Widget>[
+            SliverToBoxAdapter(child: controls),
+            SliverList.builder(
+              itemCount: entries.length,
+              itemBuilder: (BuildContext context, int index) =>
+                  _buildEntryWidget(ctrl, entries[index]),
+            ),
           ],
         );
       },
@@ -283,21 +428,25 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
     return TextField(
       key: const ValueKey<String>('grammar-search-input'),
       controller: _searchTextController,
-      onChanged: ctrl.setSearchQuery,
+      onChanged: (String value) => ctrl.setSearchQuery(value, debounce: true),
       style: AppTextStyles.body,
       decoration: InputDecoration(
         hintText: 'Tìm cấu trúc (VD: Hiện tại hoàn thành, Đảo ngữ...)',
         hintStyle: AppTextStyles.body.copyWith(color: AppColors.grey500),
         prefixIcon: const Icon(Icons.search_rounded, color: AppColors.grey500),
-        suffixIcon: ctrl.searchQuery.isEmpty
-            ? null
-            : IconButton(
-                onPressed: () {
-                  _searchTextController.clear();
-                  ctrl.setSearchQuery('');
-                },
-                icon: const Icon(Icons.close_rounded, color: AppColors.grey600),
-              ),
+        suffixIcon: ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _searchTextController,
+          builder: (BuildContext context, TextEditingValue value, _) =>
+              value.text.isEmpty
+              ? const SizedBox.shrink()
+              : IconButton(
+                  onPressed: () {
+                    _searchTextController.clear();
+                    ctrl.setSearchQuery('');
+                  },
+                  icon: const Icon(Icons.close_rounded, color: AppColors.grey600),
+                ),
+        ),
         filled: true,
         fillColor: AppColors.surfaceLight,
         contentPadding: const EdgeInsets.symmetric(
@@ -429,40 +578,48 @@ class _CefrFilterButton extends StatelessWidget {
   }
 }
 
-class _GrammarGroupCard extends StatelessWidget {
-  const _GrammarGroupCard({
+class _GrammarGroupHeaderBox extends StatelessWidget {
+  const _GrammarGroupHeaderBox({
     required this.filteredGroup,
     required this.expanded,
     required this.onToggle,
-    required this.onSelectTopic,
   });
 
   final GrammarFilteredGroup filteredGroup;
   final bool expanded;
   final VoidCallback onToggle;
-  final ValueChanged<GrammarTreeNode> onSelectTopic;
 
   @override
   Widget build(BuildContext context) {
     final GrammarTreeNode group = filteredGroup.group;
     final List<GrammarTreeNode> topics = filteredGroup.topics;
+    final BorderRadius cardRadius = expanded
+        ? const BorderRadius.vertical(
+            top: Radius.circular(AppRadius.md),
+          )
+        : AppRadius.cardRadius;
 
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceLight,
-        borderRadius: AppRadius.cardRadius,
-        border: AppBorders.hairline(),
-        boxShadow: AppShadows.level1,
+        borderRadius: cardRadius,
+        border: Border(
+          top: AppBorders.hairlineSide(),
+          left: AppBorders.hairlineSide(),
+          right: AppBorders.hairlineSide(),
+          bottom: expanded ? BorderSide.none : AppBorders.hairlineSide(),
+        ),
+        boxShadow: expanded ? null : AppShadows.level1,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Material(
             color: AppColors.surfaceLight,
-            borderRadius: AppRadius.cardRadius,
+            borderRadius: cardRadius,
             child: InkWell(
               key: ValueKey<String>('grammar-group-${group.code}'),
-              borderRadius: AppRadius.cardRadius,
+              borderRadius: cardRadius,
               onTap: onToggle,
               child: Padding(
                 padding: AppSpacing.cardPadding,
@@ -528,25 +685,49 @@ class _GrammarGroupCard extends StatelessWidget {
               ),
             ),
           ),
-          if (expanded) ...<Widget>[
-            const Divider(height: 1, color: AppColors.borderLight),
-            Padding(
-              padding: AppSpacing.allSm,
-              child: Column(
-                children: <Widget>[
-                  for (int i = 0; i < topics.length; i++) ...<Widget>[
-                    if (i > 0) AppSpacing.gapSm,
-                    _GrammarLeafTile(
-                      topic: topics[i],
-                      onTap: () => onSelectTopic(topics[i]),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
+          if (expanded) const Divider(height: 1, color: AppColors.borderLight),
         ],
       ),
+    );
+  }
+}
+
+class _GrammarGroupTopicBox extends StatelessWidget {
+  const _GrammarGroupTopicBox({
+    required this.topic,
+    required this.isFirst,
+    required this.isLast,
+    required this.onTap,
+  });
+
+  final GrammarTreeNode topic;
+  final bool isFirst;
+  final bool isLast;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final BorderRadius bottomRadius = isLast
+        ? const BorderRadius.vertical(bottom: Radius.circular(AppRadius.md))
+        : BorderRadius.zero;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceLight,
+        borderRadius: bottomRadius,
+        border: Border(
+          left: AppBorders.hairlineSide(),
+          right: AppBorders.hairlineSide(),
+          bottom: isLast ? AppBorders.hairlineSide() : BorderSide.none,
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.sm,
+        isFirst ? AppSpacing.sm : AppSpacing.xs,
+        AppSpacing.sm,
+        isLast ? AppSpacing.sm : AppSpacing.xs,
+      ),
+      child: _GrammarLeafTile(topic: topic, onTap: onTap),
     );
   }
 }
@@ -636,6 +817,7 @@ class GrammarRoadSection extends StatelessWidget {
     this.placementCefr,
     this.showPreviousLevels = false,
     this.onTogglePreviousLevels,
+    this.asSliver = false,
   });
 
   final GrammarController grammarController;
@@ -643,6 +825,7 @@ class GrammarRoadSection extends StatelessWidget {
   final String? placementCefr;
   final bool showPreviousLevels;
   final VoidCallback? onTogglePreviousLevels;
+  final bool asSliver;
 
   @override
   Widget build(BuildContext context) {
@@ -652,6 +835,7 @@ class GrammarRoadSection extends StatelessWidget {
       placementCefr: placementCefr,
       showPreviousLevels: showPreviousLevels,
       onTogglePreviousLevels: onTogglePreviousLevels,
+      asSliver: asSliver,
     );
   }
 }

@@ -30,13 +30,17 @@ class CuratedTopicDetailPage extends StatefulWidget {
 }
 
 class _CuratedTopicDetailPageState extends State<CuratedTopicDetailPage> {
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  AudioPlayer? _audioPlayer;
+  StreamSubscription<void>? _audioCompleteSub;
+  final WordPlaybackTracker _audioTracker = WordPlaybackTracker();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   List<Map<String, dynamic>> _words = [];
+  List<Map<String, dynamic>> _filteredWords = [];
   bool _loading = true;
   String? _error;
   String _search = '';
   bool _isCloning = false;
-  String? _playingWordId;
   final Set<String> _bookmarkedWordIds = {};
 
   @override
@@ -47,8 +51,49 @@ class _CuratedTopicDetailPageState extends State<CuratedTopicDetailPage> {
 
   @override
   void dispose() {
-    _audioPlayer.dispose();
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    _audioCompleteSub?.cancel();
+    _audioPlayer?.dispose();
+    _audioTracker.dispose();
     super.dispose();
+  }
+
+  void _recomputeFilteredWords() {
+    final q = _search.trim().toLowerCase();
+    if (q.isEmpty) {
+      _filteredWords = _words;
+      return;
+    }
+    _filteredWords = _words.where((w) {
+      final word = (w['word']?.toString() ?? '').toLowerCase();
+      final meaning = (w['meaningVi']?.toString() ?? '').toLowerCase();
+      return word.contains(q) || meaning.contains(q);
+    }).toList();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 220), () {
+      if (!mounted || _search == value) return;
+      setState(() {
+        _search = value;
+        _recomputeFilteredWords();
+      });
+    });
+  }
+
+  AudioPlayer _ensureAudioPlayer() {
+    final existing = _audioPlayer;
+    if (existing != null) return existing;
+    final created = AudioPlayer();
+    _audioPlayer = created;
+    _audioCompleteSub = created.onPlayerComplete.listen((_) {
+      if (mounted) {
+        _audioTracker.setPlaying(null);
+      }
+    });
+    return created;
   }
 
   Future<void> _loadWords() async {
@@ -69,11 +114,13 @@ class _CuratedTopicDetailPageState extends State<CuratedTopicDetailPage> {
               .whereType<Map>()
               .map((e) => Map<String, dynamic>.from(e))
               .toList();
+          _recomputeFilteredWords();
           _loading = false;
         });
       } else {
         setState(() {
           _words = [];
+          _filteredWords = [];
           _loading = false;
         });
       }
@@ -93,16 +140,14 @@ class _CuratedTopicDetailPageState extends State<CuratedTopicDetailPage> {
     if (url == null || url.isEmpty || wordId == null) return;
 
     try {
-      setState(() => _playingWordId = wordId);
-      await _audioPlayer.stop();
-      await _audioPlayer.play(UrlSource(url));
-      _audioPlayer.onPlayerComplete.first.then((_) {
-        if (mounted && _playingWordId == wordId) {
-          setState(() => _playingWordId = null);
-        }
-      });
+      _audioTracker.setPlaying(wordId);
+      final player = _ensureAudioPlayer();
+      await player.stop();
+      await player.play(UrlSource(url));
     } catch (_) {
-      if (mounted) setState(() => _playingWordId = null);
+      if (mounted && _audioTracker.currentId == wordId) {
+        _audioTracker.setPlaying(null);
+      }
     }
   }
 
@@ -198,14 +243,7 @@ class _CuratedTopicDetailPageState extends State<CuratedTopicDetailPage> {
     final slug = widget.topic['slug']?.toString() ?? '';
     final isCloned = widget.controller.isTopicCloned(titleVi);
     final clonedDeckId = widget.controller.getClonedDeckId(titleVi);
-
-    final filtered = _words.where((w) {
-      final q = _search.trim().toLowerCase();
-      if (q.isEmpty) return true;
-      final word = (w['word']?.toString() ?? '').toLowerCase();
-      final meaning = (w['meaningVi']?.toString() ?? '').toLowerCase();
-      return word.contains(q) || meaning.contains(q);
-    }).toList();
+    final filtered = _filteredWords;
 
     return Scaffold(
       backgroundColor: AppColors.grey25,
@@ -233,121 +271,155 @@ class _CuratedTopicDetailPageState extends State<CuratedTopicDetailPage> {
         child: Column(
           children: [
             Expanded(
-              child: ListView(
-                padding: AppSpacing.allMd,
-                children: [
-                  Container(
-                    padding: AppSpacing.allMd,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: AppRadius.cardRadius,
-                      border: Border.all(color: AppColors.grey200),
+              child: CustomScrollView(
+                slivers: [
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      !_loading && _error == null && filtered.isNotEmpty
+                          ? 0
+                          : AppSpacing.md,
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary25,
-                            borderRadius: AppRadius.cardSm,
-                          ),
-                          child: Icon(
-                            getTopicIcon(slug),
-                            color: AppColors.primary700,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                titleEn,
-                                style: designHeading(15, color: AppColors.grey700),
-                              ),
-                              if (description.isNotEmpty) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  description,
-                                  style: designText(13, color: AppColors.grey600),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            padding: AppSpacing.allMd,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: AppRadius.cardRadius,
+                              border: Border.all(color: AppColors.grey200),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary25,
+                                    borderRadius: AppRadius.cardSm,
+                                  ),
+                                  child: Icon(
+                                    getTopicIcon(slug),
+                                    color: AppColors.primary700,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        titleEn,
+                                        style: designHeading(15, color: AppColors.grey700),
+                                      ),
+                                      if (description.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          description,
+                                          style: designText(13, color: AppColors.grey600),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ),
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: _searchController,
+                            onChanged: _onSearchChanged,
+                            style: designText(14),
+                            decoration: InputDecoration(
+                              hintText: 'Tìm từ trong chủ đề...',
+                              hintStyle: designText(14, color: AppColors.grey500),
+                              prefixIcon: const Icon(Icons.search, color: AppColors.grey500),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: const OutlineInputBorder(
+                                borderRadius: AppRadius.inputRadius,
+                                borderSide: BorderSide(color: AppColors.grey200),
+                              ),
+                              enabledBorder: const OutlineInputBorder(
+                                borderRadius: AppRadius.inputRadius,
+                                borderSide: BorderSide(color: AppColors.grey200),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (_loading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 36),
+                                child: CircularProgressIndicator(color: AppColors.primary500),
+                              ),
+                            )
+                          else if (_error != null)
+                            LearningError(_error!, retry: _loadWords)
+                          else if (filtered.isEmpty)
+                            Padding(
+                              padding: AppSpacing.allLg,
+                              child: Center(
+                                child: Text(
+                                  _search.isEmpty
+                                      ? 'Chưa có từ nào trong chủ đề này.'
+                                      : 'Không tìm thấy từ phù hợp.',
+                                  style: designText(14, color: AppColors.grey600),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    onChanged: (v) => setState(() => _search = v),
-                    style: designText(14),
-                    decoration: InputDecoration(
-                      hintText: 'Tìm từ trong chủ đề...',
-                      hintStyle: designText(14, color: AppColors.grey500),
-                      prefixIcon: const Icon(Icons.search, color: AppColors.grey500),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+                  if (!_loading && _error == null && filtered.isNotEmpty)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        0,
+                        AppSpacing.md,
+                        AppSpacing.md,
                       ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: const OutlineInputBorder(
-                        borderRadius: AppRadius.inputRadius,
-                        borderSide: BorderSide(color: AppColors.grey200),
-                      ),
-                      enabledBorder: const OutlineInputBorder(
-                        borderRadius: AppRadius.inputRadius,
-                        borderSide: BorderSide(color: AppColors.grey200),
+                      sliver: SliverList.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final word = filtered[index];
+                          final wordId = word['id']?.toString() ?? 'idx-$index';
+                          final hasAudio = word['audioUrl'] != null &&
+                              word['audioUrl'].toString().isNotEmpty;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: ValueListenableBuilder<bool>(
+                              valueListenable: _audioTracker.listen(wordId),
+                              builder: (context, isPlaying, _) => VocabularyWordCard(
+                                english: word['word']?.toString() ?? '',
+                                phonetic: word['phonetic']?.toString(),
+                                partOfSpeech: word['partOfSpeech']?.toString(),
+                                meaning: word['meaningVi']?.toString() ?? '',
+                                example: word['exampleEn']?.toString(),
+                                translation: word['exampleVi']?.toString(),
+                                imageUrl: word['imageUrl']?.toString(),
+                                isPlaying: isPlaying,
+                                onPlayAudio: hasAudio ? () => _playAudio(word) : null,
+                                isBookmarked: isCloned ||
+                                    _bookmarkedWordIds.contains(wordId),
+                                onBookmark: () => _bookmarkWord(word),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_loading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(vertical: 36),
-                        child: CircularProgressIndicator(color: AppColors.primary500),
-                      ),
-                    )
-                  else if (_error != null)
-                    LearningError(_error!, retry: _loadWords)
-                  else if (filtered.isEmpty)
-                    Padding(
-                      padding: AppSpacing.allLg,
-                      child: Center(
-                        child: Text(
-                          _search.isEmpty
-                              ? 'Chưa có từ nào trong chủ đề này.'
-                              : 'Không tìm thấy từ phù hợp.',
-                          style: designText(14, color: AppColors.grey600),
-                        ),
-                      ),
-                    )
-                  else
-                    for (final word in filtered) ...[
-                      VocabularyWordCard(
-                        english: word['word']?.toString() ?? '',
-                        phonetic: word['phonetic']?.toString(),
-                        partOfSpeech: word['partOfSpeech']?.toString(),
-                        meaning: word['meaningVi']?.toString() ?? '',
-                        example: word['exampleEn']?.toString(),
-                        translation: word['exampleVi']?.toString(),
-                        imageUrl: word['imageUrl']?.toString(),
-                        isPlaying: _playingWordId == word['id']?.toString(),
-                        onPlayAudio: (word['audioUrl'] != null &&
-                                word['audioUrl'].toString().isNotEmpty)
-                            ? () => _playAudio(word)
-                            : null,
-                        isBookmarked: isCloned ||
-                            _bookmarkedWordIds.contains(word['id']?.toString()),
-                        onBookmark: () => _bookmarkWord(word),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
                 ],
               ),
             ),

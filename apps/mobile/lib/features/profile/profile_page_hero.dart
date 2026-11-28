@@ -470,14 +470,20 @@ class _CefrOverviewCard extends StatelessWidget {
   const _CefrOverviewCard({
     required this.hasPlacement,
     required this.placementCefr,
+    required this.placementSkills,
+    required this.readingSnap,
     required this.targetCefr,
+    required this.isNarrow,
     required this.onViewPlacement,
     required this.onStartPlacement,
   });
 
   final bool hasPlacement;
   final String? placementCefr;
+  final Json? placementSkills;
+  final Json? readingSnap;
   final String targetCefr;
+  final bool isNarrow;
   final VoidCallback? onViewPlacement;
   final VoidCallback onStartPlacement;
 
@@ -530,7 +536,8 @@ class _CefrOverviewCard extends StatelessWidget {
       ),
       const SizedBox(height: 12),
       Container(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        key: const Key('cefrOverviewCard'),
+        padding: EdgeInsets.all(isNarrow ? 14 : 16),
         decoration: BoxDecoration(
           color: ProfilePalette.paper,
           borderRadius: AppRadius.cardRadius,
@@ -562,8 +569,48 @@ class _CefrOverviewCard extends StatelessWidget {
                   color: ProfilePalette.muted,
                 ),
               ),
-            ],
-            if (hasPlacement)
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 50,
+                width: double.infinity,
+                child: ElevatedButton(
+                  key: const Key('startPlacementButton'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ProfilePalette.unassessedCta,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: onStartPlacement,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          'Kiểm tra đầu vào',
+                          style: designText(
+                            15.5,
+                            weight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const ConceptSvgIcon(
+                        ConceptGlyph.arrow,
+                        size: 20,
+                        color: Colors.white,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+            ] else ...[
+              const SizedBox(height: 4),
               TextButton(
                 key: const Key('viewPlacementResultButton'),
                 style: TextButton.styleFrom(
@@ -595,49 +642,18 @@ class _CefrOverviewCard extends StatelessWidget {
                     ),
                   ],
                 ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.fromLTRB(0, 12, 0, 8),
-                child: SizedBox(
-                  height: 50,
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    key: const Key('startPlacementButton'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: ProfilePalette.unassessedCta,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: onStartPlacement,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Text(
-                            'Kiểm tra đầu vào',
-                            style: designText(
-                              15.5,
-                              weight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const ConceptSvgIcon(
-                          ConceptGlyph.arrow,
-                          size: 20,
-                          color: Colors.white,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ),
+              const SizedBox(height: 10),
+            ],
+            _SkillsSection(
+              hasPlacement: hasPlacement,
+              placementCefr: placementCefr,
+              placementSkills: placementSkills,
+              readingSnap: readingSnap,
+              targetCefr: targetCefr,
+              isNarrow: isNarrow,
+              onRetakePlacement: onStartPlacement,
+            ),
           ],
         ),
       ),

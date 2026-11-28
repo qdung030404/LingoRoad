@@ -63,7 +63,7 @@ class _StubDailyRepository implements DailyRepository {
   Future<Json> sendSegments(String sessionId, List<Json> segments) async => {};
 }
 
-class _StubGrammarRepository implements GrammarRepository {
+class _StubGrammarRepository extends GrammarRepository {
   @override
   Future<List<GrammarLevelSummary>> fetchLevels() async => const [
     GrammarLevelSummary(cefrLevel: 'A1', topicCount: 1, lessonCount: 1, completedCount: 0),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../core/api/api_client.dart';
 import 'grammar_repository.dart';
@@ -31,8 +32,11 @@ class GrammarController extends ChangeNotifier {
   String? _selectedCefr;
   String? _minimumVisibleCefr;
   String _searchQuery = '';
+  String _pendingSearchQuery = '';
+  Timer? _searchDebounce;
   List<GrammarLevelSummary> _levels = const <GrammarLevelSummary>[];
   List<GrammarTreeNode> _groups = const <GrammarTreeNode>[];
+  List<GrammarFilteredGroup>? _cachedVisibleGroups;
   final Set<String> _expandedGroupCodes = <String>{};
   final Map<String, GrammarTopicDetail> _detailCache =
       <String, GrammarTopicDetail>{};
@@ -146,6 +150,8 @@ class GrammarController extends ChangeNotifier {
   }
 
   List<GrammarFilteredGroup> get visibleGroups {
+    final cached = _cachedVisibleGroups;
+    if (cached != null) return cached;
     final String needle = _searchQuery.trim().toLowerCase();
     final List<GrammarFilteredGroup> result = <GrammarFilteredGroup>[];
 
@@ -175,12 +181,13 @@ class GrammarController extends ChangeNotifier {
       }
     }
 
-    return result;
+    return _cachedVisibleGroups = result;
   }
 
   void setMinimumVisibleCefr(String? level, {bool notify = true}) {
     if (_minimumVisibleCefr == level) return;
     _minimumVisibleCefr = level;
+    _cachedVisibleGroups = null;
     if (_selectedCefr != null && cefrRank(_selectedCefr) < cefrRank(level)) {
       _selectedCefr = null;
     }
@@ -192,6 +199,7 @@ class GrammarController extends ChangeNotifier {
   void setSelectedCefr(String? level) {
     if (_selectedCefr == level) return;
     _selectedCefr = level;
+    _cachedVisibleGroups = null;
     if (level != null) {
       for (final GrammarFilteredGroup item in visibleGroups) {
         _expandedGroupCodes.add(item.group.code);
@@ -200,9 +208,35 @@ class GrammarController extends ChangeNotifier {
     _notify();
   }
 
-  void setSearchQuery(String query) {
+  void setSearchQuery(
+    String query, {
+    bool debounce = false,
+    Duration delay = const Duration(milliseconds: 220),
+  }) {
+    if (debounce) {
+      if (_pendingSearchQuery == query && _searchDebounce?.isActive == true) {
+        return;
+      }
+      _pendingSearchQuery = query;
+      _searchDebounce?.cancel();
+      _searchDebounce = Timer(delay, () {
+        _searchDebounce = null;
+        if (!_disposed) {
+          _applySearchQuery(query);
+        }
+      });
+      return;
+    }
+    _searchDebounce?.cancel();
+    _searchDebounce = null;
+    _pendingSearchQuery = query;
+    _applySearchQuery(query);
+  }
+
+  void _applySearchQuery(String query) {
     if (_searchQuery == query) return;
     _searchQuery = query;
+    _cachedVisibleGroups = null;
     if (query.trim().isNotEmpty) {
       for (final GrammarFilteredGroup item in visibleGroups) {
         _expandedGroupCodes.add(item.group.code);
@@ -212,8 +246,12 @@ class GrammarController extends ChangeNotifier {
   }
 
   void clearFilters() {
+    _searchDebounce?.cancel();
+    _searchDebounce = null;
+    _pendingSearchQuery = '';
     _selectedCefr = null;
     _searchQuery = '';
+    _cachedVisibleGroups = null;
     _notify();
   }
 
@@ -296,18 +334,15 @@ class GrammarController extends ChangeNotifier {
     });
 
     try {
-      final List<Object> results = await Future.wait<Object>(<Future<Object>>[
-        repository.fetchLevels(),
-        repository.fetchTree(),
-      ]);
+      final GrammarCatalogueData catalogue = await repository.fetchCatalogue();
       if (_disposed || epoch != _loadEpoch) return;
 
-      final List<GrammarLevelSummary> fetchedLevels =
-          results[0] as List<GrammarLevelSummary>;
-      final List<GrammarTreeNode> roots = results[1] as List<GrammarTreeNode>;
+      final List<GrammarLevelSummary> fetchedLevels = catalogue.levels;
+      final List<GrammarTreeNode> roots = catalogue.tree;
 
       _levels = fetchedLevels;
       _groups = _extractGroups(roots);
+      _cachedVisibleGroups = null;
       if (force) {
         _detailCache.clear();
       }
@@ -353,6 +388,7 @@ class GrammarController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _disposed = true;
     super.dispose();
   }

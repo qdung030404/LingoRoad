@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/api/api_client.dart';
+import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/features/profile/cefr_road_chart.dart';
 import 'package:mobile/features/profile/profile_constants.dart';
@@ -183,7 +186,18 @@ void main() {
         ctaBtn.style?.backgroundColor?.resolve({}),
         const Color(0xFF1A2029),
       );
-      expect(find.text('Mức khởi đầu'), findsNWidgets(4));
+      expect(find.text('Theo kỹ năng'), findsOneWidget);
+      expect(find.text('Chưa đánh giá'), findsNWidgets(4));
+      expect(find.byKey(const Key('retakePlacementButton')), findsNothing);
+      for (final kind in ['READING', 'LISTENING', 'GRAMMAR', 'VOCABULARY']) {
+        final iconBox = tester.widget<Container>(
+          find.byKey(ValueKey('skillIconBox-$kind')),
+        );
+        expect(
+          (iconBox.decoration as BoxDecoration).color,
+          ProfilePalette.skillRowInactiveIconBg,
+        );
+      }
       expect(find.text('anna@example.com'), findsOneWidget);
       expect(find.byKey(const Key('profileProviderIcon')), findsOneWidget);
       expect(find.text('Google'), findsNothing);
@@ -314,9 +328,10 @@ void main() {
       expect(find.text('Đầu vào'), findsOneWidget);
       expect(find.text('Mục tiêu'), findsOneWidget);
       expect(find.text('Xem kết quả'), findsOneWidget);
+      expect(find.text('Theo kỹ năng'), findsOneWidget);
       expect(find.text('Cập nhật từ bài học'), findsOneWidget);
-      expect(find.text('Kết quả đầu vào'), findsOneWidget);
-      expect(find.text('Theo đầu vào'), findsNWidgets(2));
+      expect(find.text('Từ kết quả đầu vào'), findsNWidgets(3));
+      expect(find.text('Đánh giá lại'), findsOneWidget);
       expect(find.text('Chỉnh sửa'), findsOneWidget);
       expect(find.text('Công việc'), findsOneWidget);
       expect(find.text('15 phút/ngày'), findsOneWidget);
@@ -347,6 +362,7 @@ void main() {
         const Key('changeAvatarButton'),
         const Key('editIdentityButton'),
         const Key('viewPlacementResultButton'),
+        const Key('retakePlacementButton'),
         const Key('editLearningGoalsButton'),
         const Key('reminderToggleSwitch'),
         const Key('reminderTimeRow'),
@@ -367,18 +383,50 @@ void main() {
   );
 
   testWidgets(
-    'Standard width (>= 340px) renders skills as a balanced 2x2 grid',
+    'Standard width (>= 340px) renders Figma Theo kỹ năng vertical list with retake button and pill logout button',
     (tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final api = _InterceptingApi(completed: true);
+      final api = _InterceptingApi(
+        completed: true,
+        readingLevel: {'cefrLevel': 'B1', 'source': 'ADAPTIVE'},
+      );
       final session = await _bootSession(api);
 
       await tester.pumpWidget(MaterialApp(home: ProfilePage(session: session)));
       await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('cefrOverviewCard')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('cefrOverviewCard')),
+          matching: find.byKey(const Key('profileSkillsCard')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('cefrOverviewCard')),
+          matching: find.byType(Divider),
+        ),
+        findsNothing,
+      );
+      expect(find.text('Theo kỹ năng'), findsOneWidget);
+      expect(find.text('Cập nhật từ bài học'), findsOneWidget);
+      expect(find.text('Từ kết quả đầu vào'), findsNWidgets(3));
+      expect(find.byKey(const Key('retakePlacementButton')), findsOneWidget);
+      for (final kind in ['READING', 'LISTENING', 'GRAMMAR', 'VOCABULARY']) {
+        final iconBox = tester.widget<Container>(
+          find.byKey(ValueKey('skillIconBox-$kind')),
+        );
+        expect(
+          (iconBox.decoration as BoxDecoration).color,
+          ProfilePalette.skillRowAdaptiveBg,
+        );
+      }
 
       final readRect = tester.getRect(
         find.byKey(const ValueKey('skillTile-READING')),
@@ -392,10 +440,19 @@ void main() {
       final vocabRect = tester.getRect(
         find.byKey(const ValueKey('skillTile-VOCABULARY')),
       );
-      expect(readRect.top, equals(listenRect.top));
-      expect(readRect.left, lessThan(listenRect.left));
-      expect(gramRect.top, equals(vocabRect.top));
-      expect(gramRect.top, greaterThan(readRect.top));
+      expect(readRect.width, equals(listenRect.width));
+      expect(readRect.top, lessThan(listenRect.top));
+      expect(listenRect.top, lessThan(gramRect.top));
+      expect(gramRect.top, lessThan(vocabRect.top));
+
+      // Verify Figma pill shape on logoutButton
+      final logoutMaterial = tester.widget<Material>(
+        find.ancestor(
+          of: find.byKey(const Key('logoutButton')),
+          matching: find.byType(Material),
+        ).first,
+      );
+      expect(logoutMaterial.shape, isA<StadiumBorder>());
 
       // Verify distinct CEFR pillar palettes and balanced 2x2 priority skills grid in Goals Summary
       final palettes = allPreferredLearningKinds
@@ -411,6 +468,17 @@ void main() {
         find.byKey(const ValueKey('goalSkillBadge-VOCABULARY')),
       );
       expect(goalGramRect.top, equals(goalVocabRect.top));
+
+      // Verify retaking placement from Profile opens QuestionPage and backing out mid-retake keeps user on Profile
+      await tester.ensureVisible(find.byKey(const Key('retakePlacementButton')));
+      await tester.tap(find.byKey(const Key('retakePlacementButton')));
+      await tester.pumpAndSettle();
+      expect(find.text('Phần 1 · Đọc'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Hồ sơ của tôi'), findsOneWidget);
+      expect(session.hasCompletedPlacement, isTrue);
+      expect(session.placementCefr, 'B1');
       expect(tester.takeException(), isNull);
     },
   );
@@ -448,4 +516,40 @@ void main() {
   );
 
   _registerProfileAndGoalsExtraTests();
+
+  testWidgets(
+    'FontManifest registers Be Vietnam Pro ExtraBold (800) without legacy fonts, and both themes apply Be Vietnam Pro to textTheme',
+    (_) async {
+      final rawManifest = await rootBundle.loadString('FontManifest.json');
+      expect(rawManifest, isNot(contains('Hanken')));
+      expect(rawManifest, isNot(contains('Madimi')));
+      expect(rawManifest.toLowerCase(), isNot(contains('hanken')));
+      expect(rawManifest.toLowerCase(), isNot(contains('madimi')));
+
+      final manifest = (jsonDecode(rawManifest) as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      final beVietnamFamily = manifest.firstWhere(
+        (entry) => entry['family'] == 'Be Vietnam Pro',
+      );
+      final fonts = (beVietnamFamily['fonts'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      expect(
+        fonts.any(
+          (font) =>
+              font['asset'] == 'assets/fonts/BeVietnamPro-ExtraBold.ttf' &&
+              font['weight'] == 800,
+        ),
+        isTrue,
+      );
+
+      expect(
+        AppTheme.lightTheme.textTheme.bodyMedium?.fontFamily,
+        'Be Vietnam Pro',
+      );
+      expect(
+        AppTheme.darkTheme.textTheme.bodyMedium?.fontFamily,
+        'Be Vietnam Pro',
+      );
+    },
+  );
 }
