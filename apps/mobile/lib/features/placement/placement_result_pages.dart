@@ -74,12 +74,7 @@ class _ResultPageState extends State<ResultPage> {
             CustomAppButton(
               text: 'Bắt đầu học',
               onPressed: () {
-                widget.session.placementResult = result;
-                widget.session.placement = {
-                  ...widget.session.placement,
-                  'status': 'COMPLETED',
-                  'currentSessionId': widget.sessionId,
-                };
+                widget.session.acceptPlacementResult(widget.sessionId, result);
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute<void>(
                     settings: const RouteSettings(

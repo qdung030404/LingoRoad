@@ -331,7 +331,7 @@ export class PlanningService {
     if (init.source !== 'PLACEMENT') return false;
     if (existing.source === 'DEFAULT') return true;
     return (
-      existing.source === 'PLACEMENT' &&
+      (existing.source === 'PLACEMENT' || existing.source === 'ADAPTIVE') &&
       init.changedAt != null &&
       (!existing.changedAt || init.changedAt > existing.changedAt)
     );

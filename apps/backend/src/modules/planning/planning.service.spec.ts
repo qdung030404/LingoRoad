@@ -685,6 +685,20 @@ describe('Progress roadmap units and score stats', () => {
         cefrLevel: 'B1',
         source: 'PLACEMENT',
       }));
+
+      // 4) Retaking placement after ADAPTIVE reading level updates READING back to newer PLACEMENT result
+      const retakeDb = makeStatefulDb();
+      const adaptiveRow: any = retakeDb.getSkillRow();
+      adaptiveRow.source = 'ADAPTIVE';
+      adaptiveRow.cefrLevel = 'A2';
+      adaptiveRow.changedAt = new Date('2026-11-16T03:00:00Z'); // older than placementCompletedAt (04:00:00Z)
+      const retakeSvc = new PlanningService(retakeDb.tx as unknown as PrismaService);
+      await retakeSvc.onPlacementCompleted({ userId: 'u', sessionId: 'retake-sess', estimatedCefr: 'B1' });
+      expect(retakeDb.getSkillRow()).toEqual(expect.objectContaining({
+        cefrLevel: 'B1',
+        source: 'PLACEMENT',
+        changedAt: placementCompletedAt,
+      }));
     } finally {
       jest.useRealTimers();
     }

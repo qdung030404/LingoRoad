@@ -433,6 +433,17 @@ void main() {
         find.byKey(const ValueKey('goalSkillBadge-VOCABULARY')),
       );
       expect(goalGramRect.top, equals(goalVocabRect.top));
+
+      // Verify retaking placement from Profile opens QuestionPage and backing out mid-retake keeps user on Profile
+      await tester.ensureVisible(find.byKey(const Key('retakePlacementButton')));
+      await tester.tap(find.byKey(const Key('retakePlacementButton')));
+      await tester.pumpAndSettle();
+      expect(find.text('Phần 1 · Đọc'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('Hồ sơ của tôi'), findsOneWidget);
+      expect(session.hasCompletedPlacement, isTrue);
+      expect(session.placementCefr, 'B1');
       expect(tester.takeException(), isNull);
     },
   );

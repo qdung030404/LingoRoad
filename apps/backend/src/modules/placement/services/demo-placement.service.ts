@@ -122,8 +122,6 @@ export class DemoPlacementService {
   async start(userId: string) {
     const active = await this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS }, include: sessionInclude });
     if (active) return this.startState(active);
-    const completed = await this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED } });
-    if (completed) this.conflict('Bạn đã hoàn tất bài kiểm tra. Vui lòng xem kết quả.');
     const bank = await this.bank();
     for (const skill of [AssessmentSkill.READING, AssessmentSkill.LISTENING]) {
       const candidates = bank.filter((i) => i.skill === skill);
@@ -132,13 +130,10 @@ export class DemoPlacementService {
     const first = await this.select(bank, [], 0);
     try {
       const created = await this.prisma.$transaction(async (tx) => {
-        // Serialize starts for this account; recheck after CAT so a concurrent
-        // completed session cannot accidentally become a new test attempt.
+        // Serialize starts for this account so concurrent starts share a single active attempt.
         await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId}::uuid FOR UPDATE`;
         const existing = await tx.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS }, include: sessionInclude });
         if (existing) return existing;
-        const done = await tx.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED } });
-        if (done) this.conflict('Bạn đã hoàn tất bài kiểm tra. Vui lòng xem kết quả.');
         return tx.placementSession.create({
           data: { userId, totalItems: PLACEMENT_TOTAL, testVersion: DEMO_TEST_VERSION, bankVersion: DEMO_BANK_VERSION, currentItemId: first.id },
           include: sessionInclude,
@@ -154,16 +149,22 @@ export class DemoPlacementService {
   }
 
   async status(userId: string) {
-    const select = { id: true, status: true, currentItemIndex: true, totalItems: true, estimatedCefr: true } as const;
+    const activeSelect = { id: true, status: true, currentItemIndex: true, totalItems: true, estimatedCefr: true } as const;
+    const completedSelect = { id: true, status: true, currentItemIndex: true, totalItems: true, estimatedCefr: true, skillResults: true } as const;
     const [active, completed] = await Promise.all([
-      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS }, select }),
-      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED }, orderBy: { completedAt: 'desc' }, select }),
+      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.IN_PROGRESS }, select: activeSelect }),
+      this.prisma.placementSession.findFirst({ where: { userId, status: SessionStatus.COMPLETED }, orderBy: { completedAt: 'desc' }, select: completedSelect }),
     ]);
     const session = active ?? completed;
     return {
-      hasCompleted: !!completed, currentSessionId: session?.id ?? null,
-      status: session?.status ?? null, currentIndex: session?.currentItemIndex ?? 0,
-      totalItems: session?.totalItems ?? PLACEMENT_TOTAL, estimatedCefr: session?.estimatedCefr ?? null,
+      hasCompleted: !!completed,
+      currentSessionId: session?.id ?? null,
+      completedSessionId: completed?.id ?? null,
+      status: session?.status ?? null,
+      currentIndex: session?.currentItemIndex ?? 0,
+      totalItems: session?.totalItems ?? PLACEMENT_TOTAL,
+      estimatedCefr: completed?.estimatedCefr ?? session?.estimatedCefr ?? null,
+      skillResults: completed?.skillResults ?? null,
     };
   }
 

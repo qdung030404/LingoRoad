@@ -498,7 +498,7 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
     final isGoogle = user['provider'] == 'GOOGLE';
 
     final hasPlacement =
-        widget.session.placement['status'] == 'COMPLETED' &&
+        widget.session.hasCompletedPlacement &&
         widget.session.placementCefr != null;
     final placementCefr = widget.session.placementCefr;
     final placementSkills =
@@ -507,7 +507,10 @@ class _ProfilePageState extends State<ProfilePage> with WidgetsBindingObserver {
                 as Map?)
             ?.cast<String, dynamic>();
     final placementSessionId =
-        (widget.session.placement['currentSessionId'] ??
+        (widget.session.placement['completedSessionId'] ??
+                (widget.session.placement['status'] == 'COMPLETED'
+                    ? widget.session.placement['currentSessionId']
+                    : null) ??
                 widget.session.placementResult?['sessionId'])
             as String?;
 
