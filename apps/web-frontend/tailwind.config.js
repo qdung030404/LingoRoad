@@ -40,7 +40,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-be-vietnam-pro)', '"Be Vietnam Pro"', 'Inter', 'system-ui', 'sans-serif'],
       },
     },
   },

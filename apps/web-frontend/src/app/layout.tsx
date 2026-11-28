@@ -1,5 +1,43 @@
 import type { Metadata, Viewport } from 'next';
+import localFont from 'next/font/local';
 import './globals.css';
+
+const beVietnamPro = localFont({
+  src: [
+    {
+      path: './fonts/BeVietnamPro-Regular.ttf',
+      weight: '400',
+      style: 'normal',
+    },
+    {
+      path: './fonts/BeVietnamPro-Italic.ttf',
+      weight: '400',
+      style: 'italic',
+    },
+    {
+      path: './fonts/BeVietnamPro-Medium.ttf',
+      weight: '500',
+      style: 'normal',
+    },
+    {
+      path: './fonts/BeVietnamPro-SemiBold.ttf',
+      weight: '600',
+      style: 'normal',
+    },
+    {
+      path: './fonts/BeVietnamPro-Bold.ttf',
+      weight: '700',
+      style: 'normal',
+    },
+    {
+      path: './fonts/BeVietnamPro-ExtraBold.ttf',
+      weight: '800',
+      style: 'normal',
+    },
+  ],
+  variable: '--font-be-vietnam-pro',
+  display: 'swap',
+});
 
 const DEFAULT_SITE_URL = 'https://lingoroad-admin-wfpi3gzq.azurewebsites.net';
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.trim() || DEFAULT_SITE_URL;
@@ -55,8 +93,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi" className="scroll-smooth">
-      <body className="min-h-screen bg-slateDark-25 text-slateDark-900 antialiased selection:bg-brand-100 selection:text-brand-900">
+    <html lang="vi" className={`scroll-smooth ${beVietnamPro.variable}`}>
+      <body className="font-sans min-h-screen bg-slateDark-25 text-slateDark-900 antialiased selection:bg-brand-100 selection:text-brand-900">
         {children}
       </body>
     </html>

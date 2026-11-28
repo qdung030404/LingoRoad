@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/core/api/api_client.dart';
+import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/auth/session_controller.dart';
 import 'package:mobile/features/profile/cefr_road_chart.dart';
 import 'package:mobile/features/profile/profile_constants.dart';
@@ -872,6 +875,42 @@ void main() {
       expect(find.byKey(const Key('notificationPermissionBox')), findsNothing);
       expect(platform.synced, isNotEmpty);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'FontManifest registers Be Vietnam Pro ExtraBold (800) without legacy fonts, and both themes apply Be Vietnam Pro to textTheme',
+    (_) async {
+      final rawManifest = await rootBundle.loadString('FontManifest.json');
+      expect(rawManifest, isNot(contains('Hanken')));
+      expect(rawManifest, isNot(contains('Madimi')));
+      expect(rawManifest.toLowerCase(), isNot(contains('hanken')));
+      expect(rawManifest.toLowerCase(), isNot(contains('madimi')));
+
+      final manifest = (jsonDecode(rawManifest) as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      final beVietnamFamily = manifest.firstWhere(
+        (entry) => entry['family'] == 'Be Vietnam Pro',
+      );
+      final fonts = (beVietnamFamily['fonts'] as List<dynamic>)
+          .cast<Map<String, dynamic>>();
+      expect(
+        fonts.any(
+          (font) =>
+              font['asset'] == 'assets/fonts/BeVietnamPro-ExtraBold.ttf' &&
+              font['weight'] == 800,
+        ),
+        isTrue,
+      );
+
+      expect(
+        AppTheme.lightTheme.textTheme.bodyMedium?.fontFamily,
+        'Be Vietnam Pro',
+      );
+      expect(
+        AppTheme.darkTheme.textTheme.bodyMedium?.fontFamily,
+        'Be Vietnam Pro',
+      );
     },
   );
 }
