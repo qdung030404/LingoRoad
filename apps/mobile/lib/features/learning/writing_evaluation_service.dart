@@ -1,4 +1,7 @@
+import 'package:firebase_core/firebase_core.dart' show Firebase;
 import '../../core/api/api_client.dart';
+import '../../core/auth/auth_identity.dart';
+import '../../core/auth/firebase_identity.dart';
 import '../../core/config/app_config.dart';
 
 enum LevelEvaluationStatus {
@@ -572,6 +575,44 @@ class WritingPracticeItem {
   }
 }
 
+class _ExistingFirebaseIdentity implements AuthIdentity {
+  final FirebaseIdentity _delegate = FirebaseIdentity();
+
+  @override
+  Future<void> initialize() =>
+      Firebase.apps.isEmpty ? Future<void>.value() : _delegate.initialize();
+
+  @override
+  bool get signedIn => Firebase.apps.isNotEmpty && _delegate.signedIn;
+
+  @override
+  Stream<String?> get userChanges => Firebase.apps.isEmpty
+      ? const Stream<String?>.empty()
+      : _delegate.userChanges;
+
+  @override
+  Future<String?> idToken({bool forceRefresh = false}) => Firebase.apps.isEmpty
+      ? Future<String?>.value(null)
+      : _delegate.idToken(forceRefresh: forceRefresh);
+
+  @override
+  Future<void> authenticate({
+    required String email,
+    required String password,
+    String? name,
+  }) => _delegate.authenticate(email: email, password: password, name: name);
+
+  @override
+  Future<void> signInWithGoogle() => _delegate.signInWithGoogle();
+
+  @override
+  Future<void> resetPassword(String email) => _delegate.resetPassword(email);
+
+  @override
+  Future<void> signOut() =>
+      Firebase.apps.isEmpty ? Future<void>.value() : _delegate.signOut();
+}
+
 class WritingEvaluationService {
   WritingEvaluationService({ApiClient? client})
       : _client = client ?? _defaultClient;
@@ -579,6 +620,7 @@ class WritingEvaluationService {
   static final ApiClient _defaultClient = ApiClient(
     config: AppConfig(),
     store: SecureTokenStore(),
+    identity: _ExistingFirebaseIdentity(),
   );
 
   final ApiClient _client;

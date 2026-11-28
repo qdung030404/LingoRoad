@@ -6,6 +6,31 @@ import 'vocabulary_models.dart';
 import 'vocabulary_pending_store.dart';
 import 'vocabulary_repository.dart';
 
+class WordPlaybackTracker {
+  String? _currentId;
+  final Map<String, ValueNotifier<bool>> _listeners = {};
+
+  String? get currentId => _currentId;
+
+  ValueListenable<bool> listen(String id) =>
+      _listeners.putIfAbsent(id, () => ValueNotifier<bool>(_currentId == id));
+
+  void setPlaying(String? id) {
+    if (_currentId == id) return;
+    final prev = _currentId;
+    _currentId = id;
+    if (prev != null) _listeners[prev]?.value = false;
+    if (id != null) _listeners[id]?.value = true;
+  }
+
+  void dispose() {
+    for (final n in _listeners.values) {
+      n.dispose();
+    }
+    _listeners.clear();
+  }
+}
+
 class VocabularyController extends ChangeNotifier {
   VocabularyController({
     required this.repository,
@@ -27,10 +52,16 @@ class VocabularyController extends ChangeNotifier {
   bool _disposed = false;
   int _epoch = 0;
   int _deckEpoch = 0;
+  int _mutationVersion = 0;
+  int _summaryRefreshVersion = 0;
+  Future<void>? _refreshing;
+  Future<List<Map<String, dynamic>>>? _curatedTopicsRequest;
   Json? pending;
   bool _preparing = false;
   final Map<String, List<Map<String, String>>> _suggestCache = {};
   bool get active => !_disposed && isCurrent();
+  int get mutationVersion => _mutationVersion;
+  int get summaryRefreshVersion => _summaryRefreshVersion;
   @override
   void notifyListeners() {
     if (active) super.notifyListeners();
@@ -44,6 +75,10 @@ class VocabularyController extends ChangeNotifier {
     try {
       final result = await repository.request('GET', path);
       if (!active) throw const ApiFailure('Phiên đăng nhập đã thay đổi.');
+      if (stale || error != null) {
+        stale = false;
+        error = null;
+      }
       await store.write(key, result);
       return result;
     } on ApiFailure catch (e) {
@@ -57,9 +92,20 @@ class VocabularyController extends ChangeNotifier {
     }
   }
 
-  Future<void> refresh() async {
-    if (!active) return;
+  Future<void> refresh({bool force = false}) {
+    if (!active) return Future.value();
+    if (!force && _refreshing != null) return _refreshing!;
     final epoch = ++_epoch;
+    final task = _performRefresh(epoch);
+    _refreshing = task;
+    return task.whenComplete(() {
+      if (identical(_refreshing, task)) {
+        _refreshing = null;
+      }
+    });
+  }
+
+  Future<void> _performRefresh(int epoch) async {
     loading = true;
     error = null;
     notifyListeners();
@@ -78,6 +124,7 @@ class VocabularyController extends ChangeNotifier {
         throw const ApiFailure('Dữ liệu từ vựng chưa đầy đủ.');
       }
       summary = result;
+      _summaryRefreshVersion++;
       stale = false;
       await store.write('summary', result);
     } catch (e) {
@@ -196,8 +243,23 @@ class VocabularyController extends ChangeNotifier {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchCuratedTopics({bool force = false}) async {
-    if (curatedTopics.isNotEmpty && !force) return curatedTopics;
+  Future<List<Map<String, dynamic>>> fetchCuratedTopics({
+    bool force = false,
+  }) {
+    if (curatedTopics.isNotEmpty && !force) return Future.value(curatedTopics);
+    if (!force && _curatedTopicsRequest != null) {
+      return _curatedTopicsRequest!;
+    }
+    final task = _fetchCuratedTopics();
+    _curatedTopicsRequest = task;
+    return task.whenComplete(() {
+      if (identical(_curatedTopicsRequest, task)) {
+        _curatedTopicsRequest = null;
+      }
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchCuratedTopics() async {
     loadingCuratedTopics = true;
     curatedTopicsError = null;
     notifyListeners();
@@ -242,7 +304,8 @@ class VocabularyController extends ChangeNotifier {
       'POST',
       '/vocabulary/curated-topics/$slug/clone',
     );
-    await refresh();
+    _mutationVersion++;
+    await refresh(force: true);
     return res;
   }
 
@@ -365,7 +428,8 @@ class VocabularyController extends ChangeNotifier {
       await store.write('library.pending', null);
       pending = null;
       conflict = false;
-      await refresh();
+      _mutationVersion++;
+      unawaited(refresh(force: true).catchError((_) {}));
       return result;
     } catch (e) {
       if (active) {
@@ -421,7 +485,8 @@ class VocabularyController extends ChangeNotifier {
       body: {...vocabularyCopy(body), 'commandId': vocabularyCommandId()},
     );
     if (active) {
-      unawaited(refresh().catchError((_) {}));
+      _mutationVersion++;
+      unawaited(refresh(force: true).catchError((_) {}));
     }
     return result;
   }

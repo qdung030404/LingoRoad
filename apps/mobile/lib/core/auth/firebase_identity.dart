@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -7,9 +9,31 @@ import '../api/api_client.dart';
 import 'auth_identity.dart';
 
 class FirebaseIdentity implements AuthIdentity {
+  FirebaseIdentity({
+    @visibleForTesting this.tokenFetcher,
+    @visibleForTesting this.uidReader,
+    @visibleForTesting DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
+
+  static const Duration tokenExpirySafetyMargin = Duration(seconds: 60);
+
+  @visibleForTesting
+  final Future<String?> Function(bool forceRefresh)? tokenFetcher;
+  @visibleForTesting
+  final String? Function()? uidReader;
+  final DateTime Function() _now;
+
   FirebaseAuth? _auth;
   Future<void>? _initializing;
   Future<void>? _googleSetup;
+  String? _cachedToken;
+  String? _cachedUid;
+  String? _sessionUid;
+  DateTime? _cachedTokenExpiresAt;
+  Future<String?>? _inFlightToken;
+  Future<String?>? _inFlightForceRefresh;
+  int _sessionEpoch = 0;
+  int _forceRefreshSeq = 0;
   static const _emulatorHost = String.fromEnvironment(
     'FIREBASE_AUTH_EMULATOR_HOST',
   );
@@ -116,9 +140,159 @@ class FirebaseIdentity implements AuthIdentity {
     }
   }
 
+  bool get _hasUidSource => _auth != null || uidReader != null;
+  String? _activeUid() {
+    final reader = uidReader;
+    return reader != null ? reader() : _auth?.currentUser?.uid;
+  }
+
+  void _invalidateCachedTokenValue() {
+    _cachedToken = null;
+    _cachedUid = null;
+    _cachedTokenExpiresAt = null;
+  }
+
+  void _resetTokenCache([String? nextSessionUid]) {
+    _sessionEpoch++;
+    _sessionUid = nextSessionUid;
+    _invalidateCachedTokenValue();
+    _inFlightToken = null;
+    _inFlightForceRefresh = null;
+  }
+
+  static DateTime? _decodeJwtExpiration(String token) {
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    try {
+      final normalized = base64Url.normalize(parts[1]);
+      final payloadJson = utf8.decode(base64Url.decode(normalized));
+      final payload = jsonDecode(payloadJson);
+      if (payload is! Map) return null;
+      final exp = payload['exp'];
+      if (exp is! num) return null;
+      return DateTime.fromMillisecondsSinceEpoch(
+        (exp * 1000).round(),
+        isUtc: true,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isCachedTokenValid() {
+    final token = _cachedToken;
+    final expiresAt = _cachedTokenExpiresAt;
+    if (token == null || token.isEmpty || expiresAt == null) {
+      return false;
+    }
+    return _now().toUtc().isBefore(
+      expiresAt.subtract(tokenExpirySafetyMargin),
+    );
+  }
+
   @override
-  Future<String?> idToken({bool forceRefresh = false}) =>
-      _run((auth) async => auth.currentUser?.getIdToken(forceRefresh));
+  Future<String?> idToken({bool forceRefresh = false}) {
+    if (_hasUidSource) {
+      final activeUid = _activeUid();
+      if (activeUid != _sessionUid) {
+        _resetTokenCache(activeUid);
+      } else if (_cachedUid != null && activeUid != _cachedUid) {
+        _resetTokenCache(activeUid);
+      }
+      if (activeUid == null && _auth != null && tokenFetcher == null) {
+        return Future<String?>.value(null);
+      }
+    }
+
+    if (forceRefresh) {
+      final pendingForce = _inFlightForceRefresh;
+      if (pendingForce != null) {
+        return pendingForce;
+      }
+      _invalidateCachedTokenValue();
+      final sessionEpoch = _sessionEpoch;
+      final refreshSeq = ++_forceRefreshSeq;
+      final pending = _fetchAndCacheToken(
+        forceRefresh: true,
+        sessionEpoch: sessionEpoch,
+        refreshSeq: refreshSeq,
+      );
+      _inFlightForceRefresh = pending;
+      return pending.whenComplete(() {
+        if (identical(_inFlightForceRefresh, pending)) {
+          _inFlightForceRefresh = null;
+        }
+      });
+    }
+
+    final pendingForce = _inFlightForceRefresh;
+    if (pendingForce != null) {
+      return pendingForce;
+    }
+
+    if (_isCachedTokenValid()) {
+      return Future<String?>.value(_cachedToken);
+    }
+
+    final pending = _inFlightToken;
+    if (pending != null) {
+      return pending;
+    }
+
+    final sessionEpoch = _sessionEpoch;
+    final refreshSeq = _forceRefreshSeq;
+    final task = _fetchAndCacheToken(
+      forceRefresh: false,
+      sessionEpoch: sessionEpoch,
+      refreshSeq: refreshSeq,
+    );
+    _inFlightToken = task;
+    return task.whenComplete(() {
+      if (identical(_inFlightToken, task)) {
+        _inFlightToken = null;
+      }
+    });
+  }
+
+  Future<String?> _fetchAndCacheToken({
+    required bool forceRefresh,
+    required int sessionEpoch,
+    required int refreshSeq,
+  }) async {
+    final fetcher = tokenFetcher;
+    final token = fetcher != null
+        ? await fetcher(forceRefresh)
+        : await _run((auth) async => auth.currentUser?.getIdToken(forceRefresh));
+    if (sessionEpoch != _sessionEpoch) {
+      return null;
+    }
+    if (!forceRefresh && refreshSeq != _forceRefreshSeq) {
+      final inflightForce = _inFlightForceRefresh;
+      if (inflightForce != null) {
+        return inflightForce;
+      }
+      if (_isCachedTokenValid()) {
+        return _cachedToken;
+      }
+      return token;
+    }
+    if (token == null || token.isEmpty) {
+      _invalidateCachedTokenValue();
+      return token;
+    }
+    final expiresAt = _decodeJwtExpiration(token);
+    if (expiresAt != null &&
+        _now().toUtc().isBefore(
+          expiresAt.subtract(tokenExpirySafetyMargin),
+        )) {
+      _cachedToken = token;
+      _cachedTokenExpiresAt = expiresAt;
+      _cachedUid = _hasUidSource ? _activeUid() : null;
+    } else {
+      _invalidateCachedTokenValue();
+    }
+    return token;
+  }
 
   @override
   Future<void> authenticate({
@@ -126,6 +300,7 @@ class FirebaseIdentity implements AuthIdentity {
     required String password,
     String? name,
   }) => _run((auth) async {
+    _resetTokenCache();
     if (name == null) {
       await auth.signInWithEmailAndPassword(
         email: email.trim(),
@@ -139,10 +314,12 @@ class FirebaseIdentity implements AuthIdentity {
       await credential.user!.updateDisplayName(name.trim());
       await credential.user!.getIdToken(true);
     }
+    _resetTokenCache();
   });
 
   @override
   Future<void> signInWithGoogle() => _run((auth) async {
+    _resetTokenCache();
     if (kIsWeb) {
       if (kDebugMode) {
         debugPrint(
@@ -260,6 +437,7 @@ class FirebaseIdentity implements AuthIdentity {
       _run((auth) => auth.sendPasswordResetEmail(email: email.trim()));
   @override
   Future<void> signOut() async {
+    _resetTokenCache();
     await _auth?.signOut();
     if (!kIsWeb) {
       try {

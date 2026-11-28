@@ -246,7 +246,7 @@ class ApiClient {
       final token = await identity!.idToken(forceRefresh: true);
       _checkSession(epoch);
       accessToken = token;
-      if (accessToken == null) {
+      if (accessToken == null || accessToken!.isEmpty) {
         throw const ApiFailure('Vui lòng đăng nhập lại.', status: 401);
       }
       return;
