@@ -28,3 +28,15 @@ def test_invalid_translation_is_retryable(monkeypatch, content):
     with pytest.raises(HTTPException) as error:
         translation.translate('Hello')
     assert error.value.status_code == 502
+
+
+def test_translation_uses_max_completion_tokens_for_gpt5(monkeypatch):
+    monkeypatch.setenv('SPEAKING_CONTENT_MODEL', 'gpt-5.4-mini')
+    client = MagicMock()
+    client.with_options.return_value.chat.completions.create.return_value = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content='{"translationVi":"Xin chào!"}'))])
+    monkeypatch.setattr(translation, '_client', lambda: client)
+    assert translation.translate('Hello!')['translationVi'] == 'Xin chào!'
+    kwargs = client.with_options.return_value.chat.completions.create.call_args.kwargs
+    assert kwargs['max_completion_tokens'] == 4096
+    assert 'max_tokens' not in kwargs
