@@ -942,6 +942,31 @@ describe('Progress roadmap units and score stats', () => {
       expect(afterDone.filter(i => i.lessonId === 'read-1')).toHaveLength(1);
       expect(afterDone.reduce((sum, i) => sum + i.estimatedMinutes, 0)).toBe(10);
 
+      // Duplicate SPEAKING snapshots in previous items collapse to a single entry and mark home() stale for self-healing.
+      const dupSpeaking: any = {
+        id: 'dup-1',
+        kind: 'SPEAKING',
+        title: 'My day',
+        reason: 'Đã hoàn thành hôm nay',
+        lessonId: 'spk-my-day',
+        reasonCode: 'COMPLETED_TODAY',
+        estimatedMinutes: 5,
+      };
+      const healedSpeaking = buildDailyRoadmapItems(
+        fullCurriculum,
+        [],
+        '2026-11-16',
+        15,
+        ['SPEAKING', 'GRAMMAR'],
+        [dupSpeaking, { ...dupSpeaking }, { ...dupSpeaking }],
+        null,
+        null,
+        undefined,
+        [{ id: 'spk-my-day', code: 'topic-2', title: 'My day', text: 'My day', sortOrder: 2 }],
+        new Set(['spk-my-day']),
+      );
+      expect(healedSpeaking.filter(i => i.lessonId === 'spk-my-day')).toHaveLength(1);
+
       await expect(
         svc.updatePreferences('u', {
           expectedVersion: 2,

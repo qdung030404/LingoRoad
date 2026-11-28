@@ -29,6 +29,21 @@ export type PlanItem = {
   id: string; lessonId: string; title: string; kind: PreferredSkill; estimatedMinutes: number;
   reasonCode: string; reason: string; focusSkillCode?: ReadingFocusCode; cefrLevel?: CefrLevel;
 };
+
+/** Guarantees at most one entry per `(kind, lessonId)` while preserving original timeline order. */
+export function dedupePlanItems<T extends Pick<PlanItem, 'kind' | 'lessonId'>>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!item || typeof item.lessonId !== 'string') continue;
+    const key = `${item.kind}:${item.lessonId}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
 export type PlannedLesson = Pick<
   LearningLesson,
   'id' | 'code' | 'kind' | 'title' | 'estimatedMinutes' | 'sortOrder'
@@ -429,6 +444,7 @@ export function buildDailyRoadmapItems(
   completedWritingIdsToday: ReadonlySet<string> = new Set(),
   practicedWritingAt: ReadonlyMap<string, number> = new Map(),
 ): PlanItem[] {
+  const normalizedPrevious = dedupePlanItems(previous);
   const uniqueSkills = [...new Set(preferredSkills)];
   const selected: PlanItem[] = [];
   const seenIds = new Set<string>();
@@ -458,7 +474,7 @@ export function buildDailyRoadmapItems(
   };
 
   const makeLessonPlanItem = (lesson: PlannedLesson, reasonCode: string, reason: string): PlanItem => {
-    const old = previous.find(item => item.lessonId === lesson.id);
+    const old = normalizedPrevious.find(item => item.lessonId === lesson.id);
     if (old && completeLessonToday.has(lesson.id)) return old;
     const focusSkillCode =
       !completeLessonToday.has(lesson.id) && (focusCounts.get(lesson.id) ?? 0) > 0
@@ -481,7 +497,7 @@ export function buildDailyRoadmapItems(
     reasonCode: string,
     reason: string,
   ): PlanItem => {
-    const old = previous.find(item => item.lessonId === topic.id && item.kind === 'SPEAKING');
+    const old = normalizedPrevious.find(item => item.lessonId === topic.id && item.kind === 'SPEAKING');
     if (old && completedSpeakingIdsToday.has(topic.id)) return old;
     return {
       id: old?.id ?? randomUUID(),
@@ -510,7 +526,7 @@ export function buildDailyRoadmapItems(
     reasonCode: string,
     reason: string,
   ): PlanItem => {
-    const old = previous.find(p => p.lessonId === item.id && p.kind === 'WRITING');
+    const old = normalizedPrevious.find(p => p.lessonId === item.id && p.kind === 'WRITING');
     if (old && isWritingCompletedToday(item)) return old;
     const estimatedMinutes =
       item.cefrLevel === 'A1' || item.cefrLevel === 'A2' ? 8 : 10;
@@ -527,7 +543,7 @@ export function buildDailyRoadmapItems(
   };
 
   // Keep all snapshots completed today first (even if unpublished or skill removed from preferences)
-  for (const prev of previous) {
+  for (const prev of normalizedPrevious) {
     const isDone =
       prev.kind === 'SPEAKING'
         ? completedSpeakingIdsToday.has(prev.lessonId)

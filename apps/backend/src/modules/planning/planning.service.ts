@@ -16,6 +16,7 @@ import {
   computeScoreStats,
   CURRENT_PLAN_POLICY_VERSION,
   DAY_MS,
+  dedupePlanItems,
   finishedOn,
   LEARNING_TIME_ZONE,
   learningDate,
@@ -33,6 +34,7 @@ export {
   chooseDailyItems,
   computeScoreStats,
   CURRENT_PLAN_POLICY_VERSION,
+  dedupePlanItems,
   deriveWritingTitle,
   isCefrEligible,
   LEARNING_TIME_ZONE,
@@ -772,7 +774,8 @@ export class PlanningService {
     return this.ensureToday(userId);
   }
   private async planDto(plan: LearningDayPlan) {
-    const planItems = plan.items as unknown as PlanItem[];
+    const rawPlanItems = Array.isArray(plan.items) ? (plan.items as unknown as PlanItem[]) : [];
+    const planItems = dedupePlanItems(rawPlanItems);
     const start = learningDayStart(plan.date);
     const end = new Date(start.getTime() + DAY_MS);
     const lessonItemIds = planItems.filter(i => isLessonKind(i.kind)).map(i => i.lessonId);
@@ -924,9 +927,12 @@ export class PlanningService {
     const storedSkills = await readPreferredSkillsForUser(this.prisma, userId, profile.preferredKinds);
     const byDate = new Map(plans.map(plan => [plan.date, plan]));
     const current = byDate.get(date);
+    const rawCurrentItems = Array.isArray(current?.items) ? (current.items as unknown as PlanItem[]) : [];
+    const hasDuplicateItems = rawCurrentItems.length !== dedupePlanItems(rawCurrentItems).length;
     const initial = initialReadingLevel(placement?.skillResults as Record<string, unknown> | undefined, placement?.completedAt);
     const planStatus = !current ? 'missing' : current.policyVersion !== CURRENT_PLAN_POLICY_VERSION ||
       current.preferencesVersion !== profile.preferencesVersion || current.dailyGoalMinutes !== profile.dailyGoalMinutes ||
+      hasDuplicateItems ||
       (placement?.completedAt != null && current.updatedAt < placement.completedAt) ||
       (skill != null && this.shouldUpgradeFromPlacement(skill, initial)) ? 'stale' : 'ready';
     const plan = current && planStatus === 'ready' ? await this.planDto(current) : null;
