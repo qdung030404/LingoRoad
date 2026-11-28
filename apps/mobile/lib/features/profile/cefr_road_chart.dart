@@ -64,7 +64,23 @@ class ConceptSvgIcon extends StatelessWidget {
   final Color color;
   final double strokeWidth;
 
-  String _pathMarkup() => switch (glyph) {
+  static final Map<(ConceptGlyph, double), SvgStringLoader> _loaderCache =
+      <(ConceptGlyph, double), SvgStringLoader>{};
+
+  static SvgStringLoader _loaderFor(ConceptGlyph glyph, double strokeWidth) {
+    final key = (glyph, strokeWidth);
+    return _loaderCache.putIfAbsent(
+      key,
+      () => SvgStringLoader(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+        'fill="none" stroke="black" '
+        'stroke-width="$strokeWidth" stroke-linecap="round" '
+        'stroke-linejoin="round">${_pathMarkupFor(glyph)}</svg>',
+      ),
+    );
+  }
+
+  static String _pathMarkupFor(ConceptGlyph glyph) => switch (glyph) {
     ConceptGlyph.back => '<path d="M15 18l-6-6 6-6"/>',
     ConceptGlyph.arrow => '<path d="M5 12h14m-6-6 6 6-6 6"/>',
     ConceptGlyph.chevron => '<path d="M9 6l6 6-6 6"/>',
@@ -109,22 +125,14 @@ class ConceptSvgIcon extends StatelessWidget {
   };
 
   @override
-  Widget build(BuildContext context) {
-    final hex = color
-        .toARGB32()
-        .toRadixString(16)
-        .padLeft(8, '0')
-        .substring(2);
-    final opacity = color.a;
-    final svg =
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
-        'fill="none" stroke="#$hex" stroke-opacity="$opacity" '
-        'stroke-width="$strokeWidth" stroke-linecap="round" '
-        'stroke-linejoin="round">${_pathMarkup()}</svg>';
-    return ExcludeSemantics(
-      child: SvgPicture.string(svg, width: size, height: size),
-    );
-  }
+  Widget build(BuildContext context) => ExcludeSemantics(
+    child: SvgPicture(
+      _loaderFor(glyph, strokeWidth),
+      width: size,
+      height: size,
+      colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+    ),
+  );
 }
 
 /// Biểu đồ lộ trình 6 bậc CEFR (A1 -> C2) với 3 trạng thái chặng đường:

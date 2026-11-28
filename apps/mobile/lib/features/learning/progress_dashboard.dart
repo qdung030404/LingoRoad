@@ -63,23 +63,39 @@ class ProgressDashboard extends StatefulWidget {
 
 class _ProgressDashboardState extends State<ProgressDashboard> {
   static const List<String> _cefrOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  static final SystemUiOverlayStyle _lightStatusOverlay =
+      SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: AppColors.grey25,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      );
+  static final SystemUiOverlayStyle _darkStatusOverlay =
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: AppColors.grey25,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      );
 
   final ScrollController scroll = ScrollController();
-  bool _darkStatusBar = false;
+  final ValueNotifier<bool> _darkStatusBar = ValueNotifier<bool>(false);
 
   @override
   void initState() {
     super.initState();
-    scroll.addListener(() {
-      final bool next = scroll.hasClients && scroll.offset > 180;
-      if (mounted && next != _darkStatusBar) {
-        setState(() => _darkStatusBar = next);
-      }
-    });
+    scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final bool next = scroll.hasClients && scroll.offset > 180;
+    if (mounted && next != _darkStatusBar.value) {
+      _darkStatusBar.value = next;
+    }
   }
 
   @override
   void dispose() {
+    scroll.removeListener(_onScroll);
+    _darkStatusBar.dispose();
     scroll.dispose();
     super.dispose();
   }
@@ -109,6 +125,9 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
     }
     final name = widget.displayName.trim();
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'L';
+    final avatarCacheWidth =
+        (44 * (MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0).clamp(1.0, 3.0))
+            .round();
     return Container(
       width: 48,
       height: 48,
@@ -123,6 +142,7 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
                 trimmed,
                 width: 44,
                 height: 44,
+                cacheWidth: avatarCacheWidth,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => _initialAvatarCircle(initial),
               )
@@ -266,11 +286,11 @@ class _ProgressDashboardState extends State<ProgressDashboard> {
     final int rememberedWords = _isSample ? 49 : ((widget.vocabularyController?.summary?['totals'] as Map?)?['rememberedWords'] as num?)?.toInt() ?? 0;
     final recommendedReading = !_isSample ? (progress?['recommendedLevels']?['reading'] as Map?)?.cast<String, dynamic>() : null;
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: (_darkStatusBar ? SystemUiOverlayStyle.dark : SystemUiOverlayStyle.light).copyWith(
-        statusBarColor: Colors.transparent,
-        systemNavigationBarColor: AppColors.grey25,
-        systemNavigationBarIconBrightness: Brightness.dark,
+    return ValueListenableBuilder<bool>(
+      valueListenable: _darkStatusBar,
+      builder: (context, dark, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: dark ? _darkStatusOverlay : _lightStatusOverlay,
+        child: child!,
       ),
       child: Stack(
         children: [
@@ -408,6 +428,7 @@ class ProgressRecommendedLevelCard extends StatelessWidget {
     final arrow = _recentArrow();
     return DashboardCard(
       key: const Key('progressRecommendedLevel'),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -478,6 +499,7 @@ class ProgressImprovementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DashboardCard(
     key: const Key('progressImprovementCard'),
+    clipBehavior: Clip.antiAlias,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -596,7 +618,11 @@ class _TrendBadge extends StatelessWidget {
       children: [
         Transform.rotate(
           angle: up ? 0 : math.pi,
-          child: ColorFiltered(colorFilter: ColorFilter.mode(color, BlendMode.srcIn), child: const FigmaAsset('progress/arrow-up', size: 16)),
+          child: FigmaAsset(
+            'progress/arrow-up',
+            size: 16,
+            colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+          ),
         ),
         const SizedBox(width: 4),
         Flexible(child: Text('${deltaPercent!.abs()}% so với tuần trước', textAlign: TextAlign.end, style: designText(12, weight: FontWeight.w500, color: color))),

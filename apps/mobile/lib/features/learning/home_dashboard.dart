@@ -56,7 +56,21 @@ class HomeDashboard extends StatefulWidget {
 }
 
 class _HomeDashboardState extends State<HomeDashboard> {
+  static final SystemUiOverlayStyle _lightStatusOverlay =
+      SystemUiOverlayStyle.light.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: AppColors.grey25,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      );
+  static final SystemUiOverlayStyle _darkStatusOverlay =
+      SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: AppColors.grey25,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      );
+
   final scroll = ScrollController();
+  final ValueNotifier<bool> _darkStatusBar = ValueNotifier<bool>(false);
 
   PreviewModel get model => widget.model;
   WordLibrary get library => widget.library;
@@ -67,7 +81,22 @@ class _HomeDashboardState extends State<HomeDashboard> {
   VoidCallback get onReview => widget.onReview;
 
   @override
+  void initState() {
+    super.initState();
+    scroll.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    final next = scroll.hasClients && scroll.offset > 180;
+    if (mounted && next != _darkStatusBar.value) {
+      _darkStatusBar.value = next;
+    }
+  }
+
+  @override
   void dispose() {
+    scroll.removeListener(_onScroll);
+    _darkStatusBar.dispose();
     scroll.dispose();
     super.dispose();
   }
@@ -126,6 +155,9 @@ class _HomeDashboardState extends State<HomeDashboard> {
     }
     final name = widget.displayName.trim();
     final initial = name.isNotEmpty ? name[0].toUpperCase() : 'L';
+    final avatarCacheWidth =
+        (44 * (MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0).clamp(1.0, 3.0))
+            .round();
     return Container(
       width: 48,
       height: 48,
@@ -140,6 +172,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                 trimmed,
                 width: 44,
                 height: 44,
+                cacheWidth: avatarCacheWidth,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => _initialAvatarCircle(initial),
               )
@@ -151,18 +184,10 @@ class _HomeDashboardState extends State<HomeDashboard> {
   @override
   Widget build(BuildContext context) {
     final days = _weeklyDays();
-    return AnimatedBuilder(
-      animation: scroll,
-      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
-        value:
-            (scroll.hasClients && scroll.offset > 180
-                    ? SystemUiOverlayStyle.dark
-                    : SystemUiOverlayStyle.light)
-                .copyWith(
-                  statusBarColor: Colors.transparent,
-                  systemNavigationBarColor: AppColors.grey25,
-                  systemNavigationBarIconBrightness: Brightness.dark,
-                ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: _darkStatusBar,
+      builder: (context, dark, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: dark ? _darkStatusOverlay : _lightStatusOverlay,
         child: child!,
       ),
       child: Stack(
@@ -721,9 +746,10 @@ class PreviewCheck extends StatelessWidget {
     child: checked
         ? Padding(
             padding: EdgeInsets.all(size * .2),
-            child: const ColorFiltered(
+            child: const FigmaAsset(
+              'reading/imgCheck',
+              size: 12,
               colorFilter: ColorFilter.mode(Colors.white, BlendMode.srcIn),
-              child: FigmaAsset('reading/imgCheck', size: 12),
             ),
           )
         : null,

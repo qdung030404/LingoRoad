@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_shadows.dart';
 import '../../shared/figma_widgets.dart';
+import '../../shared/learning_media_image.dart';
 import '../learning/learning_widgets.dart';
 
 String _formatPartOfSpeech(String? pos) {
@@ -78,6 +79,11 @@ class VocabularyWordCard extends StatelessWidget {
       if (phoneticText.isNotEmpty) phoneticText,
       if (posLabel.isNotEmpty) posLabel,
     ].join(' · ');
+    final dpr = (MediaQuery.maybeDevicePixelRatioOf(context) ?? 1.0)
+        .clamp(1.0, 3.0);
+    final viewportWidth = (MediaQuery.maybeSizeOf(context)?.width ?? 400.0)
+        .clamp(240.0, 600.0);
+    final imageCacheWidth = (((viewportWidth - 48.0) * dpr) / 64.0).ceil() * 64;
 
     // Chuẩn bị câu ví dụ gạch chân từ vựng mục tiêu
     final ex = example?.trim() ?? '';
@@ -104,25 +110,7 @@ class VocabularyWordCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
-                imageUrl != null && imageUrl!.trim().isNotEmpty
-                    ? Image.network(
-                        imageUrl!.trim(),
-                        width: double.infinity,
-                        height: 160,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => const FigmaAsset(
-                          'word-list/imgFrame',
-                          width: double.infinity,
-                          height: 160,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : const FigmaAsset(
-                        'word-list/imgFrame',
-                        width: double.infinity,
-                        height: 160,
-                        fit: BoxFit.cover,
-                      ),
+                _buildCardImage(imageCacheWidth),
                 if (topAction != null)
                   Positioned(
                     top: 10,
@@ -254,6 +242,43 @@ class VocabularyWordCard extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildCardImage(int imageCacheWidth) {
+    Widget fallback() => FigmaAsset(
+      'word-list/imgFrame',
+      width: double.infinity,
+      height: 160,
+      cacheWidth: imageCacheWidth,
+      fit: BoxFit.cover,
+    );
+
+    final raw = imageUrl?.trim() ?? '';
+    if (raw.isEmpty) return fallback();
+
+    final bundled = resolveBundledIllustrationAsset(raw);
+    if (bundled != null) {
+      return Image.asset(
+        bundled,
+        width: double.infinity,
+        height: 160,
+        cacheWidth: imageCacheWidth,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => fallback(),
+      );
+    }
+
+    final resolved = resolveNetworkLearningImageUrl(raw);
+    if (resolved == null) return fallback();
+
+    return Image.network(
+      resolved,
+      width: double.infinity,
+      height: 160,
+      cacheWidth: imageCacheWidth,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => fallback(),
     );
   }
 }
