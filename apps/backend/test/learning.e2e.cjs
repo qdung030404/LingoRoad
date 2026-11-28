@@ -533,7 +533,7 @@ describe('Persisted learning workflow', () => {
     const result = await completeWithScanningMistakes(owner, market);
     assert.equal(result.levelChange, null);
     const focused = (await send(owner, 'get', '/learning/plan/today').expect(200)).body.data.plan;
-    assert.equal(focused.policyVersion, 'adaptive-v2');
+    assert.equal(focused.policyVersion, 'adaptive-v3');
     assert.equal(focused.estimatedMinutes, 15);
     assert.equal(focused.completedCount, 2);
     assert.ok(focused.items.some(item => item.id === clubItem.id && item.completed));
@@ -588,7 +588,7 @@ describe('Persisted learning workflow', () => {
       },
     });
     const upgradedPlan = (await send(exposedUser, 'get', '/learning/plan/today').expect(200)).body.data.plan;
-    assert.equal(upgradedPlan.policyVersion, 'adaptive-v2');
+    assert.equal(upgradedPlan.policyVersion, 'adaptive-v3');
     assert.ok(upgradedPlan.items.length > 0);
 
     // Real-catalog demotion policy: demotes A2 -> A1 on 2 weak completions (<50%) only when A1 has >= 2 unexposed lessons.
@@ -770,7 +770,7 @@ describe('Persisted learning workflow', () => {
       update: { dailyGoalMinutes: 10, preferredKinds: ['READING', 'LISTENING'] },
     });
     const prePlan = (await send(todayUser, 'post', '/learning/plan/today').expect(200)).body.data;
-    assert.equal(prePlan.plan.policyVersion, 'adaptive-v2');
+    assert.equal(prePlan.plan.policyVersion, 'adaptive-v3');
     assert.ok(!prePlan.plan.items.some((item) => item.lessonId === b1Seed.id));
 
     const preProgress = (await send(todayUser, 'get', '/learning/progress').expect(200)).body.data;
@@ -966,7 +966,7 @@ describe('Persisted learning workflow', () => {
     }
 
     const planRes = (await send(rotUser, 'post', '/learning/plan/today').expect(200)).body.data;
-    assert.equal(planRes.plan.policyVersion, 'adaptive-v2');
+    assert.equal(planRes.plan.policyVersion, 'adaptive-v3');
     assert.deepEqual(
       planRes.plan.items.map((item) => [item.lessonId, item.reasonCode]),
       [[b1Seed.id, 'ROTATION']],
