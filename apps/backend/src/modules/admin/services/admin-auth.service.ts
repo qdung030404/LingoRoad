@@ -16,6 +16,7 @@ import { normalizeClientIp } from '../../../common/guards/client-ip-throttler.gu
 import { JwtPayload } from '../../../common/interfaces/jwt-payload.interface';
 import { AssessmentCacheService } from '../../assessment/services/assessment-cache.service';
 import { FirebaseTokenService } from '../../auth/firebase/firebase-token.service';
+import { FirebaseUserService } from '../../auth/firebase/firebase-user.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { PasswordService } from '../../security/password.service';
 import { TokenService } from '../../security/token.service';
@@ -82,6 +83,7 @@ export class AdminAuthService {
     @Optional() private readonly cacheService?: AssessmentCacheService,
     @Optional() private readonly firebase?: FirebaseTokenService,
     @Optional() private readonly jwtService?: JwtService,
+    @Optional() private readonly firebaseUsers?: FirebaseUserService,
   ) {}
 
   private async assertNotLockedOut(normalizedEmail: string): Promise<void> {
@@ -458,6 +460,8 @@ export class AdminAuthService {
     });
 
     await this.clearFailedLogins(user.email.trim().toLowerCase());
+    this.firebaseUsers?.invalidateCache(user.firebaseUid ?? user.id);
+    this.firebaseUsers?.invalidateCache(user.id);
 
     return {
       accessToken: tokens.accessToken,
@@ -497,6 +501,9 @@ export class AdminAuthService {
       });
       return revoked.count;
     });
+
+    this.firebaseUsers?.invalidateCache(user.firebaseUid ?? user.id);
+    this.firebaseUsers?.invalidateCache(user.id);
 
     if (this.firebase?.enabled && user.firebaseUid) {
       await this.firebase.revoke(user.firebaseUid);
@@ -647,7 +654,7 @@ export class AdminAuthService {
       });
     }
 
-    return this.prisma.user.update({
+    const updated = await this.prisma.user.update({
       where: { id: userId },
       data: updateData,
       select: {
@@ -659,5 +666,7 @@ export class AdminAuthService {
         avatarUrl: true,
       },
     });
+    this.firebaseUsers?.invalidateCache(userId);
+    return updated;
   }
 }

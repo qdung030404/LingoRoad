@@ -109,4 +109,104 @@ describe('Daily plan reconciles CMS changes', () => {
       select: { id: true, content: true },
     });
   });
+
+  it('omits contentSnapshot from main learningAttempt.findMany reads and hydrates snapshots only for eligible reading-focus candidates', async () => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const slimAttempts = [
+      {
+        id: 'att-grammar',
+        lessonId: 'g-1',
+        status: 'COMPLETED',
+        submittedAt: yesterday,
+        correctCount: 5,
+        totalQuestions: 5,
+        contentVersion: 1,
+        eligibleForLevelEval: true,
+        lessonSnapshot: { kind: 'GRAMMAR', cefrLevel: 'A2', code: 'g-1' },
+      },
+      {
+        id: 'att-r1',
+        lessonId: 'r-1',
+        status: 'COMPLETED',
+        submittedAt: yesterday,
+        correctCount: 1,
+        totalQuestions: 3,
+        contentVersion: 4,
+        eligibleForLevelEval: true,
+        lessonSnapshot: { kind: 'READING', cefrLevel: 'A2', code: 'r-1' },
+      },
+      {
+        id: 'att-r2',
+        lessonId: 'r-2',
+        status: 'COMPLETED',
+        submittedAt: yesterday,
+        correctCount: 1,
+        totalQuestions: 3,
+        contentVersion: 4,
+        eligibleForLevelEval: true,
+        lessonSnapshot: { kind: 'READING', cefrLevel: 'A2', code: 'r-2' },
+      },
+    ];
+
+    const findAttempts = jest.fn(async (args: { select?: Record<string, unknown> }) => {
+      if (args.select?.contentSnapshot) {
+        return [
+          { id: 'att-r1', contentSnapshot: { questions: [{ id: 'q1', skillCode: 'reading.scanning' }] } },
+          { id: 'att-r2', contentSnapshot: { questions: [{ id: 'q1', skillCode: 'reading.scanning' }] } },
+        ];
+      }
+      return slimAttempts;
+    });
+    const metadataLessons: PlannedLesson[] = [
+      { id: 'r-plain', code: 'r-plain', kind: 'READING', title: 'Plain', estimatedMinutes: 5, sortOrder: 1, unit: { cefrLevel: 'A2' } },
+      { id: 'r-drill', code: 'r-drill', kind: 'READING', title: 'Drill', estimatedMinutes: 5, sortOrder: 2, unit: { cefrLevel: 'A2' } },
+    ];
+    const findLessons = jest.fn(async (args: { select?: Record<string, unknown> }) => {
+      if (args.select?.content) {
+        return [
+          { id: 'r-plain', content: { questions: [{ id: 'q1' }] } },
+          { id: 'r-drill', content: { questions: [{ id: 'q1', skillCode: 'reading.scanning' }] } },
+        ];
+      }
+      return metadataLessons;
+    });
+
+    const db = {
+      $queryRaw: jest.fn(async () => []),
+      learningDayPlan: {
+        findUnique: jest.fn(async () => null),
+        upsert: jest.fn(async ({ create }) => ({ id: 'plan', version: 0, updatedAt: now, ...create })),
+      },
+      userProfile: { findUnique: jest.fn(async () => ({ preferencesVersion: 0, dailyGoalMinutes: 5, preferredKinds: ['READING'] })) },
+      placementSession: { findFirst: jest.fn(async () => null) },
+      learningSkillLevel: { findUnique: jest.fn(async () => ({ id: 'sl', userId: 'user', kind: 'READING', cefrLevel: 'A2', source: 'ADAPTIVE', previousCefr: null, changedAt: null })) },
+      learningAnswerExposure: {
+        findMany: jest.fn(async () => [
+          { lessonId: 'r-1', firstAttemptId: 'att-r1' },
+          { lessonId: 'r-2', firstAttemptId: 'att-r2' },
+        ]),
+      },
+      learningAttemptAnswer: {
+        findMany: jest.fn(async () => [
+          { attemptId: 'att-r1', questionId: 'q1', isCorrect: false },
+          { attemptId: 'att-r2', questionId: 'q1', isCorrect: false },
+        ]),
+      },
+      learningAttempt: { findMany: findAttempts },
+      learningLesson: { findMany: findLessons },
+    };
+    const prisma = { ...db, $transaction: async (fn: (tx: typeof db) => unknown) => fn(db) };
+
+    const result = await new PlanningService(prisma as unknown as PrismaService).ensureToday('user');
+    expect(result.plan?.items[0]).toMatchObject({ lessonId: 'r-drill', focusSkillCode: 'reading.scanning' });
+    expect(findAttempts).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      where: { userId: 'user' },
+      select: expect.not.objectContaining({ contentSnapshot: true }),
+    }));
+    expect(findAttempts).toHaveBeenNthCalledWith(2, {
+      where: { id: { in: ['att-r1', 'att-r2'] } },
+      select: { id: true, contentSnapshot: true },
+    });
+  });
 });

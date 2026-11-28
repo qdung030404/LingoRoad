@@ -7,7 +7,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActivityBatchDto, LearningPreferencesDto, PreferredSkill } from './planning.dto';
 import { AdaptiveReadingTarget, decideReadingLevel, initialReadingLevel, isEligibleReadingEvidence } from './skill-level.policy';
 import {
-  chooseReadingFocus, readingEvidence, ReadingFocusCode, selectReadingFocusAttempts,
+  chooseReadingFocus,
+  isReadingFocusCandidate,
+  readingEvidence,
+  ReadingEvidenceAttempt,
+  ReadingFocusAttempt,
+  ReadingFocusCode,
+  selectReadingFocusAttempts,
 } from './reading-focus.policy';
 import {
   buildCefrMilestones,
@@ -98,6 +104,18 @@ const PLAN_LESSON_SELECT = {
   sortOrder: true,
   unit: { select: { cefrLevel: true } },
   grammarTopic: { select: { cefrLevel: true } },
+} as const;
+
+const PLAN_ATTEMPT_SELECT = {
+  id: true,
+  lessonId: true,
+  status: true,
+  submittedAt: true,
+  correctCount: true,
+  totalQuestions: true,
+  contentVersion: true,
+  eligibleForLevelEval: true,
+  lessonSnapshot: true,
 } as const;
 
 const LESSON_KIND_SET = new Set<string>(Object.values(LearningKind));
@@ -304,7 +322,7 @@ export class PlanningService {
   async evaluateReadingLevel(
     tx: Db,
     userId: string,
-    submittedAttempt: LearningAttempt,
+    submittedAttempt: ReadingEvidenceAttempt,
   ): Promise<SkillLevelChange | null> {
     const snapshot = submittedAttempt.lessonSnapshot as { kind?: string };
     if (snapshot?.kind !== 'READING') return null;
@@ -312,6 +330,7 @@ export class PlanningService {
     const [attempts, exposures, readingLessons] = await Promise.all([
       tx.learningAttempt.findMany({
         where: { userId, status: 'COMPLETED' },
+        select: PLAN_ATTEMPT_SELECT,
         orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
       }),
       tx.learningAnswerExposure.findMany({ where: { userId }, select: { lessonId: true, firstAttemptId: true } }),
@@ -410,7 +429,10 @@ export class PlanningService {
         select: PLAN_LESSON_SELECT,
         orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
       }),
-      db.learningAttempt.findMany({ where: { userId } }),
+      db.learningAttempt.findMany({
+        where: { userId },
+        select: PLAN_ATTEMPT_SELECT,
+      }),
       wantsSpeaking && db.speakingPrompt?.findMany
         ? db.speakingPrompt.findMany({
             where: { mode: 'TOPIC', published: true },
@@ -475,13 +497,36 @@ export class PlanningService {
       const resolvedExposure = exposureByLesson ?? new Map((await db.learningAnswerExposure.findMany({
         where: { userId }, select: { lessonId: true, firstAttemptId: true },
       })).map(exposure => [exposure.lessonId, exposure.firstAttemptId]));
-      const evidence = selectReadingFocusAttempts(attempts, resolvedExposure, skillLevel, now);
-      if (evidence.length >= 2) {
-        const answers = await db.learningAttemptAnswer.findMany({
-          where: { attemptId: { in: evidence.map(attempt => attempt.id) }, checked: true },
-          select: { attemptId: true, questionId: true, isCorrect: true },
-        });
-        readingFocus = chooseReadingFocus(evidence, answers);
+      const focusCandidates: ReadingFocusAttempt[] = attempts.filter(attempt =>
+        isReadingFocusCandidate(attempt, resolvedExposure, skillLevel, now),
+      );
+      if (focusCandidates.length > 0) {
+        const missingSnapshotIds = focusCandidates
+          .filter(attempt => attempt.contentSnapshot === undefined)
+          .map(attempt => attempt.id);
+        let snapshotById = new Map<string, Prisma.JsonValue | null>();
+        if (missingSnapshotIds.length > 0) {
+          const snapshotRows = await db.learningAttempt.findMany({
+            where: { id: { in: missingSnapshotIds } },
+            select: { id: true, contentSnapshot: true },
+          });
+          snapshotById = new Map(
+            snapshotRows.map(row => [row.id, (row as { contentSnapshot?: Prisma.JsonValue | null }).contentSnapshot ?? null]),
+          );
+        }
+        const hydratedCandidates = focusCandidates.map(attempt =>
+          attempt.contentSnapshot !== undefined
+            ? attempt
+            : { ...attempt, contentSnapshot: snapshotById.get(attempt.id) ?? null },
+        );
+        const evidence = selectReadingFocusAttempts(hydratedCandidates, resolvedExposure, skillLevel, now);
+        if (evidence.length >= 2) {
+          const answers = await db.learningAttemptAnswer.findMany({
+            where: { attemptId: { in: evidence.map(attempt => attempt.id) }, checked: true },
+            select: { attemptId: true, questionId: true, isCorrect: true },
+          });
+          readingFocus = chooseReadingFocus(evidence, answers);
+        }
       }
     }
     let plannedLessons: PlannedLesson[] = lessons;
@@ -564,7 +609,7 @@ export class PlanningService {
       opts?.preferredSkillsOverride,
     );
     if (currentPlan && isDeepStrictEqual(items, existing.items)) return existing;
-    return db.learningDayPlan.upsert({
+    const savedPlan = await db.learningDayPlan.upsert({
       where: { userId_date: { userId, date } },
       create: {
         userId, date, dailyGoalMinutes: profile.dailyGoalMinutes, preferencesVersion: profile.preferencesVersion,
@@ -575,6 +620,8 @@ export class PlanningService {
         policyVersion: CURRENT_PLAN_POLICY_VERSION, items: items as unknown as Prisma.InputJsonValue, version: { increment: 1 },
       },
     });
+    this.notifications?.invalidateDailyCheck?.(userId);
+    return savedPlan;
   }
 
   async ensureToday(userId: string) {

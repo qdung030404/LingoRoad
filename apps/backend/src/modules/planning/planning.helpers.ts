@@ -142,11 +142,16 @@ export function isCefrEligible(
   return lessonRank >= effectiveMinRank && lessonRank <= maxAllowedRank;
 }
 
-const recentFinished = (attempts: LearningAttempt[], id: string) => attempts.filter(a => a.lessonId === id && a.status === 'COMPLETED')
+const recentFinished = (attempts: readonly PlannedAttempt[], id: string) => attempts.filter(a => a.lessonId === id && a.status === 'COMPLETED')
   .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0) || b.id.localeCompare(a.id))[0];
 
+export type PlannedAttempt = Pick<
+  LearningAttempt,
+  'id' | 'lessonId' | 'status' | 'submittedAt' | 'correctCount' | 'totalQuestions'
+>;
+
 /** Deterministic baseline; completion is activity, not mastery. */
-export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAttempt[], date: string,
+export function chooseDailyItems(lessons: PlannedLesson[], attempts: readonly PlannedAttempt[], date: string,
   minutes: number, preferred: LearningKind[], previous: PlanItem[] = [], placement?: Record<string, unknown> | null,
   readingTarget?: AdaptiveReadingTarget | null, readingFocus?: ReadingFocusCode, minimumCefr?: CefrLevel | null): PlanItem[] {
   const selected: PlanItem[] = [];
@@ -367,7 +372,7 @@ function writingGenreReason(item: PlannedWritingItem): string {
  */
 export function buildDailyRoadmapItems(
   lessons: PlannedLesson[],
-  attempts: LearningAttempt[],
+  attempts: readonly PlannedAttempt[],
   date: string,
   minutes: number,
   preferredSkills: PreferredSkill[],
