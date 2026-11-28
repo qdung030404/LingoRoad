@@ -373,4 +373,161 @@ void main() {
       expect(requests, 0);
     },
   );
+
+  testWidgets(
+    'Recording clock notifies listeners only when displayed second changes and auto-stops at exact limit',
+    (tester) async {
+      final stopwatch = _ControllableStopwatch();
+      final stopGate = Completer<String?>();
+      final gatedRecorder = _GatedStopRecorder(recorder.path, stopGate);
+      final timedController = SpeakingController(
+        repository: repository,
+        recorder: gatedRecorder,
+        accountId: 'timer-check',
+        isCurrent: () => true,
+        stopwatch: stopwatch,
+      );
+      addTearDown(timedController.dispose);
+
+      await timedController.initialize();
+      await timedController.select(timedController.prompts.first);
+      await timedController.start();
+
+      expect(timedController.recording, isTrue);
+      expect(timedController.seconds, 0);
+      expect(timedController.maxSeconds, 30);
+
+      int notifications = 0;
+      final List<int> notifiedSeconds = <int>[];
+      timedController.addListener(() {
+        notifications++;
+        notifiedSeconds.add(timedController.seconds);
+      });
+
+      // 9 sub-second ticks (100ms..900ms): displayed second stays 0 -> ZERO notifications.
+      for (int i = 0; i < 9; i++) {
+        stopwatch.advance(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(timedController.seconds, 0);
+      expect(notifications, 0);
+
+      // Tick at 1000ms: displayed second becomes 1 -> exactly 1 notification.
+      stopwatch.advance(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(timedController.seconds, 1);
+      expect(notifications, 1);
+
+      // Advance up to 29.9s (289 more 100ms ticks): notifies only at whole seconds 2..29, still recording!
+      for (int i = 0; i < 289; i++) {
+        stopwatch.advance(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(timedController.seconds, 29);
+      expect(timedController.recording, isTrue);
+      expect(gatedRecorder.stops, 0);
+      expect(notifications, 29);
+      expect(
+        notifiedSeconds,
+        List<int>.generate(29, (index) => index + 1),
+      );
+
+      // Tick at 30.0s: reaches maxSeconds -> auto-stops immediately at exact limit.
+      stopwatch.advance(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(timedController.seconds, 30);
+      expect(timedController.recording, isFalse);
+      expect(gatedRecorder.stops, 1);
+      expect(stopwatch.isRunning, isFalse);
+
+      stopGate.complete(null);
+      await tester.pump();
+      expect(timedController.busy, isFalse);
+    },
+  );
+
+  test(
+    'Auto-stop at maxSeconds finalizes real WAV file and preserves audioPath',
+    () async {
+      final stopwatch = _ControllableStopwatch();
+      final timedController = SpeakingController(
+        repository: repository,
+        recorder: recorder,
+        accountId: 'auto-stop-real-io',
+        isCurrent: () => true,
+        stopwatch: stopwatch,
+      );
+      addTearDown(timedController.dispose);
+
+      await timedController.initialize();
+      await timedController.select(timedController.prompts.first);
+      await timedController.start();
+      expect(timedController.recording, isTrue);
+
+      stopwatch.advance(const Duration(seconds: 30));
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+
+      expect(timedController.seconds, 30);
+      expect(timedController.recording, isFalse);
+      expect(recorder.stops, 1);
+      expect(timedController.error, isNull);
+      expect(timedController.audioPath, recorder.path);
+    },
+  );
+}
+
+class _GatedStopRecorder extends FakeRecorder {
+  _GatedStopRecorder(super.path, this._stopGate);
+
+  final Completer<String?> _stopGate;
+
+  @override
+  Future<String?> stop() {
+    stops++;
+    return _stopGate.future;
+  }
+}
+
+class _ControllableStopwatch implements Stopwatch {
+  Duration _elapsed = Duration.zero;
+  bool _running = false;
+
+  void advance(Duration delta) {
+    if (_running) {
+      _elapsed += delta;
+    }
+  }
+
+  @override
+  Duration get elapsed => _elapsed;
+
+  @override
+  int get elapsedMicroseconds => _elapsed.inMicroseconds;
+
+  @override
+  int get elapsedMilliseconds => _elapsed.inMilliseconds;
+
+  @override
+  int get elapsedTicks => _elapsed.inMicroseconds;
+
+  @override
+  int get frequency => 1000000;
+
+  @override
+  bool get isRunning => _running;
+
+  @override
+  void reset() {
+    _elapsed = Duration.zero;
+  }
+
+  @override
+  void start() {
+    _running = true;
+  }
+
+  @override
+  void stop() {
+    _running = false;
+  }
 }
