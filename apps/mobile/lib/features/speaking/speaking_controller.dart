@@ -16,7 +16,8 @@ class SpeakingController extends ChangeNotifier {
     required this.isCurrent,
     this.conversationRecordings = const ConversationRecordingStore(),
     this.onSubmissionSucceeded,
-  });
+    Stopwatch? stopwatch,
+  }) : _elapsed = stopwatch ?? Stopwatch();
   final SpeakingRepository repository;
   final SpeakingRecorder recorder;
   final String accountId;
@@ -75,7 +76,7 @@ class SpeakingController extends ChangeNotifier {
   }
 
   Timer? _clock, _poll;
-  final Stopwatch _elapsed = Stopwatch();
+  final Stopwatch _elapsed;
   bool get active => !_disposed && isCurrent();
   String get _draftKey => 'speaking.$accountId.pending';
   String get status => submission?['status']?.toString() ?? '';
@@ -280,9 +281,16 @@ class SpeakingController extends ChangeNotifier {
           unawaited(stop());
           return;
         }
-        seconds = _elapsed.elapsed.inSeconds.clamp(0, maxSeconds);
-        _changed();
-        if (_elapsed.elapsed >= Duration(seconds: maxSeconds)) {
+        final elapsed = _elapsed.elapsed;
+        final nextSeconds = elapsed.inSeconds.clamp(0, maxSeconds);
+        final reachedLimit = elapsed >= Duration(seconds: maxSeconds);
+        if (nextSeconds != seconds) {
+          seconds = nextSeconds;
+          if (!reachedLimit) {
+            _changed();
+          }
+        }
+        if (reachedLimit) {
           unawaited(stop());
         }
       });

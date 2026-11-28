@@ -1,5 +1,6 @@
 import { Inject, Injectable, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { attachPrismaSqlTiming, isSqlTimingEnabled } from './sql-timing';
 
 export const PRISMA_CLIENT_OPTIONS = Symbol('PRISMA_CLIENT_OPTIONS');
 
@@ -41,6 +42,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
         ? { ...options, datasources: { ...options?.datasources, db: { url } } }
         : options,
     );
+    if (isSqlTimingEnabled()) {
+      attachPrismaSqlTiming(this);
+    }
   }
 
   async onModuleInit(): Promise<void> {

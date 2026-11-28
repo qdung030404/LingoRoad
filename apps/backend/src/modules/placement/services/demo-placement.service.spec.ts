@@ -149,6 +149,44 @@ describe('DemoPlacementService', () => {
     expect(prisma.placementSession.create).not.toHaveBeenCalled();
   });
 
+  it('allows starting a new retake session when a completed session already exists and preserves completed metadata in status()', async () => {
+    const readingItems = Array.from({ length: 5 }, (_, i) => item(`read-${i}`, 'READING', CefrLevel.A2));
+    const listeningItems = Array.from({ length: 5 }, (_, i) => item(`listen-${i}`, 'LISTENING', CefrLevel.A2));
+    prisma.assessmentItem.findMany.mockResolvedValue([...readingItems, ...listeningItems]);
+    (prisma as any).$queryRaw = jest.fn(async () => [{ id: 'owner' }]);
+    prisma.placementSession.findFirst.mockResolvedValue(null);
+    const retakeSession = { ...state(0), id: 'retake-session', currentItem: readingItems[0], currentItemId: readingItems[0].id };
+    prisma.placementSession.create.mockResolvedValue(retakeSession);
+
+    const started = await service.start('owner');
+    expect(started.sessionId).toBe('retake-session');
+    expect(prisma.placementSession.create).toHaveBeenCalledTimes(1);
+
+    const completedSummary = {
+      id: 'completed-session',
+      status: 'COMPLETED',
+      currentItemIndex: 10,
+      totalItems: 10,
+      estimatedCefr: CefrLevel.B1,
+      skillResults: { reading: { estimatedCefr: 'B1' }, listening: { estimatedCefr: 'A2' } },
+    };
+    prisma.placementSession.findFirst
+      .mockResolvedValueOnce({ id: 'retake-session', status: 'IN_PROGRESS', currentItemIndex: 2, totalItems: 10, estimatedCefr: null })
+      .mockResolvedValueOnce(completedSummary);
+
+    const midRetakeStatus = await service.status('owner');
+    expect(midRetakeStatus).toEqual({
+      hasCompleted: true,
+      currentSessionId: 'retake-session',
+      completedSessionId: 'completed-session',
+      status: 'IN_PROGRESS',
+      currentIndex: 2,
+      totalItems: 10,
+      estimatedCefr: CefrLevel.B1,
+      skillResults: completedSummary.skillResults,
+    });
+  });
+
   it.each([[0, 'A1'], [39, 'A1'], [40, 'A2'], [64, 'A2'], [65, 'B1'], [84, 'B1'], [85, 'B2'], [100, 'B2']])('maps %s percent to %s', (correct, expected) => {
     expect(provisionalCefr(correct as number, 100)).toBe(expected);
   });

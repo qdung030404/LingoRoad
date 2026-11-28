@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Prisma, VocabularyDeck, VocabularyWord } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +8,9 @@ import { Db, vocabConflict, vocabInvalid, vocabMissing, wordView } from './vocab
 
 const READING_DECK_SYSTEM_KEY = 'READING_WORDS';
 const READING_DECK_DEFAULT_NAME = 'Từ vựng Bài đọc';
+
+const wordDedupeKey = (english: string, partOfSpeech: string): string =>
+  JSON.stringify([english.trim().toLowerCase(), partOfSpeech.trim().toLowerCase()]);
 
 type RawDeckStatsRow = {
   id: string;
@@ -280,39 +284,63 @@ export class VocabularyService {
   async createBatchWords(userId: string, deckId: string, dto: VocabularyCreateBatchWordsDto) {
     const receipt = await this.commands.execute(userId, dto.commandId, 'CREATE_BATCH_WORDS', deckId, dto, async db => {
       await this.ownedDeck(db, userId, deckId);
-      const createdWords = [];
+      const candidates: Array<{
+        data: ReturnType<typeof this.wordData>;
+        key: string;
+      }> = [];
       const seenInBatch = new Set<string>();
 
       for (const item of dto.words) {
         const data = this.wordData(item);
-        const key = `${data.english.trim().toLowerCase()}:::${data.partOfSpeech.trim().toLowerCase()}`;
+        const key = wordDedupeKey(data.english, data.partOfSpeech);
         if (seenInBatch.has(key)) {
           continue; // Tránh trùng lặp trong nội bộ batch
         }
         seenInBatch.add(key);
-
-        const existing = await db.vocabularyWord.findFirst({
-          where: {
-            deckId,
-            deletedAt: null,
-            english: { equals: data.english, mode: 'insensitive' },
-            partOfSpeech: { equals: data.partOfSpeech, mode: 'insensitive' },
-          },
-        });
-        if (existing) {
-          continue; // Đã có trong collection này thì bỏ qua
-        }
-
-        const word = await db.vocabularyWord.create({ data: { deckId, ...data } });
-        createdWords.push(word);
+        candidates.push({ data, key });
       }
-      return { targetId: deckId, appliedVersion: undefined, result: { count: createdWords.length, wordIds: createdWords.map(w => w.id) } };
+
+      const uniqueEnglish = [...new Set(candidates.map(c => c.data.english))];
+      const existingRows = uniqueEnglish.length
+        ? await db.$queryRaw<{ english: string; partOfSpeech: string }[]>`
+            SELECT english, part_of_speech AS "partOfSpeech"
+            FROM vocabulary_words
+            WHERE deck_id = ${deckId}::uuid
+              AND deleted_at IS NULL
+              AND LOWER(english) IN (${Prisma.join(uniqueEnglish.map(word => Prisma.sql`LOWER(${word})`))})
+          `
+        : [];
+      const existingKeys = new Set(
+        existingRows.map(row => wordDedupeKey(row.english, row.partOfSpeech)),
+      );
+
+      const rowsToCreate = candidates
+        .filter(candidate => !existingKeys.has(candidate.key))
+        .map(candidate => ({
+          id: randomUUID(),
+          deckId,
+          ...candidate.data,
+        }));
+
+      if (rowsToCreate.length > 0) {
+        await db.vocabularyWord.createMany({ data: rowsToCreate });
+      }
+
+      const wordIds = rowsToCreate.map(w => w.id);
+      return { targetId: deckId, appliedVersion: undefined, result: { count: wordIds.length, wordIds } };
     });
+
     const wordIds = (receipt.result as { wordIds: string[] }).wordIds;
-    const items = await this.prisma.vocabularyWord.findMany({
-      where: { id: { in: wordIds } },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    });
+    const rows = wordIds.length
+      ? await this.prisma.vocabularyWord.findMany({
+          where: { id: { in: wordIds } },
+        })
+      : [];
+    const byId = new Map(rows.map(w => [w.id, w]));
+    const items = wordIds
+      .map(id => byId.get(id))
+      .filter((w): w is VocabularyWord => Boolean(w));
+
     return {
       receipt: this.commands.view(receipt),
       words: items.map(w => ({ ...wordView(w), acceptedAnswers: w.acceptedAnswers })),

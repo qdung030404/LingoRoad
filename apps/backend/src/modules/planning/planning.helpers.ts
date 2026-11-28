@@ -58,6 +58,21 @@ export type PlanItem = {
   id: string; lessonId: string; title: string; kind: PreferredSkill; estimatedMinutes: number;
   reasonCode: string; reason: string; focusSkillCode?: ReadingFocusCode; cefrLevel?: CefrLevel;
 };
+
+/** Guarantees at most one entry per `(kind, lessonId)` while preserving original timeline order. */
+export function dedupePlanItems<T extends Pick<PlanItem, 'kind' | 'lessonId'>>(items: readonly T[]): T[] {
+  const seen = new Set<string>();
+  const unique: T[] = [];
+  for (const item of items) {
+    if (!item || typeof item.lessonId !== 'string') continue;
+    const key = `${item.kind}:${item.lessonId}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(item);
+    }
+  }
+  return unique;
+}
 export type PlannedLesson = Pick<
   LearningLesson,
   'id' | 'code' | 'kind' | 'title' | 'estimatedMinutes' | 'sortOrder'
@@ -368,6 +383,7 @@ export function buildDailyRoadmapItems(
   practicedWritingAt: ReadonlyMap<string, number> = new Map(),
   minimumCefr?: CefrLevel | null,
 ): PlanItem[] {
+  const normalizedPrevious = dedupePlanItems(previous);
   const uniqueSkills = [...new Set(preferredSkills)];
   const selected: PlanItem[] = [];
   const seenIds = new Set<string>();
@@ -397,7 +413,7 @@ export function buildDailyRoadmapItems(
   };
 
   const makeLessonPlanItem = (lesson: PlannedLesson, reasonCode: string, reason: string): PlanItem => {
-    const old = previous.find(item => item.lessonId === lesson.id);
+    const old = normalizedPrevious.find(item => item.lessonId === lesson.id);
     if (old && completeLessonToday.has(lesson.id)) return old;
     const focusSkillCode =
       !completeLessonToday.has(lesson.id) && (focusCounts.get(lesson.id) ?? 0) > 0
@@ -420,7 +436,7 @@ export function buildDailyRoadmapItems(
     reasonCode: string,
     reason: string,
   ): PlanItem => {
-    const old = previous.find(item => item.lessonId === topic.id && item.kind === 'SPEAKING');
+    const old = normalizedPrevious.find(item => item.lessonId === topic.id && item.kind === 'SPEAKING');
     if (old && completedSpeakingIdsToday.has(topic.id)) return old;
     return {
       id: old?.id ?? randomUUID(),
@@ -449,7 +465,7 @@ export function buildDailyRoadmapItems(
     reasonCode: string,
     reason: string,
   ): PlanItem => {
-    const old = previous.find(p => p.lessonId === item.id && p.kind === 'WRITING');
+    const old = normalizedPrevious.find(p => p.lessonId === item.id && p.kind === 'WRITING');
     if (old && isWritingCompletedToday(item)) return old;
     const estimatedMinutes =
       item.cefrLevel === 'A1' || item.cefrLevel === 'A2' ? 8 : 10;
@@ -466,7 +482,7 @@ export function buildDailyRoadmapItems(
   };
 
   // Keep all snapshots completed today first (even if unpublished or skill removed from preferences)
-  for (const prev of previous) {
+  for (const prev of normalizedPrevious) {
     const isDone =
       prev.kind === 'SPEAKING'
         ? completedSpeakingIdsToday.has(prev.lessonId)
@@ -625,20 +641,49 @@ export function buildDailyRoadmapItems(
     candidatesBySkill.set('WRITING', []);
   }
 
-  // Phase 1: Give each selected priority skill up to 1 step in exact order 1 -> k within dailyGoalMinutes
+  // Phase 1: Give each selected priority skill up to 1 step in exact order 1 -> k within dailyGoalMinutes,
+  // surfacing at most one low-score (<80%) REVIEW after at least one NEW item has been placed.
   let usedMinutes = selected.reduce((sum, item) => sum + item.estimatedMinutes, 0);
+  let hasNewItem = selected.some(item => item.reasonCode === 'NEW');
+  let reviewCount = selected.filter(item => item.reasonCode === 'REVIEW').length;
+
+  const pickNextForSkill = (skill: PreferredSkill): PlanItem | null => {
+    const queue = candidatesBySkill.get(skill) ?? [];
+    if (hasNewItem && reviewCount < 1) {
+      const weakIdx = queue.findIndex(
+        item =>
+          item.reasonCode === 'REVIEW' &&
+          !seenIds.has(item.lessonId) &&
+          usedMinutes + item.estimatedMinutes <= minutes,
+      );
+      if (weakIdx >= 0) {
+        const [weak] = queue.splice(weakIdx, 1);
+        seenIds.add(weak.lessonId);
+        selected.push(weak);
+        usedMinutes += weak.estimatedMinutes;
+        reviewCount += 1;
+        return weak;
+      }
+    }
+    const nextIdx = queue.findIndex(
+      item =>
+        !seenIds.has(item.lessonId) &&
+        usedMinutes + item.estimatedMinutes <= minutes &&
+        (item.reasonCode !== 'REVIEW' || reviewCount < 1 || !queue.some(other => other.reasonCode !== 'REVIEW' && !seenIds.has(other.lessonId) && usedMinutes + other.estimatedMinutes <= minutes)),
+    );
+    if (nextIdx < 0) return null;
+    const [picked] = queue.splice(nextIdx, 1);
+    seenIds.add(picked.lessonId);
+    selected.push(picked);
+    usedMinutes += picked.estimatedMinutes;
+    if (picked.reasonCode === 'NEW') hasNewItem = true;
+    if (picked.reasonCode === 'REVIEW') reviewCount += 1;
+    return picked;
+  };
+
   for (const skill of uniqueSkills) {
     if (selected.some(item => item.kind === skill)) continue;
-    const queue = candidatesBySkill.get(skill) ?? [];
-    const nextIdx = queue.findIndex(
-      item => !seenIds.has(item.lessonId) && usedMinutes + item.estimatedMinutes <= minutes,
-    );
-    if (nextIdx >= 0) {
-      const [next] = queue.splice(nextIdx, 1);
-      seenIds.add(next.lessonId);
-      selected.push(next);
-      usedMinutes += next.estimatedMinutes;
-    }
+    pickNextForSkill(skill);
   }
 
   // Phase 2: If total estimated minutes is still below dailyGoalMinutes, round-robin remaining items
@@ -646,15 +691,7 @@ export function buildDailyRoadmapItems(
   while (usedMinutes < minutes && addedInPass) {
     addedInPass = false;
     for (const skill of uniqueSkills) {
-      const queue = candidatesBySkill.get(skill) ?? [];
-      const fitIdx = queue.findIndex(
-        item => !seenIds.has(item.lessonId) && usedMinutes + item.estimatedMinutes <= minutes,
-      );
-      if (fitIdx >= 0) {
-        const [picked] = queue.splice(fitIdx, 1);
-        seenIds.add(picked.lessonId);
-        selected.push(picked);
-        usedMinutes += picked.estimatedMinutes;
+      if (pickNextForSkill(skill)) {
         addedInPass = true;
       }
     }

@@ -288,4 +288,304 @@ describe('VocabularyService batched queries', () => {
       hasMoreDecks: false,
     });
   });
+
+  it('batches createBatchWords deduplication and createMany while preserving receipt.result.wordIds order across commandId replay', async () => {
+    const deckId = '00000000-0000-4000-8000-000000000010';
+    const commandId = '22222222-2222-4222-8222-222222222222';
+    const owned = deckRow(deckId, 'Mixed Batch Deck');
+    const receipts: any[] = [];
+    const storedWords: any[] = [
+      {
+        id: '00000000-0000-4000-8000-000000000901',
+        deckId,
+        english: 'apple',
+        meaning: 'quả táo sẵn có',
+        phonetic: '',
+        partOfSpeech: 'noun',
+        example: '',
+        translation: '',
+        imageUrl: null,
+        acceptedAnswers: ['apple'],
+        contentVersion: 1,
+        version: 0,
+        learningState: 'NEEDS_REVIEW',
+        lastPresentedAt: null,
+        lastReviewedAt: null,
+        lastReviewItemId: null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000902',
+        deckId,
+        english: 'run',
+        meaning: 'chạy (động từ sẵn có)',
+        phonetic: '',
+        partOfSpeech: 'verb',
+        example: '',
+        translation: '',
+        imageUrl: null,
+        acceptedAnswers: ['run'],
+        contentVersion: 1,
+        version: 0,
+        learningState: 'NEEDS_REVIEW',
+        lastPresentedAt: null,
+        lastReviewedAt: null,
+        lastReviewItemId: null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      },
+      {
+        id: '00000000-0000-4000-8000-000000000903',
+        deckId,
+        english: 'ghost',
+        meaning: 'từ đã xóa mềm',
+        phonetic: '',
+        partOfSpeech: 'noun',
+        example: '',
+        translation: '',
+        imageUrl: null,
+        acceptedAnswers: ['ghost'],
+        contentVersion: 1,
+        version: 1,
+        learningState: 'NEEDS_REVIEW',
+        lastPresentedAt: null,
+        lastReviewedAt: null,
+        lastReviewItemId: null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: now,
+      },
+    ];
+
+    const findFirstWord = jest.fn();
+    const createSingleWord = jest.fn();
+    const createManyWords = jest.fn(async ({ data }: { data: any[] }) => {
+      for (const row of data) {
+        storedWords.push({
+          ...row,
+          contentVersion: 1,
+          version: 0,
+          learningState: 'NEEDS_REVIEW',
+          lastPresentedAt: null,
+          lastReviewedAt: null,
+          lastReviewItemId: null,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        });
+      }
+      return { count: data.length };
+    });
+    // Deliberately return rows in reversed order to verify service re-orders strictly by receipt.result.wordIds
+    const findManyWords = jest.fn(async ({ where }: any) => {
+      const idSet = new Set<string>(where.id.in);
+      return storedWords.filter(w => idSet.has(w.id)).reverse();
+    });
+    const queryRaw = jest.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
+      const sqlText = strings.join(' ');
+      if (sqlText.includes('FOR UPDATE')) {
+        return [{ id: userId }];
+      }
+      const sql = Prisma.sql(strings, ...values);
+      const bound = collectSqlValues(sql).map(v => String(v).toLowerCase());
+      return storedWords
+        .filter(w => w.deckId === deckId && w.deletedAt === null && bound.includes(w.english.toLowerCase()))
+        .map(w => ({ english: w.english, partOfSpeech: w.partOfSpeech }));
+    });
+
+    const db: Record<string, any> = {
+      vocabularyDeck: {
+        findFirst: jest.fn(async () => owned),
+      },
+      vocabularyWord: {
+        findFirst: findFirstWord,
+        create: createSingleWord,
+        createMany: createManyWords,
+        findMany: findManyWords,
+      },
+      vocabularyCommandReceipt: {
+        findUnique: jest.fn(
+          async ({ where }: any) =>
+            receipts.find(
+              r => r.userId === where.userId_commandId.userId && r.commandId === where.userId_commandId.commandId,
+            ) ?? null,
+        ),
+        create: jest.fn(async ({ data }: any) => {
+          const saved = { id: 'rcpt-1', createdAt: now, ...data };
+          receipts.push(saved);
+          return saved;
+        }),
+      },
+      $queryRaw: queryRaw,
+    };
+    db.$transaction = jest.fn(async (work: (tx: unknown) => Promise<unknown>) => work(db));
+
+    const commands = new VocabularyCommandService(db as unknown as PrismaService);
+    const service = new VocabularyService(db as unknown as PrismaService, commands);
+
+    const payload = {
+      commandId,
+      words: [
+        { english: 'zebra', meaning: 'ngựa vằn', partOfSpeech: 'noun' },
+        { english: 'APPLE', meaning: 'táo trùng khác hoa thường với bộ từ', partOfSpeech: 'NOUN' },
+        { english: 'mango', meaning: 'quả xoài', partOfSpeech: 'noun' },
+        { english: 'ZEBRA', meaning: 'ngựa vằn trùng trong lô', partOfSpeech: 'Noun' },
+        { english: 'apple', meaning: 'táo trùng y hệt bộ từ', partOfSpeech: 'noun' },
+        { english: 'Run', meaning: 'cuộc chạy (khác loại từ với verb đã có)', partOfSpeech: 'NOUN' },
+        { english: 'Ghost', meaning: 'bóng ma (từ cũ đã xóa mềm nên được thêm lại)', partOfSpeech: 'noun' },
+        { english: 'apricot', meaning: 'quả mơ', partOfSpeech: 'noun' },
+        { english: 'mAnGo', meaning: 'xoài trùng lần 2', partOfSpeech: 'NOUN' },
+      ],
+    };
+
+    const first = await service.createBatchWords(userId, deckId, payload);
+    const firstResult = first.receipt.result as { count: number; wordIds: string[] };
+    const activeCountAfterFirst = storedWords.filter(w => w.deletedAt === null).length;
+
+    expect(findFirstWord).not.toHaveBeenCalled();
+    expect(createSingleWord).not.toHaveBeenCalled();
+    expect(createManyWords).toHaveBeenCalledTimes(1);
+    expect(firstResult.count).toBe(5);
+    expect(firstResult.wordIds).toHaveLength(5);
+    expect(first.words.map(w => w.id)).toEqual(firstResult.wordIds);
+    expect(first.words.map(w => [w.english, w.partOfSpeech])).toEqual([
+      ['zebra', 'noun'],
+      ['mango', 'noun'],
+      ['Run', 'NOUN'],
+      ['Ghost', 'noun'],
+      ['apricot', 'noun'],
+    ]);
+    expect(activeCountAfterFirst).toBe(7);
+
+    // Replay with the exact same commandId: zero extra DB writes and exact same wordIds order
+    const replay = await service.createBatchWords(userId, deckId, payload);
+    const replayResult = replay.receipt.result as { count: number; wordIds: string[] };
+
+    expect(createManyWords).toHaveBeenCalledTimes(1);
+    expect(storedWords.filter(w => w.deletedAt === null)).toHaveLength(activeCountAfterFirst);
+    expect(replayResult).toEqual(firstResult);
+    expect(replay.words.map(w => w.id)).toEqual(firstResult.wordIds);
+    expect(replay.words).toEqual(first.words);
+  });
+
+  it('prevents delimiter collisions between (english, partOfSpeech) pairs across existing words, batch items, and commandId replay', async () => {
+    const deckId = '00000000-0000-4000-8000-000000000011';
+    const commandId = '33333333-3333-4333-8333-333333333333';
+    const owned = deckRow(deckId, 'Delimiter Collision Deck');
+    const receipts: any[] = [];
+    const storedWords: any[] = [
+      {
+        id: '00000000-0000-4000-8000-000000000950',
+        deckId,
+        english: 'a:::b',
+        meaning: 'mục đã có sẵn trong bộ từ',
+        phonetic: '',
+        partOfSpeech: 'c',
+        example: '',
+        translation: '',
+        imageUrl: null,
+        acceptedAnswers: ['a:::b'],
+        contentVersion: 1,
+        version: 0,
+        learningState: 'NEEDS_REVIEW',
+        lastPresentedAt: null,
+        lastReviewedAt: null,
+        lastReviewItemId: null,
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      },
+    ];
+
+    const createManyWords = jest.fn(async ({ data }: { data: any[] }) => {
+      for (const row of data) {
+        storedWords.push({
+          ...row,
+          contentVersion: 1,
+          version: 0,
+          learningState: 'NEEDS_REVIEW',
+          lastPresentedAt: null,
+          lastReviewedAt: null,
+          lastReviewItemId: null,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        });
+      }
+      return { count: data.length };
+    });
+    const findManyWords = jest.fn(async ({ where }: any) => {
+      const idSet = new Set<string>(where.id.in);
+      return storedWords.filter(w => idSet.has(w.id)).reverse();
+    });
+    const queryRaw = jest.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
+      const sqlText = strings.join(' ');
+      if (sqlText.includes('FOR UPDATE')) {
+        return [{ id: userId }];
+      }
+      const sql = Prisma.sql(strings, ...values);
+      const bound = collectSqlValues(sql).map(v => String(v).toLowerCase());
+      return storedWords
+        .filter(w => w.deckId === deckId && w.deletedAt === null && bound.includes(w.english.toLowerCase()))
+        .map(w => ({ english: w.english, partOfSpeech: w.partOfSpeech }));
+    });
+
+    const db: Record<string, any> = {
+      vocabularyDeck: { findFirst: jest.fn(async () => owned) },
+      vocabularyWord: {
+        createMany: createManyWords,
+        findMany: findManyWords,
+      },
+      vocabularyCommandReceipt: {
+        findUnique: jest.fn(
+          async ({ where }: any) =>
+            receipts.find(
+              r => r.userId === where.userId_commandId.userId && r.commandId === where.userId_commandId.commandId,
+            ) ?? null,
+        ),
+        create: jest.fn(async ({ data }: any) => {
+          const saved = { id: 'rcpt-delim', createdAt: now, ...data };
+          receipts.push(saved);
+          return saved;
+        }),
+      },
+      $queryRaw: queryRaw,
+    };
+    db.$transaction = jest.fn(async (work: (tx: unknown) => Promise<unknown>) => work(db));
+
+    const commands = new VocabularyCommandService(db as unknown as PrismaService);
+    const service = new VocabularyService(db as unknown as PrismaService, commands);
+
+    const payload = {
+      commandId,
+      words: [
+        { english: 'a', meaning: 'mục mới thứ nhất', partOfSpeech: 'b:::c' },
+        { english: 'a:::b', meaning: 'mục mới thứ hai', partOfSpeech: 'verb' },
+      ],
+    };
+
+    const first = await service.createBatchWords(userId, deckId, payload);
+    const firstResult = first.receipt.result as { count: number; wordIds: string[] };
+
+    expect(createManyWords).toHaveBeenCalledTimes(1);
+    expect(firstResult.count).toBe(2);
+    expect(firstResult.wordIds).toHaveLength(2);
+    expect(first.words.map(w => w.id)).toEqual(firstResult.wordIds);
+    expect(first.words.map(w => [w.english, w.partOfSpeech])).toEqual([
+      ['a', 'b:::c'],
+      ['a:::b', 'verb'],
+    ]);
+
+    const replay = await service.createBatchWords(userId, deckId, payload);
+    const replayResult = replay.receipt.result as { count: number; wordIds: string[] };
+
+    expect(createManyWords).toHaveBeenCalledTimes(1);
+    expect(storedWords).toHaveLength(3);
+    expect(replayResult.wordIds).toEqual(firstResult.wordIds);
+    expect(replay.words.map(w => w.id)).toEqual(firstResult.wordIds);
+    expect(replay.words).toEqual(first.words);
+  });
 });

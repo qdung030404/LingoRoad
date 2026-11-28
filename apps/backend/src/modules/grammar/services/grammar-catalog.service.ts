@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { CefrLevel, GrammarTopic, ItemUsageScope } from '@prisma/client';
 import { AssessmentSafeItemDto } from '../../assessment/dto/assessment-safe-item.dto';
 import { AssessmentSafeMapper } from '../../assessment/mappers/assessment-safe.mapper';
@@ -35,31 +36,124 @@ interface CatalogContext {
   learnerStatusById?: Map<string, LearnerGrammarStatus>;
 }
 
+type StaticCatalogContext = Omit<CatalogContext, 'learnerStatusById'>;
+
 @Injectable()
 export class GrammarCatalogService {
+  private static readonly STATIC_CACHE_TTL_MS = 5 * 60 * 1000;
+  private staticCache: { value: StaticCatalogContext; expiresAt: number } | null = null;
+  private staticInFlight: Promise<StaticCatalogContext> | null = null;
+  private staticCacheGeneration = 0;
+
   constructor(private readonly prisma: PrismaService) {}
 
+  @OnEvent('admin.data.mutated')
+  invalidateStaticCache(): void {
+    this.staticCacheGeneration++;
+    this.staticCache = null;
+    this.staticInFlight = null;
+  }
+
+  private async loadStaticContext(): Promise<StaticCatalogContext> {
+    const now = Date.now();
+    if (this.staticCache && now < this.staticCache.expiresAt) {
+      return this.staticCache.value;
+    }
+    if (this.staticInFlight) {
+      return this.staticInFlight;
+    }
+
+    const generation = this.staticCacheGeneration;
+    const pending = (async (): Promise<StaticCatalogContext> => {
+      const [topics, edges, lessons, practiceCounts] = await Promise.all([
+        this.prisma.grammarTopic.findMany({
+          where: { published: true },
+          orderBy: [{ orderIndex: 'asc' }, { code: 'asc' }],
+        }),
+        this.prisma.grammarPrerequisite.findMany({
+          select: { prerequisiteId: true, targetId: true },
+        }),
+        this.prisma.learningLesson.findMany({
+          where: { published: true, kind: 'GRAMMAR', grammarTopicId: { not: null } },
+          select: { id: true, grammarTopicId: true },
+        }),
+        this.prisma.assessmentItem.groupBy({
+          by: ['skillCode'],
+          where: {
+            skillCode: { startsWith: 'grammar.' },
+            usageScope: { in: [ItemUsageScope.PRACTICE, ItemUsageScope.ALL] },
+          },
+          _count: { _all: true },
+        }),
+      ]);
+
+      const byId = new Map<string, GrammarTopic>(topics.map((t) => [t.id, t]));
+      const prereqCodesById = new Map<string, string[]>();
+      const dependentCodesById = new Map<string, string[]>();
+      const prereqIdsById = new Map<string, string[]>();
+
+      for (const edge of edges) {
+        const prereq = byId.get(edge.prerequisiteId);
+        const target = byId.get(edge.targetId);
+        if (!prereq || !target) continue;
+
+        const pCodes = prereqCodesById.get(target.id) ?? [];
+        pCodes.push(prereq.code);
+        prereqCodesById.set(target.id, pCodes);
+
+        const pIds = prereqIdsById.get(target.id) ?? [];
+        pIds.push(prereq.id);
+        prereqIdsById.set(target.id, pIds);
+
+        const dCodes = dependentCodesById.get(prereq.id) ?? [];
+        dCodes.push(target.code);
+        dependentCodesById.set(prereq.id, dCodes);
+      }
+
+      const lessonIdsByTopicId = new Map<string, string[]>();
+      for (const lesson of lessons) {
+        if (!lesson.grammarTopicId) continue;
+        const list = lessonIdsByTopicId.get(lesson.grammarTopicId) ?? [];
+        list.push(lesson.id);
+        lessonIdsByTopicId.set(lesson.grammarTopicId, list);
+      }
+
+      const practiceCountByCode = new Map<string, number>();
+      for (const row of practiceCounts) {
+        practiceCountByCode.set(row.skillCode, row._count._all);
+      }
+
+      const value: StaticCatalogContext = {
+        topics,
+        byId,
+        prereqCodesById,
+        dependentCodesById,
+        prereqIdsById,
+        lessonIdsByTopicId,
+        practiceCountByCode,
+      };
+      if (this.staticCacheGeneration === generation) {
+        this.staticCache = {
+          value,
+          expiresAt: Date.now() + GrammarCatalogService.STATIC_CACHE_TTL_MS,
+        };
+      }
+      return value;
+    })();
+
+    this.staticInFlight = pending;
+    try {
+      return await pending;
+    } finally {
+      if (this.staticInFlight === pending) {
+        this.staticInFlight = null;
+      }
+    }
+  }
+
   private async loadContext(userId?: string): Promise<CatalogContext> {
-    const [topics, edges, lessons, practiceCounts, attempts, placement] = await Promise.all([
-      this.prisma.grammarTopic.findMany({
-        where: { published: true },
-        orderBy: [{ orderIndex: 'asc' }, { code: 'asc' }],
-      }),
-      this.prisma.grammarPrerequisite.findMany({
-        select: { prerequisiteId: true, targetId: true },
-      }),
-      this.prisma.learningLesson.findMany({
-        where: { published: true, kind: 'GRAMMAR', grammarTopicId: { not: null } },
-        select: { id: true, grammarTopicId: true },
-      }),
-      this.prisma.assessmentItem.groupBy({
-        by: ['skillCode'],
-        where: {
-          skillCode: { startsWith: 'grammar.' },
-          usageScope: { in: [ItemUsageScope.PRACTICE, ItemUsageScope.ALL] },
-        },
-        _count: { _all: true },
-      }),
+    const [base, attempts, placement] = await Promise.all([
+      this.loadStaticContext(),
       userId
         ? this.prisma.learningAttempt.findMany({
             where: { userId, lesson: { kind: 'GRAMMAR' } },
@@ -75,42 +169,6 @@ export class GrammarCatalogService {
         : Promise.resolve(null),
     ]);
 
-    const byId = new Map<string, GrammarTopic>(topics.map((t) => [t.id, t]));
-    const prereqCodesById = new Map<string, string[]>();
-    const dependentCodesById = new Map<string, string[]>();
-    const prereqIdsById = new Map<string, string[]>();
-
-    for (const edge of edges) {
-      const prereq = byId.get(edge.prerequisiteId);
-      const target = byId.get(edge.targetId);
-      if (!prereq || !target) continue;
-
-      const pCodes = prereqCodesById.get(target.id) ?? [];
-      pCodes.push(prereq.code);
-      prereqCodesById.set(target.id, pCodes);
-
-      const pIds = prereqIdsById.get(target.id) ?? [];
-      pIds.push(prereq.id);
-      prereqIdsById.set(target.id, pIds);
-
-      const dCodes = dependentCodesById.get(prereq.id) ?? [];
-      dCodes.push(target.code);
-      dependentCodesById.set(prereq.id, dCodes);
-    }
-
-    const lessonIdsByTopicId = new Map<string, string[]>();
-    for (const lesson of lessons) {
-      if (!lesson.grammarTopicId) continue;
-      const list = lessonIdsByTopicId.get(lesson.grammarTopicId) ?? [];
-      list.push(lesson.id);
-      lessonIdsByTopicId.set(lesson.grammarTopicId, list);
-    }
-
-    const practiceCountByCode = new Map<string, number>();
-    for (const row of practiceCounts) {
-      practiceCountByCode.set(row.skillCode, row._count._all);
-    }
-
     let learnerStatusById: Map<string, LearnerGrammarStatus> | undefined;
     if (attempts !== null) {
       const completedLessonIds = new Set(
@@ -121,9 +179,9 @@ export class GrammarCatalogService {
       );
       learnerStatusById = new Map<string, LearnerGrammarStatus>();
 
-      for (const topic of topics) {
+      for (const topic of base.topics) {
         if (!topic.isLeaf) continue;
-        const linked = lessonIdsByTopicId.get(topic.id) ?? [];
+        const linked = base.lessonIdsByTopicId.get(topic.id) ?? [];
         if (linked.length > 0 && linked.every((id) => completedLessonIds.has(id))) {
           learnerStatusById.set(topic.id, 'COMPLETED');
         } else if (
@@ -135,21 +193,21 @@ export class GrammarCatalogService {
 
       const placementRank = placement?.estimatedCefr ? CEFR_ORDER.indexOf(placement.estimatedCefr) : -1;
 
-      for (const topic of topics) {
+      for (const topic of base.topics) {
         if (!topic.isLeaf || learnerStatusById.has(topic.id)) continue;
         if (placementRank > 0 && CEFR_ORDER.indexOf(topic.cefrLevel) < placementRank) {
           learnerStatusById.set(topic.id, 'AVAILABLE');
           continue;
         }
-        const prereqIds = prereqIdsById.get(topic.id) ?? [];
+        const prereqIds = base.prereqIdsById.get(topic.id) ?? [];
         const blocked = prereqIds.some((pid) => {
           if (placementRank > 0) {
-            const prereqTopic = byId.get(pid);
+            const prereqTopic = base.byId.get(pid);
             if (prereqTopic && CEFR_ORDER.indexOf(prereqTopic.cefrLevel) < placementRank) {
               return false;
             }
           }
-          const pLessons = lessonIdsByTopicId.get(pid) ?? [];
+          const pLessons = base.lessonIdsByTopicId.get(pid) ?? [];
           return pLessons.length > 0 && learnerStatusById!.get(pid) !== 'COMPLETED';
         });
         learnerStatusById.set(topic.id, blocked ? 'LOCKED' : 'AVAILABLE');
@@ -157,13 +215,7 @@ export class GrammarCatalogService {
     }
 
     return {
-      topics,
-      byId,
-      prereqCodesById,
-      dependentCodesById,
-      prereqIdsById,
-      lessonIdsByTopicId,
-      practiceCountByCode,
+      ...base,
       learnerStatusById,
     };
   }
@@ -199,9 +251,8 @@ export class GrammarCatalogService {
     };
   }
 
-  async getLevelsOverview(userId?: string): Promise<{ levels: GrammarCefrLevelSummaryDto[] }> {
-    const ctx = await this.loadContext(userId);
-    const levels: GrammarCefrLevelSummaryDto[] = CEFR_ORDER.map((level) => {
+  private buildLevelsOverview(ctx: CatalogContext): GrammarCefrLevelSummaryDto[] {
+    return CEFR_ORDER.map((level) => {
       const leaves = ctx.topics.filter((t) => t.isLeaf && t.cefrLevel === level);
       const groupNames: string[] = [];
       for (const leaf of leaves) {
@@ -226,15 +277,22 @@ export class GrammarCatalogService {
         ...(completedCount !== undefined ? { completedCount } : {}),
       };
     });
+  }
 
-    return { levels };
+  async getLevelsOverview(userId?: string): Promise<{ levels: GrammarCefrLevelSummaryDto[] }> {
+    const ctx = await this.loadContext(userId);
+    return { levels: this.buildLevelsOverview(ctx) };
   }
 
   async getGrammarTree(
     query: GrammarTreeQueryDto,
     userId?: string,
   ): Promise<
-    | { groupBy: 'hierarchy'; tree: GrammarTreeNodeDto[] }
+    | {
+        groupBy: 'hierarchy';
+        tree: GrammarTreeNodeDto[];
+        levels?: GrammarCefrLevelSummaryDto[];
+      }
     | { groupBy: 'cefr'; levels: Array<{ cefrLevel: CefrLevel; topics: GrammarTreeNodeDto[] }> }
   > {
     const ctx = await this.loadContext(userId);
@@ -279,7 +337,11 @@ export class GrammarCatalogService {
       .map((root) => buildSubtree(root))
       .filter((node): node is GrammarTreeNodeDto => node !== null);
 
-    return { groupBy: 'hierarchy', tree: roots };
+    return {
+      groupBy: 'hierarchy',
+      tree: roots,
+      ...(query.includeLevels === 'true' ? { levels: this.buildLevelsOverview(ctx) } : {}),
+    };
   }
 
   async listTopics(

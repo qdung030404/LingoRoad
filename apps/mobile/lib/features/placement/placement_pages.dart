@@ -170,6 +170,10 @@ class _QuestionPageState extends State<QuestionPage> {
     await controller.submit();
     if (!mounted) return;
     if (controller.result != null) {
+      widget.session.acceptPlacementResult(
+        controller.sessionId!,
+        controller.result!,
+      );
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
           builder: (_) => ResultPage(

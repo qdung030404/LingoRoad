@@ -10,6 +10,10 @@ export class GrammarTreeQueryDto {
   @IsOptional()
   @IsIn(['hierarchy', 'cefr'])
   groupBy: 'hierarchy' | 'cefr' = 'hierarchy';
+
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  includeLevels?: 'true' | 'false';
 }
 
 export class GrammarTopicsQueryDto {

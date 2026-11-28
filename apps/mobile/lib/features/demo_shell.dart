@@ -222,7 +222,7 @@ class _AccountNavigatorState extends State<_AccountNavigator> {
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
-    final completed = session.placement['status'] == 'COMPLETED';
+    final completed = session.hasCompletedPlacement;
     return NavigatorPopHandler<void>(
       onPopWithResult: (_) => navigatorKey.currentState?.maybePop(),
       child: Navigator(

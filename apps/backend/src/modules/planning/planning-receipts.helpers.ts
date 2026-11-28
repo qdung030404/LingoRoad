@@ -66,11 +66,10 @@ export function resolvePreferredSkills(
   return ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING', 'SPEAKING', 'WRITING'];
 }
 
-/** Reads ordered preferred skills stored in the user's receipt row. */
-export async function readPreferredSkillsForUser(
+/** Reads raw stored preferred skills from the user's receipt row without applying profile fallbacks. */
+export async function readStoredPreferredSkillsForUser(
   db: ReceiptReaderDb,
   userId: string,
-  fallbackKinds?: LearningKind[] | null,
 ): Promise<PreferredSkill[] | null> {
   if (!db.vocabularyCommandReceipt?.findUnique) return null;
   const receipt = await db.vocabularyCommandReceipt.findUnique({
@@ -90,6 +89,19 @@ export async function readPreferredSkillsForUser(
     }
     return skills;
   }
+  return null;
+}
+
+/** Applies backward-compatible fallback rules once when no receipt row exists yet. */
+export function resolvePreferredSkillsWithFallback(
+  storedSkills: PreferredSkill[] | null,
+  fallbackKinds?: LearningKind[] | null,
+  hasReceiptStore = true,
+): PreferredSkill[] | null {
+  if (!hasReceiptStore) return null;
+  if (storedSkills && storedSkills.length > 0) {
+    return storedSkills;
+  }
   const hasCustomSubset =
     Array.isArray(fallbackKinds) &&
     fallbackKinds.length > 0 &&
@@ -101,6 +113,18 @@ export async function readPreferredSkillsForUser(
     ? (fallbackKinds as PreferredSkill[])
     : (['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'] as PreferredSkill[]);
   return [...new Set<PreferredSkill>([...base, 'SPEAKING', 'WRITING'])];
+}
+
+/** Reads ordered preferred skills stored in the user's receipt row. */
+export async function readPreferredSkillsForUser(
+  db: ReceiptReaderDb,
+  userId: string,
+  fallbackKinds?: LearningKind[] | null,
+): Promise<PreferredSkill[] | null> {
+  const hasReceiptStore = Boolean(db.vocabularyCommandReceipt?.findUnique);
+  if (!hasReceiptStore) return null;
+  const stored = await readStoredPreferredSkillsForUser(db, userId);
+  return resolvePreferredSkillsWithFallback(stored, fallbackKinds, hasReceiptStore);
 }
 
 /** Persists ordered preferred skills into the user's receipt row. */

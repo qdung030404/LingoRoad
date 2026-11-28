@@ -75,13 +75,20 @@ class ProfilePalette {
   static const Color inactiveCefrLabel = AppColors.grey700;
   static const Color roleText = AppColors.primaryDark;
 
-  // Skill cards
+  // Skill cards & Theo kỹ năng (Figma 2581:6611)
   static const Color skillIconBg = AppColors.grey50;
   static const Color skillIconFg = AppColors.grey800;
   static const Color skillAdaptiveBg = AppColors.primary50;
   static const Color skillAdaptiveFg = AppColors.primaryDark;
   static const Color skillAdaptiveSurface = Color(0xFFF2FBF5);
   static const Color skillAdaptiveCardBorder = Color(0xFFB9E8C8);
+  static const Color skillRowAdaptiveColor = AppColors.primary600;
+  static const Color skillRowAdaptiveBg = AppColors.primary25;
+  static const Color skillRowInactiveIconColor = AppColors.grey600;
+  static const Color skillRowInactiveIconBg = AppColors.grey50;
+  static const Color skillSegmentFuture = Color(0xFFD3DBE6);
+  static const Color retakeButtonBorder = AppColors.grey200;
+  static const Color logoutBorder = AppColors.grey100;
   static const Color badgeBg = AppColors.grey5;
   static const Color badgeBorder = AppColors.grey200;
   static const Color badgeAdaptiveBg = AppColors.primary25;

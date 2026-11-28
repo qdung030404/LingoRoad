@@ -45,6 +45,9 @@ class SessionController extends ChangeNotifier {
     );
   }
 
+  bool get hasCompletedPlacement =>
+      placement['hasCompleted'] == true || placement['status'] == 'COMPLETED';
+
   String? get placementCefr =>
       (placement['estimatedCefr'] ?? placementResult?['estimatedCefr'])
           as String?;
@@ -338,12 +341,18 @@ class SessionController extends ChangeNotifier {
       );
     }
     // Older servers returned only the session ID.
+    final completedSessionId =
+        (assessment['completedSessionId'] ??
+                (assessment['status'] == 'COMPLETED'
+                    ? assessment['currentSessionId']
+                    : null))
+            as String?;
     final result =
-        assessment['status'] == 'COMPLETED' &&
+        completedSessionId != null &&
             !assessment.containsKey('estimatedCefr')
         ? await api.request(
             'GET',
-            '/placement/${assessment['currentSessionId']}/result',
+            '/placement/$completedSessionId/result',
           )
         : null;
     if (_disposed || expected != _epoch) return;
@@ -353,7 +362,10 @@ class SessionController extends ChangeNotifier {
     stage = profile['onboardingCompletedAt'] == null
         ? SessionStage.onboarding
         : SessionStage.ready;
-    if (stage != SessionStage.ready || assessment['status'] != 'COMPLETED') {
+    final completedPlacement =
+        assessment['hasCompleted'] == true ||
+        assessment['status'] == 'COMPLETED';
+    if (stage != SessionStage.ready || !completedPlacement) {
       clearHome();
     }
     error = null;
@@ -421,12 +433,39 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void acceptPlacementResult(String sessionId, Json result) {
+    if (_disposed) return;
+    placementResult = result;
+    placement = {
+      ...placement,
+      'hasCompleted': true,
+      'status': 'COMPLETED',
+      'currentSessionId': sessionId,
+      'completedSessionId': sessionId,
+      if (result['estimatedCefr'] != null)
+        'estimatedCefr': result['estimatedCefr'],
+      if (result['skills'] != null) 'skillResults': result['skills'],
+    };
+    clearHome();
+    notifyListeners();
+  }
+
   Future<void> refreshPlacement() async {
     final epoch = _epoch;
     final assessment = await api.request('GET', '/placement/status');
     if (_disposed || epoch != _epoch) return;
-    if (placement['currentSessionId'] != assessment['currentSessionId'] ||
-        placement['status'] != assessment['status']) {
+    final oldCompletedId =
+        placement['completedSessionId'] ??
+        (placement['status'] == 'COMPLETED'
+            ? placement['currentSessionId']
+            : null);
+    final newCompletedId =
+        assessment['completedSessionId'] ??
+        (assessment['status'] == 'COMPLETED'
+            ? assessment['currentSessionId']
+            : null);
+    if (oldCompletedId != newCompletedId ||
+        placement['estimatedCefr'] != assessment['estimatedCefr']) {
       clearHome();
       placementResult = null;
     }

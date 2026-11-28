@@ -55,9 +55,41 @@ Future<void> openVocabularyReview(
     }
     await previewPush(
       context,
-      VocabularyReviewPage(controller: controller, attemptId: attempt.id),
+      VocabularyReviewPage(
+        controller: controller,
+        attemptId: attempt.id,
+        initialAttempt: attempt,
+      ),
     );
     if (controller.active) await controller.refresh();
+  } catch (e) {
+    if (context.mounted && controller.active) {
+      previewMessage(context, controller.message(e));
+    }
+  }
+}
+
+Future<void> openActiveVocabularyReview(
+  BuildContext context,
+  VocabularyController controller, {
+  required VoidCallback onNoActiveReview,
+}) async {
+  try {
+    final activeAttempt = await controller.findActiveReview();
+    if (!controller.active || !context.mounted) return;
+    if (activeAttempt != null) {
+      await previewPush(
+        context,
+        VocabularyReviewPage(
+          controller: controller,
+          attemptId: activeAttempt.id,
+          initialAttempt: activeAttempt,
+        ),
+      );
+      if (controller.active) await controller.refresh();
+      return;
+    }
+    onNoActiveReview();
   } catch (e) {
     if (context.mounted && controller.active) {
       previewMessage(context, controller.message(e));
@@ -76,31 +108,11 @@ class VocabularyHomeSection extends StatelessWidget {
   final VocabularyController controller;
   final VoidCallback onWords, onReview;
   final ValueChanged<String> onDeck;
-  Future<void> review(BuildContext context) async {
-    try {
-      String? cursor;
-      do {
-        final history = await controller.history(cursor: cursor);
-        if (!controller.active || !context.mounted) return;
-        for (final row in vocabularyItems(history['items'])) {
-          if (row['status'] == 'IN_PROGRESS') {
-            await previewPush(
-              context,
-              VocabularyReviewPage(
-                controller: controller,
-                attemptId: row['id'] as String,
-              ),
-            );
-            return;
-          }
-        }
-        cursor = history['nextCursor'] as String?;
-      } while (cursor != null);
-      if (controller.active) onReview();
-    } catch (e) {
-      if (context.mounted) previewMessage(context, controller.message(e));
-    }
-  }
+  Future<void> review(BuildContext context) => openActiveVocabularyReview(
+    context,
+    controller,
+    onNoActiveReview: onReview,
+  );
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(

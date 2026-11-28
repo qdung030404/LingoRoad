@@ -296,15 +296,11 @@ class GrammarController extends ChangeNotifier {
     });
 
     try {
-      final List<Object> results = await Future.wait<Object>(<Future<Object>>[
-        repository.fetchLevels(),
-        repository.fetchTree(),
-      ]);
+      final GrammarCatalogueData catalogue = await repository.fetchCatalogue();
       if (_disposed || epoch != _loadEpoch) return;
 
-      final List<GrammarLevelSummary> fetchedLevels =
-          results[0] as List<GrammarLevelSummary>;
-      final List<GrammarTreeNode> roots = results[1] as List<GrammarTreeNode>;
+      final List<GrammarLevelSummary> fetchedLevels = catalogue.levels;
+      final List<GrammarTreeNode> roots = catalogue.tree;
 
       _levels = fetchedLevels;
       _groups = _extractGroups(roots);

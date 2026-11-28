@@ -404,29 +404,53 @@ describe('Progress roadmap units and score stats', () => {
         userProfile: { findUnique: jest.fn(async () => ({ userId: 'u', dailyGoalMinutes: 10, preferredKinds: ['READING'], preferencesVersion: 0 })) },
         learningDayPlan: { findMany: jest.fn(async () => []) },
         learningAttempt: {
-          findMany: jest.fn(async () => [
-            { ...attempt('a1', 'l1', 4, new Date('2026-11-13T02:00:00Z')), lessonSnapshot: { kind: 'READING', title: 'R1' } },
-            { ...attempt('a0', 'l1', 3, new Date('2026-11-05T02:00:00Z')), lessonSnapshot: { kind: 'READING', title: 'R1' } },
-          ]),
+          findMany: jest.fn(async () => []),
         },
         learningLesson: { findMany: jest.fn(async () => lessons) },
         learningUnit: { findMany: jest.fn(async () => units) },
         learningActivitySession: { findFirst: jest.fn(async () => ({ anchorAt: new Date('2026-11-12T00:00:00Z') })) },
         placementSession: { findFirst: jest.fn(async () => ({ skillResults: { reading: { estimatedCefr: 'B1' } }, completedAt: new Date('2026-11-01T00:00:00Z') })) },
         learningSkillLevel: { findUnique: jest.fn(async () => ({ cefrLevel: 'B2', source: 'ADAPTIVE', previousCefr: 'B1', changedAt: new Date('2026-11-12T10:00:00Z') })) },
-        $queryRaw: jest.fn(async () => [
-          { idx: 5, seconds: 120 },
-          { idx: 6, seconds: 120 },
-          { idx: 7, seconds: 240 },
-        ]),
+        $queryRaw: jest.fn(async (strings: TemplateStringsArray) => {
+          const sql = Array.isArray(strings) ? strings.join('?') : String(strings);
+          if (sql.includes('WITH user_attempts AS')) {
+            return [
+              {
+                completedAttemptCount: 2,
+                activeAttemptCount: 0,
+                completedPublishedIds: ['l1'],
+                validScoreCount: 2,
+                allScoreSum: 140,
+                currentWeekCount: 1,
+                currentWeekSum: 80,
+                previousWeekCount: 1,
+                previousWeekSum: 60,
+                dailyCounts: [
+                  { date: '2026-11-13', completedLessonCount: 1, completedAttemptCount: 1 },
+                ],
+                latestByKind: [
+                  {
+                    kind: 'READING',
+                    correctCount: 4,
+                    totalQuestions: 5,
+                    submittedAtIso: '2026-11-13T02:00:00.000Z',
+                    lessonTitle: 'R1',
+                  },
+                ],
+              },
+            ];
+          }
+          return [
+            { idx: 5, seconds: 120 },
+            { idx: 6, seconds: 120 },
+            { idx: 7, seconds: 240 },
+          ];
+        }),
       };
       const svc = new PlanningService(db as unknown as PrismaService);
       const res = await svc.progress('u');
-      expect(db.$queryRaw).toHaveBeenCalledTimes(1);
-      expect(db.learningAttempt.findMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { userId: 'u' },
-        select: expect.not.objectContaining({ contentSnapshot: true }),
-      }));
+      expect(db.$queryRaw).toHaveBeenCalledTimes(2);
+      expect(db.learningAttempt.findMany).not.toHaveBeenCalled();
       expect(db.learningDayPlan.findMany).toHaveBeenCalledWith(expect.objectContaining({
         where: expect.objectContaining({ userId: 'u', date: expect.any(Object) }),
         select: { date: true, dailyGoalMinutes: true },
@@ -440,6 +464,16 @@ describe('Progress roadmap units and score stats', () => {
         previousWeekAverage: 60,
         deltaPercent: 20,
       });
+      expect(res.latestResults).toEqual([
+        {
+          kind: 'READING',
+          correctCount: 4,
+          totalQuestions: 5,
+          scoreRatio: 0.8,
+          submittedAt: new Date('2026-11-13T02:00:00.000Z'),
+          lessonTitle: 'R1',
+        },
+      ]);
       expect(res.recommendedLevels.reading).toEqual({
         cefrLevel: 'B2',
         source: 'ADAPTIVE',
@@ -684,6 +718,20 @@ describe('Progress roadmap units and score stats', () => {
       expect(progressRes.recommendedLevels?.reading).toEqual(expect.objectContaining({
         cefrLevel: 'B1',
         source: 'PLACEMENT',
+      }));
+
+      // 4) Retaking placement after ADAPTIVE reading level updates READING back to newer PLACEMENT result
+      const retakeDb = makeStatefulDb();
+      const adaptiveRow: any = retakeDb.getSkillRow();
+      adaptiveRow.source = 'ADAPTIVE';
+      adaptiveRow.cefrLevel = 'A2';
+      adaptiveRow.changedAt = new Date('2026-11-16T03:00:00Z'); // older than placementCompletedAt (04:00:00Z)
+      const retakeSvc = new PlanningService(retakeDb.tx as unknown as PrismaService);
+      await retakeSvc.onPlacementCompleted({ userId: 'u', sessionId: 'retake-sess', estimatedCefr: 'B1' });
+      expect(retakeDb.getSkillRow()).toEqual(expect.objectContaining({
+        cefrLevel: 'B1',
+        source: 'PLACEMENT',
+        changedAt: placementCompletedAt,
       }));
     } finally {
       jest.useRealTimers();
@@ -941,6 +989,78 @@ describe('Progress roadmap units and score stats', () => {
       );
       expect(afterDone.filter(i => i.lessonId === 'read-1')).toHaveLength(1);
       expect(afterDone.reduce((sum, i) => sum + i.estimatedMinutes, 0)).toBe(10);
+
+      // Duplicate SPEAKING snapshots in previous items collapse to a single entry and mark home() stale for self-healing.
+      const dupSpeaking: any = {
+        id: 'dup-1',
+        kind: 'SPEAKING',
+        title: 'My day',
+        reason: 'Đã hoàn thành hôm nay',
+        lessonId: 'spk-my-day',
+        reasonCode: 'COMPLETED_TODAY',
+        estimatedMinutes: 5,
+      };
+      const healedSpeaking = buildDailyRoadmapItems(
+        fullCurriculum,
+        [],
+        '2026-11-16',
+        15,
+        ['SPEAKING', 'GRAMMAR'],
+        [dupSpeaking, { ...dupSpeaking }, { ...dupSpeaking }],
+        null,
+        null,
+        undefined,
+        [{ id: 'spk-my-day', code: 'topic-2', title: 'My day', text: 'My day', sortOrder: 2 }],
+        new Set(['spk-my-day']),
+      );
+      expect(healedSpeaking.filter(i => i.lessonId === 'spk-my-day')).toHaveLength(1);
+
+      // Places a NEW lesson ahead of at most one <80% REVIEW even when unseen lessons remain in that skill.
+      const multiPool = [
+        lesson('read-1', 'READING', 5, 1, 'u-a1', 'A1'),
+        lesson('gram-weak', 'GRAMMAR', 10, 2, 'u-a1', 'A1'),
+        lesson('gram-new', 'GRAMMAR', 10, 3, 'u-a1', 'A1'),
+        lesson('vocab-strong', 'VOCABULARY', 10, 4, 'u-a1', 'A1'),
+        lesson('vocab-new', 'VOCABULARY', 10, 5, 'u-a1', 'A1'),
+        lesson('listen-1', 'LISTENING', 5, 6, 'u-a1', 'A1'),
+      ];
+      const reviewMix = buildDailyRoadmapItems(
+        multiPool,
+        [
+          attempt('att-g-weak', 'gram-weak', 3, new Date('2026-11-15T05:00:00Z')),
+          attempt('att-v-strong', 'vocab-strong', 4, new Date('2026-11-15T05:00:00Z')),
+        ],
+        '2026-11-16',
+        20,
+        ['READING', 'GRAMMAR', 'VOCABULARY', 'LISTENING'],
+      );
+      expect(reviewMix.map(i => [i.lessonId, i.reasonCode])).toEqual([
+        ['read-1', 'NEW'],
+        ['gram-weak', 'REVIEW'],
+        ['listen-1', 'NEW'],
+      ]);
+
+      // Selects the first ranked weak REVIEW that fits the remaining budget instead of falling back to NEW when weakReview[0] is oversized.
+      const budgetFitReviewPool = [
+        lesson('read-new-5m', 'READING', 5, 1, 'u-a1', 'A1'),
+        lesson('gram-weak-15m', 'GRAMMAR', 15, 2, 'u-a1', 'A1'),
+        lesson('gram-weak-5m', 'GRAMMAR', 5, 3, 'u-a1', 'A1'),
+        lesson('gram-new-5m', 'GRAMMAR', 5, 4, 'u-a1', 'A1'),
+      ];
+      const budgetFitReviewPlan = buildDailyRoadmapItems(
+        budgetFitReviewPool,
+        [
+          attempt('att-gw-15', 'gram-weak-15m', 1, new Date('2026-11-15T04:00:00Z')),
+          attempt('att-gw-5', 'gram-weak-5m', 2, new Date('2026-11-15T05:00:00Z')),
+        ],
+        '2026-11-16',
+        10,
+        ['READING', 'GRAMMAR'],
+      );
+      expect(budgetFitReviewPlan.map(i => [i.lessonId, i.reasonCode])).toEqual([
+        ['read-new-5m', 'NEW'],
+        ['gram-weak-5m', 'REVIEW'],
+      ]);
 
       await expect(
         svc.updatePreferences('u', {
