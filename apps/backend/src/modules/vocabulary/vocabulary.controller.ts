@@ -84,6 +84,7 @@ export class VocabularyController {
   @Patch('words/:id') async updateWord(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyUpdateWordDto) { return response(await this.library.updateWord(u, id, d)); }
   @Delete('words/:id') async deleteWord(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyVersionDto) { return response(await this.library.deleteWord(u, id, d)); }
   @Post('decks/:id/reviews') @HttpCode(200) async start(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyStartDto) { return response(await this.reviews.start(u, id, d)); }
+  @Get('reviews/active') async active(@CurrentUser('sub') u: string) { return response(await this.reviews.active(u)); }
   @Get('reviews/:id') async attempt(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string) { return response(await this.reviews.attempt(u, id)); }
   @Post('reviews/:id/commands') @HttpCode(200) async command(@CurrentUser('sub') u: string, @Param('id', ParseUUIDPipe) id: string, @Body() d: VocabularyReviewCommandDto) { return response(await this.reviews.command(u, id, d)); }
   @UseGuards(ThrottlerGuard)

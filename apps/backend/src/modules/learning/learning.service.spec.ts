@@ -889,5 +889,51 @@ describe('LearningService', () => {
       const detail = await service.lesson('owner', 'rd-cover');
       expect(detail.content.coverImageUrl).toBe('/media/learning/v1/images/scene-reading-book-club.jpg');
     });
+
+    it('loads single lesson detail without scanning full catalogue and preserves hidden-history completion rules', async () => {
+      const { service, db, lesson, attempt } = fixture();
+      db.$queryRaw.mockClear();
+
+      const hiddenCompleted = {
+        ...structuredClone(attempt),
+        id: 'att-hidden',
+        lessonId: lesson.id,
+        status: 'COMPLETED' as const,
+        correctCount: 5,
+        totalQuestions: 5,
+        historyHiddenAt: new Date('2026-11-02T00:00:00Z'),
+      };
+      db.learningAttempt.findMany.mockResolvedValueOnce([hiddenCompleted]);
+
+      const hiddenDetail = await service.lesson('owner', lesson.id);
+      expect(db.$queryRaw).not.toHaveBeenCalled();
+      expect(db.learningAttempt.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'owner', lessonId: lesson.id, status: 'COMPLETED' },
+        }),
+      );
+      expect(hiddenDetail.state).toBe('COMPLETED');
+      expect(hiddenDetail.latestResult).toBeNull();
+
+      const visibleCompleted = {
+        ...structuredClone(attempt),
+        id: 'att-visible',
+        lessonId: lesson.id,
+        status: 'COMPLETED' as const,
+        correctCount: 4,
+        totalQuestions: 5,
+        historyHiddenAt: null,
+      };
+      db.learningAttempt.findMany.mockResolvedValueOnce([hiddenCompleted, visibleCompleted]);
+
+      const visibleDetail = await service.lesson('owner', lesson.id);
+      expect(db.$queryRaw).not.toHaveBeenCalled();
+      expect(visibleDetail.state).toBe('COMPLETED');
+      expect(visibleDetail.latestResult).toEqual({
+        correctCount: 4,
+        totalQuestions: 5,
+        scoreRatio: 0.8,
+      });
+    });
   });
 });

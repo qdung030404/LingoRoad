@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { CefrLevel, GrammarTopic, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -17,6 +18,7 @@ import {
   GrammarUsageItem,
   validateGrammarTopicPayload,
 } from '../grammar.types';
+import { GrammarCatalogService } from './grammar-catalog.service';
 
 export interface AdminGrammarTopicView {
   id: string;
@@ -52,7 +54,10 @@ export interface AdminGrammarTopicsQuery {
 
 @Injectable()
 export class GrammarDagService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly catalog?: GrammarCatalogService,
+  ) {}
 
   async listAdminTopics(
     query?: AdminGrammarTopicsQuery,
@@ -235,7 +240,7 @@ export class GrammarDagService {
   }
 
   async createTopic(dto: CreateGrammarTopicDto): Promise<GrammarTopic> {
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const existing = await tx.grammarTopic.findUnique({
         where: { code: dto.code },
         select: { id: true },
@@ -278,10 +283,12 @@ export class GrammarDagService {
         },
       });
     });
+    this.catalog?.invalidateStaticCache();
+    return created;
   }
 
   async updateTopic(id: string, dto: UpdateGrammarTopicDto): Promise<GrammarTopic> {
-    return this.prisma.$transaction(async (tx) => {
+    const updated = await this.prisma.$transaction(async (tx) => {
       const current = await tx.grammarTopic.findUnique({ where: { id } });
       if (!current) {
         throw new NotFoundException({
@@ -323,6 +330,8 @@ export class GrammarDagService {
         },
       });
     });
+    this.catalog?.invalidateStaticCache();
+    return updated;
   }
 
   async deleteTopic(id: string): Promise<{ deleted: true; id: string }> {
@@ -344,6 +353,7 @@ export class GrammarDagService {
     }
 
     await this.prisma.grammarTopic.delete({ where: { id } });
+    this.catalog?.invalidateStaticCache();
     return { deleted: true, id };
   }
 
@@ -361,6 +371,7 @@ export class GrammarDagService {
         update: {},
       });
     });
+    this.catalog?.invalidateStaticCache();
     return { prerequisiteId: dto.prerequisiteId, targetId: dto.targetId };
   }
 
@@ -368,6 +379,7 @@ export class GrammarDagService {
     const res = await this.prisma.grammarPrerequisite.deleteMany({
       where: { prerequisiteId: dto.prerequisiteId, targetId: dto.targetId },
     });
+    this.catalog?.invalidateStaticCache();
     return { deleted: res.count > 0 };
   }
 }

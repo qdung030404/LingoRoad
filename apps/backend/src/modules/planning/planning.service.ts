@@ -92,10 +92,9 @@ export function resolvePreferredSkills(
   return ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING', 'SPEAKING', 'WRITING'];
 }
 
-export async function readPreferredSkillsForUser(
+export async function readStoredPreferredSkillsForUser(
   db: { vocabularyCommandReceipt?: { findUnique?: (...args: any[]) => Promise<any> } },
   userId: string,
-  fallbackKinds?: LearningKind[] | null,
 ): Promise<PreferredSkill[] | null> {
   if (!db.vocabularyCommandReceipt?.findUnique) return null;
   const receipt = await db.vocabularyCommandReceipt.findUnique({
@@ -115,6 +114,18 @@ export async function readPreferredSkillsForUser(
     }
     return skills;
   }
+  return null;
+}
+
+export function resolvePreferredSkillsWithFallback(
+  storedSkills: PreferredSkill[] | null,
+  fallbackKinds?: LearningKind[] | null,
+  hasReceiptStore = true,
+): PreferredSkill[] | null {
+  if (!hasReceiptStore) return null;
+  if (storedSkills && storedSkills.length > 0) {
+    return storedSkills;
+  }
   const hasCustomSubset =
     Array.isArray(fallbackKinds) &&
     fallbackKinds.length > 0 &&
@@ -126,6 +137,17 @@ export async function readPreferredSkillsForUser(
     ? (fallbackKinds as PreferredSkill[])
     : (['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'] as PreferredSkill[]);
   return [...new Set<PreferredSkill>([...base, 'SPEAKING', 'WRITING'])];
+}
+
+export async function readPreferredSkillsForUser(
+  db: { vocabularyCommandReceipt?: { findUnique?: (...args: any[]) => Promise<any> } },
+  userId: string,
+  fallbackKinds?: LearningKind[] | null,
+): Promise<PreferredSkill[] | null> {
+  const hasReceiptStore = Boolean(db.vocabularyCommandReceipt?.findUnique);
+  if (!hasReceiptStore) return null;
+  const stored = await readStoredPreferredSkillsForUser(db, userId);
+  return resolvePreferredSkillsWithFallback(stored, fallbackKinds, hasReceiptStore);
 }
 
 export async function writePreferredSkillsForUser(
@@ -899,7 +921,7 @@ export class PlanningService {
       const from = new Date(learningDayStart(date).getTime() - (6 - i) * DAY_MS);
       return { date: learningDate(from), from, to: new Date(Math.min(from.getTime() + DAY_MS, now.getTime())) };
     });
-    const [profile, plans, attempts, completedLessons, first, placement, skill, seconds, unreadNotificationCount] = await Promise.all([
+    const [profile, plans, attempts, completedLessons, first, placement, skill, seconds, unreadNotificationCount, storedSkillsRaw] = await Promise.all([
       this.profile(this.prisma, userId),
       this.prisma.learningDayPlan.findMany({ where: { userId, date: { gte: week[0].date, lte: date } } }),
       this.prisma.learningAttempt.findMany({
@@ -923,8 +945,13 @@ export class PlanningService {
           return 0;
         }
       })(),
+      readStoredPreferredSkillsForUser(this.prisma, userId),
     ]);
-    const storedSkills = await readPreferredSkillsForUser(this.prisma, userId, profile.preferredKinds);
+    const storedSkills = resolvePreferredSkillsWithFallback(
+      storedSkillsRaw,
+      profile.preferredKinds,
+      Boolean(this.prisma.vocabularyCommandReceipt?.findUnique),
+    );
     const byDate = new Map(plans.map(plan => [plan.date, plan]));
     const current = byDate.get(date);
     const rawCurrentItems = Array.isArray(current?.items) ? (current.items as unknown as PlanItem[]) : [];
@@ -959,50 +986,250 @@ export class PlanningService {
 
   private async homeActiveSeconds(userId: string, windows: { from: Date; to: Date }[], db: Db = this.prisma) {
     if (!windows.length) return new Map<number, number>();
-    const values = windows.map(({ from, to }, index) => Prisma.sql`(${index}::int, ${from}::timestamptz, ${to}::timestamptz)`);
+    const validWindows = windows
+      .map((w, index) => ({ index, from: w.from, to: w.to }))
+      .filter((w) => w.from < w.to);
+    if (!validWindows.length) return new Map<number, number>();
+    const minFrom = new Date(Math.min(...validWindows.map((w) => w.from.getTime())));
+    const maxTo = new Date(Math.max(...validWindows.map((w) => w.to.getTime())));
+    const values = validWindows.map(({ index, from, to }) => Prisma.sql`(${index}::int, ${from}::timestamptz, ${to}::timestamptz)`);
     const rows = await db.$queryRaw<{ idx: number; seconds: number }[]>`
       WITH windows(idx, starts, ends) AS (VALUES ${Prisma.join(values)}),
-      merged AS (
-        SELECT w.idx, range_agg(tstzrange(GREATEST(s.start_at AT TIME ZONE 'UTC', w.starts),
-          LEAST(s.end_at AT TIME ZONE 'UTC', w.ends), '[)')) AS spans
-        FROM learning_activity_segments s JOIN learning_activity_sessions a ON a.id = s.session_id
-        JOIN windows w ON w.starts < w.ends
-          AND s.end_at > (w.starts AT TIME ZONE 'UTC')
-          AND s.start_at < (w.ends AT TIME ZONE 'UTC')
-        WHERE a.user_id = ${userId}::uuid AND s.start_at IS NOT NULL
-        GROUP BY w.idx
+      user_spans AS (
+        SELECT range_agg(
+          tstzrange(
+            GREATEST(s.start_at AT TIME ZONE 'UTC', ${minFrom}::timestamptz),
+            LEAST(s.end_at AT TIME ZONE 'UTC', ${maxTo}::timestamptz),
+            '[)'
+          )
+        ) AS mr
+        FROM learning_activity_segments s
+        JOIN learning_activity_sessions a ON a.id = s.session_id
+        WHERE a.user_id = ${userId}::uuid
+          AND s.start_at IS NOT NULL
+          AND s.start_at < s.end_at
+          AND s.end_at > (${minFrom}::timestamptz AT TIME ZONE 'UTC')
+          AND s.start_at < (${maxTo}::timestamptz AT TIME ZONE 'UTC')
+      ),
+      window_clipped AS (
+        SELECT w.idx, (us.mr * tstzmultirange(tstzrange(w.starts, w.ends, '[)'))) AS clipped
+        FROM windows w
+        CROSS JOIN user_spans us
+        WHERE us.mr IS NOT NULL
       )
-      SELECT idx, FLOOR(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span)))))::double precision AS seconds
-      FROM merged CROSS JOIN LATERAL unnest(spans) AS pieces(span) GROUP BY idx`;
+      SELECT wc.idx, FLOOR(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span)))))::double precision AS seconds
+      FROM window_clipped wc
+      CROSS JOIN LATERAL unnest(wc.clipped) AS pieces(span)
+      WHERE NOT isempty(span)
+      GROUP BY wc.idx`;
     return new Map((rows ?? []).map(row => [row.idx, Number(row.seconds ?? 0)]));
   }
 
-  async progress(userId: string) {
-    const now = new Date(), today = learningDate(now), start = learningDayStart(today);
+  private async progressAttemptSummary(
+    userId: string,
+    weekStartFrom: Date,
+    afterTodayEnd: Date,
+    currentWeekStart: Date,
+    previousWeekStart: Date,
+    now: Date,
+  ) {
+    const [row] = await this.prisma.$queryRaw<
+      Array<{
+        completedAttemptCount: number;
+        activeAttemptCount: number;
+        completedPublishedIds: string[] | null;
+        validScoreCount: number;
+        allScoreSum: number | null;
+        currentWeekCount: number;
+        currentWeekSum: number | null;
+        previousWeekCount: number;
+        previousWeekSum: number | null;
+        dailyCounts: Array<{
+          date: string;
+          completedLessonCount: number;
+          completedAttemptCount: number;
+        }> | null;
+        latestByKind: Array<{
+          kind: LearningKind;
+          correctCount: number;
+          totalQuestions: number;
+          submittedAtIso: string | null;
+          lessonTitle: string;
+        }> | null;
+      }>
+    >`
+      WITH user_attempts AS (
+        SELECT
+          a.id,
+          a.lesson_id,
+          a.status,
+          a.correct_count,
+          a.total_questions,
+          a.submitted_at,
+          a.history_hidden_at,
+          (a.lesson_snapshot ->> 'kind') AS snapshot_kind,
+          (a.lesson_snapshot ->> 'title') AS snapshot_title
+        FROM learning_attempts a
+        WHERE a.user_id = ${userId}::uuid
+      ),
+      counts_and_scores AS (
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'COMPLETED')::int AS completed_attempt_count,
+          COUNT(*) FILTER (WHERE status = 'IN_PROGRESS')::int AS active_attempt_count,
+          COUNT(*) FILTER (
+            WHERE status = 'COMPLETED'
+              AND submitted_at IS NOT NULL
+              AND correct_count IS NOT NULL
+              AND total_questions > 0
+          )::int AS valid_score_count,
+          SUM(
+            ((correct_count::double precision / total_questions::double precision) * 100.0)
+            ORDER BY submitted_at DESC, id DESC
+          ) FILTER (
+            WHERE status = 'COMPLETED'
+              AND submitted_at IS NOT NULL
+              AND correct_count IS NOT NULL
+              AND total_questions > 0
+          )::double precision AS all_score_sum,
+          COUNT(*) FILTER (
+            WHERE status = 'COMPLETED'
+              AND submitted_at IS NOT NULL
+              AND correct_count IS NOT NULL
+              AND total_questions > 0
+              AND (submitted_at AT TIME ZONE 'UTC') >= ${currentWeekStart}::timestamptz
+              AND (submitted_at AT TIME ZONE 'UTC') <= ${now}::timestamptz
+          )::int AS current_week_count,
+          SUM(
+            ((correct_count::double precision / total_questions::double precision) * 100.0)
+            ORDER BY submitted_at DESC, id DESC
+          ) FILTER (
+            WHERE status = 'COMPLETED'
+              AND submitted_at IS NOT NULL
+              AND correct_count IS NOT NULL
+              AND total_questions > 0
+              AND (submitted_at AT TIME ZONE 'UTC') >= ${currentWeekStart}::timestamptz
+              AND (submitted_at AT TIME ZONE 'UTC') <= ${now}::timestamptz
+          )::double precision AS current_week_sum,
+          COUNT(*) FILTER (
+            WHERE status = 'COMPLETED'
+              AND submitted_at IS NOT NULL
+              AND correct_count IS NOT NULL
+              AND total_questions > 0
+              AND (submitted_at AT TIME ZONE 'UTC') >= ${previousWeekStart}::timestamptz
+              AND (submitted_at AT TIME ZONE 'UTC') < ${currentWeekStart}::timestamptz
+          )::int AS previous_week_count,
+          SUM(
+            ((correct_count::double precision / total_questions::double precision) * 100.0)
+            ORDER BY submitted_at DESC, id DESC
+          ) FILTER (
+            WHERE status = 'COMPLETED'
+              AND submitted_at IS NOT NULL
+              AND correct_count IS NOT NULL
+              AND total_questions > 0
+              AND (submitted_at AT TIME ZONE 'UTC') >= ${previousWeekStart}::timestamptz
+              AND (submitted_at AT TIME ZONE 'UTC') < ${currentWeekStart}::timestamptz
+          )::double precision AS previous_week_sum
+        FROM user_attempts
+      ),
+      daily_rows AS (
+        SELECT
+          to_char(submitted_at + interval '7 hours', 'YYYY-MM-DD') AS day_date,
+          COUNT(DISTINCT lesson_id)::int AS completed_lesson_count,
+          COUNT(*)::int AS completed_attempt_count
+        FROM user_attempts
+        WHERE status = 'COMPLETED'
+          AND submitted_at IS NOT NULL
+          AND (submitted_at AT TIME ZONE 'UTC') >= ${weekStartFrom}::timestamptz
+          AND (submitted_at AT TIME ZONE 'UTC') < ${afterTodayEnd}::timestamptz
+        GROUP BY 1
+      ),
+      latest_rows AS (
+        SELECT DISTINCT ON (snapshot_kind)
+          snapshot_kind AS kind,
+          correct_count,
+          total_questions,
+          CASE
+            WHEN submitted_at IS NULL THEN NULL
+            ELSE to_char(submitted_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+          END AS submitted_at_iso,
+          snapshot_title AS lesson_title
+        FROM user_attempts
+        WHERE status = 'COMPLETED'
+          AND history_hidden_at IS NULL
+          AND snapshot_kind IN ('GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING')
+        ORDER BY snapshot_kind, submitted_at DESC, id DESC
+      )
+      SELECT
+        cs.completed_attempt_count AS "completedAttemptCount",
+        cs.active_attempt_count AS "activeAttemptCount",
+        ARRAY(
+          SELECT DISTINCT ua.lesson_id::text
+          FROM user_attempts ua
+          INNER JOIN learning_lessons l ON l.id = ua.lesson_id AND l.published = true
+          WHERE ua.status = 'COMPLETED'
+        ) AS "completedPublishedIds",
+        cs.valid_score_count AS "validScoreCount",
+        cs.all_score_sum AS "allScoreSum",
+        cs.current_week_count AS "currentWeekCount",
+        cs.current_week_sum AS "currentWeekSum",
+        cs.previous_week_count AS "previousWeekCount",
+        cs.previous_week_sum AS "previousWeekSum",
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'date', dr.day_date,
+                'completedLessonCount', dr.completed_lesson_count,
+                'completedAttemptCount', dr.completed_attempt_count
+              )
+            )
+            FROM daily_rows dr
+          ),
+          '[]'::json
+        ) AS "dailyCounts",
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'kind', lr.kind,
+                'correctCount', lr.correct_count,
+                'totalQuestions', lr.total_questions,
+                'submittedAtIso', lr.submitted_at_iso,
+                'lessonTitle', lr.lesson_title
+              )
+            )
+            FROM latest_rows lr
+          ),
+          '[]'::json
+        ) AS "latestByKind"
+      FROM counts_and_scores cs
+    `;
+    return row;
+  }
+
+  async progress(userId: string, now: Date = new Date()) {
+    const today = learningDate(now), start = learningDayStart(today);
+    const currentWeekStart = new Date(start.getTime() - 6 * DAY_MS);
+    const previousWeekStart = new Date(start.getTime() - 13 * DAY_MS);
+    const afterTodayEnd = new Date(start.getTime() + DAY_MS);
     const week = Array.from({ length: 7 }, (_, i) => {
       const from = new Date(start.getTime() - (6 - i) * DAY_MS);
       return { date: learningDate(from), from, to: new Date(Math.min(from.getTime() + DAY_MS, now.getTime())) };
     });
-    const [profile, plans, attempts, totalLessons, units, first, placement, skillLevel, seconds] = await Promise.all([
+    const [profile, plans, attemptStats, totalLessons, units, first, placement, skillLevel, seconds] = await Promise.all([
       this.profile(this.prisma, userId),
       this.prisma.learningDayPlan.findMany({
         where: { userId, date: { gte: week[0].date, lte: today } },
         select: { date: true, dailyGoalMinutes: true },
       }),
-      this.prisma.learningAttempt.findMany({
-        where: { userId },
-        select: {
-          id: true,
-          lessonId: true,
-          status: true,
-          lessonSnapshot: true,
-          correctCount: true,
-          totalQuestions: true,
-          submittedAt: true,
-          historyHiddenAt: true,
-        },
-        orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
-      }),
+      this.progressAttemptSummary(
+        userId,
+        currentWeekStart,
+        afterTodayEnd,
+        currentWeekStart,
+        previousWeekStart,
+        now,
+      ),
       this.prisma.learningLesson.findMany({ where: { published: true }, select: { id: true, unitId: true } }),
       this.prisma.learningUnit.findMany({ orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }] }),
       this.prisma.learningActivitySession.findFirst({ where: { userId }, orderBy: { anchorAt: 'asc' }, select: { anchorAt: true } }),
@@ -1011,26 +1238,70 @@ export class PlanningService {
       this.homeActiveSeconds(userId, [...week, { from: new Date(0), to: now }]),
     ]);
     const goalByDate = new Map(plans.map(p => [p.date, p.dailyGoalMinutes]));
+    const dailyByDate = new Map(
+      (attemptStats?.dailyCounts ?? []).map(d => [d.date, d]),
+    );
     const days = week.map((day, index) => {
-      const completed = attempts.filter(a => finishedOn(a, day.date));
+      const dayStats = dailyByDate.get(day.date);
+      const completedLessonCount = Number(dayStats?.completedLessonCount ?? 0);
+      const completedAttemptCount = Number(dayStats?.completedAttemptCount ?? 0);
       const activeSeconds = seconds.get(index) ?? 0;
       const target = goalByDate.get(day.date) ?? (day.date === today ? profile.dailyGoalMinutes : null);
-      return { date: day.date, dailyGoalMinutes: target, activeSeconds, goalMet: target != null && activeSeconds >= target * 60,
-        completedLessonCount: new Set(completed.map(a => a.lessonId)).size, completedAttemptCount: completed.length,
-        hasActivity: activeSeconds > 0 || completed.length > 0, timeMeasured: first != null && learningDate(first.anchorAt) <= day.date };
+      return {
+        date: day.date,
+        dailyGoalMinutes: target,
+        activeSeconds,
+        goalMet: target != null && activeSeconds >= target * 60,
+        completedLessonCount,
+        completedAttemptCount,
+        hasActivity: activeSeconds > 0 || completedAttemptCount > 0,
+        timeMeasured: first != null && learningDate(first.anchorAt) <= day.date,
+      };
     });
-    const completed = attempts.filter(a => a.status === 'COMPLETED');
-    const publishedIds = new Set(totalLessons.map(l => l.id));
-    const completedPublishedIds = new Set(completed.filter(a => publishedIds.has(a.lessonId)).map(a => a.lessonId));
+    const completedPublishedIds = new Set<string>(attemptStats?.completedPublishedIds ?? []);
     const measuredDays = days.filter(d => d.timeMeasured);
     const averageActiveSeconds = measuredDays.length
       ? Math.round(measuredDays.reduce((sum, d) => sum + d.activeSeconds, 0) / measuredDays.length)
       : 0;
+    const latestByKindMap = new Map(
+      (attemptStats?.latestByKind ?? []).map(r => [r.kind, r]),
+    );
     const latestResults = Object.values(LearningKind).flatMap(kind => {
-      const a = completed.find(row => row.historyHiddenAt == null && (row.lessonSnapshot as { kind?: string })?.kind === kind);
-      return a ? [{ kind, correctCount: a.correctCount!, totalQuestions: a.totalQuestions, scoreRatio: a.correctCount! / a.totalQuestions,
-        submittedAt: a.submittedAt, lessonTitle: (a.lessonSnapshot as { title: string }).title }] : [];
+      const a = latestByKindMap.get(kind);
+      if (!a) return [];
+      const correctCount = Number(a.correctCount);
+      const totalQuestions = Number(a.totalQuestions);
+      return [{
+        kind,
+        correctCount,
+        totalQuestions,
+        scoreRatio: correctCount / totalQuestions,
+        submittedAt: a.submittedAtIso ? new Date(a.submittedAtIso) : null,
+        lessonTitle: a.lessonTitle,
+      }];
     });
+    const validScoreCount = Number(attemptStats?.validScoreCount ?? 0);
+    const currentWeekCount = Number(attemptStats?.currentWeekCount ?? 0);
+    const previousWeekCount = Number(attemptStats?.previousWeekCount ?? 0);
+    const averageScore = validScoreCount > 0
+      ? Math.round(Number(attemptStats?.allScoreSum ?? 0) / validScoreCount)
+      : null;
+    const currentWeekAverage = currentWeekCount > 0
+      ? Math.round(Number(attemptStats?.currentWeekSum ?? 0) / currentWeekCount)
+      : null;
+    const previousWeekAverage = previousWeekCount > 0
+      ? Math.round(Number(attemptStats?.previousWeekSum ?? 0) / previousWeekCount)
+      : null;
+    const scoreStats = {
+      averageScore,
+      completedAttemptCount: validScoreCount,
+      currentWeekAverage,
+      previousWeekAverage,
+      deltaPercent:
+        currentWeekAverage != null && previousWeekAverage != null
+          ? currentWeekAverage - previousWeekAverage
+          : null,
+    };
     const placementInit = initialReadingLevel(placement?.skillResults as Record<string, unknown> | undefined, placement?.completedAt);
     let activeSkill = skillLevel;
     if (activeSkill && this.shouldUpgradeFromPlacement(activeSkill, placementInit) && this.prisma.$transaction) {
@@ -1048,16 +1319,25 @@ export class PlanningService {
     const readingLevel = activeSkill
       ? { cefrLevel: activeSkill.cefrLevel, source: activeSkill.source, previousCefr: activeSkill.previousCefr, changedAt: activeSkill.changedAt }
       : { ...placementInit, previousCefr: null };
-    return { today: days[6], days, totals: { totalLessons: totalLessons.length,
-      completedLessonCount: completedPublishedIds.size,
-      completedAttemptCount: completed.length, activeAttemptCount: attempts.filter(a => a.status === 'IN_PROGRESS').length,
-      activeSeconds: seconds.get(week.length) ?? 0,
-      averageActiveSeconds, averageStudyMinutes: Math.floor(averageActiveSeconds / 60) },
+    return {
+      today: days[6],
+      days,
+      totals: {
+        totalLessons: totalLessons.length,
+        completedLessonCount: completedPublishedIds.size,
+        completedAttemptCount: Number(attemptStats?.completedAttemptCount ?? 0),
+        activeAttemptCount: Number(attemptStats?.activeAttemptCount ?? 0),
+        activeSeconds: seconds.get(week.length) ?? 0,
+        averageActiveSeconds,
+        averageStudyMinutes: Math.floor(averageActiveSeconds / 60),
+      },
       units: buildProgressUnits(units, totalLessons, completedPublishedIds),
-      scoreStats: computeScoreStats(completed, now),
-      latestResults, placement: placement?.skillResults ?? null,
+      scoreStats,
+      latestResults,
+      placement: placement?.skillResults ?? null,
       recommendedLevels: { reading: readingLevel },
-      trackingStartedAt: first?.anchorAt ?? null };
+      trackingStartedAt: first?.anchorAt ?? null,
+    };
   }
 
   async summary(userId: string) {

@@ -37,19 +37,30 @@ class VocabularyReviewController extends ChangeNotifier {
     if (active) super.notifyListeners();
   }
 
-  Future<void> load(String id) async {
+  Future<void> load(
+    String id, {
+    VocabularyReviewAttempt? initialAttempt,
+  }) async {
     if (!active || busy || _isSyncing) return;
     final epoch = ++_epoch;
     loading = true;
     error = null;
     notifyListeners();
     try {
-      final result = await owner.repository.request(
-        'GET',
-        '/vocabulary/reviews/$id',
-      );
-      if (!active || epoch != _epoch) return;
-      _apply(VocabularyReviewAttempt(vocabularyJson(result['attempt'])));
+      final VocabularyReviewAttempt loadedAttempt;
+      if (initialAttempt != null && initialAttempt.id == id) {
+        loadedAttempt = initialAttempt;
+      } else {
+        final result = await owner.repository.request(
+          'GET',
+          '/vocabulary/reviews/$id',
+        );
+        if (!active || epoch != _epoch) return;
+        loadedAttempt = VocabularyReviewAttempt(
+          vocabularyJson(result['attempt']),
+        );
+      }
+      _apply(loadedAttempt);
       pending = await owner.store.read(pendingKey);
       final local = await owner.store.read(draftKey);
       final journal = await owner.store.read(journalKey);

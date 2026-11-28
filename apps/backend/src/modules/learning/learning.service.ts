@@ -274,11 +274,35 @@ export class LearningService {
   }
 
   async lesson(userId: string, lessonId: string) {
-    const lesson = await this.prisma.learningLesson.findFirst({ where: { id: lessonId, published: true } });
+    const [lesson, attempts] = await Promise.all([
+      this.prisma.learningLesson.findFirst({
+        where: { id: lessonId, published: true },
+        include: includeUnitLevel,
+      }),
+      this.prisma.learningAttempt.findMany({
+        where: { userId, lessonId, status: 'COMPLETED' },
+        select: {
+          lessonId: true,
+          status: true,
+          correctCount: true,
+          totalQuestions: true,
+          historyHiddenAt: true,
+        },
+        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+      }),
+    ]);
     if (!lesson) throw new NotFoundException({ code: 'LEARNING_LESSON_NOT_FOUND', message: 'Không tìm thấy bài học.' });
-    const catalogue = await this.catalogue(userId);
+    const completed = attempts.filter((attempt) => attempt.lessonId === lesson.id && attempt.status === 'COMPLETED');
+    const latest = completed.find((attempt) => attempt.historyHiddenAt == null);
     const content = lesson.content as unknown as LearningContent;
-    return { ...catalogue.items.find((item) => item.id === lesson.id)!, content: this.publicContent(content, false), questions: this.publicQuestions(content) };
+    return {
+      ...this.lessonInfo(lesson),
+      state: completed.length ? 'COMPLETED' : 'NOT_STARTED',
+      activeAttemptId: null,
+      latestResult: latest ? this.result(latest) : null,
+      content: this.publicContent(content, false),
+      questions: this.publicQuestions(content),
+    };
   }
 
   private async verifyContentAndAudio(content: LearningContent, kind: LearningLesson['kind']): Promise<void> {

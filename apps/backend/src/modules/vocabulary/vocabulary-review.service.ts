@@ -17,6 +17,14 @@ export class VocabularyReviewService {
     return attempt;
   }
   async attempt(userId: string, id: string) { return { attempt: reviewView(await this.owned(this.prisma, userId, id)) }; }
+  async active(userId: string) {
+    const attempt = await this.prisma.vocabularyReviewAttempt.findFirst({
+      where: { userId, status: 'IN_PROGRESS' },
+      orderBy: [{ startedAt: 'desc' }, { id: 'desc' }],
+      include: withItems,
+    });
+    return { attempt: attempt ? reviewView(attempt) : null };
+  }
   async start(userId: string, deckId: string, dto: VocabularyStartDto) {
     dto.scope ??= 'NEEDS_REVIEW';
     const receipt = await this.commands.execute(userId, dto.commandId, 'START_REVIEW', deckId, dto, async db => {

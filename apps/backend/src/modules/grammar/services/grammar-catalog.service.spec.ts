@@ -210,4 +210,49 @@ describe('GrammarCatalogService', () => {
     expect(rawItem.irtA).toBeUndefined();
     expect(rawItem.rubricCriteria).toEqual({ timeLimitSeconds: 60 });
   });
+
+  it('returns combined levels + hierarchy tree in one pass, caches static curriculum, and invalidates on mutation', async () => {
+    const prisma = createMockPrisma();
+    prisma.learningAttempt.findMany.mockResolvedValueOnce([
+      { lessonId: '00000000-0000-4000-8000-000000000099', status: 'COMPLETED' },
+    ]);
+
+    const service = new GrammarCatalogService(prisma as never);
+    const combined = await service.getGrammarTree(
+      { groupBy: 'hierarchy', includeLevels: 'true' },
+      'user-1',
+    );
+
+    expect(combined.groupBy).toBe('hierarchy');
+    if (combined.groupBy === 'hierarchy') {
+      expect(combined.tree).toHaveLength(1);
+      expect(combined.levels).toHaveLength(6);
+      const a1 = combined.levels?.find((l) => l.cefrLevel === 'A1');
+      expect(a1).toMatchObject({
+        cefrLevel: 'A1',
+        topicCount: 1,
+        lessonCount: 1,
+        completedCount: 1,
+      });
+    }
+    expect(prisma.grammarTopic.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.learningAttempt.findMany).toHaveBeenCalledTimes(1);
+
+    // Second call for another learner reuses cached static curriculum while querying fresh learner attempts
+    prisma.learningAttempt.findMany.mockResolvedValueOnce([]);
+    const secondUser = await service.getGrammarTree(
+      { groupBy: 'hierarchy', includeLevels: 'true' },
+      'user-2',
+    );
+    expect(prisma.grammarTopic.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.learningAttempt.findMany).toHaveBeenCalledTimes(2);
+    if (secondUser.groupBy === 'hierarchy') {
+      expect(secondUser.levels?.find((l) => l.cefrLevel === 'A1')?.completedCount).toBe(0);
+    }
+
+    // Invalidating static cache forces static curriculum reload on next request
+    service.invalidateStaticCache();
+    await service.getLevelsOverview();
+    expect(prisma.grammarTopic.findMany).toHaveBeenCalledTimes(2);
+  });
 });

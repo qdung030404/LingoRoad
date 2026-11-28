@@ -9,6 +9,7 @@ import 'package:mobile/shared/figma_widgets.dart';
 import 'package:mobile/features/learning/learning_widgets.dart';
 import 'package:mobile/features/learning/learning_pages.dart' show LearningError;
 import 'vocabulary_controller.dart';
+import 'vocabulary_models.dart';
 import 'vocabulary_review_controller.dart';
 import 'widgets/vocabulary_flashcard_deck.dart';
 import 'widgets/vocabulary_review_bottom_bar.dart';
@@ -20,10 +21,12 @@ class VocabularyReviewPage extends StatefulWidget {
     super.key,
     required this.controller,
     required this.attemptId,
+    this.initialAttempt,
   });
 
   final VocabularyController controller;
   final String attemptId;
+  final VocabularyReviewAttempt? initialAttempt;
 
   @override
   State<VocabularyReviewPage> createState() => _VocabularyReviewPageState();
@@ -65,7 +68,7 @@ class _VocabularyReviewPageState extends State<VocabularyReviewPage>
       }
     });
     review.addListener(changed);
-    review.load(widget.attemptId);
+    review.load(widget.attemptId, initialAttempt: widget.initialAttempt);
   }
 
   void changed() {

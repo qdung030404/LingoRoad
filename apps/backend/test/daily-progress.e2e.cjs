@@ -190,6 +190,21 @@ describe('Daily plans and observed learning time', () => {
     assert.equal((await api(owner, 'get', '/learning/preferences').expect(200)).body.data.dailyGoalMinutes, 20);
   });
 
+  it('counts distinct completed lessons, retakes, and latest results accurately in progress', async () => {
+    const owner = await account();
+    const weak = await finish(owner, lessons.GRAMMAR, 3);
+    const strong = await finish(owner, lessons.VOCABULARY, 4);
+    const yesterday = new Date(Date.now() - dayMs);
+    await prisma.learningAttempt.updateMany({ where: { id: { in: [weak.id, strong.id] } }, data: { submittedAt: yesterday } });
+    const improved = await finish(owner, lessons.GRAMMAR, 5);
+    const stats = await progress(owner);
+    assert.equal(stats.totals.completedLessonCount, 2);
+    assert.equal(stats.totals.completedAttemptCount, 3);
+    assert.equal(stats.latestResults.find(row => row.kind === 'GRAMMAR').correctCount, 5);
+    assert.equal((await api(owner, 'get', `/learning/attempts/${weak.id}`).expect(200)).body.data.result.correctCount, 3);
+    assert.notEqual(improved.id, weak.id);
+  });
+
   it('uses latest results at the 80% cutoff, places a new lesson before review and counts retakes separately', async () => {
     const owner = await account();
     const weak = await finish(owner, lessons.GRAMMAR, 3);

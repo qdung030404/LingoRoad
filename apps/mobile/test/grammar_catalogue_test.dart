@@ -1,11 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/core/api/api_client.dart';
 import 'package:mobile/core/theme/app_theme.dart';
 import 'package:mobile/features/grammar/grammar_catalogue_view.dart';
 import 'package:mobile/features/grammar/grammar_controller.dart';
 import 'package:mobile/features/grammar/grammar_repository.dart';
+import 'test_helpers.dart';
 
 class FakeGrammarRepository implements GrammarRepository {
+  int catalogueCalls = 0;
+
+  @override
+  Future<GrammarCatalogueData> fetchCatalogue() async {
+    catalogueCalls++;
+    return (levels: await fetchLevels(), tree: await fetchTree());
+  }
+
   @override
   Future<List<GrammarLevelSummary>> fetchLevels() async => const <GrammarLevelSummary>[
     GrammarLevelSummary(cefrLevel: 'A1', topicCount: 1, lessonCount: 1, completedCount: 0),
@@ -298,4 +308,198 @@ void main() {
       expect(find.text('S + V(s/es)'), findsOneWidget);
     },
   );
+
+  test(
+    'ApiGrammarRepository.fetchCatalogue loads levels and tree in a single HTTP request',
+    () async {
+      final List<String> paths = <String>[];
+      final _RecordingGrammarApi api = _RecordingGrammarApi((String path) async {
+        paths.add(path);
+        return <String, Object?>{
+          'groupBy': 'hierarchy',
+          'levels': <Map<String, Object?>>[
+            <String, Object?>{
+              'cefrLevel': 'A1',
+              'topicCount': 2,
+              'lessonCount': 3,
+              'completedCount': 1,
+            },
+          ],
+          'tree': <Map<String, Object?>>[
+            <String, Object?>{
+              'id': 'root-id',
+              'code': 'grammar',
+              'parentCode': null,
+              'cefrLevel': 'A1',
+              'isLeaf': false,
+              'titleEn': 'Grammar',
+              'titleVi': 'Ngữ pháp',
+              'summaryVi': '',
+              'orderIndex': 0,
+              'prerequisiteCodes': <String>[],
+              'lessonCount': 3,
+              'children': <Map<String, Object?>>[
+                <String, Object?>{
+                  'id': 'group-1',
+                  'code': 'grammar.tenses',
+                  'parentCode': 'grammar',
+                  'cefrLevel': 'A1',
+                  'isLeaf': false,
+                  'titleEn': 'Tenses',
+                  'titleVi': 'Hệ thống Thì',
+                  'summaryVi': '',
+                  'orderIndex': 1,
+                  'prerequisiteCodes': <String>[],
+                  'lessonCount': 3,
+                  'children': <Map<String, Object?>>[
+                    <String, Object?>{
+                      'id': 'leaf-1',
+                      'code': 'grammar.tenses.present_simple',
+                      'parentCode': 'grammar.tenses',
+                      'cefrLevel': 'A1',
+                      'isLeaf': true,
+                      'titleEn': 'Present Simple',
+                      'titleVi': 'Thì Hiện tại đơn',
+                      'summaryVi': 'Thói quen',
+                      'orderIndex': 2,
+                      'prerequisiteCodes': <String>[],
+                      'lessonCount': 3,
+                      'learnerStatus': 'COMPLETED',
+                      'children': <Map<String, Object?>>[],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        };
+      });
+
+      final GrammarController controller = GrammarController(
+        repository: ApiGrammarRepository(api, authenticated: true),
+      );
+      await controller.load();
+
+      expect(paths, <String>['/grammar/tree?groupBy=hierarchy&includeLevels=true']);
+      expect(controller.countForLevel('A1'), 2);
+      expect(controller.completedCountForLevel('A1'), 1);
+      expect(controller.visibleGroups, hasLength(1));
+      controller.dispose();
+    },
+  );
+
+  test(
+    'ApiGrammarRepository.fetchCatalogue falls back to /grammar/levels + /grammar/tree when older backend rejects includeLevels with 400',
+    () async {
+      final List<String> paths = <String>[];
+      final _RecordingGrammarApi api = _RecordingGrammarApi((String path) async {
+        paths.add(path);
+        if (path.contains('includeLevels=true')) {
+          throw const ApiFailure(
+            'property includeLevels should not exist',
+            status: 400,
+          );
+        }
+        if (path == '/grammar/levels') {
+          return <String, Object?>{
+            'levels': <Map<String, Object?>>[
+              <String, Object?>{
+                'cefrLevel': 'A1',
+                'topicCount': 1,
+                'lessonCount': 2,
+                'completedCount': 1,
+              },
+            ],
+          };
+        }
+        if (path == '/grammar/tree?groupBy=hierarchy') {
+          return <String, Object?>{
+            'groupBy': 'hierarchy',
+            'tree': <Map<String, Object?>>[
+              <String, Object?>{
+                'id': 'root-id',
+                'code': 'grammar',
+                'parentCode': null,
+                'cefrLevel': 'A1',
+                'isLeaf': false,
+                'titleEn': 'Grammar',
+                'titleVi': 'Ngữ pháp',
+                'summaryVi': '',
+                'orderIndex': 0,
+                'prerequisiteCodes': <String>[],
+                'lessonCount': 2,
+                'children': <Map<String, Object?>>[
+                  <String, Object?>{
+                    'id': 'group-1',
+                    'code': 'grammar.tenses',
+                    'parentCode': 'grammar',
+                    'cefrLevel': 'A1',
+                    'isLeaf': false,
+                    'titleEn': 'Tenses',
+                    'titleVi': 'Hệ thống Thì',
+                    'summaryVi': '',
+                    'orderIndex': 1,
+                    'prerequisiteCodes': <String>[],
+                    'lessonCount': 2,
+                    'children': <Map<String, Object?>>[
+                      <String, Object?>{
+                        'id': 'leaf-1',
+                        'code': 'grammar.tenses.present_simple',
+                        'parentCode': 'grammar.tenses',
+                        'cefrLevel': 'A1',
+                        'isLeaf': true,
+                        'titleEn': 'Present Simple',
+                        'titleVi': 'Thì Hiện tại đơn',
+                        'summaryVi': 'Thói quen',
+                        'orderIndex': 2,
+                        'prerequisiteCodes': <String>[],
+                        'lessonCount': 2,
+                        'learnerStatus': 'COMPLETED',
+                        'children': <Map<String, Object?>>[],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          };
+        }
+        throw ApiFailure('Unexpected path: $path', status: 500);
+      });
+
+      final GrammarController controller = GrammarController(
+        repository: ApiGrammarRepository(api, authenticated: true),
+      );
+      await controller.load();
+
+      expect(
+        paths,
+        containsAll(<String>[
+          '/grammar/tree?groupBy=hierarchy&includeLevels=true',
+          '/grammar/levels',
+          '/grammar/tree?groupBy=hierarchy',
+        ]),
+      );
+      expect(controller.error, isNull);
+      expect(controller.countForLevel('A1'), 1);
+      expect(controller.completedCountForLevel('A1'), 1);
+      expect(controller.visibleGroups, hasLength(1));
+      controller.dispose();
+    },
+  );
+}
+
+class _RecordingGrammarApi extends FakeApi {
+  _RecordingGrammarApi(this._onGet) : super(signedIn: true);
+
+  final Future<Json> Function(String path) _onGet;
+
+  @override
+  Future<Json> request(
+    String method,
+    String path, {
+    Json? data,
+    bool auth = true,
+    Duration? receiveTimeout,
+  }) => _onGet(path);
 }

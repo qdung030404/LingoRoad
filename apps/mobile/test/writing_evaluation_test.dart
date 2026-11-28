@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:mobile/features/learning/preview_model.dart';
 import 'package:mobile/features/learning/writing_evaluation_service.dart';
 import 'package:mobile/features/learning/writing_practice_page.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   test('explicit instructions override a stale writing word range', () {
     final item = WritingPracticeItem.fromJson({
       'id': 'jacket',

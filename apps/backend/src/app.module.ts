@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { PrismaModule } from './modules/prisma/prisma.module';
+import { isSqlTimingEnabled, sqlTimingMiddleware } from './modules/prisma/sql-timing';
 import { SecurityModule } from './modules/security/security.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { MlModule } from './modules/ml/ml.module';
@@ -51,4 +52,10 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     AdminModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    if (isSqlTimingEnabled()) {
+      consumer.apply(sqlTimingMiddleware).forRoutes('*');
+    }
+  }
+}

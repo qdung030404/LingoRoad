@@ -26,7 +26,6 @@ import '../vocabulary/curated_topics_widgets.dart';
 import '../vocabulary/vocabulary_controller.dart';
 import '../vocabulary/vocabulary_pages.dart';
 import '../vocabulary/vocabulary_repository.dart';
-import '../vocabulary/vocabulary_review_page.dart';
 import 'daily_learning.dart';
 import 'daily_pages.dart';
 import 'home_cache.dart';
@@ -141,7 +140,9 @@ class _LearningPreviewState extends State<LearningPreview>
         initialDailyMinutes:
             widget.account?.profile['dailyGoalMinutes'] as int? ?? 10,
       );
-  late final library = WordLibrary(accountId: _accountId);
+  late final WordLibrary library = WordLibrary(accountId: _accountId);
+  bool _hadInitialCachedHome = false;
+  String? _initialLivePlanStatus;
   final selectedTab = ValueNotifier<int>(0);
   late final LearningController? learning =
       widget.account == null || _accountId == null
@@ -153,9 +154,37 @@ class _LearningPreviewState extends State<LearningPreview>
           vocabulary: vocabularyController,
           fetchHome: ApiLearningRepository(widget.account!.api).home,
           onHome: (value) {
+            final planStatus = value['planStatus']?.toString() ?? 'unknown';
+            _initialLivePlanStatus ??= planStatus;
             widget.account!.rememberHome(value);
-            AppStartupTiming.afterNextFrame('home-live');
+            AppStartupTiming.afterNextFrame(
+              'home-first-content',
+              metadata: {
+                'source': 'network',
+                'cache': _hadInitialCachedHome ? 'hit' : 'miss',
+                'planStatus': planStatus,
+              },
+            );
+            AppStartupTiming.afterNextFrame(
+              'home-live',
+              metadata: {
+                'cache': _hadInitialCachedHome ? 'hit' : 'miss',
+                'planStatus': planStatus,
+              },
+            );
             _handleHomeSnapshot(value);
+          },
+          onPlanReady: (value) {
+            AppStartupTiming.afterNextFrame(
+              'home-plan-ready',
+              metadata: {
+                'cache': _hadInitialCachedHome ? 'hit' : 'miss',
+                'planStatus':
+                    _initialLivePlanStatus ??
+                    value['planStatus']?.toString() ??
+                    'ready',
+              },
+            );
           },
           onHomeInvalidated: widget.account!.clearHome,
           onHomeForbidden: widget.account!.rejectHomeSession,
@@ -206,8 +235,17 @@ class _LearningPreviewState extends State<LearningPreview>
     _accountId;
     widget.account?.addListener(_speakingSessionChanged);
     final cached = widget.account?.cachedHome;
+    _hadInitialCachedHome = cached != null;
     if (cached != null) {
       learning?.showCachedHome(cached);
+      AppStartupTiming.afterNextFrame(
+        'home-first-content',
+        metadata: {
+          'source': 'cache',
+          'cache': 'hit',
+          'planStatus': cached['planStatus']?.toString() ?? 'unknown',
+        },
+      );
       final cachedUnread = (cached['unreadNotificationCount'] as num?)?.toInt();
       if (cachedUnread != null) notifications.syncUnreadCount(cachedUnread);
     }
@@ -222,14 +260,16 @@ class _LearningPreviewState extends State<LearningPreview>
         unawaited(_checkLaunchNotificationTarget());
       }
     });
-    library.restore().catchError((Object error) {
-      if (mounted) {
-        setState(
-          () => restoreError = 'Không khôi phục được bộ từ mẫu trên thiết bị.',
-        );
-      }
-    });
-    if (widget.model == null) {
+    if (vocabularyController == null) {
+      library.restore().catchError((Object error) {
+        if (mounted) {
+          setState(
+            () => restoreError = 'Không khôi phục được bộ từ mẫu trên thiết bị.',
+          );
+        }
+      });
+    }
+    if (widget.account == null && widget.model == null) {
       model.restore().catchError((Object error, StackTrace stack) {
         // Keep preference values out of logs while retaining the failing stack.
         FlutterError.reportError(
@@ -566,21 +606,15 @@ class _LearningPreviewState extends State<LearningPreview>
 
   void openReview() {
     if (vocabularyController != null) {
-      final decks = vocabularyController!.summary?['decks'] as List? ?? [];
-      final active = decks
-          .where((d) => (d as Map)['activeAttemptId'] != null)
-          .toList();
-      if (active.length == 1) {
-        previewPush(
+      unawaited(
+        openActiveVocabularyReview(
           context,
-          VocabularyReviewPage(
-            controller: vocabularyController!,
-            attemptId: (active.single as Map)['activeAttemptId'] as String,
-          ),
-        );
-        return;
-      }
-      switchTab(2);
+          vocabularyController!,
+          onNoActiveReview: () {
+            if (mounted) switchTab(2);
+          },
+        ),
+      );
       return;
     }
     previewPush(
@@ -632,7 +666,8 @@ class _LearningPreviewState extends State<LearningPreview>
                       if (index == 0) notifications,
                       if (index == 0 || index == 4 || widget.account == null)
                         model,
-                      if (index == 0 || index == 2 || widget.account == null)
+                      if (vocabularyController == null &&
+                          (index == 0 || index == 2 || widget.account == null))
                         library,
                       widget.account,
                       if (index != 2) learning,
@@ -707,7 +742,7 @@ class _LearningPreviewState extends State<LearningPreview>
                   controller: vocabularyController!,
                   onWords: () => switchTab(2),
                   onDeck: openWordDeck,
-                  onReview: openReview,
+                  onReview: () => switchTab(2),
                 ),
           onLesson: () {
             final lesson = learning?.continueLesson;
@@ -750,6 +785,7 @@ class _LearningPreviewState extends State<LearningPreview>
           onOpenWritingItem: (itemId) async {
             if (itemId.isNotEmpty) {
               List<WritingPracticeItem> items = WritingPracticeItem.defaultItems;
+              final restoreFuture = model.ensureRestored().catchError((Object _) {});
               try {
                 final fetched = await (writing ?? WritingEvaluationService())
                     .fetchWritingItems();
@@ -757,6 +793,7 @@ class _LearningPreviewState extends State<LearningPreview>
                   items = fetched;
                 }
               } catch (_) {}
+              await restoreFuture;
               final index = items.indexWhere((e) => e.id == itemId);
               final matched = index >= 0 ? items[index] : items.firstOrNull;
               if (matched != null && mounted) {

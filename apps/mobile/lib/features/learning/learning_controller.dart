@@ -19,6 +19,7 @@ class LearningController extends ChangeNotifier {
     this.vocabulary,
     this.fetchHome,
     this.onHome,
+    this.onPlanReady,
     this.onHomeInvalidated,
     this.onHomeForbidden,
     this.onGoalJustMet,
@@ -31,6 +32,7 @@ class LearningController extends ChangeNotifier {
   final VocabularyController? vocabulary;
   final Future<Json> Function()? fetchHome;
   final void Function(Json value)? onHome;
+  final void Function(Json value)? onPlanReady;
   final VoidCallback? onHomeInvalidated;
   final VoidCallback? onHomeForbidden;
   final VoidCallback? onGoalJustMet;
@@ -133,23 +135,59 @@ class LearningController extends ChangeNotifier {
               code: 'LEARNING_RESPONSE_INVALID',
             );
           }
-          if (value['planStatus'] != 'ready' && daily != null) {
+          final initialPlanStatus = value['planStatus']?.toString() ?? 'missing';
+          final needsPlan = initialPlanStatus != 'ready' && daily != null;
+          if (needsPlan) {
+            daily!.loading = true;
+            daily!.error = null;
+          }
+          _applyHome(value);
+          loading = false;
+          notifyListeners();
+          onHome?.call(value);
+          if (!needsPlan) {
+            _loadedAt = DateTime.now();
+            _loadedDate = value['date'] as String;
+            onPlanReady?.call(value);
+            return;
+          }
+          try {
             final response = await daily!.repository.ensurePlan();
             if (!active || epoch != _epoch) return;
             if (response['date'] != value['date']) {
+              daily!.loading = false;
               Timer.run(() {
                 if (active && epoch == _epoch) refresh();
               });
               return;
             }
-            value['plan'] = response['plan'];
-            value['continueLesson'] = response['continueLesson'];
-            value['planStatus'] = 'ready';
+            final updated = <String, dynamic>{
+              ...value,
+              'plan': response['plan'],
+              'continueLesson': response.containsKey('continueLesson')
+                  ? response['continueLesson']
+                  : value['continueLesson'],
+              'planStatus': 'ready',
+            };
+            daily!.loading = false;
+            _applyHome(updated);
+            onHome?.call(updated);
+            onPlanReady?.call(updated);
+            _loadedAt = DateTime.now();
+            _loadedDate = updated['date'] as String;
+            notifyListeners();
+          } catch (e) {
+            if (!active || epoch != _epoch) return;
+            if (e is ApiFailure && e.status == 403) {
+              onHomeForbidden?.call();
+              return;
+            }
+            daily!.loading = false;
+            daily!.error = e is ApiFailure
+                ? e.message
+                : 'Không tải được kế hoạch. Hãy thử lại.';
+            daily!.notifyListeners();
           }
-          _applyHome(value);
-          onHome?.call(value);
-          _loadedAt = DateTime.now();
-          _loadedDate = value['date'] as String;
           return;
         }
         _legacy = true;

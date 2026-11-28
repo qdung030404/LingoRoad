@@ -295,6 +295,17 @@ class VocabularyController extends ChangeNotifier {
         : VocabularyReviewAttempt(vocabularyJson(result['attempt']));
   }
 
+  Future<VocabularyReviewAttempt?> findActiveReview() async {
+    if (!active) throw const ApiFailure('Phiên đăng nhập đã thay đổi.');
+    final res = await repository.request('GET', '/vocabulary/reviews/active');
+    if (!active) throw const ApiFailure('Phiên đăng nhập đã thay đổi.');
+    final rawAttempt = res['attempt'];
+    if (rawAttempt is Map) {
+      return VocabularyReviewAttempt(vocabularyJson(rawAttempt));
+    }
+    return null;
+  }
+
   Future<Json> mutate(String method, String path, Json body) async {
     if (!active) throw const ApiFailure('Phiên đăng nhập đã thay đổi.');
     if (busy || _preparing) throw const ApiFailure('Đang lưu thao tác trước.');

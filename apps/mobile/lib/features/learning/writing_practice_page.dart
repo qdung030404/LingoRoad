@@ -52,7 +52,11 @@ class _WritingPracticeSectionState extends State<WritingPracticeSection> {
 
   Future<void> _loadItems() async {
     try {
-      final fetched = await service.fetchWritingItems();
+      final results = await Future.wait<Object?>([
+        widget.model.ensureRestored(),
+        service.fetchWritingItems(),
+      ]);
+      final fetched = results[1] as List<WritingPracticeItem>;
       if (mounted) {
         setState(() {
           if (fetched.isNotEmpty) {
@@ -62,6 +66,7 @@ class _WritingPracticeSectionState extends State<WritingPracticeSection> {
         });
       }
     } catch (_) {
+      await widget.model.ensureRestored().catchError((Object _) {});
       if (mounted) {
         setState(() => isLoading = false);
       }
@@ -308,6 +313,8 @@ class _WritingPracticeSectionState extends State<WritingPracticeSection> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                   onPressed: () async {
+                    await widget.model.ensureRestored();
+                    if (!mounted) return;
                     await previewPush(
                       context,
                       WritingTaskPage(
@@ -341,6 +348,8 @@ class _WritingPracticeSectionState extends State<WritingPracticeSection> {
                     ),
                   ),
                   onPressed: () async {
+                    await widget.model.ensureRestored();
+                    if (!mounted) return;
                     await previewPush(
                       context,
                       WritingReviewPage(
