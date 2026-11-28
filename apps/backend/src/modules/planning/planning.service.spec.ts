@@ -453,7 +453,7 @@ describe('Progress roadmap units and score stats', () => {
       jest.useRealTimers();
     }
   });
-  it.each(['baseline-v1', 'adaptive-v1'])('upgrades persisted %s plans to adaptive-v2 on today() / ensureToday()', async (oldPolicyVersion) => {
+  it.each(['baseline-v1', 'adaptive-v1', 'adaptive-v2'])('upgrades persisted %s plans to adaptive-v3 on today() / ensureToday()', async (oldPolicyVersion) => {
     jest.useFakeTimers().setSystemTime(now);
     try {
       const legacyPlan = {
@@ -486,8 +486,8 @@ describe('Progress roadmap units and score stats', () => {
       const svc = new PlanningService(db as unknown as PrismaService);
       const res = await svc.today('u');
       expect(upsert).toHaveBeenCalledTimes(1);
-      expect(res.plan?.policyVersion).toBe('adaptive-v2');
-      expect(res.plan?.items.map((i: any) => [i.lessonId, i.reason])).toEqual([
+      expect(res.plan?.policyVersion).toBe('adaptive-v3');
+      expect(res.plan?.items.map((i: { lessonId: string; reason: string }) => [i.lessonId, i.reason])).toEqual([
         ['read-b1', 'Bài mới · đúng mức B1'],
         ['read-a2', 'Bài mới'],
       ]);
@@ -562,7 +562,7 @@ describe('Progress roadmap units and score stats', () => {
           version: 0,
           preferencesVersion: 0,
           dailyGoalMinutes: 10,
-          policyVersion: 'adaptive-v2',
+          policyVersion: 'adaptive-v3',
           createdAt: stalePlanAt,
           updatedAt: stalePlanAt,
           items: [

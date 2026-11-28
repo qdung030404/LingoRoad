@@ -10,24 +10,43 @@ import {
   chooseReadingFocus, readingEvidence, ReadingFocusCode, selectReadingFocusAttempts,
 } from './reading-focus.policy';
 import {
+  buildCefrMilestones,
   buildDailyRoadmapItems,
+  buildLearningWeekWindows,
   buildProgressUnits,
+  buildWeekDaySummaries,
   chooseDailyItems,
   computeScoreStats,
   CURRENT_PLAN_POLICY_VERSION,
   DAY_MS,
-  finishedOn,
-  LEARNING_TIME_ZONE,
   learningDate,
   learningDayStart,
+  MILESTONE_CEFR_ORDER,
+  MilestoneLessonInput,
   PlanItem,
   PlannedLesson,
   PlannedSpeakingTopic,
-  PlannedWritingItem,
+  resolveGrammarTopicCode,
   SkillLevelChange,
 } from './planning.helpers';
+import {
+  assemblePlanDto,
+  buildPlacementNotification,
+  buildSkillLevelNotification,
+  buildSpeakingPracticeMaps,
+  buildWritingPlanPool,
+  queryHomeActiveSeconds,
+} from './planning-activity.helpers';
+import {
+  readPreferredSkillsForUser,
+  readWritingHistoryForUser,
+  recordWritingCompletionForUser,
+  resolvePreferredSkills,
+  writePreferredSkillsForUser,
+} from './planning-receipts.helpers';
 
 export {
+  buildCefrMilestones,
   buildDailyRoadmapItems,
   buildProgressUnits,
   chooseDailyItems,
@@ -38,12 +57,24 @@ export {
   LEARNING_TIME_ZONE,
   learningDate,
   learningDayStart,
+  MILESTONE_CEFR_ORDER,
 } from './planning.helpers';
+export {
+  PREFERRED_SKILLS_RECEIPT_ID,
+  readPreferredSkillsForUser,
+  readWritingHistoryForUser,
+  recordWritingCompletionForUser,
+  resolvePreferredSkills,
+  WRITING_HISTORY_RECEIPT_ID,
+  writePreferredSkillsForUser,
+} from './planning-receipts.helpers';
 export type {
+  MilestoneLessonInput,
   PlanItem,
   PlannedLesson,
   PlannedSpeakingTopic,
   PlannedWritingItem,
+  ProgressMilestone,
   ProgressScoreStats,
   ProgressUnit,
   ProgressUnitStatus,
@@ -60,164 +91,13 @@ const PLAN_LESSON_SELECT = {
   estimatedMinutes: true,
   sortOrder: true,
   unit: { select: { cefrLevel: true } },
+  grammarTopic: { select: { cefrLevel: true } },
 } as const;
 
 const LESSON_KIND_SET = new Set<string>(Object.values(LearningKind));
-export const PREFERRED_SKILLS_RECEIPT_ID = '00000000-0000-4000-8000-505245465331';
-export const WRITING_HISTORY_RECEIPT_ID = '00000000-0000-4000-8000-575249544531';
-const PREFERRED_SKILLS_SCHEMA_VERSION = 2;
 
 function isLessonKind(value: string): value is LearningKind {
   return LESSON_KIND_SET.has(value);
-}
-
-export function resolvePreferredSkills(
-  profile: {
-    preferredSkills?: string[] | null;
-    preferredKinds?: LearningKind[] | null;
-  },
-  storedSkills?: PreferredSkill[] | null,
-): PreferredSkill[] {
-  if (Array.isArray(storedSkills) && storedSkills.length > 0) {
-    return storedSkills;
-  }
-  if (Array.isArray(profile.preferredSkills) && profile.preferredSkills.length > 0) {
-    return profile.preferredSkills as PreferredSkill[];
-  }
-  if (Array.isArray(profile.preferredKinds) && profile.preferredKinds.length > 0) {
-    return profile.preferredKinds as PreferredSkill[];
-  }
-  return ['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING', 'SPEAKING', 'WRITING'];
-}
-
-export async function readPreferredSkillsForUser(
-  db: { vocabularyCommandReceipt?: { findUnique?: (...args: any[]) => Promise<any> } },
-  userId: string,
-  fallbackKinds?: LearningKind[] | null,
-): Promise<PreferredSkill[] | null> {
-  if (!db.vocabularyCommandReceipt?.findUnique) return null;
-  const receipt = await db.vocabularyCommandReceipt.findUnique({
-    where: { userId_commandId: { userId, commandId: PREFERRED_SKILLS_RECEIPT_ID } },
-    select: { result: true },
-  });
-  const resultObj = receipt?.result as { preferredKinds?: unknown; schemaVersion?: unknown } | null;
-  const saved = resultObj?.preferredKinds;
-  if (Array.isArray(saved) && saved.length > 0) {
-    const skills = saved as PreferredSkill[];
-    if (
-      resultObj?.schemaVersion !== PREFERRED_SKILLS_SCHEMA_VERSION &&
-      skills.length === 5 &&
-      !skills.includes('WRITING')
-    ) {
-      return [...skills, 'WRITING'];
-    }
-    return skills;
-  }
-  const hasCustomSubset =
-    Array.isArray(fallbackKinds) &&
-    fallbackKinds.length > 0 &&
-    fallbackKinds.length < LESSON_KIND_SET.size;
-  if (hasCustomSubset) {
-    return [...new Set<PreferredSkill>(fallbackKinds as PreferredSkill[])];
-  }
-  const base = Array.isArray(fallbackKinds) && fallbackKinds.length > 0
-    ? (fallbackKinds as PreferredSkill[])
-    : (['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING'] as PreferredSkill[]);
-  return [...new Set<PreferredSkill>([...base, 'SPEAKING', 'WRITING'])];
-}
-
-export async function writePreferredSkillsForUser(
-  db: { vocabularyCommandReceipt?: { upsert?: (...args: any[]) => Promise<any> } },
-  userId: string,
-  preferredSkills: PreferredSkill[],
-  version?: number,
-): Promise<void> {
-  if (!db.vocabularyCommandReceipt?.upsert) return;
-  const payload = { preferredKinds: preferredSkills, schemaVersion: PREFERRED_SKILLS_SCHEMA_VERSION };
-  await db.vocabularyCommandReceipt.upsert({
-    where: { userId_commandId: { userId, commandId: PREFERRED_SKILLS_RECEIPT_ID } },
-    create: {
-      userId,
-      commandId: PREFERRED_SKILLS_RECEIPT_ID,
-      action: 'PREFERRED_SKILLS',
-      targetId: userId,
-      canonicalPayloadHash: preferredSkills.join(',').slice(0, 64),
-      appliedVersion: version ?? null,
-      result: payload,
-    },
-    update: {
-      canonicalPayloadHash: preferredSkills.join(',').slice(0, 64),
-      appliedVersion: version ?? null,
-      result: payload,
-    },
-  });
-}
-
-export async function readWritingHistoryForUser(
-  db: { vocabularyCommandReceipt?: { findUnique?: (...args: any[]) => Promise<any> } },
-  userId: string,
-): Promise<Record<string, string>> {
-  if (!db.vocabularyCommandReceipt?.findUnique) return {};
-  const receipt = await db.vocabularyCommandReceipt.findUnique({
-    where: { userId_commandId: { userId, commandId: WRITING_HISTORY_RECEIPT_ID } },
-    select: { result: true },
-  });
-  const map = (receipt?.result as { completedByItem?: unknown } | null)?.completedByItem;
-  if (map && typeof map === 'object' && !Array.isArray(map)) {
-    return map as Record<string, string>;
-  }
-  return {};
-}
-
-export async function recordWritingCompletionForUser(
-  db: {
-    vocabularyCommandReceipt?: {
-      findUnique?: (...args: any[]) => Promise<any>;
-      upsert?: (...args: any[]) => Promise<any>;
-    };
-    assessmentItem?: {
-      findFirst?: (...args: any[]) => Promise<{ id: string; externalId?: string | null } | null>;
-    };
-  },
-  userId: string,
-  itemIdOrExternalId: string,
-  completedAt: Date = new Date(),
-): Promise<void> {
-  if (!db.vocabularyCommandReceipt?.upsert) return;
-  const existing = await readWritingHistoryForUser(db, userId);
-  const iso = completedAt.toISOString();
-  const next: Record<string, string> = { ...existing, [itemIdOrExternalId]: iso };
-  if (db.assessmentItem?.findFirst) {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemIdOrExternalId);
-    const matched = await db.assessmentItem.findFirst({
-      where: isUuid
-        ? { OR: [{ id: itemIdOrExternalId }, { externalId: itemIdOrExternalId }] }
-        : { externalId: itemIdOrExternalId },
-      select: { id: true, externalId: true },
-    });
-    if (matched) {
-      next[matched.id] = iso;
-      if (matched.externalId) next[matched.externalId] = iso;
-    }
-  }
-  const payload = { completedByItem: next };
-  const hash = `${itemIdOrExternalId}:${iso}`.slice(0, 64);
-  await db.vocabularyCommandReceipt.upsert({
-    where: { userId_commandId: { userId, commandId: WRITING_HISTORY_RECEIPT_ID } },
-    create: {
-      userId,
-      commandId: WRITING_HISTORY_RECEIPT_ID,
-      action: 'WRITING_HISTORY',
-      targetId: userId,
-      canonicalPayloadHash: hash,
-      appliedVersion: null,
-      result: payload,
-    },
-    update: {
-      canonicalPayloadHash: hash,
-      result: payload,
-    },
-  });
 }
 
 @Injectable()
@@ -407,17 +287,7 @@ export class PlanningService {
       if (placementKey && this.notifications) {
         const estimatedCefr = event.estimatedCefr ?? latestPlacement?.estimatedCefr ?? skillLevel.cefrLevel;
         await this.notifications.createNotification(
-          {
-            userId: event.userId!,
-            type: 'PLACEMENT_COMPLETED',
-            title: 'Hoàn thành kiểm tra đầu vào',
-            body: estimatedCefr
-              ? `Trình độ ước tính của bạn là ${estimatedCefr}. Lộ trình học đã được cá nhân hóa.`
-              : 'Lộ trình học của bạn đã được cá nhân hóa theo kết quả kiểm tra đầu vào.',
-            targetType: 'DAILY_PLAN',
-            targetPayload: { estimatedCefr: estimatedCefr ?? null },
-            dedupeKey: `placement:${placementKey}`,
-          },
+          buildPlacementNotification(event.userId!, placementKey, estimatedCefr),
           tx,
         );
       }
@@ -486,26 +356,8 @@ export class PlanningService {
       },
     });
     if (this.notifications) {
-      const isUp = decision.direction === 'UP';
       await this.notifications.createNotification(
-        {
-          userId,
-          type: 'SKILL_LEVEL_CHANGED',
-          title: isUp
-            ? `Trình độ Đọc hiểu nâng lên ${decision.next}`
-            : `Điều chỉnh trình độ Đọc hiểu sang ${decision.next}`,
-          body: isUp
-            ? `Chúc mừng! Mức Đọc hiểu của bạn đã tăng từ ${skillLevel.cefrLevel} lên ${decision.next}.`
-            : `Mức Đọc hiểu đã được điều chỉnh từ ${skillLevel.cefrLevel} xuống ${decision.next} để phù hợp hơn.`,
-          targetType: 'PROFILE',
-          targetPayload: {
-            kind: 'READING',
-            fromCefr: skillLevel.cefrLevel,
-            toCefr: decision.next,
-            direction: decision.direction,
-          },
-          dedupeKey: `skill_level:${submittedAttempt.id}`,
-        },
+        buildSkillLevelNotification(userId, submittedAttempt.id, skillLevel.cefrLevel, decision.next, decision.direction),
         tx,
       );
     }
@@ -533,7 +385,7 @@ export class PlanningService {
     now: Date,
     date: string,
     profile: Awaited<ReturnType<PlanningService['profile']>>,
-    placement: { skillResults: unknown; completedAt: Date | null } | null,
+    placement: { estimatedCefr?: CefrLevel | null; skillResults: unknown; completedAt: Date | null } | null,
     skillLevel: LearningSkillLevel | null,
     existingItems: PlanItem[],
     exposureByLesson?: ReadonlyMap<string, string>,
@@ -599,38 +451,16 @@ export class PlanningService {
           ),
       wantsWriting ? readWritingHistoryForUser(db, userId) : Promise.resolve({} as Record<string, string>),
     ]);
-    const completedSpeakingIdsToday = new Set<string>();
-    const practicedSpeakingAt = new Map<string, number>();
-    for (const sub of speakingSubmissions) {
-      const stamp = sub.completedAt ?? sub.createdAt;
-      if (learningDate(stamp) === date) completedSpeakingIdsToday.add(sub.promptId);
-      const prev = practicedSpeakingAt.get(sub.promptId) ?? 0;
-      if (stamp.getTime() > prev) practicedSpeakingAt.set(sub.promptId, stamp.getTime());
-    }
-    for (const conv of voiceConversations) {
-      if (!conv.endedAt) continue;
-      if (learningDate(conv.endedAt) === date) completedSpeakingIdsToday.add(conv.topicId);
-      const prev = practicedSpeakingAt.get(conv.topicId) ?? 0;
-      if (conv.endedAt.getTime() > prev) practicedSpeakingAt.set(conv.topicId, conv.endedAt.getTime());
-    }
-    const writingItems: PlannedWritingItem[] = rawWritingItems.map(row => ({
-      id: row.id,
-      externalId: row.externalId,
-      skillCode: row.skillCode,
-      cefrLevel: row.cefrLevel,
-      prompt: row.prompt,
-      groupTitle: row.group?.title ?? null,
-      createdAt: row.createdAt,
-    }));
-    const completedWritingIdsToday = new Set<string>();
-    const practicedWritingAt = new Map<string, number>();
-    for (const [key, iso] of Object.entries(writingHistory)) {
-      const parsed = new Date(iso);
-      if (Number.isNaN(parsed.getTime())) continue;
-      if (learningDate(parsed) === date) completedWritingIdsToday.add(key);
-      const prev = practicedWritingAt.get(key) ?? 0;
-      if (parsed.getTime() > prev) practicedWritingAt.set(key, parsed.getTime());
-    }
+    const { completedSpeakingIdsToday, practicedSpeakingAt } = buildSpeakingPracticeMaps(
+      speakingSubmissions,
+      voiceConversations,
+      date,
+    );
+    const { writingItems, completedWritingIdsToday, practicedWritingAt } = buildWritingPlanPool(
+      rawWritingItems,
+      writingHistory,
+      date,
+    );
     const readingTarget: AdaptiveReadingTarget | null = skillLevel
       ? { cefrLevel: skillLevel.cefrLevel, strictCeiling: skillLevel.source === 'ADAPTIVE' }
       : null;
@@ -685,6 +515,7 @@ export class PlanningService {
       writingItems,
       completedWritingIdsToday,
       practicedWritingAt,
+      placement?.estimatedCefr ?? null,
     );
   }
 
@@ -700,7 +531,11 @@ export class PlanningService {
     if (opts?.existingOnly && !existing) return null;
     const [profile, placement] = await Promise.all([
       this.profile(db, userId),
-      db.placementSession.findFirst({ where: { userId, status: 'COMPLETED' }, orderBy: { completedAt: 'desc' }, select: { skillResults: true, completedAt: true } }),
+      db.placementSession.findFirst({
+        where: { userId, status: 'COMPLETED' },
+        orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
+        select: { estimatedCefr: true, skillResults: true, completedAt: true },
+      }),
     ]);
     const resolved = opts?.skillLevel
       ? { skillLevel: opts.skillLevel, upgraded: false }
@@ -749,8 +584,8 @@ export class PlanningService {
       this.profile(this.prisma, userId),
       this.prisma.placementSession.findFirst({
         where: { userId, status: 'COMPLETED' },
-        orderBy: { completedAt: 'desc' },
-        select: { skillResults: true, completedAt: true },
+        orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
+        select: { estimatedCefr: true, skillResults: true, completedAt: true },
       }),
       this.prisma.learningSkillLevel?.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }) ?? Promise.resolve(null),
     ]);
@@ -778,7 +613,7 @@ export class PlanningService {
     const lessonItemIds = planItems.filter(i => isLessonKind(i.kind)).map(i => i.lessonId);
     const speakingItemIds = planItems.filter(i => i.kind === 'SPEAKING').map(i => i.lessonId);
     const hasWritingItems = planItems.some(i => i.kind === 'WRITING');
-    const [attempts, speakingSubs, voiceConvs, writingHistory] = await Promise.all([
+    const [attempts, speakingSubs, voiceConvs, writingHistory, lessonMeta] = await Promise.all([
       lessonItemIds.length === 0
         ? Promise.resolve(
             [] as {
@@ -824,79 +659,96 @@ export class PlanningService {
             select: { topicId: true },
           }),
       hasWritingItems ? readWritingHistoryForUser(this.prisma, plan.userId) : Promise.resolve({} as Record<string, string>),
+      lessonItemIds.length === 0 || !this.prisma.learningLesson?.findMany
+        ? Promise.resolve([] as { id: string; code: string; kind: LearningKind; grammarTopic: { code: string } | null }[])
+        : this.prisma.learningLesson.findMany({
+            where: { id: { in: lessonItemIds } },
+            select: { id: true, code: true, kind: true, grammarTopic: { select: { code: true } } },
+          }),
     ]);
-    const doneSpeakingIds = new Set<string>([
-      ...speakingSubs.map(s => s.promptId),
-      ...voiceConvs.map(c => c.topicId),
-    ]);
-    const doneWritingIds = new Set<string>();
-    for (const [key, iso] of Object.entries(writingHistory)) {
-      const parsed = new Date(iso);
-      if (!Number.isNaN(parsed.getTime()) && learningDate(parsed) === plan.date) {
-        doneWritingIds.add(key);
-      }
-    }
-    const items = planItems.map(item => {
-      if (item.kind === 'SPEAKING') {
-        const isDone = doneSpeakingIds.has(item.lessonId) || item.reasonCode === 'COMPLETED_TODAY';
-        return {
-          ...item,
-          completed: isDone,
-          activeAttemptId: null,
-          completedAttemptId: null,
-        };
-      }
-      if (item.kind === 'WRITING') {
-        const isDone = doneWritingIds.has(item.lessonId) || item.reasonCode === 'COMPLETED_TODAY';
-        return {
-          ...item,
-          completed: isDone,
-          activeAttemptId: null,
-          completedAttemptId: null,
-        };
-      }
-      const completed = attempts.filter(a => a.lessonId === item.lessonId && finishedOn(a, plan.date));
-      const visibleAttempt = completed.find(a => a.historyHiddenAt == null);
-      const normalized = item.reasonCode === 'RESUME'
-        ? { ...item, reasonCode: completed.length ? 'COMPLETED_TODAY' : 'NEW', reason: completed.length ? 'Đã hoàn thành hôm nay' : 'Bài mới' }
-        : item;
-      return { ...normalized, completed: completed.length > 0, activeAttemptId: null, completedAttemptId: visibleAttempt?.id ?? null };
+    return assemblePlanDto({
+      plan,
+      planItems,
+      attempts,
+      speakingSubs,
+      voiceConvs,
+      writingHistory,
+      lessonMeta,
+      isLessonKind,
     });
-    const nextLesson = items.find(item => !item.completed && isLessonKind(item.kind));
-    return { id: plan.id, date: plan.date, timeZone: LEARNING_TIME_ZONE, version: plan.version, policyVersion: plan.policyVersion, dailyGoalMinutes: plan.dailyGoalMinutes,
-      estimatedMinutes: items.reduce((sum, item) => sum + item.estimatedMinutes, 0), completedCount: items.filter(item => item.completed).length,
-      totalCount: items.length, items, continueLessonId: nextLesson?.lessonId ?? null, continueAttemptId: null };
   }
 
   async ensureHomePlan(userId: string) {
-    const { plan } = await this.ensureToday(userId);
+    const [{ plan }, placement] = await Promise.all([
+      this.ensureToday(userId),
+      this.prisma.placementSession?.findFirst?.({
+        where: { userId, status: 'COMPLETED' },
+        orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
+        select: { estimatedCefr: true },
+      }) ?? Promise.resolve(null),
+    ]);
     return {
       date: plan?.date ?? learningDate(new Date()),
       plan,
-      continueLesson: await this.homeLesson(userId, plan?.continueLessonId ?? null),
+      continueLesson: await this.homeLesson(userId, plan?.continueLessonId ?? null, false, placement?.estimatedCefr ?? null),
     };
   }
 
-  private homeLesson(userId: string, lessonId: string | null, useFallback = false) {
+  private async homeLesson(
+    userId: string,
+    lessonId: string | null,
+    useFallback = false,
+    minimumCefr?: CefrLevel | null,
+  ) {
     if (!lessonId && !useFallback) return null;
-    return this.prisma.learningLesson.findFirst({
+    const minRank = minimumCefr ? MILESTONE_CEFR_ORDER.indexOf(minimumCefr) : -1;
+    const allowedLevels = minRank > 0 ? MILESTONE_CEFR_ORDER.slice(minRank) : null;
+    const row = await this.prisma.learningLesson.findFirst({
       where: {
         published: true,
-        ...(lessonId ? { id: lessonId } : { attempts: { none: { userId, status: 'COMPLETED' as const } } }),
+        ...(lessonId
+          ? { id: lessonId }
+          : {
+              attempts: { none: { userId, status: 'COMPLETED' as const } },
+              ...(allowedLevels
+                ? {
+                    OR: [
+                      { grammarTopic: { cefrLevel: { in: [...allowedLevels] } } },
+                      { grammarTopicId: null, unit: { cefrLevel: { in: [...allowedLevels] } } },
+                    ],
+                  }
+                : {}),
+            }),
       },
-      select: { id: true, kind: true, title: true, description: true, estimatedMinutes: true },
+      select: {
+        id: true,
+        code: true,
+        kind: true,
+        title: true,
+        description: true,
+        estimatedMinutes: true,
+        grammarTopic: { select: { code: true } },
+      },
       orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
     });
+    if (!row) return null;
+    const grammarTopicCode = resolveGrammarTopicCode(row.kind, row.code, row.grammarTopic?.code);
+    return {
+      id: row.id,
+      code: row.code,
+      kind: row.kind,
+      title: row.title,
+      description: row.description,
+      estimatedMinutes: row.estimatedMinutes,
+      ...(grammarTopicCode ? { grammarTopicCode } : {}),
+    };
   }
 
   async home(userId: string) {
     const now = new Date();
     const date = learningDate(now);
-    const week = Array.from({ length: 7 }, (_, i) => {
-      const from = new Date(learningDayStart(date).getTime() - (6 - i) * DAY_MS);
-      return { date: learningDate(from), from, to: new Date(Math.min(from.getTime() + DAY_MS, now.getTime())) };
-    });
-    const [profile, plans, attempts, completedLessons, first, placement, skill, seconds, unreadNotificationCount] = await Promise.all([
+    const week = buildLearningWeekWindows(now, date);
+    const [profile, plans, attempts, completedLessons, first, placement, skill, seconds, unreadNotificationCount, milestoneLessons, milestoneUnits, completedAttemptRows] = await Promise.all([
       this.profile(this.prisma, userId),
       this.prisma.learningDayPlan.findMany({ where: { userId, date: { gte: week[0].date, lte: date } } }),
       this.prisma.learningAttempt.findMany({
@@ -906,8 +758,8 @@ export class PlanningService {
       this.prisma.learningLesson.count({ where: { published: true, attempts: { some: { userId, status: 'COMPLETED' } } } }),
       this.prisma.learningActivitySession.findFirst({ where: { userId }, orderBy: { anchorAt: 'asc' }, select: { anchorAt: true } }),
       this.prisma.placementSession.findFirst({
-        where: { userId, status: 'COMPLETED' }, orderBy: { completedAt: 'desc' },
-        select: { skillResults: true, completedAt: true },
+        where: { userId, status: 'COMPLETED' }, orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
+        select: { estimatedCefr: true, skillResults: true, completedAt: true },
       }),
       this.prisma.learningSkillLevel.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }),
       this.homeActiveSeconds(userId, [...week, { from: new Date(0), to: now }]),
@@ -920,9 +772,23 @@ export class PlanningService {
           return 0;
         }
       })(),
+      this.prisma.learningLesson?.findMany?.({
+        where: { published: true },
+        select: { id: true, unitId: true, kind: true, grammarTopicId: true, grammarTopic: { select: { cefrLevel: true } } },
+      }) ?? Promise.resolve([] as MilestoneLessonInput[]),
+      this.prisma.learningUnit?.findMany?.({
+        orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }],
+        select: { id: true, cefrLevel: true },
+      }) ?? Promise.resolve([] as { id: string; cefrLevel: CefrLevel }[]),
+      this.prisma.learningAttempt?.findMany?.({
+        where: { userId, status: 'COMPLETED' },
+        select: { lessonId: true },
+        distinct: ['lessonId'],
+      }) ?? Promise.resolve([] as { lessonId: string }[]),
     ]);
     const storedSkills = await readPreferredSkillsForUser(this.prisma, userId, profile.preferredKinds);
     const byDate = new Map(plans.map(plan => [plan.date, plan]));
+    const goalByDate = new Map(plans.map(plan => [plan.date, plan.dailyGoalMinutes]));
     const current = byDate.get(date);
     const initial = initialReadingLevel(placement?.skillResults as Record<string, unknown> | undefined, placement?.completedAt);
     const planStatus = !current ? 'missing' : current.policyVersion !== CURRENT_PLAN_POLICY_VERSION ||
@@ -930,53 +796,32 @@ export class PlanningService {
       (placement?.completedAt != null && current.updatedAt < placement.completedAt) ||
       (skill != null && this.shouldUpgradeFromPlacement(skill, initial)) ? 'stale' : 'ready';
     const plan = current && planStatus === 'ready' ? await this.planDto(current) : null;
-    const days = week.map((day, index) => {
-      const completed = attempts.filter(row => row.submittedAt && learningDate(row.submittedAt) === day.date);
-      const activeSeconds = seconds.get(index) ?? 0;
-      const dailyGoalMinutes = byDate.get(day.date)?.dailyGoalMinutes ?? (day.date === date ? profile.dailyGoalMinutes : null);
-      return {
-        date: day.date, dailyGoalMinutes, activeSeconds,
-        goalMet: dailyGoalMinutes != null && activeSeconds >= dailyGoalMinutes * 60,
-        completedLessonCount: new Set(completed.map(row => row.lessonId)).size,
-        completedAttemptCount: completed.length,
-        hasActivity: activeSeconds > 0 || completed.length > 0,
-        timeMeasured: first != null && learningDate(first.anchorAt) <= day.date,
-      };
-    });
+    const days = buildWeekDaySummaries(week, date, profile.dailyGoalMinutes, goalByDate, attempts, seconds, first?.anchorAt ?? null);
+    const placementCefr = placement?.estimatedCefr ?? null;
+    const completedMilestoneIds = new Set(completedAttemptRows.map(row => row.lessonId));
+    const milestones = buildCefrMilestones(milestoneLessons, milestoneUnits, completedMilestoneIds, placementCefr);
     return {
       date, planStatus, plan, preferences: this.preferenceDto(profile, storedSkills), today: days[6], days,
       totals: { completedLessonCount: completedLessons, activeSeconds: seconds.get(week.length) ?? 0 },
-      continueLesson: await this.homeLesson(userId, plan?.continueLessonId ?? null, plan == null),
+      continueLesson: await this.homeLesson(
+        userId,
+        plan?.continueLessonId ?? null,
+        plan == null,
+        placement?.estimatedCefr ?? null,
+      ),
       unreadNotificationCount,
+      placementCefr,
+      milestones,
     };
   }
 
   private async homeActiveSeconds(userId: string, windows: { from: Date; to: Date }[], db: Db = this.prisma) {
-    if (!windows.length) return new Map<number, number>();
-    const values = windows.map(({ from, to }, index) => Prisma.sql`(${index}::int, ${from}::timestamptz, ${to}::timestamptz)`);
-    const rows = await db.$queryRaw<{ idx: number; seconds: number }[]>`
-      WITH windows(idx, starts, ends) AS (VALUES ${Prisma.join(values)}),
-      merged AS (
-        SELECT w.idx, range_agg(tstzrange(GREATEST(s.start_at AT TIME ZONE 'UTC', w.starts),
-          LEAST(s.end_at AT TIME ZONE 'UTC', w.ends), '[)')) AS spans
-        FROM learning_activity_segments s JOIN learning_activity_sessions a ON a.id = s.session_id
-        JOIN windows w ON w.starts < w.ends
-          AND s.end_at > (w.starts AT TIME ZONE 'UTC')
-          AND s.start_at < (w.ends AT TIME ZONE 'UTC')
-        WHERE a.user_id = ${userId}::uuid AND s.start_at IS NOT NULL
-        GROUP BY w.idx
-      )
-      SELECT idx, FLOOR(SUM(EXTRACT(EPOCH FROM (upper(span) - lower(span)))))::double precision AS seconds
-      FROM merged CROSS JOIN LATERAL unnest(spans) AS pieces(span) GROUP BY idx`;
-    return new Map((rows ?? []).map(row => [row.idx, Number(row.seconds ?? 0)]));
+    return queryHomeActiveSeconds(db, userId, windows);
   }
 
   async progress(userId: string) {
-    const now = new Date(), today = learningDate(now), start = learningDayStart(today);
-    const week = Array.from({ length: 7 }, (_, i) => {
-      const from = new Date(start.getTime() - (6 - i) * DAY_MS);
-      return { date: learningDate(from), from, to: new Date(Math.min(from.getTime() + DAY_MS, now.getTime())) };
-    });
+    const now = new Date(), today = learningDate(now);
+    const week = buildLearningWeekWindows(now, today);
     const [profile, plans, attempts, totalLessons, units, first, placement, skillLevel, seconds] = await Promise.all([
       this.profile(this.prisma, userId),
       this.prisma.learningDayPlan.findMany({
@@ -997,23 +842,23 @@ export class PlanningService {
         },
         orderBy: [{ submittedAt: 'desc' }, { id: 'desc' }],
       }),
-      this.prisma.learningLesson.findMany({ where: { published: true }, select: { id: true, unitId: true } }),
+      this.prisma.learningLesson.findMany({
+        where: { published: true },
+        select: { id: true, unitId: true, kind: true, grammarTopicId: true, grammarTopic: { select: { cefrLevel: true } } },
+      }),
       this.prisma.learningUnit.findMany({ orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }] }),
       this.prisma.learningActivitySession.findFirst({ where: { userId }, orderBy: { anchorAt: 'asc' }, select: { anchorAt: true } }),
-      this.prisma.placementSession.findFirst({ where: { userId, status: 'COMPLETED' }, orderBy: { completedAt: 'desc' }, select: { skillResults: true, completedAt: true } }),
+      this.prisma.placementSession.findFirst({
+        where: { userId, status: 'COMPLETED' },
+        orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
+        select: { estimatedCefr: true, skillResults: true, completedAt: true },
+      }),
       this.prisma.learningSkillLevel?.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }) ?? Promise.resolve(null),
       this.homeActiveSeconds(userId, [...week, { from: new Date(0), to: now }]),
     ]);
     const goalByDate = new Map(plans.map(p => [p.date, p.dailyGoalMinutes]));
-    const days = week.map((day, index) => {
-      const completed = attempts.filter(a => finishedOn(a, day.date));
-      const activeSeconds = seconds.get(index) ?? 0;
-      const target = goalByDate.get(day.date) ?? (day.date === today ? profile.dailyGoalMinutes : null);
-      return { date: day.date, dailyGoalMinutes: target, activeSeconds, goalMet: target != null && activeSeconds >= target * 60,
-        completedLessonCount: new Set(completed.map(a => a.lessonId)).size, completedAttemptCount: completed.length,
-        hasActivity: activeSeconds > 0 || completed.length > 0, timeMeasured: first != null && learningDate(first.anchorAt) <= day.date };
-    });
     const completed = attempts.filter(a => a.status === 'COMPLETED');
+    const days = buildWeekDaySummaries(week, today, profile.dailyGoalMinutes, goalByDate, completed, seconds, first?.anchorAt ?? null);
     const publishedIds = new Set(totalLessons.map(l => l.id));
     const completedPublishedIds = new Set(completed.filter(a => publishedIds.has(a.lessonId)).map(a => a.lessonId));
     const measuredDays = days.filter(d => d.timeMeasured);
@@ -1042,14 +887,17 @@ export class PlanningService {
     const readingLevel = activeSkill
       ? { cefrLevel: activeSkill.cefrLevel, source: activeSkill.source, previousCefr: activeSkill.previousCefr, changedAt: activeSkill.changedAt }
       : { ...placementInit, previousCefr: null };
+    const placementCefr = placement?.estimatedCefr ?? null;
     return { today: days[6], days, totals: { totalLessons: totalLessons.length,
       completedLessonCount: completedPublishedIds.size,
       completedAttemptCount: completed.length, activeAttemptCount: attempts.filter(a => a.status === 'IN_PROGRESS').length,
       activeSeconds: seconds.get(week.length) ?? 0,
       averageActiveSeconds, averageStudyMinutes: Math.floor(averageActiveSeconds / 60) },
       units: buildProgressUnits(units, totalLessons, completedPublishedIds),
+      milestones: buildCefrMilestones(totalLessons, units, completedPublishedIds, placementCefr),
       scoreStats: computeScoreStats(completed, now),
       latestResults, placement: placement?.skillResults ?? null,
+      placementCefr,
       recommendedLevels: { reading: readingLevel },
       trackingStartedAt: first?.anchorAt ?? null };
   }

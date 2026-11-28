@@ -8,10 +8,12 @@ class LearningLesson {
   LearningLesson(this.json);
   final Json json;
   String get id => json['id'] as String;
+  String? get code => json['code'] as String?;
   String get title => json['title'] as String;
   String get kind => json['kind'] as String;
   String? get cefrLevel => json['cefrLevel'] as String?;
   String? get coverImageUrl => json['coverImageUrl'] as String?;
+  String? get grammarTopicCode => json['grammarTopicCode'] as String?;
   String get description => json['description'] as String? ?? '';
   int get minutes => json['estimatedMinutes'] as int? ?? 0;
   int get questionCount => json['questionCount'] as int? ?? 5;

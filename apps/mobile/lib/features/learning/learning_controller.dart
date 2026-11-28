@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/api/api_client.dart';
+import '../grammar/grammar_controller.dart';
 import '../vocabulary/vocabulary_controller.dart';
 import 'learning_repository.dart';
 import 'daily_learning.dart';
@@ -17,6 +18,7 @@ class LearningController extends ChangeNotifier {
     this.isAccountCurrent,
     this.daily,
     this.vocabulary,
+    this.grammar,
     this.fetchHome,
     this.onHome,
     this.onHomeInvalidated,
@@ -29,6 +31,7 @@ class LearningController extends ChangeNotifier {
   final bool Function()? isAccountCurrent;
   final DailyLearningController? daily;
   final VocabularyController? vocabulary;
+  final GrammarController? grammar;
   final Future<Json> Function()? fetchHome;
   final void Function(Json value)? onHome;
   final VoidCallback? onHomeInvalidated;

@@ -38,6 +38,8 @@
     "seed:grammar": "ts-node prisma/seed-grammar.ts",
     "seed:grammar:validate": "ts-node prisma/seed-grammar.ts --validate",
     "seed:cefr-bank": "ts-node prisma/seed-cefr-bank.ts",
+    "seed:all": "ts-node prisma/seed-all.ts",
+    "seed:all:validate": "ts-node prisma/seed-all.ts --validate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:verify-schema": "node prisma/verify-schema-integrity.cjs"
   },

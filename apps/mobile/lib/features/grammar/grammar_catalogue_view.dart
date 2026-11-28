@@ -32,10 +32,16 @@ class GrammarCatalogueView extends StatefulWidget {
     super.key,
     required this.controller,
     this.learningController,
+    this.placementCefr,
+    this.showPreviousLevels = false,
+    this.onTogglePreviousLevels,
   });
 
   final GrammarController controller;
   final LearningController? learningController;
+  final String? placementCefr;
+  final bool showPreviousLevels;
+  final VoidCallback? onTogglePreviousLevels;
 
   @override
   State<GrammarCatalogueView> createState() => _GrammarCatalogueViewState();
@@ -44,10 +50,32 @@ class GrammarCatalogueView extends StatefulWidget {
 class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
   final TextEditingController _searchTextController = TextEditingController();
 
+  bool get _hidingPreviousLevels =>
+      !widget.showPreviousLevels &&
+      GrammarController.cefrRank(widget.placementCefr) > 0;
+
+  void _syncMinimumVisibleCefr() {
+    final String? target = _hidingPreviousLevels ? widget.placementCefr : null;
+    widget.controller.setMinimumVisibleCefr(target, notify: false);
+  }
+
   @override
   void initState() {
     super.initState();
+    _syncMinimumVisibleCefr();
     widget.controller.load();
+  }
+
+  @override
+  void didUpdateWidget(covariant GrammarCatalogueView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _syncMinimumVisibleCefr();
+      widget.controller.load();
+    } else if (oldWidget.placementCefr != widget.placementCefr ||
+        oldWidget.showPreviousLevels != widget.showPreviousLevels) {
+      _syncMinimumVisibleCefr();
+    }
   }
 
   @override
@@ -58,8 +86,11 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
 
   Future<void> _openTopic(GrammarTreeNode topic) async {
     if (topic.learnerStatus == 'LOCKED') {
-      final List<GrammarTreeNode> prereqs =
-          widget.controller.uncompletedPrerequisites(topic);
+      final List<GrammarTreeNode> prereqs = widget.controller
+          .uncompletedPrerequisites(
+            topic,
+            minimumBlockingCefr: widget.placementCefr,
+          );
       if (prereqs.isNotEmpty) {
         final GrammarTreeNode? target = await showGrammarLockedDialog(
           context: context,
@@ -82,6 +113,7 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
         initialTitleVi: titleVi,
         initialCefrLevel: cefrLevel,
         learningController: widget.learningController,
+        placementCefr: widget.placementCefr,
       ),
     );
   }
@@ -146,6 +178,24 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
             _buildSearchInput(ctrl),
             AppSpacing.gapMd,
             _buildCefrFilterBar(ctrl),
+            if (GrammarController.cefrRank(widget.placementCefr) > 0 &&
+                widget.onTogglePreviousLevels != null) ...<Widget>[
+              AppSpacing.gapMd,
+              CustomAppButton(
+                key: const Key('grammarTogglePreviousLevels'),
+                text: widget.showPreviousLevels
+                    ? 'Ẩn các bậc trước đó'
+                    : 'Xem các bậc trước đó',
+                isSecondary: true,
+                icon: Icon(
+                  widget.showPreviousLevels
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: AppColors.grey900,
+                ),
+                onPressed: widget.onTogglePreviousLevels,
+              ),
+            ],
             AppSpacing.gapMd,
             if (groups.isEmpty)
               _buildEmptyFilterState(ctrl)
@@ -177,13 +227,17 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
         border: Border.all(color: AppColors.primary100),
       ),
       child: Text(
-        '${ctrl.totalLeafCount} cấu trúc',
+        '${ctrl.visibleLeafCount} cấu trúc',
         style: AppTextStyles.caption.copyWith(
           color: AppColors.primary800,
           fontWeight: FontWeight.w700,
         ),
       ),
     );
+
+    final String rangeLabel = _hidingPreviousLevels
+        ? 'từ ${widget.placementCefr} đến C2'
+        : 'từ A1 đến C2';
 
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints constraints) {
@@ -197,7 +251,7 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
             ),
             AppSpacing.gapXs,
             Text(
-              'Tra cứu công thức, cách dùng và lộ trình từ A1 đến C2',
+              'Tra cứu công thức, cách dùng và lộ trình $rangeLabel',
               style: AppTextStyles.caption.copyWith(color: AppColors.grey700),
             ),
           ],
@@ -276,6 +330,13 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
   }
 
   Widget _buildCefrFilterBar(GrammarController ctrl) {
+    final int minRank = _hidingPreviousLevels
+        ? GrammarController.cefrRank(widget.placementCefr)
+        : 0;
+    final List<String> visibleLevels = kCefrLevels
+        .where((String level) => GrammarController.cefrRank(level) >= minRank)
+        .toList();
+
     return Wrap(
       spacing: AppSpacing.sm,
       runSpacing: AppSpacing.sm,
@@ -286,7 +347,7 @@ class _GrammarCatalogueViewState extends State<GrammarCatalogueView> {
           selected: ctrl.selectedCefr == null,
           onTap: () => ctrl.setSelectedCefr(null),
         ),
-        for (final String level in kCefrLevels)
+        for (final String level in visibleLevels)
           _CefrFilterButton(
             key: ValueKey<String>('grammar-filter-$level'),
             label: _levelLabel(ctrl, level),
@@ -572,16 +633,25 @@ class GrammarRoadSection extends StatelessWidget {
     super.key,
     required this.grammarController,
     this.learningController,
+    this.placementCefr,
+    this.showPreviousLevels = false,
+    this.onTogglePreviousLevels,
   });
 
   final GrammarController grammarController;
   final LearningController? learningController;
+  final String? placementCefr;
+  final bool showPreviousLevels;
+  final VoidCallback? onTogglePreviousLevels;
 
   @override
   Widget build(BuildContext context) {
     return GrammarCatalogueView(
       controller: grammarController,
       learningController: learningController,
+      placementCefr: placementCefr,
+      showPreviousLevels: showPreviousLevels,
+      onTogglePreviousLevels: onTogglePreviousLevels,
     );
   }
 }

@@ -102,6 +102,7 @@ export interface LessonSnapshot {
   questionCount?: number;
   audioDurationMs?: number;
   coverImageUrl?: string;
+  grammarTopicCode?: string;
 }
 
 export function isSafeImageUrl(value: unknown): value is string {

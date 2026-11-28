@@ -15,6 +15,7 @@ import 'learning_repository.dart';
 import 'learning_widgets.dart';
 import 'listening_audio.dart';
 
+export 'grammar_lesson_launcher.dart';
 export 'learning_catalogue.dart';
 export 'learning_history_page.dart';
 export 'learning_lesson_intro_page.dart';
