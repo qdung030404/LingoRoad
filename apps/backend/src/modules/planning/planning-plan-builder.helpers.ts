@@ -38,12 +38,26 @@ import {
 } from './planning-receipts.helpers';
 import {
   chooseReadingFocus,
+  isReadingFocusCandidate,
+  ReadingFocusAttempt,
   ReadingFocusCode,
   selectReadingFocusAttempts,
 } from './reading-focus.policy';
 import { AdaptiveReadingTarget } from './skill-level.policy';
 
 type Db = Prisma.TransactionClient;
+
+const PLAN_ATTEMPT_SELECT = {
+  id: true,
+  lessonId: true,
+  status: true,
+  submittedAt: true,
+  correctCount: true,
+  totalQuestions: true,
+  contentVersion: true,
+  eligibleForLevelEval: true,
+  lessonSnapshot: true,
+} as const;
 
 const PLAN_LESSON_SELECT = {
   id: true,
@@ -111,7 +125,10 @@ export async function computeDailyPlanItemsHelper(params: {
       select: PLAN_LESSON_SELECT,
       orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
     }),
-    db.learningAttempt.findMany({ where: { userId } }),
+    db.learningAttempt.findMany({
+      where: { userId },
+      select: PLAN_ATTEMPT_SELECT,
+    }),
     wantsSpeaking && db.speakingPrompt?.findMany
       ? db.speakingPrompt.findMany({
           where: { mode: 'TOPIC', published: true },
@@ -186,21 +203,48 @@ export async function computeDailyPlanItemsHelper(params: {
           })
         ).map((exposure) => [exposure.lessonId, exposure.firstAttemptId]),
       );
-    const evidence = selectReadingFocusAttempts(
-      attempts,
-      resolvedExposure,
-      skillLevel,
-      now,
+    const focusCandidates: ReadingFocusAttempt[] = attempts.filter((attempt) =>
+      isReadingFocusCandidate(attempt, resolvedExposure, skillLevel, now),
     );
-    if (evidence.length >= 2) {
-      const answers = await db.learningAttemptAnswer.findMany({
-        where: {
-          attemptId: { in: evidence.map((attempt) => attempt.id) },
-          checked: true,
-        },
-        select: { attemptId: true, questionId: true, isCorrect: true },
-      });
-      readingFocus = chooseReadingFocus(evidence, answers);
+    if (focusCandidates.length > 0) {
+      const missingSnapshotIds = focusCandidates
+        .filter((attempt) => attempt.contentSnapshot === undefined)
+        .map((attempt) => attempt.id);
+      let snapshotById = new Map<string, Prisma.JsonValue | null>();
+      if (missingSnapshotIds.length > 0) {
+        const snapshotRows = await db.learningAttempt.findMany({
+          where: { id: { in: missingSnapshotIds } },
+          select: { id: true, contentSnapshot: true },
+        });
+        snapshotById = new Map(
+          snapshotRows.map((row) => [
+            row.id,
+            (row as { contentSnapshot?: Prisma.JsonValue | null })
+              .contentSnapshot ?? null,
+          ]),
+        );
+      }
+      const hydratedCandidates = focusCandidates.map((attempt) =>
+        attempt.contentSnapshot !== undefined
+          ? attempt
+          : { ...attempt, contentSnapshot: snapshotById.get(attempt.id) ?? null },
+      );
+      const evidence = selectReadingFocusAttempts(
+        hydratedCandidates,
+        resolvedExposure,
+        skillLevel,
+        now,
+      );
+      if (evidence.length >= 2) {
+        const answers = await db.learningAttemptAnswer.findMany({
+          where: {
+            attemptId: { in: evidence.map((attempt) => attempt.id) },
+            checked: true,
+          },
+          select: { attemptId: true, questionId: true, isCorrect: true },
+        });
+        readingFocus = chooseReadingFocus(evidence, answers);
+      }
     }
   }
 

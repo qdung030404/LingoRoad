@@ -36,19 +36,19 @@ export async function fetchHomeLessonHelper(
       ...(lessonId
         ? { id: lessonId }
         : {
-            attempts: { none: { userId, status: 'COMPLETED' as const } },
-            ...(allowedLevels
-              ? {
-                  OR: [
-                    { grammarTopic: { cefrLevel: { in: [...allowedLevels] } } },
-                    {
-                      grammarTopicId: null,
-                      unit: { cefrLevel: { in: [...allowedLevels] } },
-                    },
-                  ],
-                }
-              : {}),
-          }),
+          attempts: { none: { userId, status: 'COMPLETED' as const } },
+          ...(allowedLevels
+            ? {
+              OR: [
+                { grammarTopic: { cefrLevel: { in: [...allowedLevels] } } },
+                {
+                  grammarTopicId: null,
+                  unit: { cefrLevel: { in: [...allowedLevels] } },
+                },
+              ],
+            }
+            : {}),
+        }),
     },
     select: {
       id: true,
@@ -196,10 +196,10 @@ export async function buildHomeResponseHelper(params: {
   const planStatus = !current
     ? 'missing'
     : current.policyVersion !== CURRENT_PLAN_POLICY_VERSION ||
-        current.preferencesVersion !== profile.preferencesVersion ||
-        current.dailyGoalMinutes !== profile.dailyGoalMinutes ||
-        (placement?.completedAt != null && current.updatedAt < placement.completedAt) ||
-        (skill != null && shouldUpgradeFromPlacement(skill, initial))
+      current.preferencesVersion !== profile.preferencesVersion ||
+      current.dailyGoalMinutes !== profile.dailyGoalMinutes ||
+      (placement?.completedAt != null && current.updatedAt < placement.completedAt) ||
+      (skill != null && shouldUpgradeFromPlacement(skill, initial))
       ? 'stale'
       : 'ready';
   const plan = current && planStatus === 'ready' ? await planDto(current) : null;
@@ -543,9 +543,9 @@ export async function buildProgressResponseHelper(params: {
   const measuredDays = days.filter((d) => d.timeMeasured);
   const averageActiveSeconds = measuredDays.length
     ? Math.round(
-        measuredDays.reduce((sum, d) => sum + d.activeSeconds, 0) /
-          measuredDays.length,
-      )
+      measuredDays.reduce((sum, d) => sum + d.activeSeconds, 0) /
+      measuredDays.length,
+    )
     : 0;
   const latestByKindMap = new Map(
     (attemptStats?.latestByKind ?? []).map((r) => [r.kind, r]),
@@ -606,11 +606,11 @@ export async function buildProgressResponseHelper(params: {
   }
   const readingLevel = activeSkill
     ? {
-        cefrLevel: activeSkill.cefrLevel,
-        source: activeSkill.source,
-        previousCefr: activeSkill.previousCefr,
-        changedAt: activeSkill.changedAt,
-      }
+      cefrLevel: activeSkill.cefrLevel,
+      source: activeSkill.source,
+      previousCefr: activeSkill.previousCefr,
+      changedAt: activeSkill.changedAt,
+    }
     : { ...placementInit, previousCefr: null };
   const placementCefr = placement?.estimatedCefr ?? null;
 
