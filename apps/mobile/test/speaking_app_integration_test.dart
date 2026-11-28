@@ -395,6 +395,92 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'speaking catalogue shows first 4 topics in 2x2 grid and expands all when tapping Hiện thêm',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final api = _ManyTopicsSpeakingApi();
+      await tester.pumpWidget(MyApp(session: SessionController(api)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('previewTab3')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Nói').first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Introduce yourself'), findsOneWidget);
+      expect(find.text('My hobbies'), findsOneWidget);
+      expect(find.text('My favourite food'), findsNothing);
+      expect(find.text('Hiện thêm'), findsOneWidget);
+
+      final toggle = find.byKey(const Key('toggleSpeakingTopicsButton'));
+      await Scrollable.ensureVisible(tester.element(toggle));
+      await tester.pumpAndSettle();
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      expect(find.text('My favourite food'), findsOneWidget);
+      expect(find.text('Technology in daily life'), findsOneWidget);
+
+      await Scrollable.ensureVisible(tester.element(toggle));
+      await tester.pumpAndSettle();
+      expect(find.text('Thu gọn'), findsOneWidget);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      expect(find.text('My favourite food'), findsNothing);
+      expect(find.text('Hiện thêm'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+class _ManyTopicsSpeakingApi extends SpeakingAppApi {
+  static const _titles = [
+    'Introduce yourself',
+    'My day',
+    'My family',
+    'My hobbies',
+    'My favourite food',
+    'Where I live',
+    'Travel and holidays',
+    'Shopping and clothes',
+    'Health and sports',
+    'Study and future plans',
+    'Weather and seasons',
+    'Technology in daily life',
+  ];
+
+  @override
+  Future<Json> request(
+    String method,
+    String path, {
+    Json? data,
+    bool auth = true,
+    Duration? receiveTimeout,
+  }) async {
+    if (path == '/speaking/conversations/topics') {
+      return {
+        'enabled': true,
+        'items': [
+          for (var i = 0; i < _titles.length; i++)
+            {
+              'id': 'topic-${i + 1}',
+              'title': _titles[i],
+              'text': 'Talk about ${_titles[i]}.',
+            },
+        ],
+      };
+    }
+    return super.request(
+      method,
+      path,
+      data: data,
+      auth: auth,
+      receiveTimeout: receiveTimeout,
+    );
+  }
 }
 
 class _PictureSpeakingApi extends SpeakingAppApi {

@@ -2,6 +2,7 @@
 
 ## Design tokens
 - Nền sáng #F4F7FB, bề mặt trắng, nền ô nhập #EDF1F6; chữ chính #1A2029, chữ phụ #5B6574, điểm nhấn xanh #59B070.
+- Bốn thẻ trụ cột kỹ năng độc lập (đọc, nghe, ngữ pháp, từ vựng) dùng điểm nhấn màu riêng trên nền pastel sáng đạt chuẩn AA; các thẻ tổng hợp hoặc biểu mẫu giữ bảng màu trung tính kết hợp xanh chủ đạo để tránh rối mắt.
 - Khoảng cách thường dùng 8, 12, 16 và 24 logical pixel; nhóm nội dung có lề ngang 16.
 - Nội dung và điều khiển dùng Inter; tiêu đề học tập dùng Be Vietnam Pro Medium. Cỡ chữ nội dung thường 14–18, tiêu đề 18–28.
 - Card bo góc 16; nút và ô nhập một dòng có thể dùng dạng viên thuốc. Ô viết nhiều dòng bo nhẹ 8 và giữ nguyên hình dạng khi đổi trạng thái.

@@ -15,6 +15,7 @@ import { HealthController } from './health.controller';
 import { SpeakingModule } from './modules/speaking/speaking.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { MediaModule } from './modules/media/media.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   controllers: [HealthController],
@@ -46,6 +47,7 @@ import { MediaModule } from './modules/media/media.module';
     SpeakingModule,
     AssessmentModule,
     GrammarModule,
+    NotificationsModule,
     AdminModule,
   ],
 })

@@ -158,9 +158,9 @@ class WordStatistic extends StatelessWidget {
   final String label, value, icon;
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(8),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.grey25,
       border: Border.all(color: AppColors.grey100),
       borderRadius: BorderRadius.circular(12),
     ),
@@ -169,20 +169,34 @@ class WordStatistic extends StatelessWidget {
       children: [
         Row(
           children: [
-            FigmaAsset('home-v2/$icon', size: 20),
-            const SizedBox(width: 4),
+            FigmaAsset('home-v2/$icon', size: 18),
+            const SizedBox(width: 5),
             Expanded(
               child: Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: designText(14, weight: FontWeight.w500),
+                style: designText(
+                  12,
+                  weight: FontWeight.w500,
+                  color: AppColors.grey700,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(value, style: designHeading(18)),
+        const SizedBox(height: 6),
+        FittedBox(
+          alignment: Alignment.centerLeft,
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: designHeading(18).copyWith(
+              fontWeight: FontWeight.w700,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
       ],
     ),
   );
@@ -194,12 +208,128 @@ class WordDeckCard extends StatelessWidget {
     required this.deck,
     required this.library,
     required this.onTap,
+    this.compact = false,
   });
   final WordDeck deck;
   final WordLibrary library;
   final VoidCallback onTap;
+  final bool compact;
+
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    if (compact) {
+      final total = deck.words.length;
+      final remembered = library.remembered(deck).clamp(0, total);
+      final ratio = total > 0 ? (remembered / total).clamp(0.0, 1.0) : 0.0;
+      return Material(
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Color(0xFFE6ECF2)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF8F2),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.style_rounded,
+                    size: 22,
+                    color: Color(0xFF1E713B),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              deck.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: designHeading(16.5),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECF9F0),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'Tiếp tục học',
+                              style: designText(
+                                12,
+                                weight: FontWeight.w700,
+                                color: const Color(0xFF1E713B),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(999),
+                              child: LinearProgressIndicator(
+                                value: ratio,
+                                minHeight: 6.5,
+                                backgroundColor: const Color(0xFFEAEFF5),
+                                color: const Color(0xFF48A860),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '$remembered/$total từ',
+                            style: designText(
+                              13,
+                              weight: FontWeight.w500,
+                              color: const Color(0xFF657482),
+                            ).copyWith(
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 22,
+                  color: Color(0xFF94A3B8),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: Colors.white,
@@ -272,6 +402,7 @@ class WordDeckCard extends StatelessWidget {
       ],
     ),
   );
+  }
 }
 
 class WordListPage extends StatelessWidget {

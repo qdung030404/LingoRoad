@@ -135,24 +135,77 @@ class VocabularyHomeSection extends StatelessWidget {
             onWords: onWords,
             onReview: () => review(context),
             decks: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (vocabularyItems(data['decks']).isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Text('Tạo bộ từ đầu tiên để bắt đầu.'),
-                    ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton(
-                      onPressed: onWords,
-                      child: const Text('Xem tất cả'),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Bộ từ gần đây',
+                          style: designHeading(18),
+                        ),
+                      ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: onWords,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 6,
+                          ),
+                          child: Text(
+                            'Xem tất cả →',
+                            style: designText(
+                              14.5,
+                              weight: FontWeight.w700,
+                              color: const Color(0xFF1E713B),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  for (final row in vocabularyItems(data['decks'])) ...[
-                    const SizedBox(height: 12),
-                    VocabularyDeckCard(
+                  const SizedBox(height: 12),
+                  if (vocabularyItems(data['decks']).isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Chưa có bộ từ nào',
+                            style: designText(
+                              15,
+                              weight: FontWeight.w700,
+                              color: const Color(0xFF334155),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Bấm Xem tất cả để tạo bộ từ đầu tiên của bạn.',
+                            textAlign: TextAlign.center,
+                            style: designText(
+                              13.5,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  for (final (idx, row)
+                      in vocabularyItems(data['decks']).take(3).indexed) ...[
+                    if (idx > 0) const SizedBox(height: 10),
+                    _CompactHomeVocabularyDeckRow(
                       deck: VocabularyDeck(row),
                       onTap: () => onDeck(row['id'] as String),
                     ),
@@ -165,6 +218,163 @@ class VocabularyHomeSection extends StatelessWidget {
       );
     },
   );
+}
+
+class _CompactHomeVocabularyDeckRow extends StatelessWidget {
+  const _CompactHomeVocabularyDeckRow({
+    required this.deck,
+    required this.onTap,
+  });
+
+  final VocabularyDeck deck;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = deck.totalWords;
+    final remembered = deck.rememberedWords.clamp(0, total);
+    final due = deck.needsReviewWords;
+    final ratio = total > 0 ? (remembered / total).clamp(0.0, 1.0) : 0.0;
+    final isActive = deck.activeAttemptId != null;
+
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE6ECF2)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: ValueKey('home-vocabulary-deck-${deck.id}'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF8F2),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                alignment: Alignment.center,
+                child: const Icon(
+                  Icons.style_rounded,
+                  size: 22,
+                  color: Color(0xFF1E713B),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            deck.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: designHeading(16.5),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        if (isActive)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECF9F0),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              'Đang học',
+                              style: designText(
+                                12,
+                                weight: FontWeight.w700,
+                                color: const Color(0xFF1E713B),
+                              ),
+                            ),
+                          )
+                        else if (due > 0)
+                          Text(
+                            '$due cần ôn',
+                            style: designText(
+                              13,
+                              weight: FontWeight.w600,
+                              color: const Color(0xFF64748B),
+                            ).copyWith(
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          )
+                        else if (total > 0)
+                          Text(
+                            'Đã thuộc ✓',
+                            style: designText(
+                              13,
+                              weight: FontWeight.w700,
+                              color: const Color(0xFF1E713B),
+                            ),
+                          )
+                        else
+                          Text(
+                            '0 từ',
+                            style: designText(
+                              13,
+                              weight: FontWeight.w600,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(999),
+                            child: LinearProgressIndicator(
+                              value: ratio,
+                              minHeight: 6.5,
+                              backgroundColor: const Color(0xFFEAEFF5),
+                              color: const Color(0xFF48A860),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '$remembered/$total từ',
+                          style: designText(
+                            13,
+                            weight: FontWeight.w500,
+                            color: const Color(0xFF657482),
+                          ).copyWith(
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 22,
+                color: Color(0xFF94A3B8),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class VocabularyDeckCard extends StatelessWidget {

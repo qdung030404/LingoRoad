@@ -25,14 +25,29 @@ class PracticeLessonFacts extends StatelessWidget {
     final replay = duration == null
         ? 'Nghe lại và tua không giới hạn'
         : 'Audio ${(duration / 1000).ceil()} giây · Nghe lại không giới hạn';
-    return FigmaCard(
+    return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.grey0,
+        borderRadius: AppRadius.cardRadius,
+        border: Border.all(color: AppColors.grey100),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.grey900.withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        spacing: 10,
+        spacing: 12,
         children: [
           _fact(intro, 'Timer', 'Khoảng ${lesson.minutes} phút'),
+          const Divider(height: 1, thickness: 1, color: AppColors.grey100),
           _fact(intro, 'Task', '${lesson.questionCount} câu luyện tập'),
+          const Divider(height: 1, thickness: 1, color: AppColors.grey100),
           _fact(
             intro,
             isReading ? 'BookSquare' : 'Refresh',

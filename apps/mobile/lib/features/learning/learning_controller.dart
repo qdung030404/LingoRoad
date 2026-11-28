@@ -21,6 +21,8 @@ class LearningController extends ChangeNotifier {
     this.onHome,
     this.onHomeInvalidated,
     this.onHomeForbidden,
+    this.onGoalJustMet,
+    this.onLevelChanged,
   });
   final LearningRepository repository;
   final String accountId;
@@ -31,19 +33,28 @@ class LearningController extends ChangeNotifier {
   final void Function(Json value)? onHome;
   final VoidCallback? onHomeInvalidated;
   final VoidCallback? onHomeForbidden;
+  final VoidCallback? onGoalJustMet;
+  final void Function(LearningAttempt attempt, Json levelChange)?
+  onLevelChanged;
   int _catalogueEpoch = 0;
   Future<void>? _refreshing, _catalogueRequest;
   DateTime? _loadedAt, _catalogueAt;
   String? _loadedDate;
   Json? _home;
+  int? get unreadNotificationCount =>
+      (_home?['unreadNotificationCount'] as num?)?.toInt();
   bool _legacy = false;
   bool catalogueLoading = false;
   bool get catalogueLoaded => _catalogueAt != null;
   String? catalogueError;
   bool get usesHomeApi => fetchHome != null && !_legacy;
   ActivityOutbox? _activity;
-  ActivityOutbox? get activity =>
-      daily == null ? null : (_activity ??= ActivityOutbox(owner: daily!));
+  ActivityOutbox? get activity => daily == null
+      ? null
+      : (_activity ??= ActivityOutbox(
+          owner: daily!,
+          onGoalJustMet: onGoalJustMet,
+        ));
   List<LearningLesson> lessons = [];
   Json summary = {};
   bool loading = false;
@@ -530,7 +541,13 @@ class LearningAttemptController extends ChangeNotifier {
   }, flushPending: _pending != null && _pending?['questionId'] != questionId);
   Future<void> submit() => _action(() async {
     final submitted = await repository.submit(attempt!.id, attempt!.version);
-    if (active) owner.invalidateHome();
+    if (active) {
+      final levelChange = submitted.levelChange;
+      if (levelChange != null) {
+        owner.onLevelChanged?.call(submitted, levelChange);
+      }
+      owner.invalidateHome();
+    }
     return submitted;
   });
 

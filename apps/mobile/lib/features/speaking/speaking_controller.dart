@@ -15,12 +15,15 @@ class SpeakingController extends ChangeNotifier {
     required this.accountId,
     required this.isCurrent,
     this.conversationRecordings = const ConversationRecordingStore(),
+    this.onSubmissionSucceeded,
   });
   final SpeakingRepository repository;
   final SpeakingRecorder recorder;
   final String accountId;
   final bool Function() isCurrent;
   final ConversationRecordingStore conversationRecordings;
+  final void Function(Json submission)? onSubmissionSucceeded;
+  String? _lastNotifiedSucceededId;
   bool _disposed = false, initialized = false, busy = false, recording = false;
   bool checking = false, enabled = true;
   String? error, audioPath, _requestId, _submissionId;
@@ -417,6 +420,13 @@ class SpeakingController extends ChangeNotifier {
       );
     } else {
       _poll?.cancel();
+      if (status == 'SUCCEEDED' &&
+          submission != null &&
+          _submissionId != null &&
+          _lastNotifiedSucceededId != _submissionId) {
+        _lastNotifiedSucceededId = _submissionId;
+        onSubmissionSucceeded?.call(submission!);
+      }
     }
     _changed();
   }

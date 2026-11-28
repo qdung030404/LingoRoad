@@ -1,8 +1,9 @@
-import { HttpException, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
+import { HttpException, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy, Optional } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { Prisma, VoiceHistoryStatus } from '@prisma/client';
 import { createHash, randomBytes } from 'crypto';
 import { WebSocket, WebSocketServer } from 'ws';
+import { NotificationsService } from '../notifications/notifications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   conversationSpeechRates, conversationTurnPauses, conversationVoices,
@@ -60,8 +61,13 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
   private sweep?: NodeJS.Timeout;
   private readonly translations = new Map<string, Promise<{ translationVi: string }>>();
 
-  constructor(private readonly prisma: PrismaService, private readonly config: VoiceLiveConfig,
-    private readonly adapter: HttpAdapterHost, private readonly ml: MlClientService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: VoiceLiveConfig,
+    private readonly adapter: HttpAdapterHost,
+    private readonly ml: MlClientService,
+    @Optional() private readonly notifications?: NotificationsService,
+  ) {}
 
   async translate(userId: string, id: string, itemId: string) {
     await this.detail(userId, id);
@@ -311,8 +317,32 @@ export class VoiceConversationsService implements OnApplicationBootstrap, OnModu
       pronunciationScope: legacySpeech ? 'whole_audio' : 'per_turn',
       segmentHash: previous.segmentHash ?? null, contentBasis: 'learner_reply_with_question',
       audioSource: audio ? 'local_microphone_vad' : previous.audioSource ?? null, assessedAt: new Date().toISOString() };
-    await this.prisma.voiceConversation.updateMany({ where: { id, userId, assessmentStatus: 'PROCESSING', assessmentStartedAt },
+    const updated = await this.prisma.voiceConversation.updateMany({ where: { id, userId, assessmentStatus: 'PROCESSING', assessmentStartedAt },
       data: { assessmentStatus: status, assessment: assessment as Prisma.InputJsonValue } });
+    if (updated.count && (status === 'READY' || status === 'PARTIAL') && this.notifications) {
+      try {
+        await this.notifications.createNotification({
+          userId,
+          type: 'SPEAKING_RESULT_READY',
+          title: 'Kết quả hội thoại AI đã sẵn sàng',
+          body:
+            status === 'READY'
+              ? 'Phiên hội thoại luyện nói của bạn đã có kết quả đánh giá đầy đủ.'
+              : 'Phiên hội thoại luyện nói của bạn đã có kết quả đánh giá một phần.',
+          targetType: 'SPEAKING',
+          targetPayload: { conversationId: id, assessmentStatus: status },
+          dedupeKey: `voice_conversation:${id}`,
+        });
+      } catch (error) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'conversation_notification_failed',
+            conversationId: id,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
+      }
+    }
     this.logger.log(JSON.stringify({ event: 'conversation_assessment_completed', conversationId: id,
       status, contentStatus: content.status, contentErrorCode: content.errorCode,
       totalReplies: answers.length, scoredReplies: results.filter(turn => turn.pronunciation).length,

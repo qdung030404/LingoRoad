@@ -1,16 +1,45 @@
-import { HttpException, Injectable, Logger } from '@nestjs/common';
+import { HttpException, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma, SpeakingMode } from '@prisma/client';
 import { createHash } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { MlClientService } from '../ml/ml-client.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateSpeakingDto, ReadAloudResult } from './speaking.dto';
 import { validateSpeakingWav } from './wav';
 
 @Injectable()
 export class SpeakingService {
   private readonly logger = new Logger(SpeakingService.name);
-  constructor(private readonly prisma: PrismaService, private readonly ml: MlClientService, private readonly config: ConfigService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ml: MlClientService,
+    private readonly config: ConfigService,
+    @Optional() private readonly notifications?: NotificationsService,
+  ) {}
+
+  private async notifySpeakingResultReady(userId: string, submissionId: string, mode?: SpeakingMode) {
+    if (!this.notifications) return;
+    try {
+      await this.notifications.createNotification({
+        userId,
+        type: 'SPEAKING_RESULT_READY',
+        title: 'Kết quả luyện nói đã sẵn sàng',
+        body: 'Bài luyện nói của bạn đã được chấm điểm xong. Xem nhận xét chi tiết ngay nhé!',
+        targetType: 'SPEAKING',
+        targetPayload: { submissionId, ...(mode ? { mode } : {}) },
+        dedupeKey: `speaking:${submissionId}`,
+      });
+    } catch (error) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'speaking_notification_failed',
+          submissionId,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
+    }
+  }
   private enabled() { return String(this.config.get('SPEAKING_ENABLED', 'false')).toLowerCase() === 'true'; }
   modeEnabled(mode: SpeakingMode) {
     if (mode === SpeakingMode.PICTURE_DESCRIPTION) {
@@ -189,6 +218,9 @@ export class SpeakingService {
         }
         return updated;
       });
+      if (saved.count) {
+        await this.notifySpeakingResultReady(userId, id, mode);
+      }
       this.logResult(id, started, saved.count ? 'SUCCEEDED' : (await this.detail(userId, id)).status, undefined, result.assessmentCompleteness, snapshot.assessmentProfile);
     } catch (error: unknown) {
       const known = this.providerFailure(error);
@@ -434,11 +466,14 @@ export class SpeakingService {
       content = contentRequestFailure(error);
     }
     this.logger.log(JSON.stringify({ event: 'speaking_content_result', submissionId: id, status: content.status, errorCode: content.errorCode }));
-    await this.prisma.speakingSubmission.updateMany({
+    const updated = await this.prisma.speakingSubmission.updateMany({
       where: { id, userId, status: 'PROCESSING', processingAt }, data: {
         result: { ...result, content } as Prisma.InputJsonValue, status: 'SUCCEEDED', completedAt: new Date(),
       }
     });
+    if (updated.count) {
+      await this.notifySpeakingResultReady(userId, id, mode);
+    }
   }
   private logResult(id: string, started: number, status: string, code?: string, completeness?: string, profile?: string) {
     this.logger.log(JSON.stringify({ event: 'speaking_result', submissionId: id, durationMs: Date.now() - started, status, code, assessmentProfile: profile ?? this.ml.speakingProfile ?? 'read-aloud-v1', assessmentCompleteness: completeness }));

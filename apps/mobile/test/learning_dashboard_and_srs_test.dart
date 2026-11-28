@@ -298,8 +298,12 @@ void main() {
       final chartRect = tester.getRect(
         find.byKey(const Key('homeVocabularySummary')),
       );
+      final reviewBtnRect = tester.getRect(
+        find.byKey(const Key('homeReviewWords')),
+      );
       expect(chartRect.width, weeklyRect.width);
       expect(chartRect.left, weeklyRect.left);
+      expect(chartRect.right - reviewBtnRect.right, closeTo(16, 1));
       await tap(tester, find.byKey(const Key('homeReviewWords')));
       expect(find.byType(SrsReviewPage), findsOneWidget);
       expect(find.byType(PreviewNavigationBar), findsNothing);
@@ -711,6 +715,15 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
+      expect(find.text('Bài học của bạn'), findsNothing);
+      expect(find.text('Lộ trình trong ngày'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('homeWeeklyCard')),
+          matching: find.byKey(const Key('dailyHomeMinutesStrip')),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('48'), findsOneWidget);
       expect(find.text('7'), findsOneWidget);
       // Missing 'totals' safely renders '—'

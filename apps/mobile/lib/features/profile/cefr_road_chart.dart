@@ -15,6 +15,7 @@ enum ConceptGlyph {
   headphones,
   grammar,
   cards,
+  mic,
   bell,
   bellOff,
   clock,
@@ -23,6 +24,10 @@ enum ConceptGlyph {
   mail,
   settings,
   briefcase,
+  award,
+  chat,
+  school,
+  close,
   check,
 }
 
@@ -31,7 +36,17 @@ ConceptGlyph learningKindGlyph(String kind) => switch (kind) {
   'LISTENING' => ConceptGlyph.headphones,
   'GRAMMAR' => ConceptGlyph.grammar,
   'VOCABULARY' => ConceptGlyph.cards,
+  'SPEAKING' => ConceptGlyph.mic,
+  'WRITING' => ConceptGlyph.pen,
   _ => ConceptGlyph.book,
+};
+
+ConceptGlyph learningPurposeGlyph(String? purpose) => switch (purpose) {
+  'EXAM' => ConceptGlyph.award,
+  'WORK' => ConceptGlyph.briefcase,
+  'DAILY_COMMUNICATION' => ConceptGlyph.chat,
+  'STUDY' => ConceptGlyph.school,
+  _ => ConceptGlyph.briefcase,
 };
 
 /// Icon SVG nét mảnh đồng bộ 100% với bản thiết kế Hồ sơ (strokeWidth 1.75).
@@ -65,6 +80,8 @@ class ConceptSvgIcon extends StatelessWidget {
       '<path d="M4 19 9 5l5 14m-8-5h6m4 0h5m-2.5-2.5v5"/>',
     ConceptGlyph.cards =>
       '<rect x="4" y="3" width="12" height="15" rx="2"/><path d="M9 21h9a2 2 0 0 0 2-2V8m-13 0h6m-6 4h4"/>',
+    ConceptGlyph.mic =>
+      '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0m-7 7v3m-4 0h8"/>',
     ConceptGlyph.bell =>
       '<path d="M18 8a6 6 0 1 0-12 0c0 6-2 7-3 9h18c-1-2-3-3-3-9Zm-8 12a2 2 0 0 0 4 0"/>',
     ConceptGlyph.bellOff =>
@@ -81,6 +98,13 @@ class ConceptSvgIcon extends StatelessWidget {
       '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.85 1 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>',
     ConceptGlyph.briefcase =>
       '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    ConceptGlyph.award =>
+      '<circle cx="12" cy="8" r="5"/><path d="M8.5 12.5 7 21l5-2.8L17 21l-1.5-8.5"/>',
+    ConceptGlyph.chat =>
+      '<path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-6.5A8 8 0 1 1 21 12Z"/>',
+    ConceptGlyph.school =>
+      '<path d="m2 9 10-5 10 5-10 5-10-5Z"/><path d="M6 11.5V16c0 1.8 2.7 3.2 6 3.2s6-1.4 6-3.2v-4.5"/>',
+    ConceptGlyph.close => '<path d="M18 6 6 18M6 6l12 12"/>',
     ConceptGlyph.check => '<path d="M5 13l4 4L19 7"/>',
   };
 
@@ -203,7 +227,7 @@ class _CefrStopFooter extends StatelessWidget {
       textAlign: TextAlign.center,
       style:
           designText(
-            active ? 15 : 12.5,
+            active ? 16.5 : 14,
             weight: active ? FontWeight.w800 : FontWeight.w600,
             color: active
                 ? ProfilePalette.activeCefrLabel
@@ -230,7 +254,7 @@ class _CefrStopFooter extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          height: 24,
+          height: 26,
           child: Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -239,7 +263,7 @@ class _CefrStopFooter extends StatelessWidget {
           ),
         ),
         ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 16),
+          constraints: const BoxConstraints(minHeight: 18),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.start,
@@ -252,8 +276,8 @@ class _CefrStopFooter extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
-                        width: 5,
-                        height: 5,
+                        width: 5.5,
+                        height: 5.5,
                         decoration: const BoxDecoration(
                           color: ProfilePalette.inputDotFill,
                           shape: BoxShape.circle,
@@ -264,7 +288,7 @@ class _CefrStopFooter extends StatelessWidget {
                         'Đầu vào',
                         maxLines: 1,
                         style: designText(
-                          10.5,
+                          12,
                           weight: FontWeight.w700,
                           color: ProfilePalette.roleText,
                           height: 1.25,
@@ -281,7 +305,7 @@ class _CefrStopFooter extends StatelessWidget {
                     'Mục tiêu',
                     maxLines: 1,
                     style: designText(
-                      10.5,
+                      12,
                       weight: FontWeight.w700,
                       color: ProfilePalette.roleText,
                       height: 1.25,

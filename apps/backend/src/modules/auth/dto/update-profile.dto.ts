@@ -1,6 +1,6 @@
 import { isIP } from 'node:net';
 import { Transform } from 'class-transformer';
-import { LearningKind, LearningPurpose } from '@prisma/client';
+import { LearningPurpose } from '@prisma/client';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -81,8 +81,8 @@ export class UpdateProfileDto {
   learningPurpose?: LearningPurpose;
 
   @ValidateIf((_object, value: unknown) => value !== undefined)
-  @IsIn(['A1', 'A2', 'B1', 'B2', 'C1'])
-  targetCefr?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
+  @IsIn(['A1', 'A2', 'B1', 'B2', 'C1', 'C2'])
+  targetCefr?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsInt()
@@ -93,10 +93,10 @@ export class UpdateProfileDto {
   @ValidateIf((_object, value: unknown) => value !== undefined)
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayMaxSize(4)
+  @ArrayMaxSize(6)
   @ArrayUnique()
-  @IsEnum(LearningKind, { each: true })
-  preferredKinds?: LearningKind[];
+  @IsIn(['GRAMMAR', 'VOCABULARY', 'READING', 'LISTENING', 'SPEAKING', 'WRITING'], { each: true })
+  preferredKinds?: ('GRAMMAR' | 'VOCABULARY' | 'READING' | 'LISTENING' | 'SPEAKING' | 'WRITING')[];
 
   @IsOptional()
   @IsIn(['A1', 'A2', 'B1', 'B2'])

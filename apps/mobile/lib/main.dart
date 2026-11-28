@@ -40,8 +40,15 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    session.onAccountCleared ??=
-        MethodChannelReminderPlatform().cancelForAccount;
+    final reminderPlatform = MethodChannelReminderPlatform();
+    session.onAccountCleared ??= reminderPlatform.cancelForAccount;
+    session.onAccountReady ??= (accountId, profile) =>
+        syncAccountReminderSchedule(
+          platform: reminderPlatform,
+          accountId: accountId,
+          enabled: profile['reminderEnabled'] as bool? ?? true,
+          localTime: profile['reminderTime'] as String? ?? '19:30',
+        );
     session.initialize();
   }
 

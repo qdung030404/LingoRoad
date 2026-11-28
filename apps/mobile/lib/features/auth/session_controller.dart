@@ -31,6 +31,19 @@ class SessionController extends ChangeNotifier {
   Future<void>? _bootstrapping;
   Future<void> _cacheOperations = Future.value();
   Future<void> Function(String accountId)? onAccountCleared;
+  Future<void> Function(String accountId, Json profile)? onAccountReady;
+
+  void _notifyAccountReady() {
+    if (stage != SessionStage.ready) return;
+    final callback = onAccountReady;
+    final accountId = user?['id'];
+    if (callback == null || accountId is! String || accountId.isEmpty) return;
+    unawaited(
+      Future<void>.sync(
+        () => callback(accountId, profile),
+      ).catchError((Object _) {}),
+    );
+  }
 
   String? get placementCefr =>
       (placement['estimatedCefr'] ?? placementResult?['estimatedCefr'])
@@ -345,6 +358,7 @@ class SessionController extends ChangeNotifier {
     }
     error = null;
     notifyListeners();
+    _notifyAccountReady();
   }
 
   Future<void> saveProfile(Json updates) async {
@@ -356,6 +370,7 @@ class SessionController extends ChangeNotifier {
         ? SessionStage.onboarding
         : SessionStage.ready;
     notifyListeners();
+    _notifyAccountReady();
   }
 
   Future<Json> saveLearningGoals({

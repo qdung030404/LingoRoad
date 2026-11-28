@@ -186,26 +186,26 @@ class _ReminderToggleTile extends StatelessWidget {
       key: const Key('reminderToggleSwitch'),
       onTap: () => onToggle(!reminder.enabled),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 60),
+        constraints: const BoxConstraints(minHeight: 64),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               Container(
-                width: 34,
-                height: 34,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: AppColors.primary25,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
                 child: const ConceptSvgIcon(
                   ConceptGlyph.bell,
-                  size: 18,
+                  size: 20,
                   color: ProfilePalette.accent,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 13),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -214,19 +214,19 @@ class _ReminderToggleTile extends StatelessWidget {
                     Text(
                       'Nhắc học hằng ngày',
                       style: designText(
-                        15,
+                        16.5,
                         weight: FontWeight.w600,
                         color: ProfilePalette.ink,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       reminder.enabled
                           ? 'Đang bật lúc ${reminder.time}'
                           : 'Đang tắt',
                       key: const Key('reminderToggleSubtitle'),
                       style: designText(
-                        12.5,
+                        14,
                         color: ProfilePalette.muted,
                       ),
                     ),
@@ -351,26 +351,26 @@ class _ReminderTimeTile extends StatelessWidget {
     key: const Key('reminderTimeRow'),
     onTap: onTap,
     child: ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 58),
+      constraints: const BoxConstraints(minHeight: 62),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: ProfilePalette.skillIconBg,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
               child: const ConceptSvgIcon(
                 ConceptGlyph.clock,
-                size: 18,
+                size: 20,
                 color: ProfilePalette.skillIconFg,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 13),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,17 +379,17 @@ class _ReminderTimeTile extends StatelessWidget {
                   Text(
                     'Giờ nhắc',
                     style: designText(
-                      15,
-                      weight: FontWeight.w500,
+                      16.5,
+                      weight: FontWeight.w600,
                       color: ProfilePalette.ink,
                     ),
                   ),
                   if (reminder.failedTime != null) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
                       'Đang giữ ${reminder.serverTime} · Chưa lưu được ${reminder.failedTime}',
                       style: designText(
-                        12.5,
+                        13.5,
                         color: ProfilePalette.danger,
                       ),
                     ),
@@ -399,7 +399,7 @@ class _ReminderTimeTile extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppColors.primary25,
                 borderRadius: AppRadius.tagRadius,
@@ -409,7 +409,7 @@ class _ReminderTimeTile extends StatelessWidget {
                 key: const Key('reminderTimeValue'),
                 style:
                     designText(
-                      14,
+                      15,
                       weight: FontWeight.w700,
                       color: ProfilePalette.accent,
                     ).copyWith(
@@ -417,10 +417,10 @@ class _ReminderTimeTile extends StatelessWidget {
                     ),
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             const ConceptSvgIcon(
               ConceptGlyph.chevron,
-              size: 17,
+              size: 19,
               color: AppColors.grey600,
             ),
           ],
@@ -446,39 +446,39 @@ class _PasswordActionTile extends StatelessWidget {
     key: const Key('accountPasswordActionRow'),
     onTap: busy ? null : onTap,
     child: ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 58),
+      constraints: const BoxConstraints(minHeight: 62),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: ProfilePalette.skillIconBg,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
               child: const ConceptSvgIcon(
                 ConceptGlyph.lock,
-                size: 18,
+                size: 20,
                 color: ProfilePalette.skillIconFg,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 13),
             Expanded(
               child: Text(
                 hasFirebaseIdentity ? 'Đặt lại mật khẩu' : 'Đổi mật khẩu',
                 style: designText(
-                  15,
-                  weight: FontWeight.w500,
+                  16.5,
+                  weight: FontWeight.w600,
                   color: ProfilePalette.ink,
                 ),
               ),
             ),
             const ConceptSvgIcon(
               ConceptGlyph.chevron,
-              size: 17,
+              size: 19,
               color: AppColors.grey600,
             ),
           ],
@@ -565,16 +565,16 @@ class _LogoutCard extends StatelessWidget {
       splashColor: ProfilePalette.dangerBg,
       onTap: busy ? null : onTap,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 54),
+        constraints: const BoxConstraints(minHeight: 56),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (busy)
                 const SizedBox(
-                  width: 19,
-                  height: 19,
+                  width: 20,
+                  height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: ProfilePalette.danger,
@@ -583,15 +583,15 @@ class _LogoutCard extends StatelessWidget {
               else
                 const ConceptSvgIcon(
                   ConceptGlyph.exit,
-                  size: 19,
+                  size: 20,
                   color: ProfilePalette.danger,
                 ),
               const SizedBox(width: 10),
               Text(
                 'Đăng xuất',
                 style: designText(
-                  15,
-                  weight: FontWeight.w600,
+                  16,
+                  weight: FontWeight.w700,
                   color: ProfilePalette.danger,
                 ),
               ),
@@ -613,8 +613,8 @@ class ConceptSwitchPill extends StatelessWidget {
     final disableAnim = MediaQuery.disableAnimationsOf(context);
     return AnimatedContainer(
       duration: disableAnim ? Duration.zero : const Duration(milliseconds: 180),
-      width: 44,
-      height: 26,
+      width: 48,
+      height: 28,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: checked ? ProfilePalette.toggleOn : ProfilePalette.toggleOff,
@@ -625,8 +625,8 @@ class ConceptSwitchPill extends StatelessWidget {
             disableAnim ? Duration.zero : const Duration(milliseconds: 180),
         alignment: checked ? Alignment.centerRight : Alignment.centerLeft,
         child: Container(
-          width: 20,
-          height: 20,
+          width: 22,
+          height: 22,
           decoration: const BoxDecoration(
             color: Colors.white,
             shape: BoxShape.circle,

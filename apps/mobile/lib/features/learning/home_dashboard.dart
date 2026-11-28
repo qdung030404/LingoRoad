@@ -6,7 +6,7 @@ import '../../shared/app_button.dart';
 import '../../shared/figma_widgets.dart';
 import 'daily_pages.dart';
 import 'learning_controller.dart';
-import 'learning_pages.dart';
+import 'learning_pages.dart' show LearningError;
 import 'learning_repository.dart';
 import 'learning_widgets.dart';
 import 'preview_model.dart';
@@ -25,16 +25,22 @@ class HomeDashboard extends StatefulWidget {
     required this.onWords,
     required this.onReview,
     required this.onDeck,
+    this.onNotifications,
+    this.unreadNotificationCount = 0,
     this.displayName = 'Anna',
     this.avatarUrl,
     this.level = 'A1',
     this.learning,
     this.vocabularyWordsCount,
     this.vocabularySection,
+    this.onOpenSpeakingTopic,
+    this.onOpenWritingItem,
   });
   final PreviewModel model;
   final WordLibrary library;
   final VoidCallback onProfile, onLesson, onGrammar, onWords, onReview;
+  final VoidCallback? onNotifications;
+  final int unreadNotificationCount;
   final ValueChanged<String> onDeck;
   final String displayName;
   final String? avatarUrl;
@@ -42,6 +48,8 @@ class HomeDashboard extends StatefulWidget {
   final LearningController? learning;
   final int? vocabularyWordsCount;
   final Widget? vocabularySection;
+  final Future<void> Function(String topicId)? onOpenSpeakingTopic;
+  final Future<void> Function(String itemId)? onOpenWritingItem;
 
   @override
   State<HomeDashboard> createState() => _HomeDashboardState();
@@ -49,28 +57,6 @@ class HomeDashboard extends StatefulWidget {
 
 class _HomeDashboardState extends State<HomeDashboard> {
   final scroll = ScrollController();
-  final catalogueKey = GlobalKey();
-  bool _requestedCatalogue = false;
-
-  @override
-  void initState() {
-    super.initState();
-    scroll.addListener(_loadVisibleCatalogue);
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _loadVisibleCatalogue(),
-    );
-  }
-
-  void _loadVisibleCatalogue() {
-    if (_requestedCatalogue || !mounted || !scroll.hasClients) return;
-    final section = catalogueKey.currentContext?.findRenderObject();
-    if (section is! RenderBox || !section.hasSize) return;
-    if (section.localToGlobal(Offset.zero).dy <=
-        MediaQuery.sizeOf(context).height) {
-      _requestedCatalogue = true;
-      widget.learning?.loadCatalogue();
-    }
-  }
 
   PreviewModel get model => widget.model;
   WordLibrary get library => widget.library;
@@ -212,12 +198,59 @@ class _HomeDashboardState extends State<HomeDashboard> {
                         child: _buildHeaderAvatar(),
                       ),
                     ),
-                    IconButton(
-                      tooltip: 'Ôn tập hôm nay',
-                      onPressed: onReview,
-                      icon: const FigmaAsset(
-                        'home-v2/imgVuesaxBulkNotification',
-                        size: 20,
+                    Semantics(
+                      button: true,
+                      label: widget.unreadNotificationCount > 0
+                          ? 'Thông báo, ${widget.unreadNotificationCount} chưa đọc'
+                          : 'Thông báo',
+                      child: IconButton(
+                        key: const Key('homeNotificationButton'),
+                        tooltip: 'Thông báo',
+                        onPressed: widget.onNotifications,
+                        icon: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            const FigmaAsset(
+                              'home-v2/imgVuesaxBulkNotification',
+                              size: 20,
+                            ),
+                            if (widget.unreadNotificationCount > 0)
+                              Positioned(
+                                top: -6,
+                                right: -7,
+                                child: Container(
+                                  key: const Key('homeNotificationBadge'),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEF4444),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    widget.unreadNotificationCount > 9
+                                        ? '9+'
+                                        : '${widget.unreadNotificationCount}',
+                                    style: designText(
+                                      10,
+                                      weight: FontWeight.w700,
+                                      color: Colors.white,
+                                      height: 1.1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -304,7 +337,12 @@ class _HomeDashboardState extends State<HomeDashboard> {
                               ],
                             ],
                           ),
-                          if (widget.learning != null) ...[
+                          if (widget.learning?.daily != null) ...[
+                            const SizedBox(height: 14),
+                            DailyStudyMinutesStrip(
+                              daily: widget.learning!.daily!,
+                            ),
+                          ] else if (widget.learning != null) ...[
                             const SizedBox(height: 12),
                             learningBody(
                               'Kết quả bài học theo tài khoản; thời gian hoạt động được ghi nhận riêng.',
@@ -359,7 +397,14 @@ class _HomeDashboardState extends State<HomeDashboard> {
                     const SizedBox(height: 24),
                     if (widget.learning != null) ...[
                       if (widget.learning!.daily != null) ...[
-                        DailyPlanCard(learning: widget.learning!),
+                        DailyPlanCard(
+                          learning: widget.learning!,
+                          showActivitySummary: false,
+                          defaultCefrLevel: widget.level,
+                          onReviewVocabulary: onReview,
+                          onOpenSpeakingTopic: widget.onOpenSpeakingTopic,
+                          onOpenWritingItem: widget.onOpenWritingItem,
+                        ),
                         const SizedBox(height: 24),
                       ],
                       DashboardCard(
@@ -402,32 +447,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
                                   ? 'Xem bài học'
                                   : 'Tiếp tục học',
                               onPressed: onLesson,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      DashboardCard(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            KeyedSubtree(
-                              key: catalogueKey,
-                              child: learningHeading(
-                                'Bài học của bạn',
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            LearningCatalogue(
-                              controller: widget.learning!,
-                              kinds: const [
-                                'GRAMMAR',
-                                'VOCABULARY',
-                                'READING',
-                                'LISTENING',
-                              ],
                             ),
                           ],
                         ),
@@ -588,40 +607,54 @@ class _HomeDashboardState extends State<HomeDashboard> {
                         key: const Key('homeWordDecks'),
                         width: double.infinity,
                         child: Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                           child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: OutlinedButton(
-                                  key: const Key('homeAllWordDecks'),
-                                  onPressed: onWords,
-                                  style: OutlinedButton.styleFrom(
-                                    minimumSize: const Size(0, 36),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                    ),
-                                    side: const BorderSide(
-                                      color: AppColors.grey200,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Bộ từ gần đây',
+                                      style: designHeading(18),
                                     ),
                                   ),
-                                  child: Text(
-                                    'Xem tất cả',
-                                    style: designText(12),
+                                  InkWell(
+                                    key: const Key('homeAllWordDecks'),
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: onWords,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 6,
+                                      ),
+                                      child: Text(
+                                        'Xem tất cả →',
+                                        style: designText(
+                                          14.5,
+                                          weight: FontWeight.w700,
+                                          color: const Color(0xFF1E713B),
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 12),
                               if (library.decks.isEmpty)
                                 learningBody('Chưa có bộ từ vựng.'),
-                              for (final deck in library.decks.take(2)) ...[
+                              for (final (idx, deck)
+                                  in library.decks.take(2).indexed) ...[
+                                if (idx > 0) const SizedBox(height: 10),
                                 WordDeckCard(
                                   key: ValueKey('home-deck-${deck.id}'),
                                   deck: deck,
                                   library: library,
+                                  compact: true,
                                   onTap: () => widget.onDeck(deck.id),
                                 ),
-                                const SizedBox(height: 12),
                               ],
                             ],
                           ),

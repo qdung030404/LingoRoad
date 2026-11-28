@@ -55,6 +55,24 @@ const _topicPresentation = {
   ),
 };
 
+Future<void> openSpeakingTopicFromPlan(
+  BuildContext context, {
+  required SpeakingController controller,
+  required String topicId,
+  required Widget Function() practicePage,
+}) => previewPush<void>(
+  context,
+  ConversationPreparation(
+    controller: controller,
+    topicId: topicId,
+    activities: (topic) => _TopicActivities(
+      controller: controller,
+      topic: topic,
+      practicePage: practicePage,
+    ),
+  ),
+);
+
 class SpeakingTopicCatalogue extends StatefulWidget {
   const SpeakingTopicCatalogue({
     super.key,
@@ -70,8 +88,11 @@ class SpeakingTopicCatalogue extends StatefulWidget {
 }
 
 class _SpeakingTopicCatalogueState extends State<SpeakingTopicCatalogue> {
+  static const int _initialVisibleTopics = 4;
+
   SpeakingController get controller => widget.controller;
   late Future<Json> topics;
+  bool _showAllTopics = false;
 
   Future<Json> loadTopics() async {
     try {
@@ -116,22 +137,68 @@ class _SpeakingTopicCatalogueState extends State<SpeakingTopicCatalogue> {
     );
   }
 
-  Widget topicCard(Json topic) {
+  Widget topicGridCard(Json topic, {required bool compact}) {
     final title = topic['title']?.toString() ?? topic['text'].toString();
     final (icon, description) =
         _topicPresentation[title.toLowerCase()] ??
         (Icons.chat_bubble_outline_rounded, null);
-    return _SpeakingRow(
+    final imageUrl = topicIllustrationAsset(
+      title,
+      imageUrl: topic['imageUrl'] as String?,
+    );
+    return _SpeakingTopicGridCard(
+      key: ValueKey('speaking-topic-${topic['id'] ?? title}'),
       title: title,
       detail: description,
       icon: icon,
-      imageUrl: topicIllustrationAsset(
-        title,
-        imageUrl: topic['imageUrl'] as String?,
-      ),
+      imageUrl: imageUrl,
+      compact: compact,
       onTap: () => openTopic(topic),
     );
   }
+
+  Widget buildTopicGrid(List<Json> items) => LayoutBuilder(
+    builder: (context, constraints) {
+      final compact = constraints.maxWidth < 330;
+      if (constraints.maxWidth < 250) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              topicGridCard(items[i], compact: true),
+            ],
+          ],
+        );
+      }
+      final rows = <Widget>[];
+      for (var i = 0; i < items.length; i += 2) {
+        final left = items[i];
+        final right = i + 1 < items.length ? items[i + 1] : null;
+        if (rows.isNotEmpty) rows.add(const SizedBox(height: 12));
+        rows.add(
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: topicGridCard(left, compact: compact)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: right != null
+                      ? topicGridCard(right, compact: compact)
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: rows,
+      );
+    },
+  );
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -142,24 +209,43 @@ class _SpeakingTopicCatalogueState extends State<SpeakingTopicCatalogue> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          learningHeading('Chủ đề luyện nói', size: 22),
-          const SizedBox(height: 8),
-          if (active && controller.processing)
+          if (active && controller.processing) ...[
             OutlinedButton(
               onPressed: () => previewPush(context, widget.practicePage()),
               child: const Text('Tiếp tục bài đang chấm'),
             ),
+            const SizedBox(height: 10),
+          ],
           FutureBuilder<Json>(
             future: topics,
             builder: (context, snapshot) {
-              if (!active) return const Text('Phiên đăng nhập đã thay đổi.');
+              if (!active) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    learningHeading('Chủ đề luyện nói', size: 20),
+                    const SizedBox(height: 8),
+                    const Text('Phiên đăng nhập đã thay đổi.'),
+                  ],
+                );
+              }
               if (snapshot.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    learningHeading('Chủ đề luyện nói', size: 20),
+                    const SizedBox(height: 16),
+                    const Center(child: CircularProgressIndicator()),
+                  ],
+                );
               }
               final data = snapshot.data;
               if (data == null || data['loadError'] == true) {
                 return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    learningHeading('Chủ đề luyện nói', size: 20),
+                    const SizedBox(height: 8),
                     const Text('Chưa tải được chủ đề luyện nói.'),
                     TextButton(
                       onPressed: () => setState(() => topics = loadTopics()),
@@ -169,13 +255,88 @@ class _SpeakingTopicCatalogueState extends State<SpeakingTopicCatalogue> {
                 );
               }
               final items = speakingItems(data['items']);
-              if (items.isEmpty) return const Text('Chưa có chủ đề luyện nói.');
+              if (items.isEmpty) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    learningHeading('Chủ đề luyện nói', size: 20),
+                    const SizedBox(height: 8),
+                    const Text('Chưa có chủ đề luyện nói.'),
+                  ],
+                );
+              }
+              final hasMore = items.length > _initialVisibleTopics;
+              final visibleItems = (!_showAllTopics && hasMore)
+                  ? items.take(_initialVisibleTopics).toList()
+                  : items;
               return Column(
-                children: [for (final item in items) topicCard(item)],
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  learningHeading('Chủ đề luyện nói', size: 20),
+                  const SizedBox(height: 12),
+                  AnimatedSize(
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: buildTopicGrid(visibleItems),
+                  ),
+                  if (hasMore) ...[
+                    const SizedBox(height: 12),
+                    Material(
+                      color: AppColors.grey0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: AppColors.grey200),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        key: const Key('toggleSpeakingTopicsButton'),
+                        onTap: () => setState(
+                          () => _showAllTopics = !_showAllTopics,
+                        ),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 48),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    _showAllTopics ? 'Thu gọn' : 'Hiện thêm',
+                                    textAlign: TextAlign.center,
+                                    style: designText(
+                                      14,
+                                      weight: FontWeight.w700,
+                                      color: AppColors.primary700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  _showAllTopics
+                                      ? Icons.keyboard_arrow_up_rounded
+                                      : Icons.keyboard_arrow_down_rounded,
+                                  size: 20,
+                                  color: AppColors.primary700,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               );
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 22),
           learningHeading('Luyện thêm', size: 18),
           const SizedBox(height: 8),
           _SpeakingRow(
@@ -271,83 +432,238 @@ class _TopicActivities extends StatelessWidget {
           !controller.busy &&
           !controller.processing &&
           !controller.recording;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          learningHeading('Cách luyện', size: 18),
-          const SizedBox(height: 12),
-          _SpeakingRow(
-            title: 'Nghe và đọc',
-            history: controller.active
-                ? () => previewPush(
-                    context,
-                    SpeakingHistoryPage(
-                      controller: controller,
-                      mode: 'READ_ALOUD',
-                    ),
-                  )
-                : null,
-            detail: canRead
-                ? 'Nghe câu mẫu rồi đọc thành tiếng'
-                : 'Tạm thời chưa khả dụng',
-            icon: Icons.headphones,
-            onTap: ready && canRead
-                ? () => openPractice(context, 'READ_ALOUD')
-                : null,
-          ),
-          _SpeakingRow(
-            title: 'Tự nói',
-            history: controller.active
-                ? () => previewPush(
-                    context,
-                    SpeakingHistoryPage(controller: controller, mode: 'TOPIC'),
-                  )
-                : null,
-            detail: canSpeak
-                ? 'Tự diễn đạt theo gợi ý · Tối đa 60 giây'
-                : 'Tạm thời chưa khả dụng',
-            icon: Icons.mic_none,
-            onTap: ready && canSpeak
-                ? () => openPractice(context, 'TOPIC')
-                : null,
-          ),
-          _SpeakingRow(
-            title: 'Trò chuyện cùng Lingo',
-            primary: true,
-            historyTooltip: 'Lịch sử hội thoại AI',
-            history: controller.active
-                ? () => previewPush(
-                    context,
-                    VoiceConversationsPage(
-                      controller: controller,
-                      historyOnly: true,
-                    ),
-                  )
-                : null,
-            detail: canCall
-                ? 'Bật micro và đối đáp · Tối đa 3 phút'
-                : 'Tạm thời chưa khả dụng',
-            icon: Icons.forum_outlined,
-            onTap: ready && canCall
-                ? () => previewPush(
-                    context,
-                    VoiceConversationPage(
-                      controller: controller,
-                      topic: topic,
-                      skipPreparation: true,
-                    ),
-                  )
-                : null,
-          ),
-          if (controller.processing)
-            learningBody(
-              'Một bài nói đang được chấm. Bạn có thể mở lại từ trang Nói.',
-              size: 13,
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.grey0,
+          borderRadius: AppRadius.cardRadius,
+          border: Border.all(color: AppColors.grey100),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.grey900.withValues(alpha: 0.06),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
             ),
-        ],
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            learningHeading('Cách luyện', size: 17),
+            const SizedBox(height: 12),
+            _SpeakingRow(
+              title: 'Nghe và đọc',
+              history: controller.active
+                  ? () => previewPush(
+                      context,
+                      SpeakingHistoryPage(
+                        controller: controller,
+                        mode: 'READ_ALOUD',
+                      ),
+                    )
+                  : null,
+              detail: canRead
+                  ? 'Nghe câu mẫu rồi đọc thành tiếng'
+                  : 'Tạm thời chưa khả dụng',
+              icon: Icons.headphones,
+              onTap: ready && canRead
+                  ? () => openPractice(context, 'READ_ALOUD')
+                  : null,
+            ),
+            _SpeakingRow(
+              title: 'Tự nói',
+              history: controller.active
+                  ? () => previewPush(
+                      context,
+                      SpeakingHistoryPage(
+                        controller: controller,
+                        mode: 'TOPIC',
+                      ),
+                    )
+                  : null,
+              detail: canSpeak
+                  ? 'Tự diễn đạt theo gợi ý · Tối đa 60 giây'
+                  : 'Tạm thời chưa khả dụng',
+              icon: Icons.mic_none,
+              onTap: ready && canSpeak
+                  ? () => openPractice(context, 'TOPIC')
+                  : null,
+            ),
+            _SpeakingRow(
+              title: 'Trò chuyện cùng Lingo',
+              primary: true,
+              marginBottom: controller.processing ? 8 : 0,
+              historyTooltip: 'Lịch sử hội thoại AI',
+              history: controller.active
+                  ? () => previewPush(
+                      context,
+                      VoiceConversationsPage(
+                        controller: controller,
+                        historyOnly: true,
+                      ),
+                    )
+                  : null,
+              detail: canCall
+                  ? 'Bật micro và đối đáp · Tối đa 3 phút'
+                  : 'Tạm thời chưa khả dụng',
+              icon: Icons.forum_outlined,
+              onTap: ready && canCall
+                  ? () => previewPush(
+                      context,
+                      VoiceConversationPage(
+                        controller: controller,
+                        topic: topic,
+                        skipPreparation: true,
+                      ),
+                    )
+                  : null,
+            ),
+            if (controller.processing)
+              learningBody(
+                'Một bài nói đang được chấm. Bạn có thể mở lại từ trang Nói.',
+                size: 13,
+              ),
+          ],
+        ),
       );
     },
   );
+}
+
+class _SpeakingTopicGridCard extends StatelessWidget {
+  const _SpeakingTopicGridCard({
+    super.key,
+    required this.title,
+    this.detail,
+    required this.icon,
+    required this.imageUrl,
+    required this.compact,
+    required this.onTap,
+  });
+
+  final String title;
+  final String? detail;
+  final IconData icon;
+  final String imageUrl;
+  final bool compact;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageHeight = compact ? 86.0 : 98.0;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: AppRadius.cardRadius,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.grey900.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: AppColors.grey0,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.cardRadius,
+          side: const BorderSide(color: AppColors.grey100),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Semantics(
+          button: true,
+          child: InkWell(
+            onTap: onTap,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: imageHeight,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      LearningMediaImage(
+                        imageUrl: imageUrl,
+                        width: double.infinity,
+                        height: imageHeight,
+                        fit: BoxFit.cover,
+                        semanticLabel: title,
+                      ),
+                      const DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0x380D2115),
+                              Color(0x000D2115),
+                              Color(0x2E0D2115),
+                            ],
+                            stops: [0.0, 0.55, 1.0],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: const Color(0x66122B1B),
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(color: const Color(0x40FFFFFF)),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(icon, size: 15, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    compact ? 10 : 12,
+                    10,
+                    compact ? 10 : 12,
+                    12,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: designHeading(
+                          compact ? 14 : 15,
+                          color: AppColors.grey900,
+                          height: 1.25,
+                        ).copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      if (detail != null && detail!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          detail!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: designText(
+                            compact ? 11.5 : 12,
+                            color: AppColors.grey700,
+                            height: 1.32,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SpeakingRow extends StatelessWidget {
@@ -358,6 +674,7 @@ class _SpeakingRow extends StatelessWidget {
     this.imageUrl,
     required this.onTap,
     this.primary = false,
+    this.marginBottom = 8,
     this.history,
     this.historyTooltip,
   });
@@ -368,6 +685,7 @@ class _SpeakingRow extends StatelessWidget {
   final String? imageUrl;
   final VoidCallback? onTap;
   final bool primary;
+  final double marginBottom;
   final VoidCallback? history;
   final String? historyTooltip;
 
@@ -449,7 +767,7 @@ class _SpeakingRow extends StatelessWidget {
       ),
     );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: EdgeInsets.only(bottom: marginBottom),
       child: Row(
         children: [
           Expanded(

@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Optional,
   Param,
   ParseUUIDPipe,
   Post,
@@ -11,7 +12,10 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { Throttle, ThrottlerGuard } from "@nestjs/throttler";
+import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { PrismaService } from "../prisma/prisma.service";
+import { recordWritingCompletionForUser } from "../planning/planning.service";
 import { AssessmentMatrixService } from "./services/assessment-matrix.service";
 import { AssessmentPracticeService } from "./services/assessment-practice.service";
 import { EvaluateCefrWritingUseCase } from "./services/evaluate-cefr-writing.use-case";
@@ -53,6 +57,7 @@ export class AssessmentController {
     private readonly matrixService: AssessmentMatrixService,
     private readonly practiceService: AssessmentPracticeService,
     private readonly writingUseCase: EvaluateCefrWritingUseCase,
+    @Optional() private readonly prisma?: PrismaService,
   ) {}
 
   /**
@@ -178,8 +183,12 @@ export class AssessmentController {
   @HttpCode(HttpStatus.OK)
   async evaluateWriting(
     @Body() dto: EvaluateCefrWritingDto,
+    @CurrentUser("sub") userId?: string,
   ): Promise<AssessmentResponse<CefrWritingEvaluationResultDto>> {
     const result = await this.writingUseCase.execute(dto);
+    if (userId && dto.itemId && this.prisma) {
+      await recordWritingCompletionForUser(this.prisma, userId, dto.itemId).catch(() => undefined);
+    }
     return {
       success: true,
       message: "Đánh giá bài viết theo chuẩn CEFR thành công",

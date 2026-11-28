@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import java.util.Calendar
+import java.util.Locale
 
 class ReminderAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -21,6 +22,11 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
     }
 
     private fun showNotification(context: Context, accountId: String) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getString("$KEY_COMPLETED_PREFIX$accountId", null) == todayLocalDate()) {
+            return
+        }
+
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         if (!manager.areNotificationsEnabled()) return
 
@@ -36,7 +42,11 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
         }
 
         val openIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            putExtra(EXTRA_NOTIFICATION_TARGET, TARGET_DAILY_PLAN)
+            putExtra(EXTRA_ACCOUNT_ID, accountId)
         }
         val contentPendingIntent = PendingIntent.getActivity(
             context,
@@ -66,9 +76,21 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
     companion object {
         private const val PREFS_NAME = "lingoroad_reminders"
         private const val KEY_PREFIX = "schedule_"
+        private const val KEY_COMPLETED_PREFIX = "completed_date_"
         private const val ACTION_DAILY_REMINDER = "com.example.mobile.DAILY_REMINDER"
-        private const val EXTRA_ACCOUNT_ID = "accountId"
+        const val EXTRA_ACCOUNT_ID = "accountId"
+        const val EXTRA_NOTIFICATION_TARGET = "notificationTarget"
+        const val TARGET_DAILY_PLAN = "DAILY_PLAN"
         private const val CHANNEL_ID = "lingoroad_daily_reminder"
+
+        internal fun todayLocalDate(now: Calendar = Calendar.getInstance()): String =
+            String.format(
+                Locale.US,
+                "%04d-%02d-%02d",
+                now.get(Calendar.YEAR),
+                now.get(Calendar.MONTH) + 1,
+                now.get(Calendar.DAY_OF_MONTH),
+            )
 
         private fun requestCodeFor(accountId: String): Int =
             (accountId.hashCode() and 0x3FFFFFFF) + 1000
@@ -86,22 +108,40 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
             )
         }
 
-        fun schedule(context: Context, accountId: String, localTime: String) {
+        fun schedule(
+            context: Context,
+            accountId: String,
+            localTime: String,
+            completedDate: String? = null,
+        ) {
             val parts = localTime.split(":")
             val hour = parts.getOrNull(0)?.toIntOrNull()?.coerceIn(0, 23) ?: 19
             val minute = parts.getOrNull(1)?.toIntOrNull()?.coerceIn(0, 59) ?: 30
 
-            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                .edit()
-                .putString("$KEY_PREFIX$accountId", localTime)
-                .apply()
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val editor = prefs.edit().putString("$KEY_PREFIX$accountId", localTime)
+            if (completedDate != null) {
+                if (completedDate.isNotEmpty()) {
+                    editor.putString("$KEY_COMPLETED_PREFIX$accountId", completedDate)
+                } else {
+                    editor.remove("$KEY_COMPLETED_PREFIX$accountId")
+                }
+            }
+            editor.apply()
 
-            val triggerAt = Calendar.getInstance().apply {
+            val effectiveCompletedDate = when {
+                completedDate == null -> prefs.getString("$KEY_COMPLETED_PREFIX$accountId", null)
+                completedDate.isEmpty() -> null
+                else -> completedDate
+            }
+
+            val now = Calendar.getInstance()
+            val triggerAt = (now.clone() as Calendar).apply {
                 set(Calendar.HOUR_OF_DAY, hour)
                 set(Calendar.MINUTE, minute)
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
-                if (timeInMillis <= System.currentTimeMillis()) {
+                if (timeInMillis <= now.timeInMillis || effectiveCompletedDate == todayLocalDate(now)) {
                     add(Calendar.DAY_OF_YEAR, 1)
                 }
             }
@@ -121,6 +161,7 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                 .edit()
                 .remove("$KEY_PREFIX$accountId")
+                .remove("$KEY_COMPLETED_PREFIX$accountId")
                 .apply()
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             alarmManager.cancel(alarmPendingIntent(context, accountId))

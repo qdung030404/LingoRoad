@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.SystemClock
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
@@ -16,6 +17,28 @@ import java.io.File
 class MainActivity : FlutterActivity() {
     private var conversationAudio: ConversationAudioCapture? = null
     private var pendingNotificationResult: MethodChannel.Result? = null
+    private var pendingLaunchTarget: String? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        captureLaunchTarget(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        captureLaunchTarget(intent)
+    }
+
+    private fun captureLaunchTarget(intent: Intent?) {
+        if (intent == null) return
+        if ((intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY) != 0) return
+        val target = intent.getStringExtra(ReminderAlarmReceiver.EXTRA_NOTIFICATION_TARGET)
+        if (!target.isNullOrBlank()) {
+            pendingLaunchTarget = target
+            intent.removeExtra(ReminderAlarmReceiver.EXTRA_NOTIFICATION_TARGET)
+        }
+    }
 
     private fun notificationsEnabled(): Boolean {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -114,8 +137,9 @@ class MainActivity : FlutterActivity() {
                     val accountId = call.argument<String>("accountId") ?: "local"
                     val enabled = call.argument<Boolean>("enabled") == true
                     val localTime = call.argument<String>("localTime") ?: "19:30"
+                    val completedDate = call.argument<String>("completedDate")
                     if (enabled) {
-                        ReminderAlarmReceiver.schedule(this, accountId, localTime)
+                        ReminderAlarmReceiver.schedule(this, accountId, localTime, completedDate)
                     } else {
                         ReminderAlarmReceiver.cancel(this, accountId)
                     }
@@ -125,6 +149,11 @@ class MainActivity : FlutterActivity() {
                     val accountId = call.argument<String>("accountId") ?: "local"
                     ReminderAlarmReceiver.cancel(this, accountId)
                     result.success(null)
+                }
+                "consumeLaunchTarget" -> {
+                    val target = pendingLaunchTarget
+                    pendingLaunchTarget = null
+                    result.success(target)
                 }
                 else -> result.notImplemented()
             }
