@@ -5,6 +5,7 @@ import { LearningKind, Prisma } from '@prisma/client';
 import { seedLearningContent } from '../../../prisma/seed-learning';
 import { initialReadingLevel } from './skill-level.policy';
 import {
+  buildCefrMilestones,
   buildProgressUnits,
   computeScoreStats,
   DAY_MS,
@@ -75,7 +76,13 @@ async function legacyProgressReference(prisma: PrismaService, userId: string, no
       }),
       prisma.learningLesson.findMany({
         where: { published: true },
-        select: { id: true, unitId: true },
+        select: {
+          id: true,
+          unitId: true,
+          kind: true,
+          grammarTopicId: true,
+          grammarTopic: { select: { cefrLevel: true } },
+        },
       }),
       prisma.learningUnit.findMany({ orderBy: [{ cefrLevel: 'asc' }, { orderIndex: 'asc' }] }),
       prisma.learningActivitySession.findFirst({
@@ -85,8 +92,8 @@ async function legacyProgressReference(prisma: PrismaService, userId: string, no
       }),
       prisma.placementSession.findFirst({
         where: { userId, status: 'COMPLETED' },
-        orderBy: { completedAt: 'desc' },
-        select: { skillResults: true, completedAt: true },
+        orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
+        select: { estimatedCefr: true, skillResults: true, completedAt: true },
       }),
       prisma.learningSkillLevel.findUnique({ where: { userId_kind: { userId, kind: 'READING' } } }),
       prisma.$queryRaw<{ idx: number; seconds: number }[]>`
@@ -162,6 +169,7 @@ async function legacyProgressReference(prisma: PrismaService, userId: string, no
       }
     : { ...placementInit, previousCefr: null };
 
+  const placementCefr = placement?.estimatedCefr ?? null;
   return {
     today: days[6],
     days,
@@ -175,9 +183,11 @@ async function legacyProgressReference(prisma: PrismaService, userId: string, no
       averageStudyMinutes: Math.floor(averageActiveSeconds / 60),
     },
     units: buildProgressUnits(units, totalLessons, completedPublishedIds),
+    milestones: buildCefrMilestones(totalLessons, units, completedPublishedIds, placementCefr),
     scoreStats: computeScoreStats(completed, now),
     latestResults,
     placement: placement?.skillResults ?? null,
+    placementCefr,
     recommendedLevels: { reading: readingLevel },
     trackingStartedAt: first?.anchorAt ?? null,
   };

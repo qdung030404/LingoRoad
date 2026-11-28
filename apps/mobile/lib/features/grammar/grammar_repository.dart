@@ -287,7 +287,16 @@ typedef GrammarCatalogueData = ({
 });
 
 abstract class GrammarRepository {
-  Future<GrammarCatalogueData> fetchCatalogue();
+  Future<GrammarCatalogueData> fetchCatalogue() async {
+    final List<Object> results = await Future.wait<Object>(<Future<Object>>[
+      fetchLevels(),
+      fetchTree(),
+    ]);
+    return (
+      levels: results[0] as List<GrammarLevelSummary>,
+      tree: results[1] as List<GrammarTreeNode>,
+    );
+  }
   Future<List<GrammarLevelSummary>> fetchLevels();
   Future<List<GrammarTreeNode>> fetchTree();
   Future<GrammarTopicDetail> fetchTopicDetail(String code);

@@ -160,14 +160,22 @@ class ApiClient {
       );
       final body = response.data;
       if (body is! Map || body['success'] != true) {
-        throw _failure(body, response.statusCode);
+        throw _failure(
+          body,
+          response.statusCode,
+          retryAfter: response.headers.value('retry-after'),
+        );
       }
       return body['data'] is Map
           ? Map<String, dynamic>.from(body['data'] as Map)
           : <String, dynamic>{};
     } on DioException catch (e) {
       if (e.response != null) {
-        throw _failure(e.response!.data, e.response!.statusCode);
+        throw _failure(
+          e.response!.data,
+          e.response!.statusCode,
+          retryAfter: e.response!.headers.value('retry-after'),
+        );
       }
       if (e.type == DioExceptionType.receiveTimeout ||
           e.type == DioExceptionType.sendTimeout ||
@@ -183,10 +191,24 @@ class ApiClient {
     }
   }
 
-  ApiFailure _failure(dynamic body, int? status) {
+  ApiFailure _failure(dynamic body, int? status, {String? retryAfter}) {
     final error = body is Map ? body['error'] : null;
     final raw = error is Map ? error['message'] : null;
-    final message = raw is List ? raw.join('\n') : raw?.toString();
+    final rawMessage = raw is List ? raw.join('\n') : raw?.toString();
+    final message = (rawMessage != null && rawMessage.trim().isNotEmpty)
+        ? rawMessage
+        : null;
+    if (status == 429) {
+      final int? retrySeconds = int.tryParse(retryAfter?.trim() ?? '');
+      final String defaultMessage = retrySeconds != null && retrySeconds > 0
+          ? 'Bạn đang thao tác quá nhanh. Vui lòng đợi ${retrySeconds}s rồi thử lại.'
+          : 'Bạn đang thao tác quá nhanh. Vui lòng đợi vài giây rồi thử lại.';
+      return ApiFailure(
+        message ?? defaultMessage,
+        status: 429,
+        code: 'RATE_LIMITED',
+      );
+    }
     return ApiFailure(
       message ?? 'Không thể xử lý yêu cầu. Vui lòng thử lại.',
       status: status,

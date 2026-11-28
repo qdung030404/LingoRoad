@@ -152,13 +152,20 @@ export class GrammarCatalogService {
   }
 
   private async loadContext(userId?: string): Promise<CatalogContext> {
-    const [base, attempts] = await Promise.all([
+    const [base, attempts, placement] = await Promise.all([
       this.loadStaticContext(),
       userId
         ? this.prisma.learningAttempt.findMany({
             where: { userId, lesson: { kind: 'GRAMMAR' } },
             select: { lessonId: true, status: true },
           })
+        : Promise.resolve(null),
+      userId
+        ? (this.prisma.placementSession?.findFirst({
+            where: { userId, status: 'COMPLETED' },
+            orderBy: [{ completedAt: 'desc' }, { id: 'desc' }],
+            select: { estimatedCefr: true },
+          }) ?? Promise.resolve(null))
         : Promise.resolve(null),
     ]);
 
@@ -184,10 +191,22 @@ export class GrammarCatalogService {
         }
       }
 
+      const placementRank = placement?.estimatedCefr ? CEFR_ORDER.indexOf(placement.estimatedCefr) : -1;
+
       for (const topic of base.topics) {
         if (!topic.isLeaf || learnerStatusById.has(topic.id)) continue;
+        if (placementRank > 0 && CEFR_ORDER.indexOf(topic.cefrLevel) < placementRank) {
+          learnerStatusById.set(topic.id, 'AVAILABLE');
+          continue;
+        }
         const prereqIds = base.prereqIdsById.get(topic.id) ?? [];
         const blocked = prereqIds.some((pid) => {
+          if (placementRank > 0) {
+            const prereqTopic = base.byId.get(pid);
+            if (prereqTopic && CEFR_ORDER.indexOf(prereqTopic.cefrLevel) < placementRank) {
+              return false;
+            }
+          }
           const pLessons = base.lessonIdsByTopicId.get(pid) ?? [];
           return pLessons.length > 0 && learnerStatusById!.get(pid) !== 'COMPLETED';
         });

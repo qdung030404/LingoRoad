@@ -15,13 +15,21 @@ class GrammarFilteredGroup {
 class GrammarController extends ChangeNotifier {
   GrammarController({required this.repository});
 
+  static const Duration cacheTtl = Duration(minutes: 10);
+
+  static int cefrRank(String? level) => kCefrLevels.indexOf(level ?? '');
+
   final GrammarRepository repository;
 
   bool _disposed = false;
   bool _loading = false;
   bool _loaded = false;
+  Future<void>? _inFlight;
+  int _loadEpoch = 0;
+  DateTime? _loadedAt;
   String? _error;
   String? _selectedCefr;
+  String? _minimumVisibleCefr;
   String _searchQuery = '';
   List<GrammarLevelSummary> _levels = const <GrammarLevelSummary>[];
   List<GrammarTreeNode> _groups = const <GrammarTreeNode>[];
@@ -33,8 +41,16 @@ class GrammarController extends ChangeNotifier {
   bool get loaded => _loaded;
   String? get error => _error;
   String? get selectedCefr => _selectedCefr;
+  String? get minimumVisibleCefr => _minimumVisibleCefr;
   String get searchQuery => _searchQuery;
   List<GrammarLevelSummary> get levels => _levels;
+
+  bool _passesMinimumVisibleCefr(GrammarTreeNode leaf) {
+    final int minRank = cefrRank(_minimumVisibleCefr);
+    if (minRank <= 0) return true;
+    final int leafRank = cefrRank(leaf.cefrLevel);
+    return leafRank < 0 || leafRank >= minRank;
+  }
 
   int get totalLeafCount {
     int count = 0;
@@ -42,6 +58,26 @@ class GrammarController extends ChangeNotifier {
       count += _collectLeaves(group).length;
     }
     return count;
+  }
+
+  int get visibleLeafCount {
+    int count = 0;
+    for (final GrammarTreeNode group in _groups) {
+      count += _collectLeaves(group).where(_passesMinimumVisibleCefr).length;
+    }
+    return count;
+  }
+
+  List<GrammarTreeNode> topicsForLevel(String cefrLevel) {
+    final List<GrammarTreeNode> result = <GrammarTreeNode>[];
+    for (final GrammarTreeNode group in _groups) {
+      for (final GrammarTreeNode leaf in _collectLeaves(group)) {
+        if (leaf.cefrLevel == cefrLevel) {
+          result.add(leaf);
+        }
+      }
+    }
+    return result;
   }
 
   int countForLevel(String level) {
@@ -89,18 +125,24 @@ class GrammarController extends ChangeNotifier {
     return null;
   }
 
-  List<GrammarTreeNode> uncompletedPrerequisites(GrammarTreeNode topic) {
-    final List<GrammarTreeNode> resolved = <GrammarTreeNode>[];
+  List<GrammarTreeNode> uncompletedPrerequisites(
+    GrammarTreeNode topic, {
+    String? minimumBlockingCefr,
+  }) {
+    final int minRank = cefrRank(minimumBlockingCefr);
+    final List<GrammarTreeNode> remaining = <GrammarTreeNode>[];
     for (final String code in topic.prerequisiteCodes) {
       final GrammarTreeNode? node = findTopicByCode(code);
-      if (node != null) {
-        resolved.add(node);
+      if (node == null) continue;
+      final int nodeRank = cefrRank(node.cefrLevel);
+      if (minRank > 0 && nodeRank >= 0 && nodeRank < minRank) {
+        continue;
+      }
+      if (node.learnerStatus != 'COMPLETED') {
+        remaining.add(node);
       }
     }
-    final List<GrammarTreeNode> uncompleted = resolved
-        .where((GrammarTreeNode n) => n.learnerStatus != 'COMPLETED')
-        .toList();
-    return uncompleted.isNotEmpty ? uncompleted : resolved;
+    return remaining;
   }
 
   List<GrammarFilteredGroup> get visibleGroups {
@@ -111,6 +153,9 @@ class GrammarController extends ChangeNotifier {
       final List<GrammarTreeNode> matchingLeaves = _collectLeaves(group).where((
         GrammarTreeNode leaf,
       ) {
+        if (!_passesMinimumVisibleCefr(leaf)) {
+          return false;
+        }
         if (_selectedCefr != null && leaf.cefrLevel != _selectedCefr) {
           return false;
         }
@@ -131,6 +176,17 @@ class GrammarController extends ChangeNotifier {
     }
 
     return result;
+  }
+
+  void setMinimumVisibleCefr(String? level, {bool notify = true}) {
+    if (_minimumVisibleCefr == level) return;
+    _minimumVisibleCefr = level;
+    if (_selectedCefr != null && cefrRank(_selectedCefr) < cefrRank(level)) {
+      _selectedCefr = null;
+    }
+    if (notify) {
+      _notify();
+    }
   }
 
   void setSelectedCefr(String? level) {
@@ -170,66 +226,101 @@ class GrammarController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> load({bool force = false}) async {
-    if (_loading) return;
-    if (_loaded && !force && _groups.isNotEmpty) return;
+  List<GrammarTreeNode> _extractGroups(List<GrammarTreeNode> roots) {
+    final List<GrammarTreeNode> extractedGroups = <GrammarTreeNode>[];
+    for (final GrammarTreeNode root in roots) {
+      if (!root.isLeaf && root.code == 'grammar') {
+        extractedGroups.addAll(
+          root.children.where((GrammarTreeNode c) => !c.isLeaf),
+        );
+        final List<GrammarTreeNode> directLeaves = root.children
+            .where((GrammarTreeNode c) => c.isLeaf)
+            .toList();
+        if (directLeaves.isNotEmpty) {
+          extractedGroups.add(
+            GrammarTreeNode(
+              id: root.id,
+              code: root.code,
+              parentCode: null,
+              cefrLevel: root.cefrLevel,
+              isLeaf: false,
+              titleEn: root.titleEn,
+              titleVi: root.titleVi,
+              summaryVi: root.summaryVi,
+              orderIndex: root.orderIndex,
+              prerequisiteCodes: const <String>[],
+              lessonCount: root.lessonCount,
+              learnerStatus: null,
+              children: directLeaves,
+            ),
+          );
+        }
+      } else if (!root.isLeaf) {
+        extractedGroups.add(root);
+      }
+    }
+    return extractedGroups;
+  }
 
+  Future<void> load({bool force = false}) {
+    if (_disposed) return Future<void>.value();
+    if (!force) {
+      if (_inFlight != null) {
+        return _inFlight!;
+      }
+      final DateTime? loadedAt = _loadedAt;
+      if (_loaded &&
+          _groups.isNotEmpty &&
+          loadedAt != null &&
+          DateTime.now().difference(loadedAt) < cacheTtl) {
+        return Future<void>.value();
+      }
+    }
+
+    final int epoch = ++_loadEpoch;
+    _inFlight = null;
+    final Future<void> task = _performLoad(epoch, force: force);
+    _inFlight = task;
+    return task;
+  }
+
+  Future<void> _performLoad(int epoch, {required bool force}) async {
     _loading = true;
     _error = null;
-    _notify();
+    // Defer loading notification to a microtask so calling load() from initState
+    // does not trigger setState/markNeedsBuild during another listener's build.
+    Future<void>.microtask(() {
+      if (!_disposed && epoch == _loadEpoch && _loading) {
+        _notify();
+      }
+    });
 
     try {
       final GrammarCatalogueData catalogue = await repository.fetchCatalogue();
+      if (_disposed || epoch != _loadEpoch) return;
+
       final List<GrammarLevelSummary> fetchedLevels = catalogue.levels;
       final List<GrammarTreeNode> roots = catalogue.tree;
 
-      final List<GrammarTreeNode> extractedGroups = <GrammarTreeNode>[];
-      for (final GrammarTreeNode root in roots) {
-        if (!root.isLeaf && root.code == 'grammar') {
-          extractedGroups.addAll(
-            root.children.where((GrammarTreeNode c) => !c.isLeaf),
-          );
-          final List<GrammarTreeNode> directLeaves = root.children
-              .where((GrammarTreeNode c) => c.isLeaf)
-              .toList();
-          if (directLeaves.isNotEmpty) {
-            extractedGroups.add(
-              GrammarTreeNode(
-                id: root.id,
-                code: root.code,
-                parentCode: null,
-                cefrLevel: root.cefrLevel,
-                isLeaf: false,
-                titleEn: root.titleEn,
-                titleVi: root.titleVi,
-                summaryVi: root.summaryVi,
-                orderIndex: root.orderIndex,
-                prerequisiteCodes: const <String>[],
-                lessonCount: root.lessonCount,
-                learnerStatus: null,
-                children: directLeaves,
-              ),
-            );
-          }
-        } else if (!root.isLeaf) {
-          extractedGroups.add(root);
-        }
-      }
-
       _levels = fetchedLevels;
-      _groups = extractedGroups;
+      _groups = _extractGroups(roots);
       if (force) {
         _detailCache.clear();
       }
       _loaded = true;
+      _loadedAt = DateTime.now();
       if (_expandedGroupCodes.isEmpty && _groups.isNotEmpty) {
         _expandedGroupCodes.add(_groups.first.code);
       }
     } catch (e) {
+      if (_disposed || epoch != _loadEpoch) return;
       _error = formatError(e);
     } finally {
-      _loading = false;
-      _notify();
+      if (epoch == _loadEpoch) {
+        _loading = false;
+        _inFlight = null;
+        _notify();
+      }
     }
   }
 

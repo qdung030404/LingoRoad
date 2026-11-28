@@ -47,6 +47,7 @@ interface CatalogueLessonRow {
   audioDurationMs: number | null;
   cefrLevel: CefrLevel | null;
   coverImageUrl: string | null;
+  grammarTopicCode: string | null;
 }
 const includeAnswers = { answers: true } as const;
 const includeUnitLevel = { unit: { select: { cefrLevel: true } } } as const;
@@ -95,6 +96,7 @@ export class LearningService {
     audioDurationMs?: number | null,
     cefrLevel?: CefrLevel | null,
     coverImageUrl?: string | null,
+    grammarTopicCode?: string | null,
   ): LessonSnapshot {
     return {
       id: lesson.id,
@@ -108,6 +110,7 @@ export class LearningService {
       ...(audioDurationMs ? { audioDurationMs: Number(audioDurationMs) } : {}),
       ...(cefrLevel ? { cefrLevel } : {}),
       ...(coverImageUrl ? { coverImageUrl } : {}),
+      ...(grammarTopicCode ? { grammarTopicCode } : {}),
     };
   }
 
@@ -243,9 +246,14 @@ export class LearningService {
             ELSE NULL
           END AS "audioDurationMs",
           u.cefr_level::text AS "cefrLevel",
-          l.content ->> 'coverImageUrl' AS "coverImageUrl"
+          l.content ->> 'coverImageUrl' AS "coverImageUrl",
+          COALESCE(
+            gt_link.code,
+            CASE WHEN l.code = 'grammar-pronouns-to-be' THEN 'grammar.pronouns' ELSE NULL END
+          ) AS "grammarTopicCode"
         FROM learning_lessons l
         LEFT JOIN learning_units u ON u.id = l.unit_id
+        LEFT JOIN grammar_topics gt_link ON gt_link.id = l.grammar_topic_id AND gt_link.published = true
         ${grammarJoin}
         WHERE l.published = true
           ${kindClause}
@@ -264,7 +272,14 @@ export class LearningService {
         const completed = records.filter((attempt) => attempt.status === 'COMPLETED');
         const latest = completed.find((attempt) => attempt.historyHiddenAt == null);
         return {
-          ...this.buildLessonSnapshot(lesson, lesson.questionCount, lesson.audioDurationMs, lesson.cefrLevel, lesson.coverImageUrl),
+          ...this.buildLessonSnapshot(
+            lesson,
+            lesson.questionCount,
+            lesson.audioDurationMs,
+            lesson.cefrLevel,
+            lesson.coverImageUrl,
+            lesson.grammarTopicCode,
+          ),
           state: completed.length ? 'COMPLETED' : 'NOT_STARTED',
           activeAttemptId: null,
           latestResult: latest ? this.result(latest) : null,

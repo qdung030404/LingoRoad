@@ -17,7 +17,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FirebaseTokenService } from '../auth/firebase/firebase-token.service';
 import { PasswordService } from '../security/password.service';
 import { TokenService } from '../security/token.service';
-import { AdminChangePasswordDto } from './dto/admin-auth.dto';
+import {
+  AdminChangePasswordDto,
+  AdminUpdateProfileDto,
+  isSafeAdminAvatarUrl,
+} from './dto/admin-auth.dto';
 import { AdminJwtGuard } from './guards/admin-jwt.guard';
 import {
   AdminAuditRequest,
@@ -620,6 +624,109 @@ describe('Wave 2 Admin Auth Security Hardening', () => {
       } finally {
         verifySpy.mockRestore();
       }
+    });
+  });
+
+  describe('AdminAuthService.updateProfile & AdminUpdateProfileDto', () => {
+    it('isSafeAdminAvatarUrl và AdminUpdateProfileDto xác thực chặt chẽ định dạng ảnh và tên hiển thị', async () => {
+      expect(isSafeAdminAvatarUrl(null)).toBe(true);
+      expect(isSafeAdminAvatarUrl('')).toBe(true);
+      expect(
+        isSafeAdminAvatarUrl('/media/learning/v1/images/admin-avatar-a1b2c3.png'),
+      ).toBe(true);
+      expect(
+        isSafeAdminAvatarUrl('https://cdn.example.com/avatars/admin.webp'),
+      ).toBe(true);
+
+      expect(isSafeAdminAvatarUrl('http://cdn.example.com/admin.png')).toBe(false);
+      expect(isSafeAdminAvatarUrl('https://cdn.example.com/evil.svg')).toBe(false);
+      expect(isSafeAdminAvatarUrl('https://cdn.example.com/evil.svg?x=1')).toBe(false);
+      expect(isSafeAdminAvatarUrl('/media/learning/v1/images/../secret.png')).toBe(false);
+      expect(isSafeAdminAvatarUrl('javascript:alert(1)')).toBe(false);
+
+      const validDto = plainToInstance(AdminUpdateProfileDto, {
+        name: 'Quản trị viên LingoRoad',
+        avatarUrl: null,
+      });
+      expect(await validate(validDto)).toHaveLength(0);
+
+      const invalidDto = plainToInstance(AdminUpdateProfileDto, {
+        name: 'x'.repeat(101),
+        avatarUrl: 12345,
+      });
+      expect((await validate(invalidDto)).length).toBeGreaterThan(0);
+    });
+
+    it('updateProfile cập nhật tên + avatar, xóa avatar về null, và chặn payload rỗng / không hợp lệ / không phải ADMIN', async () => {
+      const prisma = {
+        user: {
+          findUnique: jest.fn(),
+          update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+            id: 'admin-1',
+            email: 'admin@lingoroad.local',
+            name: 'Super Admin',
+            role: UserRole.ADMIN,
+            status: UserStatus.ACTIVE,
+            avatarUrl: null,
+            ...data,
+          })),
+        },
+      };
+      const service = new AdminAuthService(
+        prisma as unknown as PrismaService,
+        {} as PasswordService,
+        {} as TokenService,
+      );
+
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'admin-1',
+        role: UserRole.ADMIN,
+        status: UserStatus.ACTIVE,
+      });
+
+      const updated = await service.updateProfile('admin-1', {
+        name: '  Nguyễn Quản Trị  ',
+        avatarUrl: '/media/learning/v1/images/admin-avatar-123abc.webp',
+      });
+      expect(updated.name).toBe('Nguyễn Quản Trị');
+      expect(updated.avatarUrl).toBe(
+        '/media/learning/v1/images/admin-avatar-123abc.webp',
+      );
+
+      const cleared = await service.updateProfile('admin-1', {
+        avatarUrl: null,
+      });
+      expect(cleared.avatarUrl).toBeNull();
+
+      await expect(service.updateProfile('admin-1', {})).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'ADMIN_PROFILE_EMPTY_UPDATE' }),
+      });
+
+      await expect(
+        service.updateProfile('admin-1', { name: 'A' }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'ADMIN_INVALID_NAME' }),
+      });
+
+      await expect(
+        service.updateProfile('admin-1', {
+          avatarUrl: 'https://evil.example.com/xss.svg',
+        }),
+      ).rejects.toMatchObject({
+        response: expect.objectContaining({ code: 'ADMIN_INVALID_AVATAR_URL' }),
+      });
+
+      prisma.user.findUnique.mockResolvedValueOnce({
+        id: 'learner-1',
+        role: UserRole.LEARNER,
+        status: UserStatus.ACTIVE,
+      });
+      await expect(
+        service.updateProfile('learner-1', { name: 'Valid Name' }),
+      ).rejects.toMatchObject({
+        status: 403,
+        response: expect.objectContaining({ code: 'ADMIN_FORBIDDEN' }),
+      });
     });
   });
 });

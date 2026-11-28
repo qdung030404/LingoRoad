@@ -99,6 +99,9 @@ describe('GrammarCatalogService', () => {
     learningAttempt: {
       findMany: jest.fn().mockResolvedValue([]),
     },
+    placementSession: {
+      findFirst: jest.fn().mockResolvedValue(null),
+    },
   });
 
   it('builds hierarchical tree, rolls up counts, and computes LOCKED vs COMPLETED learner status', async () => {
@@ -254,5 +257,147 @@ describe('GrammarCatalogService', () => {
     service.invalidateStaticCache();
     await service.getLevelsOverview();
     expect(prisma.grammarTopic.findMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps root locks for A1 placement, unlocks A1-A2 as AVAILABLE for B1 placement while keeping B1->B1 and B2..C2 locks, and handles multi-prereq exemption for B2 placement', async () => {
+    const b1RootTopic: GrammarTopic = {
+      ...presentSimple,
+      id: '00000000-0000-4000-8000-000000000011',
+      code: 'grammar.tenses.present_perfect',
+      cefrLevel: 'B1',
+      titleEn: 'Present Perfect',
+      titleVi: 'Thì Hiện tại hoàn thành',
+      orderIndex: 201,
+    };
+    const b1DependentTopic: GrammarTopic = {
+      ...presentSimple,
+      id: '00000000-0000-4000-8000-000000000012',
+      code: 'grammar.tenses.present_perfect_continuous',
+      cefrLevel: 'B1',
+      titleEn: 'Present Perfect Continuous',
+      titleVi: 'Thì Hiện tại hoàn thành tiếp diễn',
+      orderIndex: 202,
+    };
+    const b2LockedByB1: GrammarTopic = {
+      ...presentSimple,
+      id: '00000000-0000-4000-8000-000000000013',
+      code: 'grammar.tenses.future_perfect',
+      cefrLevel: 'B2',
+      titleEn: 'Future Perfect',
+      titleVi: 'Thì Tương lai hoàn thành',
+      orderIndex: 301,
+    };
+    const b2MultiPrereqTopic: GrammarTopic = {
+      ...presentSimple,
+      id: '00000000-0000-4000-8000-000000000014',
+      code: 'grammar.clauses.mixed_conditionals',
+      cefrLevel: 'B2',
+      titleEn: 'Mixed Conditionals',
+      titleVi: 'Câu điều kiện hỗn hợp',
+      orderIndex: 302,
+    };
+
+    const allTopics: GrammarTopic[] = [
+      root,
+      tensesGroup,
+      presentSimple,
+      pastSimple,
+      b1RootTopic,
+      b1DependentTopic,
+      b2LockedByB1,
+      b2MultiPrereqTopic,
+      ellipsisC2,
+    ];
+    const allEdges = [
+      { prerequisiteId: presentSimple.id, targetId: pastSimple.id },
+      { prerequisiteId: pastSimple.id, targetId: b1RootTopic.id },
+      { prerequisiteId: b1RootTopic.id, targetId: b1DependentTopic.id },
+      { prerequisiteId: b1RootTopic.id, targetId: b2LockedByB1.id },
+      { prerequisiteId: b1RootTopic.id, targetId: b2MultiPrereqTopic.id },
+      { prerequisiteId: b2LockedByB1.id, targetId: b2MultiPrereqTopic.id },
+      { prerequisiteId: b2MultiPrereqTopic.id, targetId: ellipsisC2.id },
+    ];
+    const allLessons = [
+      { id: 'lesson-a1', grammarTopicId: presentSimple.id },
+      { id: 'lesson-a2', grammarTopicId: pastSimple.id },
+      { id: 'lesson-b1-1', grammarTopicId: b1RootTopic.id },
+      { id: 'lesson-b1-2', grammarTopicId: b1DependentTopic.id },
+      { id: 'lesson-b2-1', grammarTopicId: b2LockedByB1.id },
+      { id: 'lesson-b2-2', grammarTopicId: b2MultiPrereqTopic.id },
+      { id: 'lesson-c2', grammarTopicId: ellipsisC2.id },
+    ];
+
+    const buildServiceWithPlacement = (estimatedCefr: 'A1' | 'B1' | 'B2' | null) => {
+      const prisma = createMockPrisma();
+      prisma.grammarTopic.findMany.mockResolvedValue(allTopics);
+      prisma.grammarPrerequisite.findMany.mockResolvedValue(allEdges);
+      prisma.learningLesson.findMany.mockResolvedValue(allLessons);
+      prisma.placementSession.findFirst.mockResolvedValue(
+        estimatedCefr ? { estimatedCefr } : null,
+      );
+      return { prisma, service: new GrammarCatalogService(prisma as never) };
+    };
+
+    const statusByCode = (levels: Array<{ cefrLevel: string; topics: Array<{ code: string; learnerStatus?: string }> }>) => {
+      const map = new Map<string, string | undefined>();
+      for (const lvl of levels) {
+        for (const t of lvl.topics) {
+          map.set(t.code, t.learnerStatus);
+        }
+      }
+      return map;
+    };
+
+    // 1. User A1 keeps root/prerequisite locks
+    const a1Case = buildServiceWithPlacement('A1');
+    const a1Tree = await a1Case.service.getGrammarTree({ groupBy: 'cefr' }, 'user-a1');
+    if (a1Tree.groupBy === 'cefr') {
+      const statuses = statusByCode(a1Tree.levels);
+      expect(statuses.get(presentSimple.code)).toBe('AVAILABLE');
+      expect(statuses.get(pastSimple.code)).toBe('LOCKED');
+      expect(statuses.get(b1RootTopic.code)).toBe('LOCKED');
+      expect(statuses.get(b1DependentTopic.code)).toBe('LOCKED');
+      expect(statuses.get(b2LockedByB1.code)).toBe('LOCKED');
+      expect(statuses.get(ellipsisC2.code)).toBe('LOCKED');
+    }
+
+    // 2. User B1 unlocks A1-A2 as AVAILABLE with completedCount === 0, unlocks B1 whose prereqs < B1, keeps B1->B1 & B2..C2 locked
+    const b1Case = buildServiceWithPlacement('B1');
+    const b1Tree = await b1Case.service.getGrammarTree({ groupBy: 'cefr' }, 'user-b1');
+    if (b1Tree.groupBy === 'cefr') {
+      const statuses = statusByCode(b1Tree.levels);
+      expect(statuses.get(presentSimple.code)).toBe('AVAILABLE');
+      expect(statuses.get(pastSimple.code)).toBe('AVAILABLE');
+      expect(statuses.get(b1RootTopic.code)).toBe('AVAILABLE');
+      expect(statuses.get(b1DependentTopic.code)).toBe('LOCKED');
+      expect(statuses.get(b2LockedByB1.code)).toBe('LOCKED');
+      expect(statuses.get(ellipsisC2.code)).toBe('LOCKED');
+    }
+    const b1Overview = await b1Case.service.getLevelsOverview('user-b1');
+    expect(b1Overview.levels.find((l) => l.cefrLevel === 'A1')?.completedCount).toBe(0);
+    expect(b1Overview.levels.find((l) => l.cefrLevel === 'A2')?.completedCount).toBe(0);
+    expect(b1Overview.levels.find((l) => l.cefrLevel === 'B1')?.completedCount).toBe(0);
+
+    // 3. User B2 on multi-prereq topic (B1 + B2 prereqs): exempts B1 prereq, only blocks on incomplete B2 prereq
+    const b2Case = buildServiceWithPlacement('B2');
+    const b2LockedTree = await b2Case.service.getGrammarTree({ groupBy: 'cefr' }, 'user-b2');
+    if (b2LockedTree.groupBy === 'cefr') {
+      const statuses = statusByCode(b2LockedTree.levels);
+      expect(statuses.get(b1RootTopic.code)).toBe('AVAILABLE');
+      expect(statuses.get(b2LockedByB1.code)).toBe('AVAILABLE');
+      expect(statuses.get(b2MultiPrereqTopic.code)).toBe('LOCKED');
+    }
+
+    // Completing ONLY the B2 prereq (while B1 prereq remains uncompleted) unlocks the multi-prereq B2 topic
+    b2Case.prisma.learningAttempt.findMany.mockResolvedValue([
+      { lessonId: 'lesson-b2-1', status: 'COMPLETED' },
+    ]);
+    const b2UnlockedTree = await b2Case.service.getGrammarTree({ groupBy: 'cefr' }, 'user-b2');
+    if (b2UnlockedTree.groupBy === 'cefr') {
+      const statuses = statusByCode(b2UnlockedTree.levels);
+      expect(statuses.get(b2LockedByB1.code)).toBe('COMPLETED');
+      expect(statuses.get(b2MultiPrereqTopic.code)).toBe('AVAILABLE');
+      expect(statuses.get(ellipsisC2.code)).toBe('LOCKED');
+    }
   });
 });

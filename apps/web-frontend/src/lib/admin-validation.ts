@@ -1182,3 +1182,86 @@ export function formatAppVersion(raw?: string | null): FormattedAppVersion {
     isCommitSha: false,
   };
 }
+
+export interface ParsedMlSubsystemStatus {
+  label: string;
+  tone: 'ready' | 'warn' | 'error' | 'muted';
+  detail?: string;
+}
+
+export function parseMlSubsystemStatus(
+  raw: unknown,
+  options?: { optional?: boolean; serviceReady?: boolean },
+): ParsedMlSubsystemStatus {
+  if (raw === undefined || raw === null) {
+    return { label: 'Chưa có dữ liệu', tone: 'muted' };
+  }
+  if (typeof raw === 'boolean') {
+    return raw
+      ? { label: 'ready', tone: 'ready' }
+      : { label: 'unavailable', tone: 'error' };
+  }
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().toLowerCase();
+    if (
+      normalized === 'ready' ||
+      normalized === 'ok' ||
+      normalized === 'healthy'
+    ) {
+      return { label: raw, tone: 'ready' };
+    }
+    if (
+      normalized === 'cold' ||
+      normalized === 'degraded' ||
+      normalized === 'warming' ||
+      normalized === 'partial'
+    ) {
+      return { label: raw, tone: 'warn' };
+    }
+    if (
+      options?.optional &&
+      options?.serviceReady &&
+      (normalized === 'missing_artifact' ||
+        normalized === 'disabled' ||
+        normalized === 'not_configured')
+    ) {
+      return {
+        label: 'Tùy chọn · Chưa bật',
+        tone: 'muted',
+      };
+    }
+    return { label: raw, tone: 'error' };
+  }
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    const obj = raw as Record<string, unknown>;
+    const rawStatus =
+      typeof obj.status === 'string'
+        ? obj.status
+        : typeof obj.ready === 'boolean'
+          ? obj.ready
+            ? 'ready'
+            : 'not_ready'
+          : 'unknown';
+    const base = parseMlSubsystemStatus(rawStatus, options);
+    const detail =
+      typeof obj.reason === 'string'
+        ? obj.reason
+        : typeof obj.error === 'string'
+          ? obj.error
+          : typeof obj.message === 'string'
+            ? obj.message
+            : undefined;
+    return { ...base, detail };
+  }
+  return { label: String(raw), tone: 'muted' };
+}
+
+export function formatBytesCompact(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}

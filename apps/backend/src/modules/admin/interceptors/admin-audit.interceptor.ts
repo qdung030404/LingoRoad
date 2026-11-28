@@ -39,6 +39,7 @@ type AuditRouteKind =
   | 'AUTH'
   | 'EXPORT'
   | 'MEDIA'
+  | 'MEDIA_CLEANUP'
   | 'IMPORT_VALIDATE'
   | 'IMPORT_APPLY'
   | 'STANDARD';
@@ -127,6 +128,24 @@ function resolveAuditMetadata(
       resourceId: req.user?.sub ?? null,
       action: 'ADMIN_LOGOUT_ALL',
       kind: 'AUTH',
+    };
+  }
+
+  if (method === 'PATCH' && lowerNormalized === 'auth/me') {
+    return {
+      resourceType: 'AUTH',
+      resourceId: req.user?.sub ?? null,
+      action: 'ADMIN_UPDATE_PROFILE',
+      kind: 'AUTH',
+    };
+  }
+
+  if (method === 'POST' && lowerNormalized === 'media/orphans/cleanup') {
+    return {
+      resourceType: 'MEDIA',
+      resourceId: null,
+      action: 'CLEANUP_ORPHAN_MEDIA',
+      kind: 'MEDIA_CLEANUP',
     };
   }
 
@@ -407,6 +426,28 @@ export class AdminAuditInterceptor implements NestInterceptor {
                     ? { scope: responseData.scope }
                     : {}),
                 },
+              };
+            } else if (meta.kind === 'MEDIA_CLEANUP') {
+              payloadSnapshot = {
+                minAgeHours:
+                  typeof responseData?.minAgeHours === 'number'
+                    ? responseData.minAgeHours
+                    : null,
+                deletedCount:
+                  typeof responseData?.deletedCount === 'number'
+                    ? responseData.deletedCount
+                    : 0,
+                deletedBytes:
+                  typeof responseData?.deletedBytes === 'number'
+                    ? responseData.deletedBytes
+                    : 0,
+                skippedCount:
+                  typeof responseData?.skippedCount === 'number'
+                    ? responseData.skippedCount
+                    : 0,
+                deletedKeys: Array.isArray(responseData?.deletedKeys)
+                  ? responseData.deletedKeys.slice(0, 50)
+                  : [],
               };
             } else if (
               meta.kind === 'IMPORT_VALIDATE' ||

@@ -1,5 +1,5 @@
 import { Controller, Get, HttpCode, HttpStatus, Param, Query, UseGuards } from '@nestjs/common';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import {
@@ -16,6 +16,7 @@ export class GrammarController {
   constructor(private readonly catalog: GrammarCatalogService) {}
 
   @Get('levels')
+  @Throttle({ default: { limit: 120, ttl: 60000 } })
   @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async getLevels(@CurrentUser('sub') userId?: string | null) {
@@ -26,6 +27,7 @@ export class GrammarController {
   }
 
   @Get('tree')
+  @Throttle({ default: { limit: 120, ttl: 60000 } })
   @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async getTree(
@@ -39,6 +41,7 @@ export class GrammarController {
   }
 
   @Get('topics')
+  @Throttle({ default: { limit: 120, ttl: 60000 } })
   @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async listTopics(
@@ -54,6 +57,7 @@ export class GrammarController {
   }
 
   @Get('topics/:code')
+  @Throttle({ default: { limit: 120, ttl: 60000 } })
   @UseGuards(OptionalJwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   async getTopicDetail(

@@ -1099,7 +1099,7 @@ export async function seedLearningContent(prisma: PrismaClient): Promise<number>
       };
       await tx.learningLesson.upsert({ where: { code: seed.code }, create: data, update: data });
     }
-  });
+  }, { maxWait: 15_000, timeout: 60_000 });
   return seeds.length;
 }
 

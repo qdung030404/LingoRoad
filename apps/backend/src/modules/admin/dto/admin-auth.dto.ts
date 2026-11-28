@@ -1,4 +1,31 @@
-import { IsEmail, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+  ValidateIf,
+} from 'class-validator';
+
+export function isSafeAdminAvatarUrl(value: unknown): boolean {
+  if (value === null || value === '') return true;
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 500 || trimmed !== value) return false;
+  if (trimmed.includes('..') || /[\s\u0000-\u001f]/.test(trimmed)) return false;
+  if (
+    /^\/media\/learning\/v1\/images\/[a-z0-9-]+\.(?:png|webp|jpg|jpeg)$/i.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+  if (/^https:\/\/[^\s]+$/i.test(trimmed) && !/\.svg(?:[?#]|$)/i.test(trimmed)) {
+    return true;
+  }
+  return false;
+}
 
 export class AdminLoginDto {
   @IsEmail({}, { message: 'Email không đúng định dạng.' })
@@ -39,4 +66,17 @@ export class AdminChangePasswordDto {
       'Mật khẩu mới phải chứa ít nhất 1 chữ hoa, 1 chữ thường và 1 chữ số.',
   })
   newPassword!: string;
+}
+
+export class AdminUpdateProfileDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  name?: string;
+
+  @IsOptional()
+  @ValidateIf((_object, value: unknown) => value !== null && value !== undefined)
+  @IsString()
+  @MaxLength(500)
+  avatarUrl?: string | null;
 }

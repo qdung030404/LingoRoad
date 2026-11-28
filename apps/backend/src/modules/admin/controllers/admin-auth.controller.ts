@@ -5,6 +5,7 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -24,6 +25,7 @@ import {
   AdminLoginDto,
   AdminLogoutDto,
   AdminRefreshDto,
+  AdminUpdateProfileDto,
 } from '../dto/admin-auth.dto';
 import { AdminJwtGuard } from '../guards/admin-jwt.guard';
 import { AdminAuditInterceptor } from '../interceptors/admin-audit.interceptor';
@@ -146,6 +148,21 @@ export class AdminAuthController {
     const data = await this.adminAuthService.me(userId);
     return {
       success: true,
+      data,
+    };
+  }
+
+  @UseGuards(ClientIpThrottlerGuard)
+  @Throttle({ default: { limit: 15, ttl: 60000 } })
+  @Patch('me')
+  async updateMe(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: AdminUpdateProfileDto,
+  ): Promise<ApiResponse<AdminUserView>> {
+    const data = await this.adminAuthService.updateProfile(userId, dto);
+    return {
+      success: true,
+      message: 'Cập nhật hồ sơ quản trị viên thành công',
       data,
     };
   }

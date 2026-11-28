@@ -25,15 +25,21 @@ import {
   CreateAdminSpeakingPromptDto,
   UpdateAdminSpeakingPromptDto,
 } from './dto/admin-speaking.dto';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { lastValueFrom, of } from 'rxjs';
+import { AdminAuditInterceptor } from './interceptors/admin-audit.interceptor';
 import { AdminAnalyticsService } from './services/admin-analytics.service';
-import { redactSensitiveData } from './services/admin-audit.service';
+import { AdminAuditService, redactSensitiveData } from './services/admin-audit.service';
 import { AdminContentService } from './services/admin-content.service';
 import { rowsToSafeCsv, sanitizeCsvCell } from './services/admin-export.service';
 import { AdminImportService } from './services/admin-import.service';
 import {
+  AdminMediaService,
   buildSafeMediaStem,
   detectSafeAdminImage,
+  extractMediaKeysFromUnknown,
 } from './services/admin-media.service';
+import { MediaStorageService } from '../media/media-storage.service';
 import { AdminSpeakingService } from './services/admin-speaking.service';
 import {
   AdminUsersService,
@@ -953,6 +959,255 @@ describe('Admin CMS Extensions (P0 + P1 + P2)', () => {
           message: expect.stringContaining('5 giây'),
         }),
       });
+    });
+  });
+
+  describe('Orphan Media Dry-run & Cleanup + Audit Metadata', () => {
+    it('extractMediaKeysFromUnknown trích xuất chuẩn mọi tham chiếu /media/... lồng sâu và bỏ qua đường dẫn nguy hiểm', () => {
+      const keys = new Set<string>();
+      extractMediaKeysFromUnknown(
+        {
+          avatarUrl: '/media/learning/v1/images/admin-avatar-112233.png',
+          fullCloudUrl:
+            'https://lingoroad-api-wfpi3gzq.azurewebsites.net/media/placement/listen-b1-01.wav',
+          directKey: 'learning/v1/dialog-a2-99.wav',
+          nestedLesson: {
+            steps: [
+              {
+                options: [
+                  { imageUrl: '/media/learning/v1/images/opt-a-001122.webp' },
+                ],
+              },
+            ],
+          },
+          unsafeTraversal: '/media/learning/v1/../secrets/key.png',
+          unmanagedPrefix: '/media/other-bucket/file.png',
+        },
+        keys,
+      );
+
+      expect(Array.from(keys).sort()).toEqual([
+        'learning/v1/dialog-a2-99.wav',
+        'learning/v1/images/admin-avatar-112233.png',
+        'learning/v1/images/opt-a-001122.webp',
+        'placement/listen-b1-01.wav',
+      ]);
+    });
+
+    it('scanOrphanMedia & cleanupOrphanMedia bảo vệ file đang tham chiếu, file < 24h, và tái kiểm tra DB ngay lúc xóa', async () => {
+      const now = Date.now();
+      const twoDaysAgo = new Date(now - 48 * 3600_000);
+      const twoHoursAgo = new Date(now - 2 * 3600_000);
+
+      const blobs = [
+        {
+          key: 'learning/v1/images/in-lesson-111.png',
+          size: 1200,
+          lastModified: twoDaysAgo,
+        },
+        {
+          key: 'learning/v1/images/in-submission-snapshot-222.jpg',
+          size: 2400,
+          lastModified: twoDaysAgo,
+        },
+        {
+          key: 'learning/v1/images/recent-upload-333.webp',
+          size: 3600,
+          lastModified: twoHoursAgo,
+        },
+        {
+          key: 'learning/v1/orphan-old-444.wav',
+          size: 5000,
+          lastModified: twoDaysAgo,
+        },
+        {
+          key: 'placement/orphan-race-555.wav',
+          size: 7000,
+          lastModified: twoDaysAgo,
+        },
+      ];
+
+      let raceBlobReferenced = false;
+      const prisma = {
+        user: { findMany: jest.fn(async () => []) },
+        learningLesson: {
+          findMany: jest.fn(async () => [
+            {
+              content: {
+                coverImageUrl: '/media/learning/v1/images/in-lesson-111.png',
+              },
+            },
+          ]),
+        },
+        learningAttempt: { findMany: jest.fn(async () => []) },
+        assessmentItem: {
+          findMany: jest.fn(async () =>
+            raceBlobReferenced
+              ? [
+                  {
+                    audioUrl: '/media/placement/orphan-race-555.wav',
+                    options: null,
+                    rubricCriteria: null,
+                  },
+                ]
+              : [],
+          ),
+        },
+        assessmentItemGroup: { findMany: jest.fn(async () => []) },
+        curatedTopicWord: { findMany: jest.fn(async () => []) },
+        vocabularyWord: { findMany: jest.fn(async () => []) },
+        vocabularyReviewItem: { findMany: jest.fn(async () => []) },
+        speakingPrompt: { findMany: jest.fn(async () => []) },
+        speakingSubmission: {
+          findMany: jest.fn(async () => [
+            {
+              promptSnapshot: {
+                imageUrl:
+                  '/media/learning/v1/images/in-submission-snapshot-222.jpg',
+              },
+              result: null,
+            },
+          ]),
+        },
+        voiceConversation: { findMany: jest.fn(async () => []) },
+      };
+
+      const storage = {
+        storageMode: jest.fn(() => 'azure' as const),
+        listManagedBlobs: jest.fn(async () => blobs),
+        deleteBlob: jest.fn(async () => true),
+      };
+
+      const mediaService = new AdminMediaService(
+        storage as unknown as MediaStorageService,
+        prisma as unknown as PrismaService,
+      );
+
+      const dryRun = await mediaService.scanOrphanMedia(24);
+      expect(dryRun.totalBlobs).toBe(5);
+      expect(dryRun.referencedCount).toBe(2);
+      expect(dryRun.protectedRecentCount).toBe(1);
+      expect(dryRun.orphanCount).toBe(2);
+      expect(dryRun.orphanBytes).toBe(12000);
+      expect(dryRun.orphans.map((o) => o.key)).toEqual([
+        'learning/v1/orphan-old-444.wav',
+        'placement/orphan-race-555.wav',
+      ]);
+      expect(storage.deleteBlob).not.toHaveBeenCalled();
+
+      // Simulate Admin saving an AssessmentItem referencing orphan-race-555.wav right before cleanup!
+      raceBlobReferenced = true;
+
+      const cleaned = await mediaService.cleanupOrphanMedia({
+        keys: [
+          'learning/v1/orphan-old-444.wav',
+          'placement/orphan-race-555.wav',
+        ],
+        minAgeHours: 24,
+      });
+      expect(cleaned.deletedCount).toBe(1);
+      expect(cleaned.deletedBytes).toBe(5000);
+      expect(cleaned.skippedCount).toBe(1);
+      expect(cleaned.deletedKeys).toEqual(['learning/v1/orphan-old-444.wav']);
+      expect(storage.deleteBlob).toHaveBeenCalledTimes(1);
+      expect(storage.deleteBlob).toHaveBeenCalledWith(
+        'learning/v1/orphan-old-444.wav',
+      );
+    });
+
+    it('AdminAuditInterceptor ghi nhận ADMIN_UPDATE_PROFILE và CLEANUP_ORPHAN_MEDIA nhưng bỏ qua GET /admin/media/orphans', async () => {
+      const record = jest.fn(async () => undefined);
+      const emit = jest.fn();
+      const interceptor = new AdminAuditInterceptor(
+        {
+          record,
+          computeCompactDiff: () => ({ diff: {} }),
+        } as unknown as AdminAuditService,
+        { emit } as unknown as EventEmitter2,
+      );
+
+      const runHttp = async (
+        method: string,
+        originalUrl: string,
+        body: unknown,
+        responseData: unknown,
+      ) => {
+        const req = {
+          method,
+          originalUrl,
+          url: originalUrl,
+          ip: '203.0.113.10',
+          user: {
+            sub: 'admin-1',
+            email: 'admin@lingoroad.local',
+            role: UserRole.ADMIN,
+          },
+          body,
+          query: {},
+          params: {},
+        };
+        const ctx = {
+          getType: () => 'http',
+          switchToHttp: () => ({
+            getRequest: () => req,
+            getResponse: () => ({ statusCode: 200 }),
+          }),
+        };
+        await lastValueFrom(
+          interceptor.intercept(ctx as never, {
+            handle: () => of({ success: true, data: responseData }),
+          }),
+        );
+      };
+
+      // 1. Read-only Dry-run GET must NOT write audit log
+      await runHttp('GET', '/admin/media/orphans?minAgeHours=24', undefined, {
+        orphanCount: 2,
+      });
+      expect(record).not.toHaveBeenCalled();
+
+      // 2. PATCH /admin/auth/me logs ADMIN_UPDATE_PROFILE (AUTH)
+      await runHttp(
+        'PATCH',
+        '/admin/auth/me',
+        { name: 'New Admin' },
+        { id: 'admin-1', name: 'New Admin' },
+      );
+      expect(record).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          action: 'ADMIN_UPDATE_PROFILE',
+          resourceType: 'AUTH',
+          resourceId: 'admin-1',
+        }),
+      );
+
+      // 3. POST /admin/media/orphans/cleanup logs CLEANUP_ORPHAN_MEDIA with summary snapshot
+      await runHttp(
+        'POST',
+        '/admin/media/orphans/cleanup',
+        { minAgeHours: 24 },
+        {
+          minAgeHours: 24,
+          deletedCount: 2,
+          deletedBytes: 8192,
+          skippedCount: 0,
+          deletedKeys: ['learning/v1/a.wav', 'placement/b.wav'],
+        },
+      );
+      expect(record).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          action: 'CLEANUP_ORPHAN_MEDIA',
+          resourceType: 'MEDIA',
+          payloadSnapshot: {
+            minAgeHours: 24,
+            deletedCount: 2,
+            deletedBytes: 8192,
+            skippedCount: 0,
+            deletedKeys: ['learning/v1/a.wav', 'placement/b.wav'],
+          },
+        }),
+      );
+      expect(emit).not.toHaveBeenCalled();
     });
   });
 });

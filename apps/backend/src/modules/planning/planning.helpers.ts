@@ -1,11 +1,40 @@
-import { CefrLevel, LearningAttempt, LearningKind, LearningLesson, LearningUnit } from '@prisma/client';
+import { CefrLevel, LearningAttempt, LearningKind, LearningLesson } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { AdaptiveReadingTarget } from './skill-level.policy';
 import { countFocusQuestions, READING_FOCUS_LABELS, ReadingFocusCode } from './reading-focus.policy';
+import {
+  DAY_MS,
+  finishedOn,
+  LEARNING_TIME_ZONE,
+  learningDate,
+  learningDayStart,
+} from './planning-progress.helpers';
 
-export const LEARNING_TIME_ZONE = 'Asia/Ho_Chi_Minh';
-export const CURRENT_PLAN_POLICY_VERSION = 'adaptive-v2';
-export const DAY_MS = 86400000;
+export {
+  buildCefrMilestones,
+  buildLearningWeekWindows,
+  buildProgressUnits,
+  buildWeekDaySummaries,
+  computeScoreStats,
+  DAY_MS,
+  finishedOn,
+  LEARNING_TIME_ZONE,
+  learningDate,
+  learningDayStart,
+  MILESTONE_CEFR_ORDER,
+  resolveGrammarTopicCode,
+} from './planning-progress.helpers';
+export type {
+  LearningDaySummary,
+  LearningWeekWindow,
+  MilestoneLessonInput,
+  ProgressMilestone,
+  ProgressScoreStats,
+  ProgressUnit,
+  ProgressUnitStatus,
+} from './planning-progress.helpers';
+
+export const CURRENT_PLAN_POLICY_VERSION = 'adaptive-v3';
 
 export type PreferredSkill = LearningKind | 'SPEAKING' | 'WRITING';
 export type PlannedSpeakingTopic = {
@@ -50,6 +79,7 @@ export type PlannedLesson = Pick<
 > &
   Partial<LearningLesson> & {
     unit?: { cefrLevel: CefrLevel } | null;
+    grammarTopic?: { cefrLevel: CefrLevel } | null;
   };
 
 const CEFR_RANK: Record<CefrLevel, number> = {
@@ -74,143 +104,51 @@ function skillCefrRank(
   return 0;
 }
 
-/** Filters daily plan suggestions by adaptive READING level (when adjusted) or skill Placement ceiling (minimum A2). */
+/** Filters daily plan suggestions by adaptive READING level (when adjusted) or skill Placement ceiling (minimum A2), and optional placement floor. */
 export function isCefrEligible(
   lesson: PlannedLesson,
   placement?: Record<string, unknown> | null,
   readingTarget?: AdaptiveReadingTarget | null,
+  minimumCefr?: CefrLevel | null,
 ): boolean {
-  const lessonCefr = lesson.unit?.cefrLevel;
+  const lessonCefr = lesson.grammarTopic?.cefrLevel ?? lesson.unit?.cefrLevel;
   if (!lessonCefr) return true;
 
+  let maxAllowedRank = CEFR_RANK.A2;
   if (lesson.kind === 'READING' && readingTarget) {
     const targetRank = CEFR_RANK[readingTarget.cefrLevel];
-    const maxAllowedRank = readingTarget.strictCeiling
+    maxAllowedRank = readingTarget.strictCeiling
       ? targetRank
       : Math.max(CEFR_RANK.A2, targetRank);
-    return CEFR_RANK[lessonCefr] <= maxAllowedRank;
-  }
-
-  let userSkillRank = 0;
-  if (lesson.kind === 'READING') {
-    userSkillRank = skillCefrRank(placement, 'reading');
-  } else if (lesson.kind === 'LISTENING') {
-    userSkillRank = skillCefrRank(placement, 'listening');
   } else {
-    userSkillRank = Math.max(
-      skillCefrRank(placement, 'reading'),
-      skillCefrRank(placement, 'listening'),
-    );
+    let userSkillRank = 0;
+    if (lesson.kind === 'READING') {
+      userSkillRank = skillCefrRank(placement, 'reading');
+    } else if (lesson.kind === 'LISTENING') {
+      userSkillRank = skillCefrRank(placement, 'listening');
+    } else {
+      userSkillRank = Math.max(
+        skillCefrRank(placement, 'reading'),
+        skillCefrRank(placement, 'listening'),
+      );
+    }
+    // Accounts without Placement or estimated at A1 still receive A1-A2 foundation lessons.
+    maxAllowedRank = Math.max(CEFR_RANK.A2, userSkillRank);
   }
 
-  // Accounts without Placement or estimated at A1 still receive A1-A2 foundation lessons.
-  const maxAllowedRank = Math.max(CEFR_RANK.A2, userSkillRank);
-  return CEFR_RANK[lessonCefr] <= maxAllowedRank;
+  const rawMinRank = minimumCefr ? CEFR_RANK[minimumCefr] : 0;
+  const effectiveMinRank = rawMinRank > CEFR_RANK.A1 ? Math.min(rawMinRank, maxAllowedRank) : 0;
+  const lessonRank = CEFR_RANK[lessonCefr];
+  return lessonRank >= effectiveMinRank && lessonRank <= maxAllowedRank;
 }
 
-export type ProgressUnitStatus = 'COMPLETED' | 'IN_PROGRESS' | 'UPCOMING';
-export type ProgressUnit = {
-  id: string;
-  code: string;
-  cefrLevel: CefrLevel;
-  orderIndex: number;
-  title: string;
-  description: string;
-  totalLessons: number;
-  completedLessonCount: number;
-  status: ProgressUnitStatus;
-};
-export type ProgressScoreStats = {
-  averageScore: number | null;
-  completedAttemptCount: number;
-  currentWeekAverage: number | null;
-  previousWeekAverage: number | null;
-  deltaPercent: number | null;
-};
-
-export const learningDate = (now: Date): string => new Date(now.getTime() + 7 * 3600000).toISOString().slice(0, 10);
-export const learningDayStart = (date: string): Date => new Date(`${date}T00:00:00+07:00`);
-export const finishedOn = (a: Pick<LearningAttempt, 'status' | 'submittedAt'>, date: string): boolean =>
-  a.status === 'COMPLETED' && a.submittedAt != null && learningDate(a.submittedAt) === date;
 const recentFinished = (attempts: LearningAttempt[], id: string) => attempts.filter(a => a.lessonId === id && a.status === 'COMPLETED')
   .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0) || b.id.localeCompare(a.id))[0];
-
-/** Maps published lessons and distinct completed lesson IDs onto ordered curriculum stages. */
-export function buildProgressUnits(
-  units: Pick<LearningUnit, 'id' | 'code' | 'cefrLevel' | 'orderIndex' | 'title' | 'description'>[],
-  lessons: Pick<LearningLesson, 'id' | 'unitId'>[],
-  completedLessonIds: Set<string>,
-): ProgressUnit[] {
-  const byUnit = new Map<string, string[]>();
-  for (const lesson of lessons) {
-    if (!lesson.unitId) continue;
-    const list = byUnit.get(lesson.unitId) ?? [];
-    list.push(lesson.id);
-    byUnit.set(lesson.unitId, list);
-  }
-  let assignedActive = false;
-  return units.map((unit) => {
-    const lessonIds = byUnit.get(unit.id) ?? [];
-    const totalLessons = lessonIds.length;
-    const completedLessonCount = lessonIds.filter((id) => completedLessonIds.has(id)).length;
-    const isCompleted = totalLessons > 0 && completedLessonCount >= totalLessons;
-    let status: ProgressUnitStatus = 'UPCOMING';
-    if (isCompleted) {
-      status = 'COMPLETED';
-    } else if (!assignedActive && totalLessons > 0) {
-      status = 'IN_PROGRESS';
-      assignedActive = true;
-    }
-    return {
-      id: unit.id,
-      code: unit.code,
-      cefrLevel: unit.cefrLevel,
-      orderIndex: unit.orderIndex,
-      title: unit.title,
-      description: unit.description,
-      totalLessons,
-      completedLessonCount,
-      status,
-    };
-  });
-}
-
-/** Computes 0-100 practice attempt average and 7-day Vietnam-timezone trend; never alters CEFR. */
-export function computeScoreStats(
-  attempts: Pick<LearningAttempt, 'status' | 'submittedAt' | 'correctCount' | 'totalQuestions'>[],
-  now: Date,
-): ProgressScoreStats {
-  const valid = attempts.filter(
-    (a) => a.status === 'COMPLETED' && a.submittedAt != null && a.correctCount != null && a.totalQuestions > 0,
-  );
-  const average = (rows: Pick<LearningAttempt, 'correctCount' | 'totalQuestions'>[]): number | null => {
-    if (!rows.length) return null;
-    const total = rows.reduce((sum, a) => sum + (a.correctCount! / a.totalQuestions) * 100, 0);
-    return Math.round(total / rows.length);
-  };
-  const todayStart = learningDayStart(learningDate(now));
-  const currentWeekStart = new Date(todayStart.getTime() - 6 * DAY_MS);
-  const previousWeekStart = new Date(todayStart.getTime() - 13 * DAY_MS);
-  const currentWeekAverage = average(valid.filter((a) => a.submittedAt! >= currentWeekStart && a.submittedAt! <= now));
-  const previousWeekAverage = average(
-    valid.filter((a) => a.submittedAt! >= previousWeekStart && a.submittedAt! < currentWeekStart),
-  );
-  return {
-    averageScore: average(valid),
-    completedAttemptCount: valid.length,
-    currentWeekAverage,
-    previousWeekAverage,
-    deltaPercent:
-      currentWeekAverage != null && previousWeekAverage != null
-        ? currentWeekAverage - previousWeekAverage
-        : null,
-  };
-}
 
 /** Deterministic baseline; completion is activity, not mastery. */
 export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAttempt[], date: string,
   minutes: number, preferred: LearningKind[], previous: PlanItem[] = [], placement?: Record<string, unknown> | null,
-  readingTarget?: AdaptiveReadingTarget | null, readingFocus?: ReadingFocusCode): PlanItem[] {
+  readingTarget?: AdaptiveReadingTarget | null, readingFocus?: ReadingFocusCode, minimumCefr?: CefrLevel | null): PlanItem[] {
   const selected: PlanItem[] = [];
   const seen = new Set<string>();
   const completeToday = new Set(attempts.filter(a => finishedOn(a, date)).map(a => a.lessonId));
@@ -319,7 +257,7 @@ export function chooseDailyItems(lessons: PlannedLesson[], attempts: LearningAtt
     || (['READING', 'LISTENING'].includes(a.kind) && ['READING', 'LISTENING'].includes(b.kind) ? placementScore(a.kind) - placementScore(b.kind) : 0)
     || mixOrder(a) - mixOrder(b)
     || a.code.localeCompare(b.code));
-  const eligible = ordered.filter(l => isCefrEligible(l, placement, readingTarget));
+  const eligible = ordered.filter(l => isCefrEligible(l, placement, readingTarget, minimumCefr));
   const rawFresh = rankReadingFocus(eligible.filter(l => !recentFinished(attempts, l.id) && !seen.has(l.id)));
   const onTargetFresh = rawFresh.filter(l => readingDistance(l) === 0);
   const offTargetFresh = rawFresh.filter(l => readingDistance(l) > 0);
@@ -443,6 +381,7 @@ export function buildDailyRoadmapItems(
   writingItems: PlannedWritingItem[] = [],
   completedWritingIdsToday: ReadonlySet<string> = new Set(),
   practicedWritingAt: ReadonlyMap<string, number> = new Map(),
+  minimumCefr?: CefrLevel | null,
 ): PlanItem[] {
   const normalizedPrevious = dedupePlanItems(previous);
   const uniqueSkills = [...new Set(preferredSkills)];
@@ -587,7 +526,7 @@ export function buildDailyRoadmapItems(
       .map(l => makeLessonPlanItem(l, 'COMPLETED_TODAY', 'Đã hoàn thành hôm nay'));
 
     const eligible = kindLessons.filter(
-      l => !completeLessonToday.has(l.id) && isCefrEligible(l, placement, readingTarget),
+      l => !completeLessonToday.has(l.id) && isCefrEligible(l, placement, readingTarget, minimumCefr),
     );
     const unseen = rankReadingFocus(eligible.filter(l => !recentFinished(attempts, l.id)));
     const onTargetNew = unseen

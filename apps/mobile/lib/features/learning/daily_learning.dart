@@ -75,6 +75,8 @@ class DailyLearningController extends ChangeNotifier {
       'today': home['today'],
       'days': home['days'],
       'totals': {...?(progress?['totals'] as Map?), ...(home['totals'] as Map)},
+      'milestones': home['milestones'] ?? progress?['milestones'],
+      'placementCefr': home['placementCefr'] ?? progress?['placementCefr'],
     };
     error = null;
     notifyListeners();

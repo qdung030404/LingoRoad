@@ -502,6 +502,16 @@ class _DailyPlanCardState extends State<DailyPlanCard> {
         onOpenWritingItem?.call(lessonId);
         return;
       }
+      if (!completed && kind == 'GRAMMAR' && learning.grammar != null) {
+        openUncompletedGrammarCard(
+          context,
+          learning,
+          lessonId: lessonId,
+          grammarTopicCode: item['grammarTopicCode'] as String?,
+          title: title,
+        );
+        return;
+      }
       openLearningLesson(
         context,
         learning,
